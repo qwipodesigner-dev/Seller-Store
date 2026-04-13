@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "seller-store-dev",
+      "runtimeExecutable": "/Users/vikasmittapalli/.nvm/versions/node/v24.14.1/bin/node",
+      "runtimeArgs": ["/Users/vikasmittapalli/Documents/Seller Store/node_modules/vite/bin/vite.js", "--port", "5180"],
+      "port": 5180,
+      "autoPort": false
+    }
+  ]
+}

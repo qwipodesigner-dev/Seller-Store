@@ -1,0 +1,536 @@
+// localStorage-backed mock store for admin flow (pending requests, active sellers,
+// seller KYC, permissions, connectors config, managed companies).
+// Phase 1 is UI-only, so everything is client-side.
+
+export type RequestStatus = "pending" | "approved" | "rejected";
+
+export interface SellerRequest {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  businessName: string;
+  city: string;
+  submittedAt: string; // ISO
+  status: RequestStatus;
+}
+
+export type KycStatus = "not_started" | "submitted" | "verified";
+
+export interface SellerKyc {
+  pan?: string;
+  aadhaar?: string;
+  gstin?: string;
+  bankAcct?: string;
+  businessAddress?: string;
+  status: KycStatus;
+  updatedAt?: string;
+}
+
+// ---- Connector configs ----
+
+export interface BizomConfig {
+  baseUrl: string;
+  authToken: string;
+  apiCreateSku: string;
+  apiGetAllSkus: string;
+  apiUpdateSku: string;
+  apiCreateOrder: string;
+  apiGetOrderDetails: string;
+  apiGetAllCustomers: string;
+}
+
+export interface OndcConfig {
+  subscriberId: string;
+  uniqueKeyId: string;
+  privateKey: string;
+  apiEndpoint: string;
+  webhookUrl: string;
+  dataSyncTypes: string[]; // e.g. ["SKU", "Orders", "Customers"]
+  syncFrequencyMinutes: number;
+  maxRetries: number;
+  autoRetry: boolean;
+  autoSyncEnabled: boolean;
+}
+
+export type ConnectorStatus = "connected" | "not_connected";
+
+export interface ConnectorState<T> {
+  status: ConnectorStatus;
+  config?: T;
+}
+
+export interface SellerConnectors {
+  bizom: ConnectorState<BizomConfig>;
+  ondc: ConnectorState<OndcConfig>;
+}
+
+export type ConnectorType = "bizom" | "ondc";
+
+// ---- Managed Companies ----
+
+export interface ManagedCompany {
+  id: string;
+  name: string;
+  category: string;
+}
+
+export const QWIPO_COMPANIES: ManagedCompany[] = [
+  { id: "itc", name: "ITC Limited", category: "FMCG" },
+  { id: "hul", name: "Hindustan Unilever", category: "FMCG" },
+  { id: "nestle", name: "Nestlé India", category: "Food & Beverages" },
+  { id: "britannia", name: "Britannia Industries", category: "Biscuits & Bakery" },
+  { id: "parle", name: "Parle Products", category: "Biscuits & Confectionery" },
+  { id: "amul", name: "Amul", category: "Dairy" },
+  { id: "dabur", name: "Dabur India", category: "Health & Ayurveda" },
+  { id: "colgate", name: "Colgate-Palmolive", category: "Personal Care" },
+  { id: "marico", name: "Marico", category: "Personal Care" },
+  { id: "godrej", name: "Godrej Consumer", category: "Home & Personal Care" },
+  { id: "mondelez", name: "Mondelez India", category: "Confectionery" },
+  { id: "pepsico", name: "PepsiCo India", category: "Beverages & Snacks" },
+];
+
+export function getQwipoCompanies(): ManagedCompany[] {
+  return QWIPO_COMPANIES;
+}
+
+// ---- Seller ----
+
+export interface SellerPermissions {
+  view: boolean;
+  write: boolean;
+  edit: boolean;
+  update: boolean;
+}
+
+export interface Seller {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  businessName: string;
+  city: string;
+  kyc: SellerKyc;
+  connectors: SellerConnectors;
+  permissions: SellerPermissions;
+  managedCompanies: string[]; // company ids
+  approvedAt?: string;
+}
+
+const REQUESTS_KEY = "qwipo.mock.requests";
+const SELLERS_KEY = "qwipo.mock.sellers.v2";
+
+// ---- Default factory helpers ----
+
+export function emptyBizomConfig(): BizomConfig {
+  return {
+    baseUrl: "",
+    authToken: "",
+    apiCreateSku: "",
+    apiGetAllSkus: "",
+    apiUpdateSku: "",
+    apiCreateOrder: "",
+    apiGetOrderDetails: "",
+    apiGetAllCustomers: "",
+  };
+}
+
+export function emptyOndcConfig(): OndcConfig {
+  return {
+    subscriberId: "",
+    uniqueKeyId: "",
+    privateKey: "",
+    apiEndpoint: "",
+    webhookUrl: "",
+    dataSyncTypes: [],
+    syncFrequencyMinutes: 15,
+    maxRetries: 3,
+    autoRetry: true,
+    autoSyncEnabled: true,
+  };
+}
+
+// ---- Seeds ----
+
+const SEED_REQUESTS: SellerRequest[] = [
+  {
+    id: "req-001",
+    name: "Anil Sharma",
+    email: "anil@freshmart.in",
+    phone: "9812345671",
+    businessName: "FreshMart Distributors",
+    city: "Mumbai",
+    submittedAt: "2026-04-07T09:12:00Z",
+    status: "pending",
+  },
+  {
+    id: "req-002",
+    name: "Priya Nair",
+    email: "priya@southstore.in",
+    phone: "9812345672",
+    businessName: "SouthStore Wholesale",
+    city: "Bengaluru",
+    submittedAt: "2026-04-08T11:45:00Z",
+    status: "pending",
+  },
+  {
+    id: "req-003",
+    name: "Mohit Verma",
+    email: "mohit@capitalretail.in",
+    phone: "9812345673",
+    businessName: "Capital Retail Hub",
+    city: "Delhi",
+    submittedAt: "2026-04-08T16:30:00Z",
+    status: "pending",
+  },
+];
+
+const SEED_SELLERS: Seller[] = [
+  {
+    id: "seller-1", // matches demo login
+    name: "Rajesh Kumar",
+    email: "seller@qwipo.com",
+    phone: "9810000001",
+    businessName: "ABC Distributors",
+    city: "Hyderabad",
+    kyc: {
+      pan: "ABCPK1234L",
+      aadhaar: "XXXX-XXXX-1234",
+      gstin: "36ABCPK1234L1Z9",
+      bankAcct: "XXXX-XXXX-7890",
+      businessAddress: "Plot 12, Banjara Hills, Hyderabad, Telangana 500034",
+      status: "verified",
+      updatedAt: "2026-03-15T10:00:00Z",
+    },
+    connectors: {
+      bizom: {
+        status: "connected",
+        config: {
+          baseUrl: "https://api.bizom.com/v1",
+          authToken: "BZM-••••-••••-7890",
+          apiCreateSku: "/products/create",
+          apiGetAllSkus: "/products/list",
+          apiUpdateSku: "/products/update/{id}",
+          apiCreateOrder: "/orders/create",
+          apiGetOrderDetails: "/orders/{id}",
+          apiGetAllCustomers: "/customers/list",
+        },
+      },
+      ondc: {
+        status: "connected",
+        config: {
+          subscriberId: "abc-distributors.ondc.org",
+          uniqueKeyId: "KEY-abc-001",
+          privateKey: "••••••••••••••••",
+          apiEndpoint: "https://ondc-gw.qwipo.com/api/v1",
+          webhookUrl: "https://ondc-gw.qwipo.com/webhook/abc",
+          dataSyncTypes: ["SKU", "Orders", "Customers"],
+          syncFrequencyMinutes: 15,
+          maxRetries: 3,
+          autoRetry: true,
+          autoSyncEnabled: true,
+        },
+      },
+    },
+    permissions: { view: true, write: true, edit: true, update: true },
+    managedCompanies: ["itc", "hul", "nestle", "britannia", "parle"],
+    approvedAt: "2026-02-10T08:00:00Z",
+  },
+  {
+    id: "seller-2",
+    name: "Sunita Rao",
+    email: "sunita@quickbazaar.in",
+    phone: "9810000002",
+    businessName: "QuickBazaar Wholesale",
+    city: "Pune",
+    kyc: {
+      pan: "SUNPR5678M",
+      aadhaar: "XXXX-XXXX-5678",
+      gstin: "27SUNPR5678M1Z3",
+      businessAddress: "Shop 45, Kothrud, Pune, Maharashtra 411038",
+      status: "submitted",
+      updatedAt: "2026-03-28T14:00:00Z",
+    },
+    connectors: {
+      bizom: {
+        status: "connected",
+        config: {
+          baseUrl: "https://api.bizom.com/v1",
+          authToken: "BZM-••••-••••-4521",
+          apiCreateSku: "/products/create",
+          apiGetAllSkus: "/products/list",
+          apiUpdateSku: "/products/update/{id}",
+          apiCreateOrder: "/orders/create",
+          apiGetOrderDetails: "/orders/{id}",
+          apiGetAllCustomers: "/customers/list",
+        },
+      },
+      ondc: { status: "not_connected" },
+    },
+    permissions: { view: true, write: true, edit: false, update: false },
+    managedCompanies: ["amul", "britannia"],
+    approvedAt: "2026-03-01T10:30:00Z",
+  },
+  {
+    id: "seller-3",
+    name: "Vikram Shah",
+    email: "vikram@urbankirana.in",
+    phone: "9810000003",
+    businessName: "Urban Kirana Stores",
+    city: "Ahmedabad",
+    kyc: { status: "not_started" },
+    connectors: {
+      bizom: { status: "not_connected" },
+      ondc: { status: "not_connected" },
+    },
+    permissions: { view: true, write: false, edit: false, update: false },
+    managedCompanies: [],
+    approvedAt: "2026-03-20T09:15:00Z",
+  },
+  {
+    id: "seller-4",
+    name: "Meena Iyer",
+    email: "meena@coastgrocers.in",
+    phone: "9810000004",
+    businessName: "Coast Grocers Ltd",
+    city: "Chennai",
+    kyc: {
+      pan: "MEEIR9012P",
+      aadhaar: "XXXX-XXXX-9012",
+      gstin: "33MEEIR9012P1Z5",
+      bankAcct: "XXXX-XXXX-3344",
+      businessAddress: "22 Marina Road, Chennai, Tamil Nadu 600001",
+      status: "verified",
+      updatedAt: "2026-03-25T12:00:00Z",
+    },
+    connectors: {
+      bizom: {
+        status: "connected",
+        config: {
+          baseUrl: "https://api.bizom.com/v1",
+          authToken: "BZM-••••-••••-9921",
+          apiCreateSku: "/products/create",
+          apiGetAllSkus: "/products/list",
+          apiUpdateSku: "/products/update/{id}",
+          apiCreateOrder: "/orders/create",
+          apiGetOrderDetails: "/orders/{id}",
+          apiGetAllCustomers: "/customers/list",
+        },
+      },
+      ondc: {
+        status: "connected",
+        config: {
+          subscriberId: "coast-grocers.ondc.org",
+          uniqueKeyId: "KEY-coast-001",
+          privateKey: "••••••••••••••••",
+          apiEndpoint: "https://ondc-gw.qwipo.com/api/v1",
+          webhookUrl: "https://ondc-gw.qwipo.com/webhook/coast",
+          dataSyncTypes: ["SKU", "Orders"],
+          syncFrequencyMinutes: 30,
+          maxRetries: 3,
+          autoRetry: true,
+          autoSyncEnabled: true,
+        },
+      },
+    },
+    permissions: { view: true, write: true, edit: true, update: true },
+    managedCompanies: ["itc", "dabur", "colgate", "marico"],
+    approvedAt: "2026-02-22T11:00:00Z",
+  },
+];
+
+// ---- Internal helpers ----
+
+function read<T>(key: string, seed: T): T {
+  try {
+    const raw = localStorage.getItem(key);
+    if (raw === null) {
+      localStorage.setItem(key, JSON.stringify(seed));
+      return seed;
+    }
+    return JSON.parse(raw) as T;
+  } catch {
+    return seed;
+  }
+}
+
+function write<T>(key: string, value: T) {
+  localStorage.setItem(key, JSON.stringify(value));
+}
+
+function makeId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random()
+    .toString(36)
+    .slice(2, 6)}`;
+}
+
+// ---- Public API: Requests ----
+
+export function getRequests(): SellerRequest[] {
+  return read<SellerRequest[]>(REQUESTS_KEY, SEED_REQUESTS);
+}
+
+export function getPendingRequests(): SellerRequest[] {
+  return getRequests().filter((r) => r.status === "pending");
+}
+
+export function addRequest(
+  input: Omit<SellerRequest, "id" | "submittedAt" | "status">,
+): SellerRequest {
+  const newReq: SellerRequest = {
+    ...input,
+    id: makeId("req"),
+    submittedAt: new Date().toISOString(),
+    status: "pending",
+  };
+  const all = getRequests();
+  write(REQUESTS_KEY, [newReq, ...all]);
+  return newReq;
+}
+
+export function approveRequest(id: string): Seller | null {
+  const all = getRequests();
+  const idx = all.findIndex((r) => r.id === id);
+  if (idx === -1) return null;
+  const req = all[idx];
+  if (req.status !== "pending") return null;
+  all[idx] = { ...req, status: "approved" };
+  write(REQUESTS_KEY, all);
+
+  // Also create an active seller record
+  const newSeller: Seller = {
+    id: makeId("seller"),
+    name: req.name,
+    email: req.email,
+    phone: req.phone,
+    businessName: req.businessName,
+    city: req.city,
+    kyc: { status: "not_started" },
+    connectors: {
+      bizom: { status: "not_connected" },
+      ondc: { status: "not_connected" },
+    },
+    permissions: { view: true, write: false, edit: false, update: false },
+    managedCompanies: [],
+    approvedAt: new Date().toISOString(),
+  };
+  const sellers = getSellers();
+  write(SELLERS_KEY, [newSeller, ...sellers]);
+  return newSeller;
+}
+
+export function rejectRequest(id: string): boolean {
+  const all = getRequests();
+  const idx = all.findIndex((r) => r.id === id);
+  if (idx === -1) return false;
+  if (all[idx].status !== "pending") return false;
+  all[idx] = { ...all[idx], status: "rejected" };
+  write(REQUESTS_KEY, all);
+  return true;
+}
+
+// ---- Public API: Sellers ----
+
+export function getSellers(): Seller[] {
+  return read<Seller[]>(SELLERS_KEY, SEED_SELLERS);
+}
+
+export function getSellerById(id: string): Seller | undefined {
+  return getSellers().find((s) => s.id === id);
+}
+
+export function getSellerByEmail(email: string): Seller | undefined {
+  const normalized = email.trim().toLowerCase();
+  return getSellers().find((s) => s.email.toLowerCase() === normalized);
+}
+
+function writeSeller(id: string, update: (s: Seller) => Seller): Seller | null {
+  const all = getSellers();
+  const idx = all.findIndex((s) => s.id === id);
+  if (idx === -1) return null;
+  all[idx] = update(all[idx]);
+  write(SELLERS_KEY, all);
+  return all[idx];
+}
+
+export function updateSellerPermissions(
+  id: string,
+  permissions: SellerPermissions,
+): Seller | null {
+  return writeSeller(id, (s) => ({ ...s, permissions }));
+}
+
+export function updateSellerKyc(
+  id: string,
+  kyc: Omit<SellerKyc, "status" | "updatedAt">,
+): Seller | null {
+  return writeSeller(id, (s) => ({
+    ...s,
+    kyc: {
+      ...kyc,
+      status: "submitted",
+      updatedAt: new Date().toISOString(),
+    },
+  }));
+}
+
+// ---- Connectors ----
+
+export function updateSellerBizomConfig(
+  id: string,
+  config: BizomConfig,
+): Seller | null {
+  return writeSeller(id, (s) => ({
+    ...s,
+    connectors: {
+      ...s.connectors,
+      bizom: { status: "connected", config },
+    },
+  }));
+}
+
+export function updateSellerOndcConfig(
+  id: string,
+  config: OndcConfig,
+): Seller | null {
+  return writeSeller(id, (s) => ({
+    ...s,
+    connectors: {
+      ...s.connectors,
+      ondc: { status: "connected", config },
+    },
+  }));
+}
+
+export function disconnectSellerConnector(
+  id: string,
+  type: ConnectorType,
+): Seller | null {
+  return writeSeller(id, (s) => ({
+    ...s,
+    connectors: {
+      ...s.connectors,
+      [type]: { status: "not_connected" },
+    },
+  }));
+}
+
+// ---- Managed Companies ----
+
+export function updateManagedCompanies(
+  id: string,
+  companyIds: string[],
+): Seller | null {
+  // Dedupe and keep only valid ids
+  const validIds = new Set(QWIPO_COMPANIES.map((c) => c.id));
+  const deduped = Array.from(new Set(companyIds)).filter((cid) =>
+    validIds.has(cid),
+  );
+  return writeSeller(id, (s) => ({ ...s, managedCompanies: deduped }));
+}
+
+// Force-reset (useful when testing)
+export function resetMockStore() {
+  localStorage.removeItem(REQUESTS_KEY);
+  localStorage.removeItem(SELLERS_KEY);
+}
