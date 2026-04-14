@@ -214,7 +214,7 @@ export function RootLayout() {
 
   const displayName = user?.name ?? "Guest";
   const displaySubtitle = isAdmin
-    ? "Master Admin Portal"
+    ? "Super Admin Portal"
     : isAdminSeller && activeSeller
       ? activeSeller.businessName
       : user?.businessName ?? "";

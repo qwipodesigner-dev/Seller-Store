@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Eye, EyeOff, Shield, Store, Users } from "lucide-react";
+import { Shield, Store, Users, Phone, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
@@ -14,30 +14,42 @@ import qwipoIcon from "../../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
 export function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
-  const [phoneOrEmail, setPhoneOrEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [mobile, setMobile] = useState("");
+  const [otp, setOtp] = useState("");
+  const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSendOtp = () => {
+    const cleaned = mobile.replace(/\D/g, "");
+    if (cleaned.length < 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
+      return;
+    }
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setOtpSent(true);
+      toast.success("OTP sent to " + mobile);
+    }, 600);
+  };
 
-    if (!phoneOrEmail || !password) {
-      toast.error("Please fill in all fields");
+  const handleVerifyOtp = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!otp || otp.length < 4) {
+      toast.error("Please enter the 4-digit OTP");
       return;
     }
 
     setIsLoading(true);
-
     setTimeout(() => {
-      const user = validateCredentials(phoneOrEmail, password);
+      const user = validateCredentials(mobile, otp);
       setIsLoading(false);
       if (!user) {
-        toast.error("Invalid credentials. Try one of the demo accounts below.");
+        toast.error("Invalid OTP. Use 1234 for demo accounts.");
         return;
       }
       login(user);
-      toast.success(`Welcome back, ${user.name}!`);
+      toast.success(`Welcome, ${user.name}!`);
       if (user.role === "admin") {
         navigate("/admin");
       } else if (user.role === "admin_seller") {
@@ -50,22 +62,20 @@ export function Login() {
 
   const fillDemo = (role: "admin" | "seller" | "admin_seller") => {
     if (role === "admin") {
-      setPhoneOrEmail("admin@qwipo.com");
-      setPassword("admin@123");
+      setMobile("9900000001");
     } else if (role === "admin_seller") {
-      setPhoneOrEmail("adminseller@qwipo.com");
-      setPassword("adminseller@123");
+      setMobile("9900000003");
     } else {
-      setPhoneOrEmail("seller@qwipo.com");
-      setPassword("seller@123");
+      setMobile("9900000002");
     }
+    setOtp("1234");
+    setOtpSent(true);
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex">
-      {/* Left Panel — branding / illustration */}
+      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 relative overflow-hidden">
-        {/* Abstract shapes */}
         <div className="absolute inset-0">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
           <div className="absolute bottom-32 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
@@ -85,7 +95,6 @@ export function Login() {
             integration — all in one platform.
           </p>
 
-          {/* Feature pills */}
           <div className="flex flex-wrap gap-3">
             {[
               "Catalog Sync",
@@ -102,7 +111,6 @@ export function Login() {
             ))}
           </div>
 
-          {/* Stats */}
           <div className="flex gap-10 mt-12">
             <div>
               <p className="text-3xl font-bold">500+</p>
@@ -120,10 +128,10 @@ export function Login() {
         </div>
       </div>
 
-      {/* Right Panel — login form */}
+      {/* Right Panel */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">
-          {/* Logo above login form */}
+          {/* Logo */}
           <div className="text-center mb-8">
             <img
               src={qwipoLogo}
@@ -138,74 +146,90 @@ export function Login() {
             <CardHeader className="pb-4">
               <CardTitle className="text-2xl">Welcome Back</CardTitle>
               <CardDescription>
-                Sign in to your account to continue
+                Sign in with your mobile number
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <form onSubmit={handleLogin} className="space-y-4">
+              <form onSubmit={handleVerifyOtp} className="space-y-4">
+                {/* Mobile Number */}
                 <div className="space-y-2">
-                  <Label htmlFor="phoneOrEmail">Phone Number or Email</Label>
-                  <Input
-                    id="phoneOrEmail"
-                    type="text"
-                    placeholder="Enter phone or email"
-                    value={phoneOrEmail}
-                    onChange={(e) => setPhoneOrEmail(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="password">Password</Label>
+                  <Label htmlFor="mobile">Mobile Number</Label>
                   <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                     <Input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      placeholder="Enter password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      id="mobile"
+                      type="tel"
+                      placeholder="Enter 10-digit mobile number"
+                      value={mobile}
+                      onChange={(e) => setMobile(e.target.value)}
+                      className="pl-10"
+                      maxLength={15}
+                      disabled={otpSent}
                       required
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-4 w-4" />
-                      ) : (
-                        <Eye className="h-4 w-4" />
-                      )}
-                    </button>
                   </div>
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center gap-2 text-sm">
-                    <input type="checkbox" className="rounded" />
-                    <span className="text-gray-600">Remember me</span>
-                  </label>
-                  <button
+                {/* OTP Section */}
+                {!otpSent ? (
+                  <Button
                     type="button"
-                    className="text-sm text-blue-600 hover:text-blue-700 font-medium"
+                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    disabled={isLoading}
+                    onClick={handleSendOtp}
                   >
-                    Forgot Password?
-                  </button>
-                </div>
+                    {isLoading ? "Sending OTP..." : "Send OTP"}
+                  </Button>
+                ) : (
+                  <>
+                    <div className="space-y-2">
+                      <Label htmlFor="otp">Enter OTP</Label>
+                      <div className="relative">
+                        <KeyRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          id="otp"
+                          type="text"
+                          placeholder="Enter 4-digit OTP"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                          className="pl-10"
+                          maxLength={4}
+                          autoFocus
+                          required
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-gray-500">
+                          OTP sent to {mobile}
+                        </p>
+                        <button
+                          type="button"
+                          className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                          onClick={() => {
+                            setOtpSent(false);
+                            setOtp("");
+                          }}
+                        >
+                          Change Number
+                        </button>
+                      </div>
+                    </div>
 
-                <Button
-                  type="submit"
-                  className="w-full bg-blue-600 hover:bg-blue-700"
-                  disabled={isLoading}
-                >
-                  {isLoading ? "Signing in..." : "Sign In"}
-                </Button>
+                    <Button
+                      type="submit"
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      disabled={isLoading}
+                    >
+                      {isLoading ? "Verifying..." : "Verify & Sign In"}
+                    </Button>
+                  </>
+                )}
               </form>
 
-              {/* Demo credentials helper */}
+              {/* Demo credentials */}
               <div className="mt-5 p-3 border border-blue-100 bg-blue-50/60 rounded-lg">
                 <p className="text-xs font-semibold text-blue-900 mb-2">
-                  Demo credentials — tap to autofill
+                  Demo accounts — tap to autofill (OTP: 1234)
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   <button
@@ -215,9 +239,11 @@ export function Login() {
                   >
                     <Shield className="h-4 w-4 text-purple-600 flex-shrink-0 mt-0.5" />
                     <div className="min-w-0">
-                      <p className="text-xs font-semibold text-gray-900">Master Admin</p>
+                      <p className="text-xs font-semibold text-gray-900">
+                        Super Admin
+                      </p>
                       <p className="text-[10px] text-gray-500 truncate">
-                        admin@qwipo.com
+                        9900000001
                       </p>
                     </div>
                   </button>
@@ -232,7 +258,7 @@ export function Login() {
                         Admin Seller
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
-                        adminseller@...
+                        9900000003
                       </p>
                     </div>
                   </button>
@@ -247,13 +273,12 @@ export function Login() {
                         Seller
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
-                        seller@qwipo.com
+                        9900000002
                       </p>
                     </div>
                   </button>
                 </div>
               </div>
-
             </CardContent>
           </Card>
 

@@ -1,24 +1,24 @@
 import type { AuthUser } from "./auth-context";
 
 interface CredentialRecord {
-  password: string;
+  otp: string; // demo OTP
   user: AuthUser;
 }
 
-// Demo credentials. Phase 1 is UI-only, so auth is fully client-side.
+// Demo credentials keyed by mobile number. Phase 1 is UI-only.
 export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
-  "admin@qwipo.com": {
-    password: "admin@123",
+  "9900000001": {
+    otp: "1234",
     user: {
       id: "admin-1",
-      name: "Qwipo Master Admin",
+      name: "Qwipo Super Admin",
       email: "admin@qwipo.com",
       role: "admin",
-      avatarInitials: "MA",
+      avatarInitials: "SA",
     },
   },
-  "seller@qwipo.com": {
-    password: "seller@123",
+  "9900000002": {
+    otp: "1234",
     user: {
       id: "seller-1",
       name: "Rajesh Kumar",
@@ -28,8 +28,8 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       avatarInitials: "RK",
     },
   },
-  "adminseller@qwipo.com": {
-    password: "adminseller@123",
+  "9900000003": {
+    otp: "1234",
     user: {
       id: "admin-seller-1",
       name: "Omkar Charankar",
@@ -41,12 +41,12 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
 };
 
 export function validateCredentials(
-  emailOrPhone: string,
-  password: string,
+  mobile: string,
+  otp: string,
 ): AuthUser | null {
-  const key = emailOrPhone.trim().toLowerCase();
+  const key = mobile.trim().replace(/\D/g, ""); // strip non-digits
   const record = DEMO_CREDENTIALS[key];
   if (!record) return null;
-  if (record.password !== password) return null;
+  if (record.otp !== otp) return null;
   return record.user;
 }

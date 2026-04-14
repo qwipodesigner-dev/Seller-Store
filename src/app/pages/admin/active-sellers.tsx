@@ -6,10 +6,7 @@ import { Badge } from "../../components/ui/badge";
 import { Button } from "../../components/ui/button";
 import {
   Search,
-  Users,
-  ChevronRight,
-  Database,
-  ShoppingBag,
+  Store,
   Plus,
 } from "lucide-react";
 import { getSellers, type Seller } from "../../lib/mock-store";
@@ -35,48 +32,15 @@ export function AdminActiveSellers() {
     );
   });
 
-  const kycBadge = (status: Seller["kyc"]["status"]) => {
-    if (status === "verified") {
-      return (
-        <Badge className="bg-green-100 text-green-700 border-green-300">
-          Verified
-        </Badge>
-      );
-    }
-    if (status === "submitted") {
-      return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-300">
-          Submitted
-        </Badge>
-      );
-    }
-    return (
-      <Badge className="bg-gray-100 text-gray-700 border-gray-300">
-        Not Started
-      </Badge>
-    );
-  };
-
-  const connectorBadge = (state: { status: "connected" | "not_connected" }) =>
-    state.status === "connected" ? (
-      <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">
-        Connected
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="text-gray-600 text-xs">
-        Not Connected
-      </Badge>
-    );
-
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Toolbar */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-gray-600" />
+            <Store className="h-5 w-5 text-gray-600" />
             <span className="text-sm font-medium text-gray-700">
-              {filtered.length} user{filtered.length !== 1 ? "s" : ""}
+              {filtered.length} seller{filtered.length !== 1 ? "s" : ""}
             </span>
           </div>
 
@@ -95,7 +59,7 @@ export function AdminActiveSellers() {
               onClick={() => navigate("/admin/users/add")}
             >
               <Plus className="h-4 w-4" />
-              Add User
+              Add Seller
             </Button>
           </div>
         </div>
@@ -107,12 +71,12 @@ export function AdminActiveSellers() {
           <CardContent className="p-0">
             {filtered.length === 0 ? (
               <div className="p-12 text-center">
-                <Users className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-600 font-medium">No users found</p>
+                <Store className="h-12 w-12 mx-auto text-gray-300 mb-3" />
+                <p className="text-gray-600 font-medium">No sellers found</p>
                 <p className="text-sm text-gray-500 mt-1">
                   {searchQuery
                     ? "Try a different search term"
-                    : "Click \"Add User\" to create the first user"}
+                    : "Click \"Add Seller\" to create the first seller"}
                 </p>
               </div>
             ) : (
@@ -130,10 +94,7 @@ export function AdminActiveSellers() {
                         Phone
                       </th>
                       <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        KYC
-                      </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Connectors
+                        Status
                       </th>
                       <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Actions
@@ -142,11 +103,7 @@ export function AdminActiveSellers() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((s) => (
-                      <tr
-                        key={s.id}
-                        className="hover:bg-gray-50 cursor-pointer"
-                        onClick={() => navigate(`/admin/users/${s.id}`)}
-                      >
+                      <tr key={s.id} className="hover:bg-gray-50">
                         <td className="px-5 py-4">
                           <p className="font-medium text-gray-900">{s.name}</p>
                           <p className="text-xs text-gray-500">{s.email}</p>
@@ -160,31 +117,22 @@ export function AdminActiveSellers() {
                         <td className="px-5 py-4 text-sm text-gray-700">
                           {s.phone}
                         </td>
-                        <td className="px-5 py-4">{kycBadge(s.kyc.status)}</td>
                         <td className="px-5 py-4">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <div className="flex items-center gap-1">
-                              <Database className="h-3 w-3 text-gray-500" />
-                              {connectorBadge(s.connectors.bizom)}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <ShoppingBag className="h-3 w-3 text-gray-500" />
-                              {connectorBadge(s.connectors.ondc)}
-                            </div>
-                          </div>
+                          <Badge className="bg-green-100 text-green-700 border-green-300">
+                            Active
+                          </Badge>
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center justify-end">
                             <Button
-                              variant="ghost"
                               size="sm"
+                              variant="outline"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 navigate(`/admin/users/${s.id}`);
                               }}
                             >
                               Manage
-                              <ChevronRight className="h-4 w-4 ml-1" />
                             </Button>
                           </div>
                         </td>

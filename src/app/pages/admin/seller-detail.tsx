@@ -77,10 +77,10 @@ export function AdminSellerDetail() {
 
   // Connectors state — dialogs
   const [addConnectorOpen, setAddConnectorOpen] = useState(false);
-  const [bizomDialogOpen, setBizomDialogOpen] = useState(false);
-  const [ondcDialogOpen, setOndcDialogOpen] = useState(false);
-  const [bizomForm, setBizomForm] = useState<BizomConfig>(emptyBizomConfig());
-  const [ondcForm, setOndcForm] = useState<OndcConfig>(emptyOndcConfig());
+  const [configDialogOpen, setConfigDialogOpen] = useState(false);
+  const [configDialogType, setConfigDialogType] = useState<ConnectorType | "">("");
+  const [configSellerId, setConfigSellerId] = useState("");
+  const [configApiKey, setConfigApiKey] = useState("");
   const [confirmDisconnect, setConfirmDisconnect] = useState<ConnectorType | null>(null);
 
   // Managed Companies dialog
@@ -134,51 +134,36 @@ export function AdminSellerDetail() {
     }
   };
 
-  const openBizomConfig = () => {
-    setBizomForm(seller.connectors.bizom.config ?? emptyBizomConfig());
-    setBizomDialogOpen(true);
+  const openConnectorConfig = (type: ConnectorType) => {
+    setConfigDialogType(type);
+    setConfigSellerId("");
+    setConfigApiKey("");
+    setConfigDialogOpen(true);
     setAddConnectorOpen(false);
   };
 
-  const openOndcConfig = () => {
-    setOndcForm(seller.connectors.ondc.config ?? emptyOndcConfig());
-    setOndcDialogOpen(true);
-    setAddConnectorOpen(false);
-  };
-
-  // Managing an already-connected connector opens the full connector details
-  // page — the same screen the seller uses at /connectors/:connectorId.
+  // Managing an already-connected connector opens the full connector details page.
   const openConnectorDetailPage = (type: ConnectorType) => {
     navigate(`/admin/users/${seller.id}/connectors/${type}`);
   };
 
-  const saveBizomConfig = () => {
-    if (!bizomForm.baseUrl.trim()) {
-      toast.error("Base URL is required");
-      return;
-    }
-    const updated = updateSellerBizomConfig(seller.id, bizomForm);
+  const saveConnectorConfig = () => {
+    if (!configSellerId.trim()) { toast.error("Seller ID is required"); return; }
+    if (!configApiKey.trim()) { toast.error("API Key is required"); return; }
+    const type = configDialogType as ConnectorType;
+    const config = { baseUrl: "", authToken: configApiKey, apiCreateSku: "", apiGetAllSkus: "", apiUpdateSku: "", apiCreateOrder: "", apiGetOrderDetails: "", apiGetAllCustomers: "" };
+    const updated = type === "bizom"
+      ? updateSellerBizomConfig(seller.id, config)
+      : updateSellerOndcConfig(seller.id, {
+          subscriberId: configSellerId, uniqueKeyId: "", privateKey: "", apiEndpoint: "", webhookUrl: "",
+          dataSyncTypes: [], syncFrequencyMinutes: 15, maxRetries: 3, autoRetry: true, autoSyncEnabled: true,
+        });
     if (updated) {
-      toast.success("Bizom connector saved");
+      toast.success(`${type === "bizom" ? "Bizom" : "ONDC"} connector added`);
       setSeller(updated);
-      setBizomDialogOpen(false);
+      setConfigDialogOpen(false);
     } else {
-      toast.error("Failed to save Bizom connector");
-    }
-  };
-
-  const saveOndcConfig = () => {
-    if (!ondcForm.subscriberId.trim() || !ondcForm.apiEndpoint.trim()) {
-      toast.error("Subscriber ID and API Endpoint are required");
-      return;
-    }
-    const updated = updateSellerOndcConfig(seller.id, ondcForm);
-    if (updated) {
-      toast.success("ONDC connector saved");
-      setSeller(updated);
-      setOndcDialogOpen(false);
-    } else {
-      toast.error("Failed to save ONDC connector");
+      toast.error("Failed to save connector");
     }
   };
 
@@ -331,32 +316,11 @@ export function AdminSellerDetail() {
                   Profile
                 </TabsTrigger>
                 <TabsTrigger
-                  value="kyc"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  KYC
-                </TabsTrigger>
-                <TabsTrigger
                   value="connectors"
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
                 >
                   <Plug className="h-4 w-4 mr-2" />
                   Connectors
-                </TabsTrigger>
-                <TabsTrigger
-                  value="permissions"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
-                >
-                  <ShieldCheck className="h-4 w-4 mr-2" />
-                  Permissions
-                </TabsTrigger>
-                <TabsTrigger
-                  value="companies"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
-                >
-                  <Building2 className="h-4 w-4 mr-2" />
-                  Managed Companies
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -377,10 +341,27 @@ export function AdminSellerDetail() {
                       : "—"
                   }
                 />
+                {/* Active/Inactive Toggle */}
+                <div className="md:col-span-2 pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium">Status</Label>
+                      <p className="text-xs text-gray-500">
+                        Toggle to activate or deactivate this seller
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-green-700">
+                        Active
+                      </span>
+                      <Switch defaultChecked />
+                    </div>
+                  </div>
+                </div>
               </div>
             </TabsContent>
 
-            {/* KYC */}
+            {/* KYC — hidden */}
             <TabsContent value="kyc" className="p-6 mt-0">
               {seller.kyc.status === "not_started" ? (
                 <div className="text-center py-10">
@@ -631,7 +612,7 @@ export function AdminSellerDetail() {
             <button
               type="button"
               disabled={bizomConnected}
-              onClick={openBizomConfig}
+              onClick={() => openConnectorConfig("bizom")}
               className={`p-4 rounded-lg border text-left transition-all ${
                 bizomConnected
                   ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
@@ -658,7 +639,7 @@ export function AdminSellerDetail() {
             <button
               type="button"
               disabled={ondcConnected}
-              onClick={openOndcConfig}
+              onClick={() => openConnectorConfig("ondc")}
               className={`p-4 rounded-lg border text-left transition-all ${
                 ondcConnected
                   ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
@@ -691,309 +672,56 @@ export function AdminSellerDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Bizom Config Dialog */}
-      <Dialog open={bizomDialogOpen} onOpenChange={setBizomDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      {/* Connector Config Dialog — Seller ID + API Key only */}
+      <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
+        <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5 text-blue-600" />
-              Bizom (DMS) Configuration
+              {configDialogType === "bizom" ? (
+                <Database className="h-5 w-5 text-blue-600" />
+              ) : (
+                <ShoppingBag className="h-5 w-5 text-orange-600" />
+              )}
+              {configDialogType === "bizom" ? "Connect Bizom" : "Connect ONDC"}
             </DialogTitle>
             <DialogDescription>
-              Enter the Bizom connection details and API endpoints. These let
-              Qwipo talk to the distributor's DMS software.
+              Enter the Seller ID and API Key to connect.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="bz-base">
-                  Base URL <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="bz-base"
-                  placeholder="https://api.bizom.com/v1"
-                  value={bizomForm.baseUrl}
-                  onChange={(e) =>
-                    setBizomForm({ ...bizomForm, baseUrl: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="bz-auth">Auth Token / API Key</Label>
-                <Input
-                  id="bz-auth"
-                  type="password"
-                  placeholder="••••••••••••"
-                  value={bizomForm.authToken}
-                  onChange={(e) =>
-                    setBizomForm({ ...bizomForm, authToken: e.target.value })
-                  }
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>
+                Seller ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                placeholder="Enter seller ID"
+                value={configSellerId}
+                onChange={(e) => setConfigSellerId(e.target.value)}
+              />
             </div>
-
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold text-gray-900 mb-3">
-                API Endpoints
-              </p>
-              <div className="grid grid-cols-1 gap-3">
-                <ApiField
-                  label="Create SKU"
-                  value={bizomForm.apiCreateSku}
-                  placeholder="/products/create"
-                  onChange={(v) =>
-                    setBizomForm({ ...bizomForm, apiCreateSku: v })
-                  }
-                />
-                <ApiField
-                  label="Get All SKU Details"
-                  value={bizomForm.apiGetAllSkus}
-                  placeholder="/products/list"
-                  onChange={(v) =>
-                    setBizomForm({ ...bizomForm, apiGetAllSkus: v })
-                  }
-                />
-                <ApiField
-                  label="Update SKU Details"
-                  value={bizomForm.apiUpdateSku}
-                  placeholder="/products/update/{id}"
-                  onChange={(v) =>
-                    setBizomForm({ ...bizomForm, apiUpdateSku: v })
-                  }
-                />
-                <ApiField
-                  label="Create Order"
-                  value={bizomForm.apiCreateOrder}
-                  placeholder="/orders/create"
-                  onChange={(v) =>
-                    setBizomForm({ ...bizomForm, apiCreateOrder: v })
-                  }
-                />
-                <ApiField
-                  label="View Order Details"
-                  value={bizomForm.apiGetOrderDetails}
-                  placeholder="/orders/{id}"
-                  onChange={(v) =>
-                    setBizomForm({ ...bizomForm, apiGetOrderDetails: v })
-                  }
-                />
-                <ApiField
-                  label="Get All Customer Details"
-                  value={bizomForm.apiGetAllCustomers}
-                  placeholder="/customers/list"
-                  onChange={(v) =>
-                    setBizomForm({ ...bizomForm, apiGetAllCustomers: v })
-                  }
-                />
-              </div>
+            <div className="space-y-2">
+              <Label>
+                API Key <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="password"
+                placeholder="Enter API key"
+                value={configApiKey}
+                onChange={(e) => setConfigApiKey(e.target.value)}
+              />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setBizomDialogOpen(false)}>
+            <Button variant="outline" onClick={() => setConfigDialogOpen(false)}>
               Cancel
             </Button>
             <Button
               className="bg-blue-600 hover:bg-blue-700"
-              onClick={saveBizomConfig}
+              onClick={saveConnectorConfig}
             >
-              Save Connector
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ONDC Config Dialog */}
-      <Dialog open={ondcDialogOpen} onOpenChange={setOndcDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-orange-600" />
-              ONDC (Marketplace) Configuration
-            </DialogTitle>
-            <DialogDescription>
-              Enter the ONDC credentials and sync settings for this seller.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="ondc-sub">
-                  Subscriber ID <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="ondc-sub"
-                  placeholder="seller.ondc.org"
-                  value={ondcForm.subscriberId}
-                  onChange={(e) =>
-                    setOndcForm({ ...ondcForm, subscriberId: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ondc-key">Unique Key ID</Label>
-                <Input
-                  id="ondc-key"
-                  placeholder="KEY-001"
-                  value={ondcForm.uniqueKeyId}
-                  onChange={(e) =>
-                    setOndcForm({ ...ondcForm, uniqueKeyId: e.target.value })
-                  }
-                />
-              </div>
-              <div className="md:col-span-2 space-y-2">
-                <Label htmlFor="ondc-private">Encrypted Private Key</Label>
-                <Input
-                  id="ondc-private"
-                  type="password"
-                  placeholder="••••••••••••••••"
-                  value={ondcForm.privateKey}
-                  onChange={(e) =>
-                    setOndcForm({ ...ondcForm, privateKey: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ondc-api">
-                  API Endpoint <span className="text-red-500">*</span>
-                </Label>
-                <Input
-                  id="ondc-api"
-                  placeholder="https://ondc-gw.qwipo.com/api/v1"
-                  value={ondcForm.apiEndpoint}
-                  onChange={(e) =>
-                    setOndcForm({ ...ondcForm, apiEndpoint: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ondc-webhook">Webhook URL</Label>
-                <Input
-                  id="ondc-webhook"
-                  placeholder="https://ondc-gw.qwipo.com/webhook"
-                  value={ondcForm.webhookUrl}
-                  onChange={(e) =>
-                    setOndcForm({ ...ondcForm, webhookUrl: e.target.value })
-                  }
-                />
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold text-gray-900 mb-3">
-                Data Sync Types
-              </p>
-              <div className="flex flex-wrap gap-3">
-                {DATA_SYNC_TYPES.map((t) => {
-                  const checked = ondcForm.dataSyncTypes.includes(t);
-                  return (
-                    <label
-                      key={t}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-all ${
-                        checked
-                          ? "border-blue-400 bg-blue-50"
-                          : "border-gray-200 hover:border-gray-300"
-                      }`}
-                    >
-                      <Checkbox
-                        checked={checked}
-                        onCheckedChange={() => toggleSyncType(t)}
-                      />
-                      <span className="text-sm text-gray-700">{t}</span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="border-t pt-4">
-              <p className="text-sm font-semibold text-gray-900 mb-3">
-                Sync Configuration
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ondc-freq">
-                    Sync Frequency (minutes)
-                  </Label>
-                  <Input
-                    id="ondc-freq"
-                    type="number"
-                    min={1}
-                    value={ondcForm.syncFrequencyMinutes}
-                    onChange={(e) =>
-                      setOndcForm({
-                        ...ondcForm,
-                        syncFrequencyMinutes: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="ondc-retries">Max Retry Attempts</Label>
-                  <Input
-                    id="ondc-retries"
-                    type="number"
-                    min={0}
-                    max={10}
-                    value={ondcForm.maxRetries}
-                    onChange={(e) =>
-                      setOndcForm({
-                        ...ondcForm,
-                        maxRetries: Number(e.target.value) || 0,
-                      })
-                    }
-                  />
-                </div>
-              </div>
-              <div className="mt-4 space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      Auto Retry on Failure
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Automatically retry failed syncs up to max attempts
-                    </p>
-                  </div>
-                  <Switch
-                    checked={ondcForm.autoRetry}
-                    onCheckedChange={(v) =>
-                      setOndcForm({ ...ondcForm, autoRetry: v })
-                    }
-                  />
-                </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border border-gray-200">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      Enable Auto Sync
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Run sync automatically at the configured frequency
-                    </p>
-                  </div>
-                  <Switch
-                    checked={ondcForm.autoSyncEnabled}
-                    onCheckedChange={(v) =>
-                      setOndcForm({ ...ondcForm, autoSyncEnabled: v })
-                    }
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOndcDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-blue-600 hover:bg-blue-700"
-              onClick={saveOndcConfig}
-            >
-              Save Connector
+              Connect
             </Button>
           </DialogFooter>
         </DialogContent>

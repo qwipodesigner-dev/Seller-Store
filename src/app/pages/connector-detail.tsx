@@ -7,6 +7,14 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Switch } from "../components/ui/switch";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../components/ui/dialog";
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -415,6 +423,9 @@ export function ConnectorDetail() {
           </TabsTrigger>
           <TabsTrigger value="sync-logs" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap">
             <span className="font-medium">Sync Logs</span>
+          </TabsTrigger>
+          <TabsTrigger value="users" className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap">
+            <span className="font-medium">Users</span>
           </TabsTrigger>
         </TabsList>
 
@@ -901,8 +912,214 @@ export function ConnectorDetail() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {/* Users Tab */}
+        <TabsContent value="users">
+          <ConnectorUsersTab connectorName={connector.name} />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+// ---------- Connector Users Tab ----------
+
+interface ConnectorUser {
+  id: string;
+  name: string;
+  mobile: string;
+  email: string;
+  status: "Active" | "Inactive";
+}
+
+const SEED_CONNECTOR_USERS: ConnectorUser[] = [
+  { id: "cu-1", name: "Arun Mehta", mobile: "9876543210", email: "arun@distributor.in", status: "Active" },
+  { id: "cu-2", name: "Kavitha Reddy", mobile: "9876543211", email: "kavitha@distributor.in", status: "Active" },
+  { id: "cu-3", name: "Ravi Shankar", mobile: "9876543212", email: "ravi@distributor.in", status: "Inactive" },
+];
+
+function ConnectorUsersTab({ connectorName }: { connectorName: string }) {
+  const [users, setUsers] = useState<ConnectorUser[]>(SEED_CONNECTOR_USERS);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editUser, setEditUser] = useState<ConnectorUser | null>(null);
+
+  // Form
+  const [formName, setFormName] = useState("");
+  const [formMobile, setFormMobile] = useState("");
+  const [formEmail, setFormEmail] = useState("");
+  const [formStatus, setFormStatus] = useState(true); // true = Active
+
+  const openAdd = () => {
+    setEditUser(null);
+    setFormName("");
+    setFormMobile("");
+    setFormEmail("");
+    setFormStatus(true);
+    setDialogOpen(true);
+  };
+
+  const openEdit = (u: ConnectorUser) => {
+    setEditUser(u);
+    setFormName(u.name);
+    setFormMobile(u.mobile);
+    setFormEmail(u.email);
+    setFormStatus(u.status === "Active");
+    setDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!formName.trim()) { toast.error("Name is required"); return; }
+    if (!formMobile.trim()) { toast.error("Mobile Number is required"); return; }
+
+    if (editUser) {
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === editUser.id
+            ? { ...u, name: formName, mobile: formMobile, email: formEmail, status: formStatus ? "Active" : "Inactive" }
+            : u,
+        ),
+      );
+      toast.success(`User "${formName}" updated`);
+    } else {
+      const newUser: ConnectorUser = {
+        id: `cu-${Date.now()}`,
+        name: formName,
+        mobile: formMobile,
+        email: formEmail,
+        status: formStatus ? "Active" : "Inactive",
+      };
+      setUsers((prev) => [newUser, ...prev]);
+      toast.success(`User "${formName}" added`);
+    }
+    setDialogOpen(false);
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>{connectorName} Users</CardTitle>
+            <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={openAdd}>
+              <Plus className="h-4 w-4" />
+              Add User
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Name
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Mobile Number
+                  </th>
+                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {users.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-5 py-12 text-center text-gray-500 text-sm">
+                      No users yet. Click "Add User" to create one.
+                    </td>
+                  </tr>
+                ) : (
+                  users.map((u) => (
+                    <tr key={u.id} className="hover:bg-gray-50">
+                      <td className="px-5 py-4">
+                        <p className="font-medium text-gray-900">{u.name}</p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </td>
+                      <td className="px-5 py-4 text-sm text-gray-700">{u.mobile}</td>
+                      <td className="px-5 py-4">
+                        <Badge
+                          className={
+                            u.status === "Active"
+                              ? "bg-green-100 text-green-700 border-green-300"
+                              : "bg-gray-100 text-gray-700 border-gray-300"
+                          }
+                        >
+                          {u.status}
+                        </Badge>
+                      </td>
+                      <td className="px-5 py-4">
+                        <div className="flex justify-end">
+                          <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
+                            <Edit className="h-3.5 w-3.5 mr-1" />
+                            Edit
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Add / Edit User Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{editUser ? "Edit User" : "Add User"}</DialogTitle>
+            <DialogDescription>
+              {editUser
+                ? "Update user details and status."
+                : `Add a new user to ${connectorName}.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Name <span className="text-red-500">*</span></Label>
+              <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Full name" />
+            </div>
+            <div className="space-y-2">
+              <Label>Mobile Number <span className="text-red-500">*</span></Label>
+              <Input value={formMobile} onChange={(e) => setFormMobile(e.target.value)} placeholder="+91 98765 43210" />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={formEmail} onChange={(e) => setFormEmail(e.target.value)} placeholder="user@company.com" />
+            </div>
+            {editUser && (
+              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <div>
+                  <Label className="text-sm">Status</Label>
+                  <p className="text-xs text-gray-500">
+                    {formStatus ? "User is active" : "User is inactive"}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-sm font-medium ${formStatus ? "text-green-700" : "text-gray-500"}`}>
+                    {formStatus ? "Active" : "Inactive"}
+                  </span>
+                  <Switch checked={formStatus} onCheckedChange={setFormStatus} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+              {editUser ? "Save Changes" : "Add User"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

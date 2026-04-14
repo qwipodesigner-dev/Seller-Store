@@ -1,6 +1,6 @@
 import {
   LayoutDashboard,
-  Users,
+  Store,
   Plug,
   type LucideIcon,
 } from "lucide-react";
@@ -12,21 +12,20 @@ export interface NavItem {
   subItems?: { name: string; href: string }[];
 }
 
-// Admin sidebar — flat menu, no sub-items.
+// Admin sidebar — flat menu.
 export const adminNavigation: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
-  { name: "User Management", href: "/admin/users", icon: Users },
+  { name: "Sellers", href: "/admin/users", icon: Store },
   { name: "Connectors", href: "/admin/connectors", icon: Plug },
 ];
 
 export function getAdminPageTitle(pathname: string): string {
   if (pathname === "/admin") return "Admin Dashboard";
-  if (pathname.startsWith("/admin/users/add")) return "Add User";
-  if (pathname.startsWith("/admin/users/")) return "User Details";
-  if (pathname.startsWith("/admin/users")) return "User Management";
+  if (pathname.startsWith("/admin/users/add")) return "Add Seller";
+  if (pathname.startsWith("/admin/users/")) return "Seller Details";
+  if (pathname.startsWith("/admin/users")) return "Sellers";
   if (pathname.startsWith("/admin/connectors/")) return "Connector Details";
   if (pathname.startsWith("/admin/connectors")) return "Connectors";
-  // Legacy routes still used by seller-detail
-  if (pathname.startsWith("/admin/sellers/")) return "User Details";
+  if (pathname.startsWith("/admin/sellers/")) return "Seller Details";
   return "Admin Portal";
 }
