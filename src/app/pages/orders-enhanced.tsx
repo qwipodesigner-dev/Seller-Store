@@ -47,6 +47,8 @@ import { AnimatePresence, motion } from "motion/react";
 // Simplified Order interface with only 4 statuses
 interface Order {
   id: string;
+  brand: string;
+  source: string;
   retailerName: string;
   itemsSummary: string;
   orderValue: number;
@@ -60,6 +62,8 @@ interface Order {
 const mockOrders: Order[] = [
   {
     id: "DKN-2025-12345",
+    brand: "Freedom Oil",
+    source: "DMS-Bizom",
     retailerName: "Ramesh's Kirana",
     itemsSummary: "15 units Parle-G + 2 more",
     orderValue: 1865,
@@ -70,6 +74,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12346",
+    brand: "Marico",
+    source: "DMS-Botery",
     retailerName: "Sharma Grocery Store",
     itemsSummary: "25 units Fortune Oil",
     orderValue: 4125,
@@ -80,6 +86,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12347",
+    brand: "Pepsi",
+    source: "DMS-Bizom",
     retailerName: "Balaji Kirana",
     itemsSummary: "100 units Mixed SKUs",
     orderValue: 12450,
@@ -90,6 +98,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12348",
+    brand: "Freedom Oil",
+    source: "DMS-Botery",
     retailerName: "City Supermart",
     itemsSummary: "50 units Britannia Biscuits",
     orderValue: 8750,
@@ -100,6 +110,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12349",
+    brand: "Marico",
+    source: "DMS-Bizom",
     retailerName: "Modern Retail Chain",
     itemsSummary: "200 units Maggi Noodles",
     orderValue: 24000,
@@ -110,6 +122,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12350",
+    brand: "Pepsi",
+    source: "DMS-Botery",
     retailerName: "Quick Mart",
     itemsSummary: "30 units Aashirvaad Atta",
     orderValue: 5400,
@@ -120,6 +134,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12351",
+    brand: "Freedom Oil",
+    source: "DMS-Bizom",
     retailerName: "Sunrise Traders",
     itemsSummary: "75 units Sunfeast Biscuits",
     orderValue: 6825,
@@ -130,6 +146,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12352",
+    brand: "Marico",
+    source: "DMS-Botery",
     retailerName: "Lucky Store",
     itemsSummary: "40 units Surf Excel",
     orderValue: 9200,
@@ -140,6 +158,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12353",
+    brand: "Pepsi",
+    source: "DMS-Bizom",
     retailerName: "New Era Retail",
     itemsSummary: "60 units Colgate Toothpaste",
     orderValue: 4320,
@@ -150,6 +170,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12354",
+    brand: "Freedom Oil",
+    source: "DMS-Botery",
     retailerName: "Himalaya Traders",
     itemsSummary: "90 units Lizol Floor Cleaner",
     orderValue: 10800,
@@ -160,6 +182,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12355",
+    brand: "Marico",
+    source: "DMS-Bizom",
     retailerName: "Anand General Store",
     itemsSummary: "120 units Tata Tea Gold",
     orderValue: 19800,
@@ -170,6 +194,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12356",
+    brand: "Pepsi",
+    source: "DMS-Botery",
     retailerName: "Premium Retail Pvt Ltd",
     itemsSummary: "80 units Dove Soap",
     orderValue: 6400,
@@ -180,6 +206,8 @@ const mockOrders: Order[] = [
   },
   {
     id: "DKN-2025-12357",
+    brand: "Freedom Oil",
+    source: "DMS-Bizom",
     retailerName: "Vinayak Traders",
     itemsSummary: "45 units Ariel Detergent",
     orderValue: 13500,
@@ -443,6 +471,8 @@ export function Orders() {
     // Generate CSV content
     const headers = [
       "Order ID",
+      "Company / Brand",
+      "Source",
       "Retailer Name",
       "Order Value",
       "Payment Mode",
@@ -456,6 +486,8 @@ export function Orders() {
     ordersToExport.forEach((order) => {
       const row = [
         order.id,
+        `"${order.brand}"`,
+        order.source,
         `"${order.retailerName}"`,
         order.orderValue,
         order.paymentMode,
@@ -633,6 +665,12 @@ export function Orders() {
                 Order ID
               </th>
               <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+                Company / Brand
+              </th>
+              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+                Source
+              </th>
+              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
                 Retailer Name
               </th>
               <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
@@ -672,6 +710,16 @@ export function Orders() {
                   <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
                     {order.id}
                   </code>
+                </td>
+                <td className="py-4 px-6">
+                  <p className="font-medium text-gray-900">
+                    {order.brand}
+                  </p>
+                </td>
+                <td className="py-4 px-6">
+                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
+                    {order.source}
+                  </Badge>
                 </td>
                 <td className="py-4 px-6">
                   <p className="font-medium text-gray-900">
