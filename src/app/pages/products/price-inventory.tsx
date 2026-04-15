@@ -43,6 +43,7 @@ import {
   AlertCircle as AlertCircleIcon,
   X,
   Search,
+  Info,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -681,92 +682,264 @@ export function PriceInventory() {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Price & Inventory</DialogTitle>
             <DialogDescription>
-              Update pricing and stock information for {selectedProduct?.skuName}
+              {selectedProduct?.skuName} — DMS values are read-only reference.
+              Only the ONDC column will be used for publishing.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-6 py-4">
-            {/* Pricing Section */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-sm text-gray-900">Pricing</h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="edit-mrp">MRP (₹)</Label>
-                  <Input
-                    id="edit-mrp"
-                    type="number"
-                    step="0.01"
-                    value={editMrp}
-                    onChange={(e) => setEditMrp(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-selling-price">Selling Price (₹)</Label>
-                  <Input
-                    id="edit-selling-price"
-                    type="number"
-                    step="0.01"
-                    value={editSellingPrice}
-                    onChange={(e) => setEditSellingPrice(e.target.value)}
-                  />
-                </div>
-              </div>
+          {/* Legend */}
+          <div className="flex items-center gap-2 pb-2">
+            <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
+              DMS: Read-only reference
+            </Badge>
+            <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">
+              ONDC: Final source for publishing
+            </Badge>
+          </div>
+
+          {/* Section 1 — Price Information */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+              <p className="text-sm font-semibold text-gray-900">Price Information</p>
             </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50/50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/4">
+                      Field Name
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      DMS Value (Read-only)
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      ONDC Value (Editable)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {/* MRP Row */}
+                  <tr
+                    className={
+                      String(selectedProduct?.mrp ?? "") !== editMrp ? "bg-amber-50/40" : ""
+                    }
+                  >
+                    <td className="px-4 py-3 align-top">
+                      <span className="font-medium text-gray-700">MRP</span>
+                      <span className="text-red-500 ml-0.5">*</span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-700">
+                      ₹{selectedProduct?.mrp?.toFixed(2) ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                          ₹
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editMrp}
+                          onChange={(e) => setEditMrp(e.target.value)}
+                          className={`pl-7 ${
+                            !editMrp
+                              ? "border-red-400"
+                              : String(selectedProduct?.mrp ?? "") !== editMrp
+                                ? "border-amber-400"
+                                : ""
+                          }`}
+                        />
+                      </div>
+                      {!editMrp && (
+                        <p className="text-xs text-red-600 mt-1">Required</p>
+                      )}
+                    </td>
+                  </tr>
 
-            {/* Inventory Section */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-sm text-gray-900">Inventory</h4>
-
-              <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-                <div>
-                  <p className="font-medium text-gray-900">Infinite Stock</p>
-                  <p className="text-sm text-gray-600">
-                    Enable unlimited inventory for this product
-                  </p>
-                </div>
-                <Switch
-                  checked={editIsInfiniteStock}
-                  onCheckedChange={setEditIsInfiniteStock}
-                />
-              </div>
-
-              {!editIsInfiniteStock && (
-                <div className="space-y-2">
-                  <Label htmlFor="edit-stock">Available Stock</Label>
-                  <Input
-                    id="edit-stock"
-                    type="number"
-                    value={editStock}
-                    onChange={(e) => setEditStock(e.target.value)}
-                  />
-                </div>
-              )}
+                  {/* Selling Price Row */}
+                  <tr
+                    className={
+                      String(selectedProduct?.sellingPrice ?? "") !== editSellingPrice
+                        ? "bg-amber-50/40"
+                        : ""
+                    }
+                  >
+                    <td className="px-4 py-3 align-top">
+                      <span className="font-medium text-gray-700">Selling Price</span>
+                      <span className="text-red-500 ml-0.5">*</span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-700">
+                      ₹{selectedProduct?.sellingPrice?.toFixed(2) ?? "—"}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <div className="relative">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">
+                          ₹
+                        </span>
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={editSellingPrice}
+                          onChange={(e) => setEditSellingPrice(e.target.value)}
+                          className={`pl-7 ${
+                            !editSellingPrice ||
+                            (editMrp &&
+                              parseFloat(editSellingPrice) > parseFloat(editMrp))
+                              ? "border-red-400"
+                              : String(selectedProduct?.sellingPrice ?? "") !==
+                                  editSellingPrice
+                                ? "border-amber-400"
+                                : ""
+                          }`}
+                        />
+                      </div>
+                      {!editSellingPrice && (
+                        <p className="text-xs text-red-600 mt-1">Required</p>
+                      )}
+                      {editSellingPrice &&
+                        editMrp &&
+                        parseFloat(editSellingPrice) > parseFloat(editMrp) && (
+                          <p className="text-xs text-red-600 mt-1">
+                            Selling Price must be ≤ MRP
+                          </p>
+                        )}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            {/* Status Section */}
-            <div className="space-y-4">
-              <h4 className="font-semibold text-sm text-gray-900">Status</h4>
-              <Select value={editStatus} onValueChange={(value: any) => setEditStatus(value)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+          {/* Section 2 — Inventory Information */}
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+              <p className="text-sm font-semibold text-gray-900">Inventory Information</p>
             </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50/50 border-b border-gray-200">
+                  <tr>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/4">
+                      Field Name
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      DMS Value (Read-only)
+                    </th>
+                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      ONDC Value (Editable)
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {/* Available Quantity Row */}
+                  <tr
+                    className={
+                      String(selectedProduct?.availableStock ?? "") !== editStock
+                        ? "bg-amber-50/40"
+                        : ""
+                    }
+                  >
+                    <td className="px-4 py-3 align-top">
+                      <span className="font-medium text-gray-700">Available Quantity</span>
+                      <span className="text-red-500 ml-0.5">*</span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-700">
+                      {selectedProduct?.isInfiniteStock
+                        ? "∞ (Infinite)"
+                        : (selectedProduct?.availableStock ?? "—")}
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={editStock}
+                        onChange={(e) => setEditStock(e.target.value)}
+                        className={
+                          !editStock || parseInt(editStock) < 0
+                            ? "border-red-400"
+                            : String(selectedProduct?.availableStock ?? "") !== editStock
+                              ? "border-amber-400"
+                              : ""
+                        }
+                      />
+                      {(!editStock || parseInt(editStock) < 0) && (
+                        <p className="text-xs text-red-600 mt-1">
+                          Quantity must be ≥ 0
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+
+                  {/* Status Row */}
+                  <tr
+                    className={
+                      selectedProduct?.status !== editStatus ? "bg-amber-50/40" : ""
+                    }
+                  >
+                    <td className="px-4 py-3 align-top">
+                      <span className="font-medium text-gray-700">Status</span>
+                      <span className="text-red-500 ml-0.5">*</span>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Badge
+                        className={
+                          selectedProduct?.status === "Active"
+                            ? "bg-green-100 text-green-700 border-green-300"
+                            : "bg-gray-100 text-gray-700 border-gray-300"
+                        }
+                      >
+                        {selectedProduct?.status ?? "—"}
+                      </Badge>
+                    </td>
+                    <td className="px-4 py-3 align-top">
+                      <Select
+                        value={editStatus}
+                        onValueChange={(value: any) => setEditStatus(value)}
+                      >
+                        <SelectTrigger
+                          className={
+                            selectedProduct?.status !== editStatus
+                              ? "border-amber-400"
+                              : ""
+                          }
+                        >
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Active">Active</SelectItem>
+                          <SelectItem value="Inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Info footer */}
+          <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-900">
+            <Info className="h-4 w-4 flex-shrink-0 mt-0.5" />
+            <p>
+              Only ONDC values will be stored and used for catalog publishing. DMS
+              values remain unchanged as the source reference.
+            </p>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveEdit}>Save Changes</Button>
+            <Button
+              onClick={handleSaveEdit}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Save ONDC Values
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

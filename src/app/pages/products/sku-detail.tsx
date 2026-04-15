@@ -591,200 +591,487 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
 
 // Product Details Tab Component
 function ProductDetailsTab({ sku }: { sku: any }) {
-  const getSourceBadge = (source: string) => {
-    switch (source) {
-      case "Brand Sync":
-        return <Badge className="bg-purple-100 text-purple-700 border-purple-300">Brand Sync</Badge>;
-      case "Manual":
-        return <Badge className="bg-blue-100 text-blue-700 border-blue-300">Manual</Badge>;
-      case "Excel Import":
-        return <Badge className="bg-green-100 text-green-700 border-green-300">Excel Import</Badge>;
-      case "DMS":
-        return <Badge className="bg-orange-100 text-orange-700 border-orange-300">DMS</Badge>;
-      default:
-        return <Badge variant="outline">{source}</Badge>;
-    }
+  // DMS snapshot (read-only reference)
+  const dms = {
+    name: sku.name,
+    skuCode: sku.sku,
+    category: sku.category,
+    brand: sku.brand,
+    shortDescription: sku.description?.split(".")[0] || "",
+    longDescription: sku.description || "",
+    status: sku.status,
+    sellingPrice: sku.pricing?.sellingPrice ?? 0,
+    mrp: sku.pricing?.mrp ?? 0,
+    currency: "INR",
+    availableQty: sku.inventory?.currentStock ?? 0,
+    maxOrderQty: 50,
+    unitType: "Liter",
+    unitValue: sku.specifications?.weight || "",
+    weight: sku.specifications?.weight || "",
+    packagingType: sku.specifications?.packaging || "",
+    innerPack: "1",
+    timeToShip: "2 days",
+    manufacturerName: sku.specifications?.manufacturer || "",
+    manufacturerAddress: "Ahmedabad, Gujarat, India",
+    countryOfOrigin: sku.specifications?.countryOfOrigin || "India",
+    fssaiLicense: "10012345000123",
+    upc: "8901030874116",
+  };
+
+  // ONDC state (editable, pre-filled from DMS)
+  const [ondc, setOndc] = useState({ ...dms });
+  const [ondcImages, setOndcImages] = useState<string[]>([]);
+
+  const update = (key: keyof typeof dms, value: any) =>
+    setOndc((prev) => ({ ...prev, [key]: value }));
+
+  const isEdited = (key: keyof typeof dms) =>
+    JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
+
+  const handleSave = () => toast.success("ONDC values saved successfully");
+  const handleReset = () => {
+    setOndc({ ...dms });
+    setOndcImages([]);
+    toast.success("ONDC values reset to DMS defaults");
   };
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Left Column - Main Information */}
-      <div className="lg:col-span-2 space-y-6">
-        {/* Basic Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-blue-600" />
-              Basic Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Product Description</h3>
-              <p className="text-gray-600">{sku.description}</p>
-            </div>
-
-            <Separator />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Category</h3>
-                <p className="text-gray-900">{sku.category}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Brand</h3>
-                <p className="text-gray-900">{sku.brand}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Source</h3>
-                {getSourceBadge(sku.source)}
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Last Updated</h3>
-                <p className="text-gray-900">{sku.lastUpdated}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Product Specifications */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-purple-600" />
-              Product Specifications
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Weight/Size</h3>
-                <p className="text-gray-900">{sku.specifications.weight}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Packaging</h3>
-                <p className="text-gray-900">{sku.specifications.packaging}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Shelf Life</h3>
-                <p className="text-gray-900">{sku.specifications.shelfLife}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Manufacturer</h3>
-                <p className="text-gray-900">{sku.specifications.manufacturer}</p>
-              </div>
-              <div className="col-span-2">
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Country of Origin</h3>
-                <p className="text-gray-900">{sku.specifications.countryOfOrigin}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Pricing Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5 text-green-600" />
-              Pricing Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">MRP</h3>
-                <p className="text-xl font-bold text-gray-900">₹{sku.pricing.mrp.toFixed(2)}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Selling Price</h3>
-                <p className="text-xl font-bold text-green-600">
-                  ₹{sku.pricing.sellingPrice.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Cost Price</h3>
-                <p className="text-gray-900">₹{sku.pricing.costPrice.toFixed(2)}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-gray-700 mb-1">Margin</h3>
-                <p className="text-gray-900">{sku.pricing.margin}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+    <div className="space-y-4">
+      {/* Action bar */}
+      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
+        <div className="flex items-center gap-2">
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200">
+            DMS: Read-only reference
+          </Badge>
+          <Badge className="bg-green-50 text-green-700 border-green-200">
+            ONDC: Final source for publishing
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleReset}>
+            Reset to DMS
+          </Button>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+            Save ONDC Values
+          </Button>
+        </div>
       </div>
 
-      {/* Right Column - Secondary Information */}
-      <div className="space-y-6">
-        {/* Inventory Status */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Archive className="h-5 w-5 text-indigo-600" />
-              Inventory Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Current Stock</h3>
-              <p className="text-2xl font-bold text-gray-900">{sku.inventory.currentStock} units</p>
-            </div>
-            <Separator />
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Min Stock Level</h3>
-              <p className="text-gray-900">{sku.inventory.minStockLevel} units</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Reorder Point</h3>
-              <p className="text-gray-900">{sku.inventory.reorderPoint} units</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">Warehouse</h3>
-              <p className="text-gray-900">{sku.inventory.warehouse}</p>
-            </div>
-          </CardContent>
-        </Card>
+      {/* Two parallel containers */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* ===== LEFT: DMS (Read-only) ===== */}
+        <div className="space-y-6">
+          <div className="sticky top-0 z-10 bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+            <h2 className="text-sm font-bold text-blue-900 flex items-center gap-2">
+              <Info className="h-4 w-4" />
+              DMS Values (Read-only)
+            </h2>
+          </div>
 
-        {/* Tax Information */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Tag className="h-5 w-5 text-orange-600" />
-              Tax Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">GST Rate</h3>
-              <p className="text-xl font-bold text-gray-900">{sku.tax.gstRate}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-semibold text-gray-700 mb-1">HSN Code</h3>
-              <code className="text-sm bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
-                {sku.tax.hsnCode}
-              </code>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Product Image Placeholder */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-pink-600" />
-              Product Image
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="aspect-square bg-gray-100 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <ImageIcon className="h-16 w-16 text-gray-400 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">No image available</p>
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-5 w-5 text-blue-600" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ReadField label="Product (SKU) Name" value={dms.name} />
+              <ReadField label="SKU Code" value={dms.skuCode} />
+              <div className="grid grid-cols-2 gap-4">
+                <ReadField label="Category" value={dms.category} />
+                <ReadField label="Brand Name" value={dms.brand} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
+              <ReadField label="Short Description" value={dms.shortDescription} />
+              <ReadField label="Long Description" value={dms.longDescription} multiline />
+              <ReadField label="Status" value={dms.status} />
+            </CardContent>
+          </Card>
+
+          {/* Unit & Measurement */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Package className="h-5 w-5 text-indigo-600" />
+                Unit & Measurement Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <ReadField label="Unit Type" value={dms.unitType} />
+                <ReadField label="Unit Value" value={dms.unitValue} />
+                <ReadField label="Weight" value={dms.weight} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Packaging & Logistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <PackageOpen className="h-5 w-5 text-orange-600" />
+                Packaging & Logistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <ReadField label="Packaging Type" value={dms.packagingType} />
+                <ReadField label="Inner Pack" value={dms.innerPack} />
+                <ReadField label="Time to Ship" value={dms.timeToShip} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manufacturer */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Info className="h-5 w-5 text-rose-600" />
+                Manufacturer & Compliance Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ReadField label="Manufacturer Name" value={dms.manufacturerName} />
+              <ReadField label="Manufacturer Address" value={dms.manufacturerAddress} multiline />
+              <div className="grid grid-cols-2 gap-4">
+                <ReadField label="Country of Origin" value={dms.countryOfOrigin} />
+                <ReadField label="FSSAI License Number" value={dms.fssaiLicense} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Identification */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Tag className="h-5 w-5 text-teal-600" />
+                Identification & Codes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <ReadField label="UPC" value={dms.upc} />
+            </CardContent>
+          </Card>
+
+          {/* Images */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ImageIcon className="h-5 w-5 text-pink-600" />
+                Product Images
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
+                  <ImageIcon className="h-8 w-8 text-gray-400" />
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">From DMS — non-editable</p>
+            </CardContent>
+          </Card>
+
+          {/* Offers & Schemes */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Gift className="h-5 w-5 text-amber-600" />
+                Offers & Schemes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-700">
+                {mockOffers[sku.id]?.length
+                  ? `${mockOffers[sku.id].length} offer(s) applied from DMS`
+                  : "No offers from DMS"}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Read-only — managed centrally in DMS
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* ===== RIGHT: ONDC (Editable) ===== */}
+        <div className="space-y-6">
+          <div className="sticky top-0 z-10 bg-green-50 border border-green-200 rounded-lg px-4 py-2">
+            <h2 className="text-sm font-bold text-green-900 flex items-center gap-2">
+              <Pencil className="h-4 w-4" />
+              ONDC Values (Editable)
+            </h2>
+          </div>
+
+          {/* Basic Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <FileText className="h-5 w-5 text-blue-600" />
+                Basic Information
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <EditField label="Product (SKU) Name" value={ondc.name} onChange={(v) => update("name", v)} edited={isEdited("name")} required />
+              <EditField label="SKU Code" value={ondc.skuCode} onChange={(v) => update("skuCode", v)} edited={isEdited("skuCode")} required />
+              <div className="grid grid-cols-2 gap-4">
+                <EditField label="Category" value={ondc.category} onChange={(v) => update("category", v)} edited={isEdited("category")} required />
+                <EditField label="Brand Name" value={ondc.brand} onChange={(v) => update("brand", v)} edited={isEdited("brand")} required />
+              </div>
+              <EditField label="Short Description" value={ondc.shortDescription} onChange={(v) => update("shortDescription", v)} edited={isEdited("shortDescription")} />
+              <EditField label="Long Description" value={ondc.longDescription} onChange={(v) => update("longDescription", v)} edited={isEdited("longDescription")} multiline />
+              <EditSelectField label="Status" value={ondc.status} onChange={(v) => update("status", v)} edited={isEdited("status")} options={["Active", "Inactive", "Draft"]} />
+            </CardContent>
+          </Card>
+
+          {/* Unit & Measurement */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Package className="h-5 w-5 text-indigo-600" />
+                Unit & Measurement Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <EditField label="Unit Type" value={ondc.unitType} onChange={(v) => update("unitType", v)} edited={isEdited("unitType")} />
+                <EditField label="Unit Value" value={ondc.unitValue} onChange={(v) => update("unitValue", v)} edited={isEdited("unitValue")} />
+                <EditField label="Weight" value={ondc.weight} onChange={(v) => update("weight", v)} edited={isEdited("weight")} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Packaging & Logistics */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <PackageOpen className="h-5 w-5 text-orange-600" />
+                Packaging & Logistics
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-3 gap-4">
+                <EditField label="Packaging Type" value={ondc.packagingType} onChange={(v) => update("packagingType", v)} edited={isEdited("packagingType")} />
+                <EditField label="Inner Pack" value={ondc.innerPack} onChange={(v) => update("innerPack", v)} edited={isEdited("innerPack")} />
+                <EditField label="Time to Ship" value={ondc.timeToShip} onChange={(v) => update("timeToShip", v)} edited={isEdited("timeToShip")} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Manufacturer */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Info className="h-5 w-5 text-rose-600" />
+                Manufacturer & Compliance Details
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <EditField label="Manufacturer Name" value={ondc.manufacturerName} onChange={(v) => update("manufacturerName", v)} edited={isEdited("manufacturerName")} required />
+              <EditField label="Manufacturer Address" value={ondc.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} edited={isEdited("manufacturerAddress")} required multiline />
+              <div className="grid grid-cols-2 gap-4">
+                <EditField label="Country of Origin" value={ondc.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} edited={isEdited("countryOfOrigin")} required />
+                <EditField label="FSSAI License Number" value={ondc.fssaiLicense} onChange={(v) => update("fssaiLicense", v)} edited={isEdited("fssaiLicense")} />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Identification */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Tag className="h-5 w-5 text-teal-600" />
+                Identification & Codes
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <EditField label="UPC" value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} />
+            </CardContent>
+          </Card>
+
+          {/* Images — Editable */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <ImageIcon className="h-5 w-5 text-pink-600" />
+                Product Images
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {ondcImages.map((img, idx) => (
+                  <div
+                    key={idx}
+                    className="relative w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center group"
+                  >
+                    <ImageIcon className="h-6 w-6 text-gray-400" />
+                    <button
+                      type="button"
+                      onClick={() => setOndcImages((prev) => prev.filter((_, i) => i !== idx))}
+                      className="absolute top-1 right-1 p-0.5 rounded bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setOndcImages((prev) => [...prev, `img-${prev.length + 1}`])}
+                  className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 flex flex-col items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
+                >
+                  <ImageIcon className="h-5 w-5 mb-1" />
+                  <span className="text-xs">Upload</span>
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">
+                {ondcImages.length} image{ondcImages.length !== 1 ? "s" : ""} uploaded — used in ONDC payload
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Offers & Schemes — display-only even on ONDC side per spec */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Gift className="h-5 w-5 text-amber-600" />
+                Offers & Schemes
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-700">
+                {mockOffers[sku.id]?.length
+                  ? `${mockOffers[sku.id].length} offer(s) inherited from DMS`
+                  : "No offers inherited"}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Managed centrally in DMS — no override available.
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
+    </div>
+  );
+}
+
+// Read-only field
+function ReadField({ label, value, multiline }: { label: string; value: string; multiline?: boolean }) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+      {multiline ? (
+        <p className="text-sm text-gray-900 whitespace-pre-wrap">{value || "—"}</p>
+      ) : (
+        <p className="text-sm text-gray-900">{value || "—"}</p>
+      )}
+    </div>
+  );
+}
+
+// Editable input field
+function EditField({
+  label,
+  value,
+  onChange,
+  edited,
+  required,
+  multiline,
+  prefix,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  edited?: boolean;
+  required?: boolean;
+  multiline?: boolean;
+  prefix?: string;
+  type?: "text" | "number";
+}) {
+  const missing = required && (!value || String(value).trim() === "");
+  const borderClass = missing
+    ? "border-red-400 focus-within:ring-red-500"
+    : edited
+      ? "border-amber-400 focus-within:ring-amber-500"
+      : "border-gray-300 focus-within:ring-blue-500";
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </p>
+      {multiline ? (
+        <textarea
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          rows={3}
+          className={`w-full px-3 py-2 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
+        />
+      ) : (
+        <div className={`flex items-center rounded-md border bg-white focus-within:ring-2 ${borderClass}`}>
+          {prefix && <span className="pl-3 text-gray-500 text-sm">{prefix}</span>}
+          <input
+            type={type}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 px-3 py-2 rounded-md text-sm bg-transparent focus:outline-none"
+          />
+        </div>
+      )}
+      <div className="flex items-center gap-2 mt-1">
+        {edited && (
+          <span className="inline-flex items-center gap-1 text-xs text-amber-700">
+            <Sparkles className="h-3 w-3" />
+            Edited
+          </span>
+        )}
+        {missing && (
+          <span className="inline-flex items-center gap-1 text-xs text-red-600">
+            <AlertCircle className="h-3 w-3" />
+            Required
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Editable select field
+function EditSelectField({
+  label,
+  value,
+  onChange,
+  edited,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  edited?: boolean;
+  options: string[];
+}) {
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">{label}</p>
+      <Select value={value} onValueChange={onChange}>
+        <SelectTrigger className={edited ? "border-amber-400" : ""}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((opt) => (
+            <SelectItem key={opt} value={opt}>
+              {opt}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {edited && (
+        <span className="inline-flex items-center gap-1 text-xs text-amber-700 mt-1">
+          <Sparkles className="h-3 w-3" />
+          Edited
+        </span>
+      )}
     </div>
   );
 }

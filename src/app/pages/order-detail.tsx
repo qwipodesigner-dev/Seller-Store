@@ -463,70 +463,28 @@ export function OrderDetail() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid md:grid-cols-4 gap-6">
+            <div className="grid md:grid-cols-2 gap-6">
               <div>
                 <Label className="text-gray-600 text-xs">Channel Order ID</Label>
                 <p className="font-mono text-sm text-gray-900">{orderData.channelOrderId}</p>
               </div>
               <div>
-                <Label className="text-gray-600 text-xs">Payment Mode</Label>
-                <Badge
-                  variant={orderData.paymentMode === "COD" ? "secondary" : "default"}
-                  className="mt-1"
-                >
-                  {orderData.paymentMode}
-                </Badge>
-              </div>
-              <div>
                 <Label className="text-gray-600 text-xs">Original Order Value</Label>
-                <p className="font-semibold text-gray-900 flex items-center gap-1">
-                  <DollarSign className="h-4 w-4" />
-                  ₹{orderData.orderValue.toFixed(2)}
-                </p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Current Order Value</Label>
-                <p className="font-bold text-green-600 flex items-center gap-1 text-lg">
-                  <DollarSign className="h-5 w-5" />
-                  ₹{calculateTotal().toFixed(2)}
+                <p className="font-semibold text-gray-900">
+                  ₹{orderData.orderValue.toLocaleString("en-IN")}
                 </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Product List */}
+        {/* Product List — read-only */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5 text-purple-600" />
-                Order Items ({orderData.products.length})
-              </CardTitle>
-              {hasModifications && (
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-300">
-                    <Edit3 className="h-3 w-3 mr-1" />
-                    Modified
-                  </Badge>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleResetChanges}
-                  >
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    Reset Changes
-                  </Button>
-                  <Button
-                    size="sm"
-                    className="bg-blue-600 hover:bg-blue-700"
-                    onClick={handleUpdateOrder}
-                  >
-                    Update Order
-                  </Button>
-                </div>
-              )}
-            </div>
+            <CardTitle className="flex items-center gap-2">
+              <Package className="h-5 w-5 text-purple-600" />
+              Order Items ({orderData.products.length})
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="border rounded-lg overflow-hidden">
@@ -541,13 +499,7 @@ export function OrderDetail() {
                         SKU ID
                       </th>
                       <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        Ordered Qty
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        Available Stock
-                      </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        Editable Qty
+                        Qty
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
                         Price/Unit
@@ -559,83 +511,32 @@ export function OrderDetail() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {orderData.products.map((product) => (
-                      <tr
-                        key={product.id}
-                        className={`transition-colors ${
-                          product.isModified ? "bg-amber-50" : "hover:bg-gray-50"
-                        }`}
-                      >
+                      <tr key={product.id} className="hover:bg-gray-50">
                         <td className="px-4 py-4">
-                          <div>
-                            <p className="font-medium text-gray-900">{product.name}</p>
-                            {product.isModified && (
-                              <Badge variant="outline" className="mt-1 text-xs">
-                                Modified
-                              </Badge>
-                            )}
-                          </div>
+                          <p className="font-medium text-gray-900">{product.name}</p>
                         </td>
                         <td className="px-4 py-4">
-                          <p className="text-sm font-mono text-gray-600">
-                            {product.skuId}
-                          </p>
+                          <p className="text-sm font-mono text-gray-600">{product.skuId}</p>
                         </td>
                         <td className="px-4 py-4 text-center">
-                          <p className="font-semibold text-gray-900">
-                            {product.orderedQuantity}
-                          </p>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <Badge
-                            variant={
-                              product.availableStock >= product.orderedQuantity
-                                ? "secondary"
-                                : "destructive"
-                            }
-                          >
-                            {product.availableStock}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex flex-col items-center">
-                            <Input
-                              type="number"
-                              min="0"
-                              max={product.availableStock}
-                              value={product.editableQuantity}
-                              onChange={(e) =>
-                                handleQuantityChange(product.id, e.target.value)
-                              }
-                              className={`w-20 text-center font-semibold ${
-                                product.editableQuantity > product.availableStock
-                                  ? "border-red-500 bg-red-50"
-                                  : product.isModified
-                                  ? "border-amber-500 bg-amber-50"
-                                  : ""
-                              }`}
-                              disabled={orderData.status !== "New"}
-                            />
-                            {getStockWarning(product)}
-                          </div>
+                          <p className="font-semibold text-gray-900">{product.orderedQuantity}</p>
                         </td>
                         <td className="px-4 py-4 text-right">
                           <p className="text-gray-900">₹{product.pricePerUnit}</p>
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <p className="font-semibold text-gray-900">
-                            ₹{product.totalPrice}
-                          </p>
+                          <p className="font-semibold text-gray-900">₹{product.totalPrice}</p>
                         </td>
                       </tr>
                     ))}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2">
                     <tr>
-                      <td colSpan={6} className="px-4 py-4 text-right font-semibold">
+                      <td colSpan={4} className="px-4 py-4 text-right font-semibold">
                         Total Order Value:
                       </td>
                       <td className="px-4 py-4 text-right font-bold text-lg text-green-600">
-                        ₹{calculateTotal().toFixed(2)}
+                        ₹{orderData.orderValue.toLocaleString("en-IN")}
                       </td>
                     </tr>
                   </tfoot>

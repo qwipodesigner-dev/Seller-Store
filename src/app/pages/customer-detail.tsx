@@ -333,83 +333,26 @@ export function CustomerDetail() {
 
               <Separator />
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Source</p>
-                  <Badge variant="outline">{customer.source}</Badge>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Sync Status</p>
-                  {getSyncBadge()}
-                </div>
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Source</p>
+                <Badge variant="outline">{customer.source}</Badge>
               </div>
             </CardContent>
           </Card>
 
-          {/* Registration & Activity */}
+          {/* Registration Date */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Calendar className="h-5 w-5 text-indigo-600" />
-                Registration & Activity
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Registered On</p>
-                  <p className="font-medium text-gray-900">
-                    {new Date(customer.registrationDate).toLocaleDateString("en-IN", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
-                </div>
-                {customer.approvedDate && (
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Approved On</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(customer.approvedDate).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                )}
+            <CardContent className="p-5">
+              <div>
+                <p className="text-xs text-gray-500 mb-1">Requested for Registration On</p>
+                <p className="font-medium text-gray-900">
+                  {new Date(customer.registrationDate).toLocaleDateString("en-IN", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  })}
+                </p>
               </div>
-
-              <Separator />
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Orders</p>
-                  <p className="text-2xl font-bold text-gray-900">{customer.totalOrders}</p>
-                </div>
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Total Revenue</p>
-                  <p className="text-2xl font-bold text-green-600">
-                    ₹{customer.totalRevenue.toLocaleString("en-IN")}
-                  </p>
-                </div>
-              </div>
-
-              {customer.lastOrderDate && (
-                <>
-                  <Separator />
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Last Order Date</p>
-                    <p className="font-medium text-gray-900">
-                      {new Date(customer.lastOrderDate).toLocaleDateString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        year: "numeric",
-                      })}
-                    </p>
-                  </div>
-                </>
-              )}
             </CardContent>
           </Card>
 
@@ -502,26 +445,6 @@ export function CustomerDetail() {
                   </div>
                 </div>
 
-                {/* Quick Actions */}
-                {customer.status === "Pending Approval" && (
-                  <div className="flex gap-3">
-                    <Button
-                      onClick={() => setRejectDialogOpen(true)}
-                      variant="outline"
-                      className="flex-1 border-red-300 text-red-700 hover:bg-red-50"
-                    >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Reject
-                    </Button>
-                    <Button
-                      onClick={() => setApproveDialogOpen(true)}
-                      className="flex-1 bg-green-600 hover:bg-green-700"
-                    >
-                      <CheckCircle2 className="h-4 w-4 mr-2" />
-                      Approve
-                    </Button>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>

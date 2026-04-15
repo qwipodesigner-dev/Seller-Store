@@ -639,9 +639,6 @@ export function Orders() {
                 Order Value
               </th>
               <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
-                Payment
-              </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
                 Marketplace
               </th>
               <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
@@ -685,18 +682,6 @@ export function Orders() {
                   <p className="font-semibold text-gray-900">
                     ₹{order.orderValue.toLocaleString()}
                   </p>
-                </td>
-                <td className="py-4 px-6">
-                  <Badge
-                    variant="outline"
-                    className={
-                      order.paymentMode === "Prepaid"
-                        ? "bg-purple-50 text-purple-700 border-purple-300"
-                        : "bg-orange-50 text-orange-700 border-orange-300"
-                    }
-                  >
-                    {order.paymentMode}
-                  </Badge>
                 </td>
                 <td className="py-4 px-6">
                   <Badge variant="outline" className="bg-gray-50">
