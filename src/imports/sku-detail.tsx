@@ -20,7 +20,7 @@ import {
 const skuData: Record<string, any> = {
   "1": {
     id: "1",
-    name: "Fortune Sunlite Refined Sunflower Oil",
+    name: "Fortune Sunlite Refined Sunflower oil",
     sku: "FOR-SUN-1L-001",
     category: "Edible Oil",
     brand: "Fortune",

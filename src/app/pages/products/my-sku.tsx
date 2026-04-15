@@ -70,7 +70,7 @@ interface SKUData {
 const sampleSKUs: SKUData[] = [
   {
     id: "1",
-    name: "Fortune Sunlite Refined Sunflower Oil",
+    name: "Fortune Sunlite Refined Sunflower oil",
     category: "Edible Oil",
     brand: "Fortune",
     source: "Brand Sync",
@@ -81,7 +81,7 @@ const sampleSKUs: SKUData[] = [
       isCompliant: true,
       missingFields: [],
       ondcData: {
-        productName: "Fortune Sunlite Refined Sunflower Oil",
+        productName: "Fortune Sunlite Refined Sunflower oil",
         mrp: "185.00",
         hsnCode: "15121900",
         countryOfOrigin: "India",
