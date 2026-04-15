@@ -502,14 +502,6 @@ export function MySKU() {
                   <Filter className="h-4 w-4" />
                   Filters
                 </Button>
-                <Button
-                  onClick={handleAddSKU}
-                  className="gap-2 flex-1 sm:flex-initial"
-                  size="sm"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add SKU
-                </Button>
               </div>
             </div>
 
