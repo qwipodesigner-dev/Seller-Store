@@ -9,14 +9,24 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
+import { MultiSelect } from "./ui/multi-select";
+
+const brandOptions = [
+  { label: "ITC", value: "ITC" },
+  { label: "HUL", value: "HUL" },
+  { label: "Parle", value: "Parle" },
+  { label: "Britannia", value: "Britannia" },
+  { label: "Nestle", value: "Nestle" },
+  { label: "Dabur", value: "Dabur" },
+];
 
 interface FilterDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   activeTab: string;
   // Brand filter (common)
-  selectedBrands: string;
-  setSelectedBrands: (value: string) => void;
+  selectedBrands: string[];
+  setSelectedBrands: (value: string[]) => void;
   // Master tab filters
   masterApprovalFilter: string;
   setMasterApprovalFilter: (value: string) => void;
@@ -97,19 +107,13 @@ export function FilterDrawer({
                     <Label className="text-sm font-medium text-gray-700">
                       Brand
                     </Label>
-                    <Select value={selectedBrands} onValueChange={setSelectedBrands}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Brand" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Brands</SelectItem>
-                        <SelectItem value="ITC">ITC</SelectItem>
-                        <SelectItem value="HUL">HUL</SelectItem>
-                        <SelectItem value="Parle">Parle</SelectItem>
-                        <SelectItem value="Britannia">Britannia</SelectItem>
-                        <SelectItem value="Nestle">Nestle</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      options={brandOptions}
+                      selected={selectedBrands}
+                      onChange={setSelectedBrands}
+                      placeholder="All Brands"
+                      className="w-full"
+                    />
                   </div>
 
                   {/* Approval Status Filter */}
@@ -173,19 +177,13 @@ export function FilterDrawer({
                     <Label className="text-sm font-medium text-gray-700">
                       Brand
                     </Label>
-                    <Select value={selectedBrands} onValueChange={setSelectedBrands}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Brand" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Brands</SelectItem>
-                        <SelectItem value="ITC">ITC</SelectItem>
-                        <SelectItem value="HUL">HUL</SelectItem>
-                        <SelectItem value="Parle">Parle</SelectItem>
-                        <SelectItem value="Britannia">Britannia</SelectItem>
-                        <SelectItem value="Nestle">Nestle</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      options={brandOptions}
+                      selected={selectedBrands}
+                      onChange={setSelectedBrands}
+                      placeholder="All Brands"
+                      className="w-full"
+                    />
                   </div>
                 </div>
               )}
@@ -197,19 +195,13 @@ export function FilterDrawer({
                     <Label className="text-sm font-medium text-gray-700">
                       Brand
                     </Label>
-                    <Select value={selectedBrands} onValueChange={setSelectedBrands}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Brand" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Brands</SelectItem>
-                        <SelectItem value="ITC">ITC</SelectItem>
-                        <SelectItem value="HUL">HUL</SelectItem>
-                        <SelectItem value="Parle">Parle</SelectItem>
-                        <SelectItem value="Britannia">Britannia</SelectItem>
-                        <SelectItem value="Nestle">Nestle</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      options={brandOptions}
+                      selected={selectedBrands}
+                      onChange={setSelectedBrands}
+                      placeholder="All Brands"
+                      className="w-full"
+                    />
                   </div>
 
                   {/* Approval Status Filter */}

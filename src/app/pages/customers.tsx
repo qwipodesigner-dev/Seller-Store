@@ -37,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FilterDrawer } from "../components/FilterDrawer";
@@ -177,7 +178,7 @@ export function Customers() {
   const [masterSearchQuery, setMasterSearchQuery] = useState("");
   const [dmsSearchQuery, setDmsSearchQuery] = useState("");
   const [ondcSearchQuery, setOndcSearchQuery] = useState("");
-  const [selectedBrands, setSelectedBrands] = useState<string>("all");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   
   // Master tab filters
   const [masterApprovalFilter, setMasterApprovalFilter] = useState<string>("all");
@@ -242,8 +243,8 @@ export function Customers() {
       customer.customerName.toLowerCase().includes(masterSearchQuery.toLowerCase()) ||
       customer.mobile.includes(masterSearchQuery);
     
-    const matchesBrand = selectedBrands === "all" || 
-      customer.brands.some(b => b.name === selectedBrands);
+    const matchesBrand = selectedBrands.length === 0 ||
+      customer.brands.some(b => selectedBrands.includes(b.name));
     
     const matchesApproval = masterApprovalFilter === "all" || 
       customer.approvalStatus === masterApprovalFilter;
@@ -265,8 +266,8 @@ export function Customers() {
     
     const hasDMSBrands = customer.brands.some(b => b.source === "DMS");
     
-    const matchesBrand = selectedBrands === "all" || 
-      customer.brands.some(b => b.name === selectedBrands);
+    const matchesBrand = selectedBrands.length === 0 ||
+      customer.brands.some(b => selectedBrands.includes(b.name));
     
     const matchesApproval = masterApprovalFilter === "all" || 
       customer.approvalStatus === masterApprovalFilter;
@@ -284,8 +285,8 @@ export function Customers() {
     
     const hasONDCBrands = customer.brands.some(b => b.source === "ONDC");
     
-    const matchesBrand = selectedBrands === "all" || 
-      customer.brands.some(b => b.name === selectedBrands);
+    const matchesBrand = selectedBrands.length === 0 ||
+      customer.brands.some(b => selectedBrands.includes(b.name));
     
     const matchesApproval = ondcApprovalFilter === "all" || 
       customer.approvalStatus === ondcApprovalFilter;
@@ -342,7 +343,7 @@ export function Customers() {
   };
 
   const clearAllFilters = () => {
-    setSelectedBrands("all");
+    setSelectedBrands([]);
     setMasterApprovalFilter("all");
     setMasterSourceFilter("all");
     setMasterSyncFilter("all");
@@ -479,6 +480,23 @@ export function Customers() {
                     </button>
                   )}
                 </div>
+
+                {/* Applied Filter Tags */}
+                {selectedBrands.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {selectedBrands.map((brand) => (
+                      <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                        {brand}
+                        <button onClick={() => setSelectedBrands(selectedBrands.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedBrands([])} className="text-gray-500 text-xs h-6">
+                      Clear all
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* DMS Table */}
@@ -498,9 +516,6 @@ export function Customers() {
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Brands
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Last Synced At
-                      </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -510,7 +525,7 @@ export function Customers() {
                       if (dmsCustomers.length === 0) {
                         return (
                           <tr>
-                            <td colSpan={5} className="px-6 py-12 text-center">
+                            <td colSpan={4} className="px-6 py-12 text-center">
                               <div className="flex flex-col items-center gap-2">
                                 <Database className="h-12 w-12 text-gray-400" />
                                 <p className="text-sm font-medium text-gray-900">No DMS customers found</p>
@@ -551,9 +566,6 @@ export function Customers() {
                                 <span className="text-sm font-medium">{dmsBrands.length} {dmsBrands.length === 1 ? "Brand" : "Brands"}</span>
                               </Button>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <p className="text-xs text-gray-600">{customer.lastUpdated}</p>
-                            </td>
                           </tr>
                         );
                       });
@@ -584,6 +596,23 @@ export function Customers() {
                     </button>
                   )}
                 </div>
+
+                {/* Applied Filter Tags */}
+                {selectedBrands.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {selectedBrands.map((brand) => (
+                      <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                        {brand}
+                        <button onClick={() => setSelectedBrands(selectedBrands.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedBrands([])} className="text-gray-500 text-xs h-6">
+                      Clear all
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* ONDC Table */}
