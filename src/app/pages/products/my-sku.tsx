@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Label } from "../../components/ui/label";
+import { MultiSelect } from "../../components/ui/multi-select";
 import {
   Select,
   SelectContent,
@@ -20,12 +21,14 @@ import {
 } from "../../components/ui/dropdown-menu";
 import {
   Search,
-  Plus,
   Eye,
   Pencil,
   MoreVertical,
   Filter,
   X,
+  Database,
+  CheckCircle2,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -379,8 +382,9 @@ export function MySKU() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [brandFilter, setBrandFilter] = useState("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
+  const [ondcFilter, setOndcFilter] = useState("all");
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -398,14 +402,19 @@ export function MySKU() {
       sku.brand.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || sku.status === statusFilter;
-    const matchesCategory = categoryFilter === "all" || sku.category === categoryFilter;
-    const matchesBrand = brandFilter === "all" || sku.brand === brandFilter;
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(sku.category);
+    const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(sku.brand);
+    const matchesOndc =
+      ondcFilter === "all" ||
+      (ondcFilter === "compliant" && sku.ondcCompliance.isCompliant) ||
+      (ondcFilter === "non-compliant" && !sku.ondcCompliance.isCompliant);
 
     return (
       matchesSearch &&
       matchesStatus &&
       matchesCategory &&
-      matchesBrand
+      matchesBrand &&
+      matchesOndc
     );
   });
 
@@ -420,10 +429,6 @@ export function MySKU() {
     setCurrentPage(1);
   };
 
-  const handleAddSKU = () => {
-    navigate("/products/add-sku");
-  };
-
   const handleViewDetails = (sku: SKUData) => {
     navigate(`/products/sku-detail/${sku.id}`);
   };
@@ -434,8 +439,9 @@ export function MySKU() {
 
   const clearAllFilters = () => {
     setStatusFilter("all");
-    setCategoryFilter("all");
-    setBrandFilter("all");
+    setSelectedCategories([]);
+    setSelectedBrands([]);
+    setOndcFilter("all");
     setCurrentPage(1);
     toast.success("All filters cleared");
   };
@@ -505,18 +511,51 @@ export function MySKU() {
               </div>
             </div>
 
-            {/* Clear Filters */}
+            {/* Applied Filter Tags */}
             {(statusFilter !== "all" ||
-              categoryFilter !== "all" ||
-              brandFilter !== "all") && (
-              <div className="mt-3">
+              selectedCategories.length > 0 ||
+              selectedBrands.length > 0 ||
+              ondcFilter !== "all") && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {statusFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    Status: {statusFilter}
+                    <button onClick={() => { setStatusFilter("all"); setCurrentPage(1); }} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {selectedCategories.map((cat) => (
+                  <Badge key={cat} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                    {cat}
+                    <button onClick={() => { setSelectedCategories(selectedCategories.filter(c => c !== cat)); setCurrentPage(1); }} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {selectedBrands.map((brand) => (
+                  <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-green-50 text-green-700 border-green-200">
+                    {brand}
+                    <button onClick={() => { setSelectedBrands(selectedBrands.filter(b => b !== brand)); setCurrentPage(1); }} className="ml-1 hover:bg-green-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {ondcFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-orange-50 text-orange-700 border-orange-200">
+                    ONDC: {ondcFilter === "compliant" ? "Compliant" : "Non-Compliant"}
+                    <button onClick={() => { setOndcFilter("all"); setCurrentPage(1); }} className="ml-1 hover:bg-orange-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="text-gray-600"
+                  className="text-gray-500 text-xs h-6"
                 >
-                  Clear all filters
+                  Clear all
                 </Button>
               </div>
             )}
@@ -542,6 +581,9 @@ export function MySKU() {
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                    ONDC Compliance
+                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                     Last Updated
                   </th>
@@ -553,7 +595,7 @@ export function MySKU() {
               <tbody className="divide-y divide-gray-200">
                 {paginatedSKUs.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-gray-500">
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
                       No SKUs found
                     </td>
                   </tr>
@@ -584,6 +626,26 @@ export function MySKU() {
                         >
                           {sku.status}
                         </Badge>
+                      </td>
+                      <td className="px-4 py-4 text-center">
+                        {sku.ondcCompliance.isCompliant ? (
+                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Compliant
+                          </Badge>
+                        ) : (
+                          <div className="flex flex-col items-center gap-1">
+                            <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                              <AlertCircle className="h-3 w-3" />
+                              Non-Compliant
+                            </Badge>
+                            {sku.ondcCompliance.missingFields.length > 0 && (
+                              <span className="text-[10px] text-gray-500">
+                                {sku.ondcCompliance.missingFields.length} field{sku.ondcCompliance.missingFields.length > 1 ? "s" : ""} missing
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-4">
                         <span className="text-sm text-gray-600">{sku.lastUpdated}</span>
@@ -700,34 +762,34 @@ export function MySKU() {
                   {/* Category Filter */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Category</Label>
-                    <Select 
-                      value={categoryFilter} 
-                      onValueChange={(value) => {
-                        setCategoryFilter(value);
-                        handleFilterChange();
-                      }}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {uniqueCategories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      options={uniqueCategories.map((c) => ({ label: c, value: c }))}
+                      selected={selectedCategories}
+                      onChange={(values) => { setSelectedCategories(values); handleFilterChange(); }}
+                      placeholder="All Categories"
+                      className="w-full"
+                    />
                   </div>
 
                   {/* Brand Filter */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Brand</Label>
-                    <Select 
-                      value={brandFilter} 
+                    <MultiSelect
+                      options={uniqueBrands.map((b) => ({ label: b, value: b }))}
+                      selected={selectedBrands}
+                      onChange={(values) => { setSelectedBrands(values); handleFilterChange(); }}
+                      placeholder="All Brands"
+                      className="w-full"
+                    />
+                  </div>
+
+                  {/* ONDC Compliance Filter */}
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-gray-700">ONDC Compliance</Label>
+                    <Select
+                      value={ondcFilter}
                       onValueChange={(value) => {
-                        setBrandFilter(value);
+                        setOndcFilter(value);
                         handleFilterChange();
                       }}
                     >
@@ -735,12 +797,9 @@ export function MySKU() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Brands</SelectItem>
-                        {uniqueBrands.map((brand) => (
-                          <SelectItem key={brand} value={brand}>
-                            {brand}
-                          </SelectItem>
-                        ))}
+                        <SelectItem value="all">All</SelectItem>
+                        <SelectItem value="compliant">ONDC Compliant</SelectItem>
+                        <SelectItem value="non-compliant">Non-Compliant</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -754,8 +813,9 @@ export function MySKU() {
                   className="flex-1"
                   onClick={() => {
                     setStatusFilter("all");
-                    setCategoryFilter("all");
-                    setBrandFilter("all");
+                    setSelectedCategories([]);
+                    setSelectedBrands([]);
+                    setOndcFilter("all");
                     setCurrentPage(1);
                     toast.success("All filters cleared");
                   }}

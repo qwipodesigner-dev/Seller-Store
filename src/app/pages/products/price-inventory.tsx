@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { Badge } from "../../components/ui/badge";
+import { MultiSelect } from "../../components/ui/multi-select";
 import { Switch } from "../../components/ui/switch";
 import {
   Select,
@@ -36,7 +37,6 @@ import {
   XCircle,
   CheckCircle,
   Filter,
-  Settings,
   Database,
   Infinity,
   ShieldCheck,
@@ -257,7 +257,6 @@ export function PriceInventory() {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
-  const [isThresholdOpen, setIsThresholdOpen] = useState(false);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -265,11 +264,8 @@ export function PriceInventory() {
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [sourceFilter, setSourceFilter] = useState<string>("all");
-  const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [brandFilter, setBrandFilter] = useState<string>("all");
-  const [stockStatusFilter, setStockStatusFilter] = useState<string>("all");
-  const [ondcFilter, setOndcFilter] = useState<string>("all");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
 
   // Edit form state
   const [editMrp, setEditMrp] = useState("");
@@ -309,27 +305,14 @@ export function PriceInventory() {
       product.brand.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesStatus = statusFilter === "all" || product.status === statusFilter;
-    const matchesSource = sourceFilter === "all" || product.source === sourceFilter;
-    const matchesCategory = categoryFilter === "all" || product.category === categoryFilter;
-    const matchesBrand = brandFilter === "all" || product.brand === brandFilter;
-
-    const stockStatus = getStockStatus(product);
-    const matchesStockStatus =
-      stockStatusFilter === "all" || stockStatus === stockStatusFilter;
-
-    const matchesOndc =
-      ondcFilter === "all" ||
-      (ondcFilter === "compliant" && product.ondcCompliant) ||
-      (ondcFilter === "non-compliant" && !product.ondcCompliant);
+    const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(product.category);
+    const matchesBrand = selectedBrands.length === 0 || selectedBrands.includes(product.brand);
 
     return (
       matchesSearch &&
       matchesStatus &&
-      matchesSource &&
       matchesCategory &&
-      matchesBrand &&
-      matchesStockStatus &&
-      matchesOndc
+      matchesBrand
     );
   });
 
@@ -415,11 +398,9 @@ export function PriceInventory() {
 
   const clearAllFilters = () => {
     setStatusFilter("all");
-    setSourceFilter("all");
-    setCategoryFilter("all");
-    setBrandFilter("all");
-    setStockStatusFilter("all");
-    setOndcFilter("all");
+    setSelectedCategories([]);
+    setSelectedBrands([]);
+    setCurrentPage(1);
     toast.success("All filters cleared");
   };
 
@@ -501,32 +482,45 @@ export function PriceInventory() {
                   <Filter className="h-4 w-4" />
                   Filters
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={() => setIsThresholdOpen(true)}
-                  className="gap-2 flex-1 sm:flex-initial"
-                >
-                  <Settings className="h-4 w-4" />
-                  Settings
-                </Button>
               </div>
             </div>
 
-            {/* Clear Filters */}
+            {/* Applied Filter Tags */}
             {(statusFilter !== "all" ||
-              sourceFilter !== "all" ||
-              categoryFilter !== "all" ||
-              brandFilter !== "all" ||
-              stockStatusFilter !== "all" ||
-              ondcFilter !== "all") && (
-              <div className="mt-3">
+              selectedCategories.length > 0 ||
+              selectedBrands.length > 0) && (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {statusFilter !== "all" && (
+                  <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                    Status: {statusFilter}
+                    <button onClick={() => { setStatusFilter("all"); setCurrentPage(1); }} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                )}
+                {selectedCategories.map((cat) => (
+                  <Badge key={cat} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                    {cat}
+                    <button onClick={() => { setSelectedCategories(selectedCategories.filter(c => c !== cat)); setCurrentPage(1); }} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+                {selectedBrands.map((brand) => (
+                  <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-green-50 text-green-700 border-green-200">
+                    {brand}
+                    <button onClick={() => { setSelectedBrands(selectedBrands.filter(b => b !== brand)); setCurrentPage(1); }} className="ml-1 hover:bg-green-200 rounded-full p-0.5">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={clearAllFilters}
-                  className="text-gray-600"
+                  className="text-gray-500 text-xs h-6"
                 >
-                  Clear all filters
+                  Clear all
                 </Button>
               </div>
             )}
@@ -995,89 +989,30 @@ export function PriceInventory() {
                     </Select>
                   </div>
 
-                  {/* Source Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">Source</Label>
-                    <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Sources</SelectItem>
-                        <SelectItem value="DMS Sync">DMS Sync</SelectItem>
-                        <SelectItem value="Manual">Manual</SelectItem>
-                        <SelectItem value="Brand Sync">Brand Sync</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   {/* Category Filter */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Category</Label>
-                    <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Categories</SelectItem>
-                        {uniqueCategories.map((category) => (
-                          <SelectItem key={category} value={category}>
-                            {category}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      options={uniqueCategories.map((c) => ({ label: c, value: c }))}
+                      selected={selectedCategories}
+                      onChange={setSelectedCategories}
+                      placeholder="All Categories"
+                      className="w-full"
+                    />
                   </div>
 
                   {/* Brand Filter */}
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-gray-700">Brand</Label>
-                    <Select value={brandFilter} onValueChange={setBrandFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Brands</SelectItem>
-                        {uniqueBrands.map((brand) => (
-                          <SelectItem key={brand} value={brand}>
-                            {brand}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <MultiSelect
+                      options={uniqueBrands.map((b) => ({ label: b, value: b }))}
+                      selected={selectedBrands}
+                      onChange={setSelectedBrands}
+                      placeholder="All Brands"
+                      className="w-full"
+                    />
                   </div>
 
-                  {/* Stock Status Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">Stock Status</Label>
-                    <Select value={stockStatusFilter} onValueChange={setStockStatusFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Stock Status</SelectItem>
-                        <SelectItem value="in-stock">In Stock</SelectItem>
-                        <SelectItem value="low-stock">Low Stock</SelectItem>
-                        <SelectItem value="out-of-stock">Out of Stock</SelectItem>
-                        <SelectItem value="infinite">Infinite Stock</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* ONDC Filter */}
-                  <div className="space-y-2">
-                    <Label className="text-sm font-medium text-gray-700">ONDC Compliance</Label>
-                    <Select value={ondcFilter} onValueChange={setOndcFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Products</SelectItem>
-                        <SelectItem value="compliant">ONDC Compliant</SelectItem>
-                        <SelectItem value="non-compliant">Non-Compliant</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
               </div>
 
@@ -1104,26 +1039,6 @@ export function PriceInventory() {
         )}
       </AnimatePresence>
 
-      {/* Threshold Settings Dialog */}
-      <Dialog open={isThresholdOpen} onOpenChange={setIsThresholdOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Inventory Settings</DialogTitle>
-            <DialogDescription>
-              Configure default threshold levels and stock management settings
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-gray-600">
-              Settings functionality coming soon. You can set individual thresholds when
-              editing each product.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button onClick={() => setIsThresholdOpen(false)}>Close</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
