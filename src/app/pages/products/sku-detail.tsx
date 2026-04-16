@@ -728,6 +728,11 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondc={<TextInput value={ondc.innerPack} onChange={(v) => update("innerPack", v)} edited={isEdited("innerPack")} />}
         />
         <DualRow
+          label="UPC"
+          dms={dms.upc}
+          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} />}
+        />
+        <DualRow
           label="Time to Ship"
           dms={dms.timeToShip}
           ondc={<TextInput value={ondc.timeToShip} onChange={(v) => update("timeToShip", v)} edited={isEdited("timeToShip")} />}
@@ -762,14 +767,6 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
       </DualSection>
 
-      {/* Identification & Codes */}
-      <DualSection title="Identification & Codes" icon={<Tag className="h-5 w-5 text-teal-600" />}>
-        <DualRow
-          label="UPC"
-          dms={dms.upc}
-          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} />}
-        />
-      </DualSection>
 
       {/* Product Images */}
       <DualSection title="Product Images" icon={<ImageIcon className="h-5 w-5 text-pink-600" />}>
@@ -821,25 +818,6 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
       </DualSection>
 
-      {/* Offers & Schemes — read-only, single column */}
-      <Card>
-        <CardHeader className="py-4 border-b border-gray-100">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Gift className="h-5 w-5 text-amber-600" />
-            Offers & Schemes
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <p className="text-sm text-gray-700">
-            {mockOffers[sku.id]?.length
-              ? `${mockOffers[sku.id].length} offer(s) applied from DMS`
-              : "No offers from DMS"}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Read-only — managed centrally in DMS
-          </p>
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -1175,7 +1153,7 @@ function OffersTab({ skuId }: { skuId: string }) {
 export function SKUDetail() {
   const navigate = useNavigate();
   const { skuId } = useParams();
-  const [activeTab, setActiveTab] = useState<"details" | "offers">("details");
+  const [activeTab, setActiveTab] = useState<"details">("details");
 
   const sku = skuData[skuId || "1"] || skuData["1"];
 
@@ -1228,30 +1206,11 @@ export function SKUDetail() {
               Product Details
             </div>
           </button>
-          <button
-            onClick={() => setActiveTab("offers")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === "offers"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Gift className="h-4 w-4" />
-              Offers & Schemes
-              {offersCount > 0 && (
-                <Badge className="bg-red-500 text-white border-red-600 ml-1">
-                  {offersCount}
-                </Badge>
-              )}
-            </div>
-          </button>
         </nav>
       </div>
 
       {/* Tab Content */}
       {activeTab === "details" && <ProductDetailsTab sku={sku} />}
-      {activeTab === "offers" && <OffersTab skuId={skuId || "1"} />}
     </div>
   );
 }
