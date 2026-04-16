@@ -38,6 +38,7 @@ import { toast } from "sonner";
 interface Connector {
   id: string;
   name: string;
+  brandName?: string; // Brand/Company mapped to this connector (required for DMS)
   type: "DMS" | "Marketplace";
   status: "connected" | "not-connected";
   description: string;
@@ -51,13 +52,34 @@ export function Connectors() {
   // State for connectors
   const [connectors, setConnectors] = useState<Connector[]>([
     {
-      id: "bizom",
+      id: "bizom-freedom-oil",
       name: "Bizom",
+      brandName: "Freedom Oil",
       type: "DMS",
       status: "connected",
       description: "Sales Code based integration",
       icon: "🏭",
-      salesCode: "BIZ-12345",
+      salesCode: "BIZ-FO-001",
+    },
+    {
+      id: "bizom-pepsi",
+      name: "Bizom",
+      brandName: "Pepsi",
+      type: "DMS",
+      status: "connected",
+      description: "Sales Code based integration",
+      icon: "🏭",
+      salesCode: "BIZ-PP-002",
+    },
+    {
+      id: "bizom-marico",
+      name: "Bizom",
+      brandName: "Marico",
+      type: "DMS",
+      status: "connected",
+      description: "Sales Code based integration",
+      icon: "🏭",
+      salesCode: "BIZ-MR-003",
     },
     {
       id: "ondc",
@@ -74,12 +96,20 @@ export function Connectors() {
   const [addStep, setAddStep] = useState<1 | 2 | 3>(1);
   const [selectedCategory, setSelectedCategory] = useState<"Marketplace" | "DMS" | "">("");
   const [selectedType, setSelectedType] = useState("");
+  const [brandName, setBrandName] = useState("");
   const [salesCode, setSalesCode] = useState("");
 
-  // Check if connector already exists
-  const isConnectorAdded = (type: string) => {
+  // Check if marketplace connector already exists (DMS allows multiple)
+  const isMarketplaceAdded = (type: string) => {
     return connectors.some(
-      (c) => c.name.toLowerCase() === type.toLowerCase() && c.status === "connected"
+      (c) => c.name.toLowerCase() === type.toLowerCase() && c.type === "Marketplace" && c.status === "connected"
+    );
+  };
+
+  // Check if brand name already used for a DMS type
+  const isBrandNameTaken = (dmsType: string, brand: string) => {
+    return connectors.some(
+      (c) => c.name.toLowerCase() === dmsType.toLowerCase() && c.brandName?.toLowerCase() === brand.toLowerCase()
     );
   };
 
@@ -132,6 +162,7 @@ export function Connectors() {
     setAddStep(1);
     setSelectedCategory("");
     setSelectedType("");
+    setBrandName("");
     setSalesCode("");
     setIsAddDialogOpen(true);
   };
@@ -152,8 +183,8 @@ export function Connectors() {
       return;
     }
 
-    // Check if already added
-    if (isConnectorAdded(selectedType)) {
+    // Only restrict marketplace connectors (DMS allows multiple for different brands)
+    if (selectedCategory === "Marketplace" && isMarketplaceAdded(selectedType)) {
       toast.error(`${selectedType} connector is already added`);
       return;
     }
@@ -163,32 +194,48 @@ export function Connectors() {
 
   // Handle connector configuration and add
   const handleAddConnectorSubmit = () => {
-    // Validation for Bizom
-    if (selectedType === "Bizom" && !salesCode.trim()) {
-      toast.error("Please enter Sales Code");
-      return;
+    // Validation for DMS connectors
+    if (selectedCategory === "DMS") {
+      if (!brandName.trim()) {
+        toast.error("Please enter Brand / Company Name");
+        return;
+      }
+      if (isBrandNameTaken(selectedType, brandName.trim())) {
+        toast.error(`A ${selectedType} connector for "${brandName.trim()}" already exists`);
+        return;
+      }
+      if (!salesCode.trim()) {
+        toast.error("Please enter Sales Code");
+        return;
+      }
     }
+
+    // Generate unique ID
+    const connectorId = selectedCategory === "DMS"
+      ? `${selectedType.toLowerCase()}-${brandName.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`
+      : selectedType.toLowerCase();
 
     // Add connector
     const newConnector: Connector = {
-      id: selectedType.toLowerCase(),
+      id: connectorId,
       name: selectedType,
+      brandName: selectedCategory === "DMS" ? brandName.trim() : undefined,
       type: selectedCategory as "DMS" | "Marketplace",
       status: "connected",
       description:
-        selectedType === "Bizom"
+        selectedCategory === "DMS"
           ? "Sales Code based integration"
           : "Open Network for Digital Commerce",
-      icon: selectedType === "Bizom" ? "🏭" : "🌐",
-      salesCode: selectedType === "Bizom" ? salesCode : undefined,
+      icon: selectedCategory === "DMS" ? "🏭" : "🌐",
+      salesCode: selectedCategory === "DMS" ? salesCode : undefined,
     };
 
     setConnectors((prev) => [...prev, newConnector]);
 
     toast.success(
-      `${selectedType} connector added successfully!${
-        salesCode ? ` Sales Code: ${salesCode}` : ""
-      }`
+      selectedCategory === "DMS"
+        ? `${selectedType} – ${brandName.trim()} connector added successfully!`
+        : `${selectedType} connector added successfully!`
     );
 
     // Close dialog
@@ -196,6 +243,7 @@ export function Connectors() {
     setAddStep(1);
     setSelectedCategory("");
     setSelectedType("");
+    setBrandName("");
     setSalesCode("");
   };
 
@@ -206,6 +254,7 @@ export function Connectors() {
       setSelectedType("");
     } else if (addStep === 3) {
       setAddStep(2);
+      setBrandName("");
       setSalesCode("");
     }
   };
@@ -237,9 +286,9 @@ export function Connectors() {
             <div className="text-sm text-blue-900">
               <p className="font-medium mb-1">Connector Framework</p>
               <p className="text-blue-800">
-                Connect your DMS systems (Bizom) and marketplaces (ONDC) to sync
-                products, inventory, orders, and more. Click on any connected
-                connector to manage its configuration.
+                Connect your DMS systems (Bizom) for each brand and marketplaces (ONDC) to sync
+                products, inventory, orders, and more. You can add multiple DMS connectors — one per brand.
+                Click on any connected connector to manage its configuration.
               </p>
             </div>
           </div>
@@ -269,8 +318,13 @@ export function Connectors() {
                       <div className="text-5xl">{connector.icon}</div>
                       <div>
                         <h3 className="text-lg font-bold text-gray-900">
-                          {connector.name}
+                          {connector.name}{connector.brandName ? ` – ${connector.brandName}` : ""}
                         </h3>
+                        {connector.brandName && (
+                          <p className="text-xs text-blue-600 font-medium mt-0.5">
+                            {connector.brandName}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-600 mt-0.5">
                           {connector.description}
                         </p>
@@ -328,7 +382,7 @@ export function Connectors() {
             ))}
 
             {/* Empty State - Add More */}
-            {connectors.length < 2 && (
+            {(
               <Card
                 className="border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer hover:bg-blue-50/50 transition-all"
                 onClick={handleAddConnector}
@@ -525,10 +579,10 @@ export function Connectors() {
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-200 hover:border-gray-300"
                         } ${
-                          isConnectorAdded("ONDC") ? "opacity-50 cursor-not-allowed" : ""
+                          isMarketplaceAdded("ONDC") ? "opacity-50 cursor-not-allowed" : ""
                         }`}
                         onClick={() =>
-                          !isConnectorAdded("ONDC") && setSelectedType("ONDC")
+                          !isMarketplaceAdded("ONDC") && setSelectedType("ONDC")
                         }
                       >
                         <CardContent className="p-4 flex items-center gap-3">
@@ -539,7 +593,7 @@ export function Connectors() {
                               Open Network for Digital Commerce
                             </p>
                           </div>
-                          {isConnectorAdded("ONDC") && (
+                          {isMarketplaceAdded("ONDC") && (
                             <Badge className="bg-green-100 text-green-700 border-green-300">
                               Already Added
                             </Badge>
@@ -554,12 +608,8 @@ export function Connectors() {
                           selectedType === "Bizom"
                             ? "border-blue-500 bg-blue-50"
                             : "border-gray-200 hover:border-gray-300"
-                        } ${
-                          isConnectorAdded("Bizom") ? "opacity-50 cursor-not-allowed" : ""
                         }`}
-                        onClick={() =>
-                          !isConnectorAdded("Bizom") && setSelectedType("Bizom")
-                        }
+                        onClick={() => setSelectedType("Bizom")}
                       >
                         <CardContent className="p-4 flex items-center gap-3">
                           <Factory className="h-10 w-10 text-blue-600" />
@@ -569,11 +619,9 @@ export function Connectors() {
                               Sales Code based integration
                             </p>
                           </div>
-                          {isConnectorAdded("Bizom") && (
-                            <Badge className="bg-green-100 text-green-700 border-green-300">
-                              Already Added
-                            </Badge>
-                          )}
+                          <Badge className="bg-blue-50 text-blue-600 border-blue-200">
+                            Multi-brand
+                          </Badge>
                         </CardContent>
                       </Card>
                     )}
@@ -602,21 +650,38 @@ export function Connectors() {
                     </div>
                   </div>
 
-                  {selectedType === "Bizom" && (
-                    <div className="space-y-2">
-                      <Label htmlFor="salesCode">
-                        Sales Code <span className="text-red-500">*</span>
-                      </Label>
-                      <Input
-                        id="salesCode"
-                        placeholder="Enter your Bizom Sales Code"
-                        value={salesCode}
-                        onChange={(e) => setSalesCode(e.target.value)}
-                      />
-                      <p className="text-xs text-gray-600">
-                        Your unique Sales Code provided by Bizom
-                      </p>
-                    </div>
+                  {selectedCategory === "DMS" && (
+                    <>
+                      <div className="space-y-2">
+                        <Label htmlFor="brandName">
+                          Brand / Company Name <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="brandName"
+                          placeholder="e.g., Freedom Oil, Pepsi, Marico"
+                          value={brandName}
+                          onChange={(e) => setBrandName(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-600">
+                          The brand or company this connector is mapped to
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="salesCode">
+                          Sales Code <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="salesCode"
+                          placeholder="Enter your Bizom Sales Code"
+                          value={salesCode}
+                          onChange={(e) => setSalesCode(e.target.value)}
+                        />
+                        <p className="text-xs text-gray-600">
+                          Your unique Sales Code provided by {selectedType}
+                        </p>
+                      </div>
+                    </>
                   )}
 
                   {selectedType === "ONDC" && (
