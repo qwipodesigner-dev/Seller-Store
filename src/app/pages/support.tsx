@@ -1,104 +1,140 @@
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Phone, Mail, HelpCircle } from "lucide-react";
+import { Card, CardContent } from "../components/ui/card";
+import { Phone, Mail, Clock, HelpCircle, MessageCircle } from "lucide-react";
 
 export function Support() {
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-full flex items-center justify-center">
-      <div className="max-w-2xl w-full">
-        {/* Header Card */}
-        <Card className="border-2 border-blue-200 shadow-lg">
-          <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 border-b">
-            <div className="flex items-center gap-3">
-              <div className="bg-blue-100 p-3 rounded-full">
-                <HelpCircle className="h-8 w-8 text-blue-600" />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">Support</CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  We're here to help you
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent className="p-8 space-y-6">
-            {/* Message */}
-            <div className="text-center py-4">
-              <p className="text-lg text-gray-700 font-medium">
-                For further information, please contact support team.
-              </p>
-            </div>
+    <div className="h-full flex flex-col bg-gray-50">
+      {/* Toolbar — matches other pages */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
+        <p className="text-sm text-gray-600">
+          Get help and reach our support team
+        </p>
+      </div>
 
-            {/* Contact Numbers */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 text-gray-600 mb-3">
-                <Phone className="h-5 w-5 text-blue-600" />
-                <h3 className="font-semibold text-gray-900">Contact Numbers</h3>
-              </div>
-              
-              <div className="grid gap-3">
-                {/* Contact Number 1 */}
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
-                  <div className="bg-blue-600 p-2 rounded-full">
-                    <Phone className="h-4 w-4 text-white" />
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto p-6">
+        <div className="max-w-4xl mx-auto space-y-6">
+          {/* Contact Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Support Line 1 */}
+            <Card className="border border-gray-200 hover:shadow-md transition-shadow">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-blue-100 text-blue-600 p-2.5 rounded-lg">
+                    <Phone className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600">Support Line 1</p>
-                    <a 
-                      href="tel:12345" 
+                    <p className="text-xs text-gray-500">Support Line 1</p>
+                    <a
+                      href="tel:12345"
                       className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                     >
                       12345
                     </a>
                   </div>
                 </div>
+                <p className="text-xs text-gray-500">
+                  General queries and order support
+                </p>
+              </CardContent>
+            </Card>
 
-                {/* Contact Number 2 */}
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
-                  <div className="bg-blue-600 p-2 rounded-full">
-                    <Phone className="h-4 w-4 text-white" />
+            {/* Support Line 2 */}
+            <Card className="border border-gray-200 hover:shadow-md transition-shadow">
+              <CardContent className="p-5">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-green-100 text-green-600 p-2.5 rounded-lg">
+                    <Phone className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600">Support Line 2</p>
-                    <a 
-                      href="tel:23456" 
+                    <p className="text-xs text-gray-500">Support Line 2</p>
+                    <a
+                      href="tel:23456"
                       className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors"
                     >
                       23456
                     </a>
                   </div>
                 </div>
+                <p className="text-xs text-gray-500">
+                  Technical support and integrations
+                </p>
+              </CardContent>
+            </Card>
 
-                {/* Contact Number 3 */}
-                <div className="flex items-center gap-3 p-4 bg-blue-50 rounded-lg border border-blue-200 hover:bg-blue-100 transition-colors">
-                  <div className="bg-blue-600 p-2 rounded-full">
-                    <Phone className="h-4 w-4 text-white" />
+          </div>
+
+          {/* Additional Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Email */}
+            <Card className="border border-gray-200">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="bg-amber-100 text-amber-600 p-2.5 rounded-lg">
+                    <Mail className="h-5 w-5" />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-600">Support Line 3</p>
-                    <a 
-                      href="tel:34567" 
-                      className="text-lg font-semibold text-gray-900 hover:text-blue-600 transition-colors"
+                    <p className="font-medium text-gray-900 text-sm">
+                      Email Support
+                    </p>
+                    <a
+                      href="mailto:support@qwipo.com"
+                      className="text-sm text-blue-600 hover:underline"
                     >
-                      34567
+                      support@qwipo.com
                     </a>
+                    <p className="text-xs text-gray-500 mt-1">
+                      We typically respond within 24 hours
+                    </p>
                   </div>
                 </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
 
-            {/* Additional Info */}
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
-                <Mail className="h-5 w-5 text-gray-600 mt-0.5" />
+            {/* Working Hours */}
+            <Card className="border border-gray-200">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="bg-teal-100 text-teal-600 p-2.5 rounded-lg">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-gray-900 text-sm">
+                      Working Hours
+                    </p>
+                    <p className="text-sm text-gray-700">
+                      Monday to Friday
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      9:00 AM – 6:00 PM IST
+                    </p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Help info */}
+          <Card className="border border-gray-200">
+            <CardContent className="p-5">
+              <div className="flex items-start gap-3">
+                <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
+                  <HelpCircle className="h-5 w-5" />
+                </div>
                 <div>
-                  <p className="text-sm text-gray-700">
-                    Our support team is available Monday to Friday, 9:00 AM - 6:00 PM
+                  <p className="font-medium text-gray-900 text-sm">
+                    Frequently Asked Questions
+                  </p>
+                  <p className="text-sm text-gray-600 mt-1">
+                    For common queries about catalog sync, order management,
+                    connector setup, and ONDC publishing, check our knowledge
+                    base or reach out to the support team above.
                   </p>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
