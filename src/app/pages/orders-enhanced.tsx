@@ -226,7 +226,6 @@ export function Orders() {
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
@@ -292,8 +291,6 @@ export function Orders() {
       const matchesSearch =
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesPayment =
-        paymentFilter === "all" || order.paymentMode === paymentFilter;
       const matchesMarketplace =
         marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
 
@@ -308,7 +305,6 @@ export function Orders() {
       return (
         matchesStatus &&
         matchesSearch &&
-        matchesPayment &&
         matchesMarketplace &&
         matchesDate
       );
@@ -317,7 +313,7 @@ export function Orders() {
 
   const currentTabOrders = useMemo(
     () => getTabOrders(activeTab),
-    [activeTab, orders, searchQuery, paymentFilter, marketplaceFilter, startDate, endDate]
+    [activeTab, orders, searchQuery, marketplaceFilter, startDate, endDate]
   );
 
   // Handle select all for current tab
@@ -429,7 +425,6 @@ export function Orders() {
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
-    setPaymentFilter("all");
     setMarketplaceFilter("all");
     setStartDate("");
     setEndDate("");
@@ -437,7 +432,6 @@ export function Orders() {
 
   const hasActiveFilters =
     searchQuery ||
-    paymentFilter !== "all" ||
     marketplaceFilter !== "all" ||
     startDate ||
     endDate;
@@ -1389,20 +1383,6 @@ export function Orders() {
               {/* Content */}
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentFilter">Payment Mode</Label>
-                    <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Payment" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Payment</SelectItem>
-                        <SelectItem value="COD">COD</SelectItem>
-                        <SelectItem value="Prepaid">Prepaid</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   <div className="space-y-2">
                     <Label htmlFor="marketplaceFilter">Marketplace</Label>
                     <Select
