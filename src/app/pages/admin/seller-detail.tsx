@@ -81,7 +81,20 @@ export function AdminSellerDetail() {
   const [configDialogType, setConfigDialogType] = useState<ConnectorType | "">("");
   const [configSellerId, setConfigSellerId] = useState("");
   const [configApiKey, setConfigApiKey] = useState("");
+  const [configBrandName, setConfigBrandName] = useState("");
   const [confirmDisconnect, setConfirmDisconnect] = useState<ConnectorType | null>(null);
+
+  // Additional DMS connectors (brand-mapped, beyond the single mock-store slot)
+  interface ExtraDmsConnector {
+    id: string;
+    brandName: string;
+    type: ConnectorType;
+    sellerId: string;
+  }
+  const [extraDmsConnectors, setExtraDmsConnectors] = useState<ExtraDmsConnector[]>([
+    { id: "bizom-pepsi", brandName: "Pepsi", type: "bizom", sellerId: "BIZ-PP-002" },
+    { id: "bizom-marico", brandName: "Marico", type: "bizom", sellerId: "BIZ-MR-003" },
+  ]);
 
   // Managed Companies dialog
   const [addCompaniesOpen, setAddCompaniesOpen] = useState(false);
@@ -138,6 +151,7 @@ export function AdminSellerDetail() {
     setConfigDialogType(type);
     setConfigSellerId("");
     setConfigApiKey("");
+    setConfigBrandName("");
     setConfigDialogOpen(true);
     setAddConnectorOpen(false);
   };
@@ -151,19 +165,51 @@ export function AdminSellerDetail() {
     if (!configSellerId.trim()) { toast.error("Seller ID is required"); return; }
     if (!configApiKey.trim()) { toast.error("API Key is required"); return; }
     const type = configDialogType as ConnectorType;
-    const config = { baseUrl: "", authToken: configApiKey, apiCreateSku: "", apiGetAllSkus: "", apiUpdateSku: "", apiCreateOrder: "", apiGetOrderDetails: "", apiGetAllCustomers: "" };
-    const updated = type === "bizom"
-      ? updateSellerBizomConfig(seller.id, config)
-      : updateSellerOndcConfig(seller.id, {
-          subscriberId: configSellerId, uniqueKeyId: "", privateKey: "", apiEndpoint: "", webhookUrl: "",
-          dataSyncTypes: [], syncFrequencyMinutes: 15, maxRetries: 3, autoRetry: true, autoSyncEnabled: true,
-        });
-    if (updated) {
-      toast.success(`${type === "bizom" ? "Bizom" : "ONDC"} connector added`);
-      setSeller(updated);
-      setConfigDialogOpen(false);
+
+    // For Bizom DMS — require brand name
+    if (type === "bizom") {
+      if (!configBrandName.trim()) { toast.error("Brand / Company Name is required"); return; }
+      // Check if brand already exists
+      const brandExists = extraDmsConnectors.some(c => c.brandName.toLowerCase() === configBrandName.trim().toLowerCase());
+      if (brandExists) { toast.error(`A Bizom connector for "${configBrandName.trim()}" already exists`); return; }
+
+      // If first bizom not connected, use the store slot
+      if (!bizomConnected) {
+        const config = { baseUrl: "", authToken: configApiKey, apiCreateSku: "", apiGetAllSkus: "", apiUpdateSku: "", apiCreateOrder: "", apiGetOrderDetails: "", apiGetAllCustomers: "" };
+        const updated = updateSellerBizomConfig(seller.id, config);
+        if (updated) {
+          toast.success(`Bizom – ${configBrandName.trim()} connector added`);
+          setSeller(updated);
+          // Store brand name for the primary bizom connector
+          setExtraDmsConnectors(prev => [{ id: `bizom-primary-brand`, brandName: configBrandName.trim(), type: "bizom", sellerId: configSellerId }, ...prev.filter(c => c.id !== "bizom-primary-brand")]);
+          setConfigDialogOpen(false);
+        } else {
+          toast.error("Failed to save connector");
+        }
+      } else {
+        // Add as extra DMS connector
+        setExtraDmsConnectors(prev => [...prev, {
+          id: `bizom-${configBrandName.trim().toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`,
+          brandName: configBrandName.trim(),
+          type: "bizom",
+          sellerId: configSellerId,
+        }]);
+        toast.success(`Bizom – ${configBrandName.trim()} connector added`);
+        setConfigDialogOpen(false);
+      }
     } else {
-      toast.error("Failed to save connector");
+      // ONDC
+      const updated = updateSellerOndcConfig(seller.id, {
+        subscriberId: configSellerId, uniqueKeyId: "", privateKey: "", apiEndpoint: "", webhookUrl: "",
+        dataSyncTypes: [], syncFrequencyMinutes: 15, maxRetries: 3, autoRetry: true, autoSyncEnabled: true,
+      });
+      if (updated) {
+        toast.success("ONDC connector added");
+        setSeller(updated);
+        setConfigDialogOpen(false);
+      } else {
+        toast.error("Failed to save connector");
+      }
     }
   };
 
@@ -422,7 +468,7 @@ export function AdminSellerDetail() {
                 </Button>
               </div>
 
-              {!bizomConnected && !ondcConnected ? (
+              {!bizomConnected && !ondcConnected && extraDmsConnectors.length === 0 ? (
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Plug className="h-10 w-10 mx-auto text-gray-300 mb-2" />
                   <p className="font-medium text-gray-600">
@@ -430,7 +476,7 @@ export function AdminSellerDetail() {
                   </p>
                   <p className="text-sm text-gray-500 mt-1 mb-4">
                     Click "Add Connector" to link Bizom (DMS) or ONDC
-                    (Marketplace).
+                    (Marketplace). You can add multiple DMS connectors — one per brand.
                   </p>
                   <Button
                     variant="outline"
@@ -443,11 +489,12 @@ export function AdminSellerDetail() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Primary Bizom connector from store */}
                   {bizomConnected && (
                     <ConnectorCard
                       icon={<Database className="h-5 w-5" />}
                       iconBg="bg-blue-100 text-blue-600"
-                      name="Bizom"
+                      name={`Bizom${extraDmsConnectors.find(c => c.id === "bizom-primary-brand")?.brandName ? ` – ${extraDmsConnectors.find(c => c.id === "bizom-primary-brand")?.brandName}` : " – Freedom Oil"}`}
                       subtitle="DMS Connector"
                       description="Distributor management system — SKU, customer and order sync."
                       badge={connectorBadge(seller.connectors.bizom)}
@@ -455,6 +502,24 @@ export function AdminSellerDetail() {
                       onRemove={() => setConfirmDisconnect("bizom")}
                     />
                   )}
+                  {/* Extra DMS connectors (brand-mapped) */}
+                  {extraDmsConnectors.filter(c => c.id !== "bizom-primary-brand").map((c) => (
+                    <ConnectorCard
+                      key={c.id}
+                      icon={<Database className="h-5 w-5" />}
+                      iconBg="bg-blue-100 text-blue-600"
+                      name={`Bizom – ${c.brandName}`}
+                      subtitle="DMS Connector"
+                      description="Distributor management system — SKU, customer and order sync."
+                      badge={<Badge className="bg-green-100 text-green-700 border-green-300 gap-1"><CheckCircle2 className="h-3 w-3" />Connected</Badge>}
+                      onManage={() => openConnectorDetailPage("bizom")}
+                      onRemove={() => {
+                        setExtraDmsConnectors(prev => prev.filter(ec => ec.id !== c.id));
+                        toast.success(`Bizom – ${c.brandName} disconnected`);
+                      }}
+                    />
+                  ))}
+                  {/* ONDC */}
                   {ondcConnected && (
                     <ConnectorCard
                       icon={<ShoppingBag className="h-5 w-5" />}
@@ -611,29 +676,24 @@ export function AdminSellerDetail() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 py-2">
             <button
               type="button"
-              disabled={bizomConnected}
               onClick={() => openConnectorConfig("bizom")}
-              className={`p-4 rounded-lg border text-left transition-all ${
-                bizomConnected
-                  ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
-                  : "border-gray-200 hover:border-blue-400 hover:shadow-sm"
-              }`}
+              className="p-4 rounded-lg border text-left transition-all border-gray-200 hover:border-blue-400 hover:shadow-sm"
             >
               <div className="bg-blue-100 text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
                 <Database className="h-5 w-5" />
               </div>
               <p className="font-semibold text-gray-900">Bizom</p>
-              <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs my-1">
-                DMS
-              </Badge>
+              <div className="flex gap-1 my-1">
+                <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-xs">
+                  DMS
+                </Badge>
+                <Badge className="bg-blue-50 text-blue-600 border-blue-200 text-xs">
+                  Multi-brand
+                </Badge>
+              </div>
               <p className="text-xs text-gray-600 mt-1">
-                Distributor management system. Sync SKUs, customers and orders.
+                Add one connector per brand. Sync SKUs, customers and orders.
               </p>
-              {bizomConnected && (
-                <p className="text-xs text-green-600 font-medium mt-2">
-                  Already added
-                </p>
-              )}
             </button>
 
             <button
@@ -690,6 +750,21 @@ export function AdminSellerDetail() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {configDialogType === "bizom" && (
+              <div className="space-y-2">
+                <Label>
+                  Brand / Company Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  placeholder="e.g., Freedom Oil, Pepsi, Marico"
+                  value={configBrandName}
+                  onChange={(e) => setConfigBrandName(e.target.value)}
+                />
+                <p className="text-xs text-gray-500">
+                  The brand or company this connector is mapped to
+                </p>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>
                 Seller ID <span className="text-red-500">*</span>

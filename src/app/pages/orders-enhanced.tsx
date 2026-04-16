@@ -5,6 +5,7 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Label } from "../components/ui/label";
+import { MultiSelect } from "../components/ui/multi-select";
 import { Textarea } from "../components/ui/textarea";
 import { Checkbox } from "../components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
@@ -226,10 +227,23 @@ export function Orders() {
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  const [paymentFilter, setPaymentFilter] = useState<string>("all");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
+  const [selectedBrandFilters, setSelectedBrandFilters] = useState<string[]>([]);
+  const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+
+  // Unique brands and statuses for filter options
+  const uniqueBrands = useMemo(
+    () => Array.from(new Set(orders.map((o) => o.brand))).sort(),
+    [orders]
+  );
+  const statusOptions = [
+    { label: "New", value: "New" },
+    { label: "Confirmed", value: "Confirmed" },
+    { label: "Delivered", value: "Delivered" },
+    { label: "Rejected", value: "Rejected" },
+  ];
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -292,10 +306,12 @@ export function Orders() {
       const matchesSearch =
         order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
-      const matchesPayment =
-        paymentFilter === "all" || order.paymentMode === paymentFilter;
       const matchesMarketplace =
         marketplaceFilter === "all" || order.marketplace === marketplaceFilter;
+      const matchesBrand =
+        selectedBrandFilters.length === 0 || selectedBrandFilters.includes(order.brand);
+      const matchesStatusFilter =
+        selectedStatusFilters.length === 0 || selectedStatusFilters.includes(order.status);
 
       let matchesDate = true;
       if (startDate && endDate) {
@@ -308,8 +324,9 @@ export function Orders() {
       return (
         matchesStatus &&
         matchesSearch &&
-        matchesPayment &&
         matchesMarketplace &&
+        matchesBrand &&
+        matchesStatusFilter &&
         matchesDate
       );
     });
@@ -317,7 +334,7 @@ export function Orders() {
 
   const currentTabOrders = useMemo(
     () => getTabOrders(activeTab),
-    [activeTab, orders, searchQuery, paymentFilter, marketplaceFilter, startDate, endDate]
+    [activeTab, orders, searchQuery, marketplaceFilter, selectedBrandFilters, selectedStatusFilters, startDate, endDate]
   );
 
   // Handle select all for current tab
@@ -429,16 +446,18 @@ export function Orders() {
   // Clear all filters
   const clearFilters = () => {
     setSearchQuery("");
-    setPaymentFilter("all");
     setMarketplaceFilter("all");
+    setSelectedBrandFilters([]);
+    setSelectedStatusFilters([]);
     setStartDate("");
     setEndDate("");
   };
 
   const hasActiveFilters =
     searchQuery ||
-    paymentFilter !== "all" ||
     marketplaceFilter !== "all" ||
+    selectedBrandFilters.length > 0 ||
+    selectedStatusFilters.length > 0 ||
     startDate ||
     endDate;
 
@@ -840,6 +859,39 @@ export function Orders() {
                 {/* Bulk Action Buttons for Confirmed Tab */}
                 {/* Removed - now beside search bar */}
               </div>
+
+              {/* Applied Filter Tags */}
+              {(selectedBrandFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
+                <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2">
+                  {selectedBrandFilters.map((brand) => (
+                    <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                      {brand}
+                      <button onClick={() => setSelectedBrandFilters(selectedBrandFilters.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {selectedStatusFilters.map((status) => (
+                    <Badge key={status} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-blue-50 text-blue-700 border-blue-200">
+                      {status}
+                      <button onClick={() => setSelectedStatusFilters(selectedStatusFilters.filter(s => s !== status))} className="ml-1 hover:bg-blue-200 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                  {marketplaceFilter !== "all" && (
+                    <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-green-50 text-green-700 border-green-200">
+                      {marketplaceFilter}
+                      <button onClick={() => setMarketplaceFilter("all")} className="ml-1 hover:bg-green-200 rounded-full p-0.5">
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  )}
+                  <Button variant="ghost" size="sm" onClick={clearFilters} className="text-gray-500 text-xs h-6">
+                    Clear all
+                  </Button>
+                </div>
+              )}
 
             {/* Tab Contents */}
             <TabsContent value="all" className="mt-0">
@@ -1390,17 +1442,25 @@ export function Orders() {
               <div className="flex-1 overflow-y-auto p-6">
                 <div className="space-y-6">
                   <div className="space-y-2">
-                    <Label htmlFor="paymentFilter">Payment Mode</Label>
-                    <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Payment" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Payment</SelectItem>
-                        <SelectItem value="COD">COD</SelectItem>
-                        <SelectItem value="Prepaid">Prepaid</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <Label>Company / Brand</Label>
+                    <MultiSelect
+                      options={uniqueBrands.map((b) => ({ label: b, value: b }))}
+                      selected={selectedBrandFilters}
+                      onChange={setSelectedBrandFilters}
+                      placeholder="All Brands"
+                      className="w-full"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>Status</Label>
+                    <MultiSelect
+                      options={statusOptions}
+                      selected={selectedStatusFilters}
+                      onChange={setSelectedStatusFilters}
+                      placeholder="All Status"
+                      className="w-full"
+                    />
                   </div>
 
                   <div className="space-y-2">

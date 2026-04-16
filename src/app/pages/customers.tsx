@@ -37,6 +37,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { FilterDrawer } from "../components/FilterDrawer";
@@ -47,7 +48,6 @@ interface MasterCustomer {
   id: string;
   customerName: string;
   mobile: string;
-  customerId?: string; // DMS Customer ID
   address: string;
   brands: {
     name: string;
@@ -55,6 +55,7 @@ interface MasterCustomer {
     source: "DMS" | "ONDC";
     syncStatus: "Synced" | "Not Synced";
     registrationDate?: string;
+    customerId?: string; // Brand-specific DMS Customer ID
   }[];
   approvalStatus: "Pending" | "Approved" | "Rejected";
   lastUpdated: string;
@@ -73,15 +74,14 @@ const masterCustomers: MasterCustomer[] = [
     id: "M-001",
     customerName: "Ramesh Kirana Store",
     mobile: "+91 98765 43210",
-    customerId: "DMS-101",
     address: "MG Road, Bangalore",
     brands: [
-      { name: "ITC", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "HUL", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "Parle", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "Britannia", status: "Pending", source: "DMS", syncStatus: "Not Synced" },
-      { name: "Nestle", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "Dabur", status: "Rejected", source: "DMS", syncStatus: "Not Synced" },
+      { name: "ITC", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "ITC-1001" },
+      { name: "HUL", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "HUL-2001" },
+      { name: "Parle", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "PRL-3001" },
+      { name: "Britannia", status: "Pending", source: "DMS", syncStatus: "Not Synced", customerId: "BRT-4001" },
+      { name: "Nestle", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "NST-5001" },
+      { name: "Dabur", status: "Rejected", source: "DMS", syncStatus: "Not Synced", customerId: "DBR-6001" },
     ],
     approvalStatus: "Approved",
     lastUpdated: "2026-04-01 10:30 AM",
@@ -102,14 +102,13 @@ const masterCustomers: MasterCustomer[] = [
     id: "M-003",
     customerName: "City Supermart",
     mobile: "+91 98765 43212",
-    customerId: "DMS-102",
     address: "Connaught Place, Delhi",
     brands: [
-      { name: "ITC", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "Parle", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "Britannia", status: "Approved", source: "DMS", syncStatus: "Synced" },
-      { name: "HUL", status: "Pending", source: "DMS", syncStatus: "Not Synced" },
-      { name: "Nestle", status: "Rejected", source: "DMS", syncStatus: "Not Synced" },
+      { name: "ITC", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "ITC-1003" },
+      { name: "Parle", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "PRL-3003" },
+      { name: "Britannia", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "BRT-4003" },
+      { name: "HUL", status: "Pending", source: "DMS", syncStatus: "Not Synced", customerId: "HUL-2003" },
+      { name: "Nestle", status: "Rejected", source: "DMS", syncStatus: "Not Synced", customerId: "NST-5003" },
     ],
     approvalStatus: "Approved",
     lastUpdated: "2026-03-30 09:45 AM",
@@ -129,7 +128,6 @@ const masterCustomers: MasterCustomer[] = [
     id: "M-005",
     customerName: "Quick Mart",
     mobile: "+91 98765 43214",
-    customerId: "DMS-103",
     address: "Koramangala, Bangalore",
     brands: [
       { name: "ITC", status: "Approved", source: "ONDC", syncStatus: "Synced", registrationDate: "2026-03-31" },
@@ -141,10 +139,9 @@ const masterCustomers: MasterCustomer[] = [
     id: "M-006",
     customerName: "Metro Foods",
     mobile: "+91 98765 43216",
-    customerId: "DMS-104",
     address: "Bandra, Mumbai",
     brands: [
-      { name: "HUL", status: "Approved", source: "DMS", syncStatus: "Synced" },
+      { name: "HUL", status: "Approved", source: "DMS", syncStatus: "Synced", customerId: "HUL-2006" },
     ],
     approvalStatus: "Approved",
     lastUpdated: "2026-03-29 03:20 PM",
@@ -181,7 +178,7 @@ export function Customers() {
   const [masterSearchQuery, setMasterSearchQuery] = useState("");
   const [dmsSearchQuery, setDmsSearchQuery] = useState("");
   const [ondcSearchQuery, setOndcSearchQuery] = useState("");
-  const [selectedBrands, setSelectedBrands] = useState<string>("all");
+  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   
   // Master tab filters
   const [masterApprovalFilter, setMasterApprovalFilter] = useState<string>("all");
@@ -244,11 +241,10 @@ export function Customers() {
   const filteredMasterCustomers = masterCustomers.filter((customer) => {
     const matchesSearch =
       customer.customerName.toLowerCase().includes(masterSearchQuery.toLowerCase()) ||
-      customer.mobile.includes(masterSearchQuery) ||
-      customer.customerId?.toLowerCase().includes(masterSearchQuery.toLowerCase());
+      customer.mobile.includes(masterSearchQuery);
     
-    const matchesBrand = selectedBrands === "all" || 
-      customer.brands.some(b => b.name === selectedBrands);
+    const matchesBrand = selectedBrands.length === 0 ||
+      customer.brands.some(b => selectedBrands.includes(b.name));
     
     const matchesApproval = masterApprovalFilter === "all" || 
       customer.approvalStatus === masterApprovalFilter;
@@ -266,12 +262,12 @@ export function Customers() {
     const matchesSearch =
       customer.customerName.toLowerCase().includes(dmsSearchQuery.toLowerCase()) ||
       customer.mobile.includes(dmsSearchQuery) ||
-      customer.customerId?.toLowerCase().includes(dmsSearchQuery.toLowerCase());
+      customer.brands.some(b => b.customerId?.toLowerCase().includes(dmsSearchQuery.toLowerCase()));
     
     const hasDMSBrands = customer.brands.some(b => b.source === "DMS");
     
-    const matchesBrand = selectedBrands === "all" || 
-      customer.brands.some(b => b.name === selectedBrands);
+    const matchesBrand = selectedBrands.length === 0 ||
+      customer.brands.some(b => selectedBrands.includes(b.name));
     
     const matchesApproval = masterApprovalFilter === "all" || 
       customer.approvalStatus === masterApprovalFilter;
@@ -285,13 +281,12 @@ export function Customers() {
   const filteredONDCCustomers = masterCustomers.filter((customer) => {
     const matchesSearch =
       customer.customerName.toLowerCase().includes(ondcSearchQuery.toLowerCase()) ||
-      customer.mobile.includes(ondcSearchQuery) ||
-      customer.customerId?.toLowerCase().includes(ondcSearchQuery.toLowerCase());
+      customer.mobile.includes(ondcSearchQuery);
     
     const hasONDCBrands = customer.brands.some(b => b.source === "ONDC");
     
-    const matchesBrand = selectedBrands === "all" || 
-      customer.brands.some(b => b.name === selectedBrands);
+    const matchesBrand = selectedBrands.length === 0 ||
+      customer.brands.some(b => selectedBrands.includes(b.name));
     
     const matchesApproval = ondcApprovalFilter === "all" || 
       customer.approvalStatus === ondcApprovalFilter;
@@ -348,7 +343,7 @@ export function Customers() {
   };
 
   const clearAllFilters = () => {
-    setSelectedBrands("all");
+    setSelectedBrands([]);
     setMasterApprovalFilter("all");
     setMasterSourceFilter("all");
     setMasterSyncFilter("all");
@@ -485,6 +480,23 @@ export function Customers() {
                     </button>
                   )}
                 </div>
+
+                {/* Applied Filter Tags */}
+                {selectedBrands.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {selectedBrands.map((brand) => (
+                      <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                        {brand}
+                        <button onClick={() => setSelectedBrands(selectedBrands.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedBrands([])} className="text-gray-500 text-xs h-6">
+                      Clear all
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* DMS Table */}
@@ -499,16 +511,10 @@ export function Customers() {
                         Mobile Number
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Customer ID (DMS)
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Address
                       </th>
                       <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
                         Brands
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
-                        Last Synced At
                       </th>
                     </tr>
                   </thead>
@@ -519,7 +525,7 @@ export function Customers() {
                       if (dmsCustomers.length === 0) {
                         return (
                           <tr>
-                            <td colSpan={6} className="px-6 py-12 text-center">
+                            <td colSpan={4} className="px-6 py-12 text-center">
                               <div className="flex flex-col items-center gap-2">
                                 <Database className="h-12 w-12 text-gray-400" />
                                 <p className="text-sm font-medium text-gray-900">No DMS customers found</p>
@@ -544,9 +550,6 @@ export function Customers() {
                             <td className="px-6 py-4 whitespace-nowrap">
                               <p className="text-sm text-gray-900">{customer.mobile}</p>
                             </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <p className="text-sm text-gray-600">{customer.customerId}</p>
-                            </td>
                             <td className="px-6 py-4">
                               <p className="text-sm text-gray-900">{customer.address}</p>
                             </td>
@@ -562,9 +565,6 @@ export function Customers() {
                               >
                                 <span className="text-sm font-medium">{dmsBrands.length} {dmsBrands.length === 1 ? "Brand" : "Brands"}</span>
                               </Button>
-                            </td>
-                            <td className="px-6 py-4 whitespace-nowrap">
-                              <p className="text-xs text-gray-600">{customer.lastUpdated}</p>
                             </td>
                           </tr>
                         );
@@ -596,6 +596,23 @@ export function Customers() {
                     </button>
                   )}
                 </div>
+
+                {/* Applied Filter Tags */}
+                {selectedBrands.length > 0 && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {selectedBrands.map((brand) => (
+                      <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
+                        {brand}
+                        <button onClick={() => setSelectedBrands(selectedBrands.filter(b => b !== brand))} className="ml-1 hover:bg-purple-200 rounded-full p-0.5">
+                          <X className="h-3 w-3" />
+                        </button>
+                      </Badge>
+                    ))}
+                    <Button variant="ghost" size="sm" onClick={() => setSelectedBrands([])} className="text-gray-500 text-xs h-6">
+                      Clear all
+                    </Button>
+                  </div>
+                )}
               </div>
 
               {/* ONDC Table */}
@@ -804,7 +821,7 @@ export function Customers() {
 
       {/* DMS Brand List Dialog */}
       <Dialog open={isDMSBrandDialogOpen} onOpenChange={setIsDMSBrandDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>DMS Brand List</DialogTitle>
             <DialogDescription>
@@ -825,10 +842,7 @@ export function Customers() {
                     Brand Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider border-b">
-                    Sync Status
+                    Customer ID
                   </th>
                 </tr>
               </thead>
@@ -839,10 +853,7 @@ export function Customers() {
                       <span className="text-sm font-medium text-gray-900">{brand.name}</span>
                     </td>
                     <td className="px-4 py-3">
-                      {getApprovalBadge(brand.status)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {getSyncBadge(brand.syncStatus)}
+                      <span className="text-sm font-mono text-gray-700">{brand.customerId || "—"}</span>
                     </td>
                   </tr>
                 ))}
