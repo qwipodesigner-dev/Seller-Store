@@ -657,24 +657,28 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         <DualRow
           label="Product (SKU) Name"
           required
+          ondcRequired
           dms={dms.name}
           ondc={<TextInput value={ondc.name} onChange={(v) => update("name", v)} edited={isEdited("name")} required />}
         />
         <DualRow
           label="SKU Code"
           required
+          ondcRequired
           dms={dms.skuCode}
           ondc={<TextInput value={ondc.skuCode} onChange={(v) => update("skuCode", v)} edited={isEdited("skuCode")} required />}
         />
         <DualRow
           label="Category"
           required
+          ondcRequired
           dms={dms.category}
           ondc={<TextInput value={ondc.category} onChange={(v) => update("category", v)} edited={isEdited("category")} required />}
         />
         <DualRow
           label="Brand Name"
           required
+          ondcRequired
           dms={dms.brand}
           ondc={<TextInput value={ondc.brand} onChange={(v) => update("brand", v)} edited={isEdited("brand")} required />}
         />
@@ -700,16 +704,19 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       <DualSection title="Unit & Measurement Details" icon={<Package className="h-5 w-5 text-indigo-600" />}>
         <DualRow
           label="Unit Type"
+          ondcRequired
           dms={dms.unitType}
           ondc={<TextInput value={ondc.unitType} onChange={(v) => update("unitType", v)} edited={isEdited("unitType")} />}
         />
         <DualRow
           label="Unit Value"
+          ondcRequired
           dms={dms.unitValue}
           ondc={<TextInput value={ondc.unitValue} onChange={(v) => update("unitValue", v)} edited={isEdited("unitValue")} />}
         />
         <DualRow
           label="Weight"
+          ondcRequired
           dms={dms.weight}
           ondc={<TextInput value={ondc.weight} onChange={(v) => update("weight", v)} edited={isEdited("weight")} />}
         />
@@ -724,6 +731,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
         <DualRow
           label="Inner Pack"
+          ondcRequired
           dms={dms.innerPack}
           ondc={<TextInput value={ondc.innerPack} onChange={(v) => update("innerPack", v)} edited={isEdited("innerPack")} />}
         />
@@ -734,6 +742,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
         <DualRow
           label="Time to Ship"
+          ondcRequired
           dms={dms.timeToShip}
           ondc={<TextInput value={ondc.timeToShip} onChange={(v) => update("timeToShip", v)} edited={isEdited("timeToShip")} />}
         />
@@ -744,6 +753,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         <DualRow
           label="Manufacturer Name"
           required
+          ondcRequired
           dms={dms.manufacturerName}
           ondc={<TextInput value={ondc.manufacturerName} onChange={(v) => update("manufacturerName", v)} edited={isEdited("manufacturerName")} required />}
         />
@@ -757,6 +767,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         <DualRow
           label="Country of Origin"
           required
+          ondcRequired
           dms={dms.countryOfOrigin}
           ondc={<TextInput value={ondc.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} edited={isEdited("countryOfOrigin")} required />}
         />
@@ -772,6 +783,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       <DualSection title="Product Images" icon={<ImageIcon className="h-5 w-5 text-pink-600" />}>
         <DualRow
           label="Product Images"
+          ondcRequired
           dms={
             <div>
               <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
@@ -818,6 +830,25 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
       </DualSection>
 
+      {/* Offers & Schemes — read-only, single column */}
+      <Card>
+        <CardHeader className="py-4 border-b border-gray-100">
+          <CardTitle className="text-base flex items-center gap-2">
+            <Gift className="h-5 w-5 text-amber-600" />
+            Offers & Schemes
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-6">
+          <p className="text-sm text-gray-700">
+            {mockOffers[sku.id]?.length
+              ? `${mockOffers[sku.id].length} offer(s) applied from DMS`
+              : "No offers from DMS"}
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Read-only — managed centrally in DMS
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -866,20 +897,27 @@ function DualRow({
   dms,
   ondc,
   multiline,
+  ondcRequired,
 }: {
   label: string;
   required?: boolean;
   dms: React.ReactNode;
   ondc: React.ReactNode;
   multiline?: boolean;
+  ondcRequired?: boolean;
 }) {
   return (
     <div className="grid grid-cols-[220px_1fr_1fr] hover:bg-gray-50/40 transition-colors">
-      <div className="px-5 py-4 flex items-start">
+      <div className="px-5 py-4 flex items-start gap-1.5">
         <span className="text-sm font-medium text-gray-700">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
         </span>
+        {ondcRequired && (
+          <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 leading-none" title="Required for ONDC compliance">
+            ONDC
+          </span>
+        )}
       </div>
       <div className="px-5 py-4 border-l border-gray-100">
         {typeof dms === "string" ? (
@@ -1153,7 +1191,7 @@ function OffersTab({ skuId }: { skuId: string }) {
 export function SKUDetail() {
   const navigate = useNavigate();
   const { skuId } = useParams();
-  const [activeTab, setActiveTab] = useState<"details">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "offers">("details");
 
   const sku = skuData[skuId || "1"] || skuData["1"];
 
@@ -1206,11 +1244,30 @@ export function SKUDetail() {
               Product Details
             </div>
           </button>
+          <button
+            onClick={() => setActiveTab("offers")}
+            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "offers"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Gift className="h-4 w-4" />
+              Offers & Schemes
+              {offersCount > 0 && (
+                <Badge className="bg-red-500 text-white border-red-600 ml-1">
+                  {offersCount}
+                </Badge>
+              )}
+            </div>
+          </button>
         </nav>
       </div>
 
       {/* Tab Content */}
       {activeTab === "details" && <ProductDetailsTab sku={sku} />}
+      {activeTab === "offers" && <OffersTab skuId={skuId || "1"} />}
     </div>
   );
 }

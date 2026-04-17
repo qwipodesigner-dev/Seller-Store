@@ -832,7 +832,7 @@ export function PriceInventory() {
                   {/* Available Quantity Row */}
                   <tr
                     className={
-                      String(selectedProduct?.availableStock ?? "") !== editStock
+                      !editIsInfiniteStock && String(selectedProduct?.availableStock ?? "") !== editStock
                         ? "bg-amber-50/40"
                         : ""
                     }
@@ -847,67 +847,72 @@ export function PriceInventory() {
                         : (selectedProduct?.availableStock ?? "—")}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={editStock}
-                        onChange={(e) => setEditStock(e.target.value)}
-                        className={
-                          !editStock || parseInt(editStock) < 0
-                            ? "border-red-400"
-                            : String(selectedProduct?.availableStock ?? "") !== editStock
-                              ? "border-amber-400"
-                              : ""
-                        }
-                      />
-                      {(!editStock || parseInt(editStock) < 0) && (
-                        <p className="text-xs text-red-600 mt-1">
-                          Quantity must be ≥ 0
-                        </p>
+                      {editIsInfiniteStock ? (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-md border border-purple-200 bg-purple-50">
+                          <Infinity className="h-4 w-4 text-purple-600" />
+                          <span className="text-sm font-medium text-purple-700">Infinite Stock</span>
+                        </div>
+                      ) : (
+                        <>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={editStock}
+                            onChange={(e) => setEditStock(e.target.value)}
+                            className={
+                              !editStock || parseInt(editStock) < 0
+                                ? "border-red-400"
+                                : String(selectedProduct?.availableStock ?? "") !== editStock
+                                  ? "border-amber-400"
+                                  : ""
+                            }
+                          />
+                          {(!editStock || parseInt(editStock) < 0) && (
+                            <p className="text-xs text-red-600 mt-1">
+                              Quantity must be ≥ 0
+                            </p>
+                          )}
+                        </>
                       )}
                     </td>
                   </tr>
 
-                  {/* Status Row */}
+                  {/* Infinite Stock Row */}
                   <tr
                     className={
-                      selectedProduct?.status !== editStatus ? "bg-amber-50/40" : ""
+                      selectedProduct?.isInfiniteStock !== editIsInfiniteStock
+                        ? "bg-amber-50/40"
+                        : ""
                     }
                   >
                     <td className="px-4 py-3 align-top">
-                      <span className="font-medium text-gray-700">Status</span>
-                      <span className="text-red-500 ml-0.5">*</span>
+                      <span className="font-medium text-gray-700">Mark as Infinite</span>
+                    </td>
+                    <td className="px-4 py-3 align-top text-gray-700">
+                      {selectedProduct?.isInfiniteStock ? "Yes" : "No"}
                     </td>
                     <td className="px-4 py-3 align-top">
-                      <Badge
-                        className={
-                          selectedProduct?.status === "Active"
-                            ? "bg-green-100 text-green-700 border-green-300"
-                            : "bg-gray-100 text-gray-700 border-gray-300"
-                        }
-                      >
-                        {selectedProduct?.status ?? "—"}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <Select
-                        value={editStatus}
-                        onValueChange={(value: any) => setEditStatus(value)}
-                      >
-                        <SelectTrigger
-                          className={
-                            selectedProduct?.status !== editStatus
-                              ? "border-amber-400"
-                              : ""
-                          }
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Active">Active</SelectItem>
-                          <SelectItem value="Inactive">Inactive</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center gap-3">
+                        <Switch
+                          checked={editIsInfiniteStock}
+                          onCheckedChange={(checked) => {
+                            setEditIsInfiniteStock(checked);
+                            if (checked) {
+                              setEditStock("0");
+                              setEditThreshold("0");
+                            } else {
+                              setEditStock(String(selectedProduct?.availableStock ?? 0));
+                              setEditThreshold(String(selectedProduct?.thresholdLevel ?? 0));
+                            }
+                          }}
+                        />
+                        <span className="text-sm text-gray-600">
+                          {editIsInfiniteStock ? "Infinite stock enabled" : "Finite stock"}
+                        </span>
+                      </div>
+                      <p className="text-xs text-gray-500 mt-1">
+                        When enabled, stock is always available and quantity is not tracked.
+                      </p>
                     </td>
                   </tr>
                 </tbody>

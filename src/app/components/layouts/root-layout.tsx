@@ -8,7 +8,6 @@ import {
   Tag,
   ShoppingCart,
   Users,
-  Plug,
   Settings,
   Menu,
   ChevronDown,
@@ -51,7 +50,6 @@ const sellerNavigation = [
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
-  { name: "Connectors", href: "/connectors", icon: Plug },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Support", href: "/support", icon: HelpCircle },
 ];
