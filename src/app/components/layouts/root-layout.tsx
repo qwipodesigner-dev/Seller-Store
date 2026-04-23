@@ -39,14 +39,7 @@ import { adminNavigation, getAdminPageTitle } from "../admin/admin-navigation";
 
 const sellerNavigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
-  {
-    name: "Products",
-    icon: Package,
-    subItems: [
-      { name: "My SKU", href: "/products/my-sku" },
-      { name: "Price & Inventory", href: "/products/price-inventory" },
-    ],
-  },
+  { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
   { name: "Orders", href: "/orders", icon: ShoppingCart },

@@ -38,6 +38,56 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "../../components/ui/dialog";
+import { validateSKU, ValidationError } from "../../lib/ondc-validation";
+
+// ONDC eB2B category taxonomy — shown as the Category ID dropdown options.
+const CATEGORY_OPTIONS = [
+  "Fruits and Vegetables",
+  "Masala & Seasoning",
+  "Oil & Ghee",
+  "Eggs, Meat & Fish",
+  "Bakery, Cakes & Dairy",
+  "Pet Care",
+  "Detergents and Dishwash",
+  "Dairy and Cheese",
+  "Snacks, Dry Fruits, Nuts",
+  "Pasta, Soup and Noodles",
+  "Cereals and Breakfast",
+  "Sauces, Spreads and Dips",
+  "Chocolates and Biscuits",
+  "Cooking and Baking Needs",
+  "Tinned and Processed Food",
+  "Atta, Flours and Sooji",
+  "Rice and Rice Products",
+  "Dals and Pulses",
+  "Salt, Sugar and Jaggery",
+  "Energy and Soft Drinks",
+  "Water",
+  "Tea and Coffee",
+  "Fruit Juices and Fruit Drinks",
+  "Snacks and Namkeen",
+  "Ready to Cook and Eat",
+  "Pickles and Chutney",
+  "Indian Sweets",
+  "Frozen Vegetables",
+  "Frozen Snacks",
+  "Gift Voucher",
+  "Gourmet & World Foods",
+  "Foodgrains",
+  "Beverages",
+  "Beauty & Hygiene",
+  "Kitchen Accessories",
+  "Baby Care",
+  "Snacks & Branded Foods",
+];
 
 // Types
 interface OfferTier {
@@ -590,33 +640,26 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
   );
 }
 
-// Product Details Tab Component
+// Product Details Tab Component — DMS (read-only reference) + ONDC (editable) dual-column layout.
 function ProductDetailsTab({ sku }: { sku: any }) {
-  // Initial values from DMS/existing data, now all directly editable (no separate DMS column)
-  const initial = {
-    // Core Identifiers
+  // DMS snapshot — read-only reference that comes from the DMS system of record.
+  const dms = {
     itemStatus: sku.status === "Active" ? "enable" : "disable",
-    // Descriptor
     itemName: sku.name || "",
     itemCode: "1:" + (sku.sku || ""),
-    thumbnail: "https://seller-np.com/images/" + (sku.sku || "").toLowerCase() + ".png",
     shortDesc: sku.description?.split(".")[0] || "",
     longDesc: sku.description || "",
     additionalImages: [] as string[],
-    // Quantity
     unitizedCount: "1",
     measureUnit: "litre",
     measureValue: "1",
-    availableCount: "99",
     maximumOrderQty: "100",
     minimumOrderQty: "1",
     upc: "12",
     skuWeight: "1.05",
-    // Category / Fulfillment / Location
     categoryId: sku.category || "",
     fulfillmentId: "F1",
     locationId: "L1",
-    // ONDC-Specific Commerce Attributes
     returnable: true,
     cancellable: true,
     timeToShip: "PT4H",
@@ -624,174 +667,442 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     consumerCareContactName: "Customer Support",
     consumerCareContactEmail: "support@seller.com",
     consumerCareContactPhone: "18004254444",
-    // Statutory (Packaged Commodities)
     manufacturerName: sku.specifications?.manufacturer || "",
     manufacturerAddress: "Ahmedabad, Gujarat, India - 380009",
-    // Tags
     countryOfOrigin: "IND",
     brandAttribute: sku.brand || "",
     statutoryImages: [] as string[],
   };
 
-  const [form, setForm] = useState(initial);
-  const update = (key: keyof typeof initial, value: any) =>
-    setForm((prev) => ({ ...prev, [key]: value }));
+  // ONDC starts mostly blank — only Item Name and Item Code are copied from DMS
+  // (these are the unique identifiers). Everything else is left for the seller to fill in.
+  const blankOndc: typeof dms = {
+    ...dms,
+    shortDesc: "",
+    longDesc: "",
+    additionalImages: [],
+    unitizedCount: "",
+    measureUnit: "",
+    measureValue: "",
+    maximumOrderQty: "",
+    minimumOrderQty: "",
+    upc: "",
+    skuWeight: "",
+    categoryId: "",
+    fulfillmentId: "",
+    locationId: "",
+    returnable: false,
+    cancellable: false,
+    timeToShip: "",
+    availableOnCod: false,
+    consumerCareContactName: "",
+    consumerCareContactEmail: "",
+    consumerCareContactPhone: "",
+    manufacturerName: "",
+    manufacturerAddress: "",
+    countryOfOrigin: "",
+    brandAttribute: "",
+    statutoryImages: [],
+  };
+  const [ondc, setOndc] = useState({ ...blankOndc });
+  const update = (key: keyof typeof dms, value: any) =>
+    setOndc((prev) => ({ ...prev, [key]: value }));
+  const isEdited = (key: keyof typeof dms) =>
+    JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
 
-  const handleSave = () => toast.success("Product details saved successfully");
+  // Incremental-save error summary — displayed as a non-blocking warning card
+  // below the action bar after a save that had validation issues. Save always
+  // succeeds; correctly-entered values are stored, fields with issues are listed
+  // here so the seller can come back and complete them later.
+  const [pendingErrors, setPendingErrors] = useState<ValidationError[]>([]);
+
   const handleReset = () => {
-    setForm(initial);
-    toast.success("Form reset to initial values");
+    setOndc({ ...blankOndc });
+    setPendingErrors([]);
+    toast.success("ONDC values reset");
   };
 
-  const isActive = form.itemStatus === "enable";
+  const handleSave = () => {
+    // Consumer Care combined into the "name,email,contact_no" format expected by validateSKU
+    const ccc =
+      ondc.consumerCareContactName || ondc.consumerCareContactEmail || ondc.consumerCareContactPhone
+        ? `${ondc.consumerCareContactName},${ondc.consumerCareContactEmail},${ondc.consumerCareContactPhone}`
+        : "";
+
+    // Packaged-commodity heuristic — same one the bulk-import uses, so rules stay consistent
+    const catLower = (ondc.categoryId || "").toLowerCase();
+    const isPackagedCommodity =
+      !!(ondc.manufacturerName || ondc.manufacturerAddress) ||
+      /atta|flour|biscuit|salt|oil|food|packaged/.test(catLower);
+
+    const errors = validateSKU(
+      {
+        itemStatus: ondc.itemStatus,
+        itemName: ondc.itemName,
+        itemCode: ondc.itemCode,
+        shortDesc: ondc.shortDesc,
+        longDesc: ondc.longDesc,
+        additionalImages: ondc.additionalImages,
+        unitizedCount: ondc.unitizedCount,
+        measureUnit: ondc.measureUnit,
+        measureValue: ondc.measureValue,
+        availableCount: "99", // inventory lives on Price & Inventory now
+        maximumOrderQty: ondc.maximumOrderQty,
+        minimumOrderQty: ondc.minimumOrderQty,
+        categoryId: ondc.categoryId,
+        fulfillmentId: ondc.fulfillmentId,
+        locationId: ondc.locationId,
+        returnable: ondc.returnable,
+        cancellable: ondc.cancellable,
+        timeToShip: ondc.timeToShip,
+        availableOnCod: ondc.availableOnCod,
+        consumerCareContact: ccc,
+        manufacturerName: ondc.manufacturerName,
+        manufacturerAddress: ondc.manufacturerAddress,
+        isPackagedCommodity,
+        countryOfOrigin: ondc.countryOfOrigin,
+        brandAttribute: ondc.brandAttribute,
+      },
+      {},
+    );
+
+    // Incremental save — always persist the values the seller has entered.
+    // Split errors into:
+    //   - "invalid" — values the seller TYPED but got wrong (bad format/range).
+    //     These are surfaced as errors so the seller fixes them.
+    //   - "missing" — required fields not yet entered.
+    //     These are silent here (no error shown). They simply count against
+    //     ONDC compliance and are shown on the SKU list page until the
+    //     seller completes them.
+    const invalidErrors = errors.filter(
+      (e) => !/is required\.?|Please specify/i.test(e.message),
+    );
+    setPendingErrors(invalidErrors);
+    if (invalidErrors.length > 0) {
+      toast.warning(
+        `Saved. ${invalidErrors.length} field${invalidErrors.length === 1 ? "" : "s"} ${invalidErrors.length === 1 ? "has" : "have"} invalid values — see the summary below.`,
+      );
+    } else if (errors.length > 0) {
+      toast.success(
+        `Saved. ${errors.length} required field${errors.length === 1 ? "" : "s"} still pending for full ONDC compliance.`,
+      );
+    } else {
+      toast.success("Saved — SKU is ONDC compliant.");
+    }
+  };
+
+  const isActive = ondc.itemStatus === "enable";
 
   return (
     <div className="space-y-3">
-      {/* Action bar */}
-      <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200">
-        <div className="flex items-center gap-3">
+      {/* Sticky action bar — stays visible while the user scrolls so they can
+          always hit Save without scrolling back to the top. */}
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 gap-2 shadow-sm">
+        <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-700">Item Status</span>
           <StatusToggle
             active={isActive}
             onChange={(v) => update("itemStatus", v ? "enable" : "disable")}
           />
-          <span className="text-xs text-gray-500 hidden sm:inline">
-            Disable to soft-delete from BNP cache
-          </span>
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 ml-2">
+            DMS: Read-only reference
+          </Badge>
+          <Badge className="bg-green-50 text-green-700 border-green-200">
+            ONDC: Final source for publishing
+          </Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset
           </Button>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
-            Save Changes
+            Save ONDC Values
           </Button>
         </div>
       </div>
 
-      {/* Descriptor (Product Identity) — 2-column grid */}
-      <CompactSection title="Descriptor (Product Identity)" icon={<FileText className="h-5 w-5 text-blue-600" />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
-          <CompactField label="Item Name" required ondcRequired help="Display name: brand + variant + pack size (3–100 chars)">
-            <TextInput value={form.itemName} onChange={(v) => update("itemName", v)} required />
-          </CompactField>
-          <CompactField label="Item Code" required ondcRequired help="Format: type:code (1=EAN, 2=ISBN, 3=GTIN, 4=HSN, 5=others)">
-            <TextInput value={form.itemCode} onChange={(v) => update("itemCode", v)} required />
-          </CompactField>
-          <CompactField label="Symbol / Thumbnail" required ondcRequired help="HTTPS URL, .png/.jpg/.jpeg/.webp, ≤ 2 MB">
-            <TextInput value={form.thumbnail} onChange={(v) => update("thumbnail", v)} required />
-          </CompactField>
-          <CompactField label="Short Description" required ondcRequired help="10–150 chars, plain text">
-            <TextInput value={form.shortDesc} onChange={(v) => update("shortDesc", v)} required />
-          </CompactField>
-          <CompactField label="Long Description" required ondcRequired help="20–1000 chars, plain text" span2>
-            <TextAreaInput value={form.longDesc} onChange={(v) => update("longDesc", v)} required />
-          </CompactField>
-          <CompactField label="Additional Images" help="Optional — max 8 HTTPS image URLs" span2>
-            <ImageUploader images={form.additionalImages} onChange={(imgs) => update("additionalImages", imgs)} />
-          </CompactField>
-        </div>
-      </CompactSection>
+      {/* Descriptor */}
+      <DualSection title="Descriptor (Product Identity)" icon={<FileText className="h-5 w-5 text-blue-600" />}>
+        <DualRow
+          label="Item Name"
+          required
+          ondcRequired
+          help="Display name: brand + variant + pack size (3–100 chars)"
+          dms={dms.itemName}
+          ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required />}
+        />
+        <DualRow
+          label="Item Code"
+          required
+          ondcRequired
+          help="Format: type:code (1=EAN, 2=ISBN, 3=GTIN, 4=HSN, 5=others)"
+          dms={dms.itemCode}
+          ondc={<TextInput value={ondc.itemCode} onChange={(v) => update("itemCode", v)} edited={isEdited("itemCode")} required />}
+        />
+        <DualRow
+          label="Short Description"
+          required
+          ondcRequired
+          help="10–150 chars, plain text"
+          dms={""}
+          ondc={<TextInput value={ondc.shortDesc} onChange={(v) => update("shortDesc", v)} edited={isEdited("shortDesc")} required />}
+        />
+        <DualRow
+          label="Long Description"
+          required
+          ondcRequired
+          help="20–1000 chars, plain text"
+          dms={""}
+          multiline
+          ondc={<TextAreaInput value={ondc.longDesc} onChange={(v) => update("longDesc", v)} edited={isEdited("longDesc")} required />}
+        />
+      </DualSection>
 
-      {/* Quantity — 3-column grid */}
-      <CompactSection title="Quantity (Net Quantity & Inventory)" icon={<Package className="h-5 w-5 text-indigo-600" />}>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
-          <CompactField label="Measure Unit" required ondcRequired>
+      {/* Quantity */}
+      <DualSection title="Quantity (Net Quantity & Inventory)" icon={<Package className="h-5 w-5 text-indigo-600" />}>
+        <DualRow
+          label="Measure Unit"
+          required
+          ondcRequired
+          dms={""}
+          ondc={
             <SelectInput
-              value={form.measureUnit}
+              value={ondc.measureUnit}
               onChange={(v) => update("measureUnit", v)}
+              edited={isEdited("measureUnit")}
               options={["unit", "dozen", "gram", "kilogram", "tonne", "litre", "millilitre"]}
             />
-          </CompactField>
-          <CompactField label="Unit Value" required ondcRequired help="Up to 3 decimals">
-            <TextInput value={form.measureValue} onChange={(v) => update("measureValue", v)} required type="number" />
-          </CompactField>
-          <CompactField label="Pack Size (Inner Pack)" help="Optional, 1–10,000">
-            <TextInput value={form.unitizedCount} onChange={(v) => update("unitizedCount", v)} type="number" />
-          </CompactField>
-          <CompactField label="UPC (Unit Per Case)" help="Number of units in one case">
-            <TextInput value={form.upc} onChange={(v) => update("upc", v)} type="number" />
-          </CompactField>
-          <CompactField label="SKU Weight" help="Gross weight of the SKU (kg)">
-            <TextInput value={form.skuWeight} onChange={(v) => update("skuWeight", v)} type="number" />
-          </CompactField>
-          <CompactField label="Min Order Qty" required ondcRequired>
-            <TextInput value={form.minimumOrderQty} onChange={(v) => update("minimumOrderQty", v)} required type="number" />
-          </CompactField>
-          <CompactField label="Max Order Qty" required ondcRequired>
-            <TextInput value={form.maximumOrderQty} onChange={(v) => update("maximumOrderQty", v)} required type="number" />
-          </CompactField>
-        </div>
-      </CompactSection>
+          }
+        />
+        <DualRow
+          label="Unit Value"
+          required
+          ondcRequired
+          help="Up to 3 decimals"
+          dms={""}
+          ondc={<TextInput value={ondc.measureValue} onChange={(v) => update("measureValue", v)} edited={isEdited("measureValue")} required type="number" />}
+        />
+        <DualRow
+          label="Pack Size (Inner Pack)"
+          help="Optional, 1–10,000"
+          dms={""}
+          ondc={<TextInput value={ondc.unitizedCount} onChange={(v) => update("unitizedCount", v)} edited={isEdited("unitizedCount")} type="number" />}
+        />
+        <DualRow
+          label="UPC (Unit Per Case)"
+          help="Number of units in one case"
+          dms={""}
+          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} type="number" />}
+        />
+        <DualRow
+          label="SKU Weight"
+          help="Gross weight of the SKU (kg)"
+          dms={""}
+          ondc={<TextInput value={ondc.skuWeight} onChange={(v) => update("skuWeight", v)} edited={isEdited("skuWeight")} type="number" />}
+        />
+        <DualRow
+          label="Min Order Qty"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<TextInput value={ondc.minimumOrderQty} onChange={(v) => update("minimumOrderQty", v)} edited={isEdited("minimumOrderQty")} required type="number" />}
+        />
+        <DualRow
+          label="Max Order Qty"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<TextInput value={ondc.maximumOrderQty} onChange={(v) => update("maximumOrderQty", v)} edited={isEdited("maximumOrderQty")} required type="number" />}
+        />
+      </DualSection>
 
-      {/* Category / Fulfillment / Location — 3-column grid */}
-      <CompactSection title="Category, Fulfillment & Location" icon={<PackageOpen className="h-5 w-5 text-orange-600" />}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
-          <CompactField label="Category ID" required ondcRequired help="ONDC eB2B taxonomy">
-            <TextInput value={form.categoryId} onChange={(v) => update("categoryId", v)} required />
-          </CompactField>
-          <CompactField label="Fulfillment ID" required ondcRequired help="e.g., Pick-up, Store Delivery">
-            <TextInput value={form.fulfillmentId} onChange={(v) => update("fulfillmentId", v)} required />
-          </CompactField>
-          <CompactField label="Location ID" required ondcRequired help="Warehouse/store">
-            <TextInput value={form.locationId} onChange={(v) => update("locationId", v)} required />
-          </CompactField>
-        </div>
-      </CompactSection>
+      {/* Category / Fulfillment / Location */}
+      <DualSection title="Category, Fulfillment & Location" icon={<PackageOpen className="h-5 w-5 text-orange-600" />}>
+        <DualRow
+          label="Category ID"
+          required
+          ondcRequired
+          help="ONDC eB2B taxonomy"
+          dms={""}
+          ondc={
+            <SelectInput
+              value={ondc.categoryId}
+              onChange={(v) => update("categoryId", v)}
+              edited={isEdited("categoryId")}
+              options={CATEGORY_OPTIONS}
+            />
+          }
+        />
+        <DualRow
+          label="Fulfillment ID"
+          required
+          ondcRequired
+          help="e.g., Store Pick Up, Store Delivery"
+          dms={""}
+          ondc={
+            <SelectInput
+              value={ondc.fulfillmentId}
+              onChange={(v) => update("fulfillmentId", v)}
+              edited={isEdited("fulfillmentId")}
+              options={["Store Pick Up", "Store Delivery"]}
+            />
+          }
+        />
+        <DualRow
+          label="Location ID"
+          required
+          ondcRequired
+          help="Warehouse/store"
+          dms={""}
+          ondc={<TextInput value={ondc.locationId} onChange={(v) => update("locationId", v)} edited={isEdited("locationId")} required />}
+        />
+      </DualSection>
 
-      {/* ONDC Commerce Attributes — mixed grid */}
-      <CompactSection title="ONDC Commerce Attributes" icon={<ShieldCheck className="h-5 w-5 text-teal-600" />}>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3">
-          <CompactField label="Returnable" required ondcRequired>
-            <BooleanToggle value={form.returnable} onChange={(v) => update("returnable", v)} />
-          </CompactField>
-          <CompactField label="Cancellable" required ondcRequired>
-            <BooleanToggle value={form.cancellable} onChange={(v) => update("cancellable", v)} />
-          </CompactField>
-          <CompactField label="Available on COD" required ondcRequired>
-            <BooleanToggle value={form.availableOnCod} onChange={(v) => update("availableOnCod", v)} />
-          </CompactField>
-          <CompactField label="Time to Ship" required ondcRequired help="ISO-8601 (e.g. PT4H)">
-            <TextInput value={form.timeToShip} onChange={(v) => update("timeToShip", v)} required />
-          </CompactField>
-          <CompactField label="Consumer Care — Name" required ondcRequired>
-            <TextInput value={form.consumerCareContactName} onChange={(v) => update("consumerCareContactName", v)} placeholder="Name" required />
-          </CompactField>
-          <CompactField label="Consumer Care — Email" required ondcRequired>
-            <TextInput value={form.consumerCareContactEmail} onChange={(v) => update("consumerCareContactEmail", v)} placeholder="Email" required />
-          </CompactField>
-          <CompactField label="Consumer Care — Phone" required ondcRequired help="10–11 digits" span2>
-            <TextInput value={form.consumerCareContactPhone} onChange={(v) => update("consumerCareContactPhone", v)} placeholder="Contact number" required />
-          </CompactField>
-        </div>
-      </CompactSection>
+      {/* ONDC Commerce Attributes */}
+      <DualSection title="ONDC Commerce Attributes" icon={<ShieldCheck className="h-5 w-5 text-teal-600" />}>
+        <DualRow
+          label="Returnable"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<BooleanToggle value={ondc.returnable} onChange={(v) => update("returnable", v)} />}
+        />
+        <DualRow
+          label="Cancellable"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<BooleanToggle value={ondc.cancellable} onChange={(v) => update("cancellable", v)} />}
+        />
+        <DualRow
+          label="Available on COD"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<BooleanToggle value={ondc.availableOnCod} onChange={(v) => update("availableOnCod", v)} />}
+        />
+        <DualRow
+          label="Time to Ship"
+          required
+          ondcRequired
+          help="ISO-8601 duration (e.g. PT4H = 4 hours)"
+          dms={""}
+          ondc={<TextInput value={ondc.timeToShip} onChange={(v) => update("timeToShip", v)} edited={isEdited("timeToShip")} required />}
+        />
+        <DualRow
+          label="Consumer Care — Name"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<TextInput value={ondc.consumerCareContactName} onChange={(v) => update("consumerCareContactName", v)} edited={isEdited("consumerCareContactName")} required />}
+        />
+        <DualRow
+          label="Consumer Care — Email"
+          required
+          ondcRequired
+          dms={""}
+          ondc={<TextInput value={ondc.consumerCareContactEmail} onChange={(v) => update("consumerCareContactEmail", v)} edited={isEdited("consumerCareContactEmail")} required />}
+        />
+        <DualRow
+          label="Consumer Care — Phone"
+          required
+          ondcRequired
+          help="10–11 digits, numeric only"
+          dms={""}
+          ondc={<TextInput value={ondc.consumerCareContactPhone} onChange={(v) => update("consumerCareContactPhone", v)} edited={isEdited("consumerCareContactPhone")} required />}
+        />
+      </DualSection>
 
-      {/* Statutory — Packaged Commodities */}
-      <CompactSection title="Statutory — Packaged Commodities" icon={<Info className="h-5 w-5 text-rose-600" />}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
-          <CompactField label="Manufacturer / Packer Name" conditional help="2–100 chars (if packaged commodity)">
-            <TextInput value={form.manufacturerName} onChange={(v) => update("manufacturerName", v)} />
-          </CompactField>
-          <CompactField label="Manufacturer / Packer Address" conditional help="10–250 chars, must include 6-digit PIN">
-            <TextInput value={form.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} />
-          </CompactField>
-        </div>
-      </CompactSection>
+      {/* Statutory */}
+      <DualSection title="Statutory — Packaged Commodities" icon={<Info className="h-5 w-5 text-rose-600" />}>
+        <DualRow
+          label="Manufacturer / Packer Name"
+          conditional
+          help="2–100 chars (when packaged commodity)"
+          dms={""}
+          ondc={<TextInput value={ondc.manufacturerName} onChange={(v) => update("manufacturerName", v)} edited={isEdited("manufacturerName")} />}
+        />
+        <DualRow
+          label="Manufacturer / Packer Address"
+          conditional
+          help="10–250 chars, must include 6-digit PIN"
+          dms={""}
+          multiline
+          ondc={<TextAreaInput value={ondc.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} edited={isEdited("manufacturerAddress")} />}
+        />
+      </DualSection>
 
-      {/* Tags — 3-column grid */}
-      <CompactSection title="Tags (Discovery & Attribute Enrichment)" icon={<Sparkles className="h-5 w-5 text-pink-600" />}>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
-          <CompactField label="Country of Origin" required ondcRequired help="ISO 3166-1 alpha-3 (IND)">
-            <TextInput value={form.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} required />
-          </CompactField>
-          <CompactField label="Brand Attribute" required ondcRequired help="2–50 chars">
-            <TextInput value={form.brandAttribute} onChange={(v) => update("brandAttribute", v)} required />
-          </CompactField>
-          <CompactField label="Statutory Images" help="Optional, max 5 (back-of-pack, nutrition, etc.)">
-            <ImageUploader images={form.statutoryImages} onChange={(imgs) => update("statutoryImages", imgs)} />
-          </CompactField>
-        </div>
-      </CompactSection>
+      {/* Tags */}
+      <DualSection title="Tags (Discovery & Attribute Enrichment)" icon={<Sparkles className="h-5 w-5 text-pink-600" />}>
+        <DualRow
+          label="Country of Origin"
+          required
+          ondcRequired
+          help="ISO 3166-1 alpha-3 uppercase (e.g. IND)"
+          dms={""}
+          ondc={<TextInput value={ondc.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} edited={isEdited("countryOfOrigin")} required />}
+        />
+        <DualRow
+          label="Brand Attribute"
+          required
+          ondcRequired
+          help="2–50 chars"
+          dms={""}
+          ondc={<TextInput value={ondc.brandAttribute} onChange={(v) => update("brandAttribute", v)} edited={isEdited("brandAttribute")} required />}
+        />
+      </DualSection>
+
+      {/* Save-time error popup — shown when the user clicks Save and there are
+          invalid values. Valid values have already been saved; this popup
+          explains which fields cannot be saved and why. */}
+      <Dialog
+        open={pendingErrors.length > 0}
+        onOpenChange={(o) => !o && setPendingErrors([])}
+      >
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-5 w-5" />
+              {pendingErrors.length} field
+              {pendingErrors.length === 1 ? "" : "s"} cannot be saved
+            </DialogTitle>
+            <DialogDescription>
+              The values below have errors and were not saved. Other fields that
+              were filled in correctly have been saved. Please fix these and
+              click <b>Save ONDC Values</b> again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {pendingErrors.map((err, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5 text-sm"
+              >
+                <span
+                  className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1.5 py-0.5 rounded shrink-0 mt-0.5"
+                  title={`Rule ${err.ruleId}`}
+                >
+                  {err.code}
+                </span>
+                <div className="flex-1">
+                  <p className="text-red-800 font-medium">{err.message}</p>
+                  <p className="text-[11px] text-red-600 font-mono mt-0.5">
+                    {err.field}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setPendingErrors([])}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Got it — I'll fix these
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Offers summary — compact */}
       <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
@@ -811,6 +1122,94 @@ function ProductDetailsTab({ sku }: { sku: any }) {
 }
 
 // ---------- Compact form primitives (grid-based, minimal whitespace) ----------
+
+// ---------- DMS / ONDC dual-column primitives ----------
+
+function DualSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-0">
+        {/* Column headers */}
+        <div className="grid grid-cols-[200px_1fr_1fr] bg-gray-50 border-b border-gray-200">
+          <div className="px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+            Field Name
+          </div>
+          <div className="px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200">
+            DMS Value (Read-only)
+          </div>
+          <div className="px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200">
+            ONDC Value (Editable)
+          </div>
+        </div>
+        <div className="divide-y divide-gray-100">{children}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DualRow({
+  label,
+  required,
+  ondcRequired,
+  conditional,
+  help,
+  dms,
+  ondc,
+  multiline,
+}: {
+  label: string;
+  required?: boolean;
+  ondcRequired?: boolean;
+  conditional?: boolean;
+  help?: string;
+  dms: React.ReactNode;
+  ondc: React.ReactNode;
+  multiline?: boolean;
+}) {
+  return (
+    <div className="grid grid-cols-[200px_1fr_1fr] hover:bg-gray-50/40 transition-colors">
+      <div className="px-4 py-3 flex items-start flex-wrap gap-1">
+        <span className="text-sm font-medium text-gray-700">
+          {label}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </span>
+        {conditional && (
+          <span
+            className="inline-flex items-center shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 leading-none"
+            title="Conditional (packaged commodities)"
+          >
+            Cond.
+          </span>
+        )}
+        {help && <p className="text-[10px] text-gray-500 leading-tight w-full mt-0.5">{help}</p>}
+      </div>
+      <div className="px-4 py-3 border-l border-gray-100">
+        {typeof dms === "string" ? (
+          <p className={`text-sm text-gray-900 ${multiline ? "whitespace-pre-wrap" : ""}`}>
+            {dms || "—"}
+          </p>
+        ) : (
+          dms
+        )}
+      </div>
+      <div className="px-4 py-3 border-l border-gray-100">{ondc}</div>
+    </div>
+  );
+}
 
 function CompactSection({
   title,
@@ -1234,11 +1633,226 @@ function OffersTab({ skuId }: { skuId: string }) {
   );
 }
 
+// ---------- Price & Inventory Tab ----------
+// Previously a separate page; now merged as a tab inside the SKU Detail so pricing + stock
+// live with the SKU record. Uses the same edit-form validation (PV-003 / PV-004 / PV-005 /
+// PV-011) as the Bizom bulk import.
+
+function PriceInventoryTab({ sku }: { sku: any }) {
+  // DMS snapshot — read-only reference from the DMS system.
+  const dmsPI = {
+    mrp: String(sku.mrp ?? sku.pricing?.mrp ?? ""),
+    sellingPrice: String(sku.sellingPrice ?? sku.pricing?.sellingPrice ?? ""),
+    stock: String(sku.availableStock ?? sku.inventory?.currentStock ?? ""),
+    isInfiniteStock: Boolean(sku.isInfiniteStock),
+  };
+  // ONDC (editable) — starts populated same as DMS (per business rule).
+  // The seller reviews and edits if needed before publishing to ONDC.
+  const [ondcPI, setOndcPI] = useState({ ...dmsPI });
+  const updatePI = (key: keyof typeof dmsPI, value: any) =>
+    setOndcPI((prev) => ({ ...prev, [key]: value }));
+
+  // Incremental save — pending errors list shown as a non-blocking warning card
+  const [pendingPIErrors, setPendingPIErrors] = useState<
+    { code: string; field: string; message: string }[]
+  >([]);
+
+  const handleReset = () => {
+    setOndcPI({ ...dmsPI });
+    setPendingPIErrors([]);
+    toast.success("ONDC price & inventory values reset to DMS");
+  };
+
+  const handleSave = () => {
+    const errs: { code: string; field: string; message: string }[] = [];
+    const mrp = parseFloat(ondcPI.mrp);
+    const sp = parseFloat(ondcPI.sellingPrice);
+    const stock = parseInt(ondcPI.stock, 10);
+
+    // MRP: must be present, numeric, and strictly greater than 0 (per business rule — "if 0, show error")
+    if (ondcPI.mrp === "" || isNaN(mrp)) {
+      errs.push({ code: "ERR_PI_003", field: "MRP", message: "MRP is required and must be a valid number." });
+    } else if (mrp <= 0) {
+      errs.push({ code: "ERR_PI_003", field: "MRP", message: "MRP must be greater than 0." });
+    }
+    // Selling Price: must be present, numeric, > 0
+    if (ondcPI.sellingPrice === "" || isNaN(sp)) {
+      errs.push({ code: "ERR_PI_004", field: "Selling Price", message: "Selling price is required and must be a valid number." });
+    } else if (sp < 0) {
+      errs.push({ code: "ERR_PI_004", field: "Selling Price", message: "Selling price cannot be negative." });
+    } else if (sp === 0) {
+      errs.push({ code: "ERR_PI_004", field: "Selling Price", message: "Selling price must be greater than 0." });
+    }
+    // MRP ≥ SP — surfaced on the MRP field ("MRP less than SP → error, user needs to add value")
+    if (!isNaN(mrp) && !isNaN(sp) && mrp > 0 && sp > 0 && mrp < sp) {
+      errs.push({ code: "ERR_PI_005", field: "MRP", message: "MRP cannot be less than Selling Price — please enter a valid MRP (≥ Selling Price)." });
+    }
+    if (!ondcPI.isInfiniteStock) {
+      if (ondcPI.stock === "" || isNaN(stock)) {
+        errs.push({ code: "ERR_PI_011", field: "Available Stock", message: "Stock quantity is required and must be a whole number." });
+      } else if (stock < 0) {
+        errs.push({ code: "ERR_PI_011", field: "Available Stock", message: "Stock quantity cannot be negative." });
+      }
+    }
+    // Incremental save — always persist. Show errors only for incorrectly
+    // entered values, not for merely empty fields.
+    const invalidErrs = errs.filter(
+      (e) => !/is required\.?/i.test(e.message),
+    );
+    setPendingPIErrors(invalidErrs);
+    if (invalidErrs.length > 0) {
+      toast.warning(
+        `Saved. ${invalidErrs.length} field${invalidErrs.length === 1 ? "" : "s"} ${invalidErrs.length === 1 ? "has" : "have"} invalid values — see the summary below.`,
+      );
+    } else if (errs.length > 0) {
+      toast.success("Saved. Some optional fields still pending.");
+    } else {
+      toast.success("Price & inventory saved successfully");
+    }
+  };
+
+  const isEditedPI = (key: keyof typeof dmsPI) =>
+    JSON.stringify((dmsPI as any)[key]) !== JSON.stringify((ondcPI as any)[key]);
+
+  return (
+    <div className="space-y-3">
+      {/* Sticky action bar */}
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 gap-2 shadow-sm">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm font-medium text-gray-700">
+            Price & Inventory for <b>{sku.sku}</b>
+          </span>
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 ml-2">
+            DMS: Read-only reference
+          </Badge>
+          <Badge className="bg-green-50 text-green-700 border-green-200">
+            ONDC: Final source for publishing
+          </Badge>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleReset}>
+            Reset
+          </Button>
+          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+            Save Price & Stock
+          </Button>
+        </div>
+      </div>
+
+      {/* Price & Inventory — same DMS/ONDC dual-column layout as the Product Details tab */}
+      <DualSection title="Price & Inventory" icon={<Package className="h-5 w-5 text-green-600" />}>
+        <DualRow
+          label="MRP"
+          required
+          help="Maximum Retail Price. Must be ≥ 0."
+          dms={dmsPI.mrp}
+          ondc={
+            <TextInput
+              value={ondcPI.mrp}
+              onChange={(v) => updatePI("mrp", v)}
+              edited={isEditedPI("mrp")}
+              required
+              type="number"
+            />
+          }
+        />
+        <DualRow
+          label="Selling Price"
+          required
+          help="Must be > 0 and ≤ MRP."
+          dms={dmsPI.sellingPrice}
+          ondc={
+            <TextInput
+              value={ondcPI.sellingPrice}
+              onChange={(v) => updatePI("sellingPrice", v)}
+              edited={isEditedPI("sellingPrice")}
+              required
+              type="number"
+            />
+          }
+        />
+        <DualRow
+          label="Mark as Infinite Stock"
+          help="When enabled, stock is always available and quantity is not tracked."
+          dms={dmsPI.isInfiniteStock ? "Yes" : "No"}
+          ondc={
+            <BooleanToggle
+              value={ondcPI.isInfiniteStock}
+              onChange={(v) => updatePI("isInfiniteStock", v)}
+            />
+          }
+        />
+        {!ondcPI.isInfiniteStock && (
+          <DualRow
+            label="Available Stock"
+            required
+            help="Total saleable units. Must be ≥ 0."
+            dms={dmsPI.stock}
+            ondc={
+              <TextInput
+                value={ondcPI.stock}
+                onChange={(v) => updatePI("stock", v)}
+                edited={isEditedPI("stock")}
+                required
+                type="number"
+              />
+            }
+          />
+        )}
+      </DualSection>
+
+      {/* Save-time error popup */}
+      <Dialog
+        open={pendingPIErrors.length > 0}
+        onOpenChange={(o) => !o && setPendingPIErrors([])}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-700">
+              <AlertCircle className="h-5 w-5" />
+              {pendingPIErrors.length} field
+              {pendingPIErrors.length === 1 ? "" : "s"} cannot be saved
+            </DialogTitle>
+            <DialogDescription>
+              The values below have errors and were not saved. Please fix them
+              and click <b>Save Price & Stock</b> again.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 mt-2">
+            {pendingPIErrors.map((err, i) => (
+              <div
+                key={i}
+                className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5 text-sm"
+              >
+                <span className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1.5 py-0.5 rounded shrink-0 mt-0.5">
+                  {err.code}
+                </span>
+                <div className="flex-1">
+                  <p className="text-red-800 font-medium">{err.message}</p>
+                  <p className="text-[11px] text-red-600 mt-0.5">{err.field}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setPendingPIErrors([])}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Got it — I'll fix these
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 // Main SKU Detail Component
 export function SKUDetail() {
   const navigate = useNavigate();
   const { skuId } = useParams();
-  const [activeTab, setActiveTab] = useState<"details" | "offers">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "pricing" | "offers">("details");
 
   const sku = skuData[skuId || "1"] || skuData["1"];
 
@@ -1292,6 +1906,19 @@ export function SKUDetail() {
             </div>
           </button>
           <button
+            onClick={() => setActiveTab("pricing")}
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "pricing"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4" />
+              Price & Inventory
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab("offers")}
             className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === "offers"
@@ -1314,6 +1941,7 @@ export function SKUDetail() {
 
       {/* Tab Content */}
       {activeTab === "details" && <ProductDetailsTab sku={sku} />}
+      {activeTab === "pricing" && <PriceInventoryTab sku={sku} />}
       {activeTab === "offers" && <OffersTab skuId={skuId || "1"} />}
     </div>
   );
