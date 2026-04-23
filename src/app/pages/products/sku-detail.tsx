@@ -35,6 +35,7 @@ import {
   ChevronUp,
   Clock,
   AlertCircle,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -591,271 +592,227 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
 
 // Product Details Tab Component
 function ProductDetailsTab({ sku }: { sku: any }) {
-  // DMS snapshot (read-only reference)
-  const dms = {
-    name: sku.name,
-    skuCode: sku.sku,
-    category: sku.category,
-    brand: sku.brand,
-    shortDescription: sku.description?.split(".")[0] || "",
-    longDescription: sku.description || "",
-    status: sku.status,
-    unitType: "Liter",
-    unitValue: sku.specifications?.weight || "",
-    weight: sku.specifications?.weight || "",
-    packagingType: sku.specifications?.packaging || "",
-    innerPack: "1",
-    timeToShip: "2 days",
+  // Initial values from DMS/existing data, now all directly editable (no separate DMS column)
+  const initial = {
+    // Core Identifiers
+    itemStatus: sku.status === "Active" ? "enable" : "disable",
+    // Descriptor
+    itemName: sku.name || "",
+    itemCode: "1:" + (sku.sku || ""),
+    thumbnail: "https://seller-np.com/images/" + (sku.sku || "").toLowerCase() + ".png",
+    shortDesc: sku.description?.split(".")[0] || "",
+    longDesc: sku.description || "",
+    additionalImages: [] as string[],
+    // Quantity
+    unitizedCount: "1",
+    measureUnit: "litre",
+    measureValue: "1",
+    availableCount: "99",
+    maximumOrderQty: "100",
+    minimumOrderQty: "1",
+    upc: "12",
+    skuWeight: "1.05",
+    // Category / Fulfillment / Location
+    categoryId: sku.category || "",
+    fulfillmentId: "F1",
+    locationId: "L1",
+    // ONDC-Specific Commerce Attributes
+    returnable: true,
+    cancellable: true,
+    timeToShip: "PT4H",
+    availableOnCod: false,
+    consumerCareContactName: "Customer Support",
+    consumerCareContactEmail: "support@seller.com",
+    consumerCareContactPhone: "18004254444",
+    // Statutory (Packaged Commodities)
     manufacturerName: sku.specifications?.manufacturer || "",
-    manufacturerAddress: "Ahmedabad, Gujarat, India",
-    countryOfOrigin: sku.specifications?.countryOfOrigin || "India",
-    fssaiLicense: "10012345000123",
-    upc: "8901030874116",
+    manufacturerAddress: "Ahmedabad, Gujarat, India - 380009",
+    // Tags
+    countryOfOrigin: "IND",
+    brandAttribute: sku.brand || "",
+    statutoryImages: [] as string[],
   };
 
-  // ONDC state (editable, pre-filled from DMS)
-  const [ondc, setOndc] = useState({ ...dms });
-  const [ondcImages, setOndcImages] = useState<string[]>([]);
+  const [form, setForm] = useState(initial);
+  const update = (key: keyof typeof initial, value: any) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
 
-  const update = (key: keyof typeof dms, value: any) =>
-    setOndc((prev) => ({ ...prev, [key]: value }));
-
-  const isEdited = (key: keyof typeof dms) =>
-    JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
-
-  const handleSave = () => toast.success("ONDC values saved successfully");
+  const handleSave = () => toast.success("Product details saved successfully");
   const handleReset = () => {
-    setOndc({ ...dms });
-    setOndcImages([]);
-    toast.success("ONDC values reset to DMS defaults");
+    setForm(initial);
+    toast.success("Form reset to initial values");
   };
+
+  const isActive = form.itemStatus === "enable";
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       {/* Action bar */}
-      <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
-        <div className="flex items-center gap-2">
-          <Badge className="bg-blue-50 text-blue-700 border-blue-200">
-            DMS: Read-only reference
-          </Badge>
-          <Badge className="bg-green-50 text-green-700 border-green-200">
-            ONDC: Final source for publishing
-          </Badge>
+      <div className="flex items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200">
+        <div className="flex items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">Item Status</span>
+          <StatusToggle
+            active={isActive}
+            onChange={(v) => update("itemStatus", v ? "enable" : "disable")}
+          />
+          <span className="text-xs text-gray-500 hidden sm:inline">
+            Disable to soft-delete from BNP cache
+          </span>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleReset}>
-            Reset to DMS
+            Reset
           </Button>
           <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
-            Save ONDC Values
+            Save Changes
           </Button>
         </div>
       </div>
 
-      {/* Basic Information — unified section, aligned rows */}
-      <DualSection title="Basic Information" icon={<FileText className="h-5 w-5 text-blue-600" />}>
-        <DualRow
-          label="Product (SKU) Name"
-          required
-          ondcRequired
-          dms={dms.name}
-          ondc={<TextInput value={ondc.name} onChange={(v) => update("name", v)} edited={isEdited("name")} required />}
-        />
-        <DualRow
-          label="SKU Code"
-          required
-          ondcRequired
-          dms={dms.skuCode}
-          ondc={<TextInput value={ondc.skuCode} onChange={(v) => update("skuCode", v)} edited={isEdited("skuCode")} required />}
-        />
-        <DualRow
-          label="Category"
-          required
-          ondcRequired
-          dms={dms.category}
-          ondc={<TextInput value={ondc.category} onChange={(v) => update("category", v)} edited={isEdited("category")} required />}
-        />
-        <DualRow
-          label="Brand Name"
-          required
-          ondcRequired
-          dms={dms.brand}
-          ondc={<TextInput value={ondc.brand} onChange={(v) => update("brand", v)} edited={isEdited("brand")} required />}
-        />
-        <DualRow
-          label="Short Description"
-          dms={dms.shortDescription}
-          ondc={<TextInput value={ondc.shortDescription} onChange={(v) => update("shortDescription", v)} edited={isEdited("shortDescription")} />}
-        />
-        <DualRow
-          label="Long Description"
-          dms={dms.longDescription}
-          multiline
-          ondc={<TextAreaInput value={ondc.longDescription} onChange={(v) => update("longDescription", v)} edited={isEdited("longDescription")} />}
-        />
-        <DualRow
-          label="Status"
-          dms={<StatusBadge status={dms.status} />}
-          ondc={<SelectInput value={ondc.status} onChange={(v) => update("status", v)} options={["Active", "Inactive", "Draft"]} edited={isEdited("status")} />}
-        />
-      </DualSection>
+      {/* Descriptor (Product Identity) — 2-column grid */}
+      <CompactSection title="Descriptor (Product Identity)" icon={<FileText className="h-5 w-5 text-blue-600" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+          <CompactField label="Item Name" required ondcRequired help="Display name: brand + variant + pack size (3–100 chars)">
+            <TextInput value={form.itemName} onChange={(v) => update("itemName", v)} required />
+          </CompactField>
+          <CompactField label="Item Code" required ondcRequired help="Format: type:code (1=EAN, 2=ISBN, 3=GTIN, 4=HSN, 5=others)">
+            <TextInput value={form.itemCode} onChange={(v) => update("itemCode", v)} required />
+          </CompactField>
+          <CompactField label="Symbol / Thumbnail" required ondcRequired help="HTTPS URL, .png/.jpg/.jpeg/.webp, ≤ 2 MB">
+            <TextInput value={form.thumbnail} onChange={(v) => update("thumbnail", v)} required />
+          </CompactField>
+          <CompactField label="Short Description" required ondcRequired help="10–150 chars, plain text">
+            <TextInput value={form.shortDesc} onChange={(v) => update("shortDesc", v)} required />
+          </CompactField>
+          <CompactField label="Long Description" required ondcRequired help="20–1000 chars, plain text" span2>
+            <TextAreaInput value={form.longDesc} onChange={(v) => update("longDesc", v)} required />
+          </CompactField>
+          <CompactField label="Additional Images" help="Optional — max 8 HTTPS image URLs" span2>
+            <ImageUploader images={form.additionalImages} onChange={(imgs) => update("additionalImages", imgs)} />
+          </CompactField>
+        </div>
+      </CompactSection>
 
-      {/* Unit & Measurement Details */}
-      <DualSection title="Unit & Measurement Details" icon={<Package className="h-5 w-5 text-indigo-600" />}>
-        <DualRow
-          label="Unit Type"
-          ondcRequired
-          dms={dms.unitType}
-          ondc={<TextInput value={ondc.unitType} onChange={(v) => update("unitType", v)} edited={isEdited("unitType")} />}
-        />
-        <DualRow
-          label="Unit Value"
-          ondcRequired
-          dms={dms.unitValue}
-          ondc={<TextInput value={ondc.unitValue} onChange={(v) => update("unitValue", v)} edited={isEdited("unitValue")} />}
-        />
-        <DualRow
-          label="Weight"
-          ondcRequired
-          dms={dms.weight}
-          ondc={<TextInput value={ondc.weight} onChange={(v) => update("weight", v)} edited={isEdited("weight")} />}
-        />
-      </DualSection>
+      {/* Quantity — 3-column grid */}
+      <CompactSection title="Quantity (Net Quantity & Inventory)" icon={<Package className="h-5 w-5 text-indigo-600" />}>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-3">
+          <CompactField label="Measure Unit" required ondcRequired>
+            <SelectInput
+              value={form.measureUnit}
+              onChange={(v) => update("measureUnit", v)}
+              options={["unit", "dozen", "gram", "kilogram", "tonne", "litre", "millilitre"]}
+            />
+          </CompactField>
+          <CompactField label="Unit Value" required ondcRequired help="Up to 3 decimals">
+            <TextInput value={form.measureValue} onChange={(v) => update("measureValue", v)} required type="number" />
+          </CompactField>
+          <CompactField label="Pack Size (Inner Pack)" help="Optional, 1–10,000">
+            <TextInput value={form.unitizedCount} onChange={(v) => update("unitizedCount", v)} type="number" />
+          </CompactField>
+          <CompactField label="UPC (Unit Per Case)" help="Number of units in one case">
+            <TextInput value={form.upc} onChange={(v) => update("upc", v)} type="number" />
+          </CompactField>
+          <CompactField label="SKU Weight" help="Gross weight of the SKU (kg)">
+            <TextInput value={form.skuWeight} onChange={(v) => update("skuWeight", v)} type="number" />
+          </CompactField>
+          <CompactField label="Min Order Qty" required ondcRequired>
+            <TextInput value={form.minimumOrderQty} onChange={(v) => update("minimumOrderQty", v)} required type="number" />
+          </CompactField>
+          <CompactField label="Max Order Qty" required ondcRequired>
+            <TextInput value={form.maximumOrderQty} onChange={(v) => update("maximumOrderQty", v)} required type="number" />
+          </CompactField>
+        </div>
+      </CompactSection>
 
-      {/* Packaging & Logistics */}
-      <DualSection title="Packaging & Logistics" icon={<PackageOpen className="h-5 w-5 text-orange-600" />}>
-        <DualRow
-          label="Packaging Type"
-          dms={dms.packagingType}
-          ondc={<TextInput value={ondc.packagingType} onChange={(v) => update("packagingType", v)} edited={isEdited("packagingType")} />}
-        />
-        <DualRow
-          label="Inner Pack"
-          ondcRequired
-          dms={dms.innerPack}
-          ondc={<TextInput value={ondc.innerPack} onChange={(v) => update("innerPack", v)} edited={isEdited("innerPack")} />}
-        />
-        <DualRow
-          label="UPC"
-          dms={dms.upc}
-          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} />}
-        />
-        <DualRow
-          label="Time to Ship"
-          ondcRequired
-          dms={dms.timeToShip}
-          ondc={<TextInput value={ondc.timeToShip} onChange={(v) => update("timeToShip", v)} edited={isEdited("timeToShip")} />}
-        />
-      </DualSection>
+      {/* Category / Fulfillment / Location — 3-column grid */}
+      <CompactSection title="Category, Fulfillment & Location" icon={<PackageOpen className="h-5 w-5 text-orange-600" />}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
+          <CompactField label="Category ID" required ondcRequired help="ONDC eB2B taxonomy">
+            <TextInput value={form.categoryId} onChange={(v) => update("categoryId", v)} required />
+          </CompactField>
+          <CompactField label="Fulfillment ID" required ondcRequired help="e.g., Pick-up, Store Delivery">
+            <TextInput value={form.fulfillmentId} onChange={(v) => update("fulfillmentId", v)} required />
+          </CompactField>
+          <CompactField label="Location ID" required ondcRequired help="Warehouse/store">
+            <TextInput value={form.locationId} onChange={(v) => update("locationId", v)} required />
+          </CompactField>
+        </div>
+      </CompactSection>
 
-      {/* Manufacturer & Compliance */}
-      <DualSection title="Manufacturer & Compliance Details" icon={<Info className="h-5 w-5 text-rose-600" />}>
-        <DualRow
-          label="Manufacturer Name"
-          required
-          ondcRequired
-          dms={dms.manufacturerName}
-          ondc={<TextInput value={ondc.manufacturerName} onChange={(v) => update("manufacturerName", v)} edited={isEdited("manufacturerName")} required />}
-        />
-        <DualRow
-          label="Manufacturer Address"
-          required
-          dms={dms.manufacturerAddress}
-          multiline
-          ondc={<TextAreaInput value={ondc.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} edited={isEdited("manufacturerAddress")} required />}
-        />
-        <DualRow
-          label="Country of Origin"
-          required
-          ondcRequired
-          dms={dms.countryOfOrigin}
-          ondc={<TextInput value={ondc.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} edited={isEdited("countryOfOrigin")} required />}
-        />
-        <DualRow
-          label="FSSAI License Number"
-          dms={dms.fssaiLicense}
-          ondc={<TextInput value={ondc.fssaiLicense} onChange={(v) => update("fssaiLicense", v)} edited={isEdited("fssaiLicense")} />}
-        />
-      </DualSection>
+      {/* ONDC Commerce Attributes — mixed grid */}
+      <CompactSection title="ONDC Commerce Attributes" icon={<ShieldCheck className="h-5 w-5 text-teal-600" />}>
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-x-4 gap-y-3">
+          <CompactField label="Returnable" required ondcRequired>
+            <BooleanToggle value={form.returnable} onChange={(v) => update("returnable", v)} />
+          </CompactField>
+          <CompactField label="Cancellable" required ondcRequired>
+            <BooleanToggle value={form.cancellable} onChange={(v) => update("cancellable", v)} />
+          </CompactField>
+          <CompactField label="Available on COD" required ondcRequired>
+            <BooleanToggle value={form.availableOnCod} onChange={(v) => update("availableOnCod", v)} />
+          </CompactField>
+          <CompactField label="Time to Ship" required ondcRequired help="ISO-8601 (e.g. PT4H)">
+            <TextInput value={form.timeToShip} onChange={(v) => update("timeToShip", v)} required />
+          </CompactField>
+          <CompactField label="Consumer Care — Name" required ondcRequired>
+            <TextInput value={form.consumerCareContactName} onChange={(v) => update("consumerCareContactName", v)} placeholder="Name" required />
+          </CompactField>
+          <CompactField label="Consumer Care — Email" required ondcRequired>
+            <TextInput value={form.consumerCareContactEmail} onChange={(v) => update("consumerCareContactEmail", v)} placeholder="Email" required />
+          </CompactField>
+          <CompactField label="Consumer Care — Phone" required ondcRequired help="10–11 digits" span2>
+            <TextInput value={form.consumerCareContactPhone} onChange={(v) => update("consumerCareContactPhone", v)} placeholder="Contact number" required />
+          </CompactField>
+        </div>
+      </CompactSection>
 
+      {/* Statutory — Packaged Commodities */}
+      <CompactSection title="Statutory — Packaged Commodities" icon={<Info className="h-5 w-5 text-rose-600" />}>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-3">
+          <CompactField label="Manufacturer / Packer Name" conditional help="2–100 chars (if packaged commodity)">
+            <TextInput value={form.manufacturerName} onChange={(v) => update("manufacturerName", v)} />
+          </CompactField>
+          <CompactField label="Manufacturer / Packer Address" conditional help="10–250 chars, must include 6-digit PIN">
+            <TextInput value={form.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} />
+          </CompactField>
+        </div>
+      </CompactSection>
 
-      {/* Product Images */}
-      <DualSection title="Product Images" icon={<ImageIcon className="h-5 w-5 text-pink-600" />}>
-        <DualRow
-          label="Product Images"
-          ondcRequired
-          dms={
-            <div>
-              <div className="w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center">
-                <ImageIcon className="h-8 w-8 text-gray-400" />
-              </div>
-              <p className="text-xs text-gray-500 mt-1">From DMS — non-editable</p>
-            </div>
-          }
-          ondc={
-            <div>
-              <div className="flex flex-wrap gap-2">
-                {ondcImages.map((img, idx) => (
-                  <div
-                    key={idx}
-                    className="relative w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center group"
-                  >
-                    <ImageIcon className="h-6 w-6 text-gray-400" />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setOndcImages((prev) => prev.filter((_, i) => i !== idx))
-                      }
-                      className="absolute top-1 right-1 p-0.5 rounded bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Remove"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setOndcImages((prev) => [...prev, `img-${prev.length + 1}`])}
-                  className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 flex flex-col items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
-                >
-                  <ImageIcon className="h-5 w-5 mb-1" />
-                  <span className="text-xs">Upload</span>
-                </button>
-              </div>
-              <p className="text-xs text-gray-500 mt-1">
-                {ondcImages.length} image{ondcImages.length !== 1 ? "s" : ""} uploaded
-              </p>
-            </div>
-          }
-        />
-      </DualSection>
+      {/* Tags — 3-column grid */}
+      <CompactSection title="Tags (Discovery & Attribute Enrichment)" icon={<Sparkles className="h-5 w-5 text-pink-600" />}>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-3">
+          <CompactField label="Country of Origin" required ondcRequired help="ISO 3166-1 alpha-3 (IND)">
+            <TextInput value={form.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} required />
+          </CompactField>
+          <CompactField label="Brand Attribute" required ondcRequired help="2–50 chars">
+            <TextInput value={form.brandAttribute} onChange={(v) => update("brandAttribute", v)} required />
+          </CompactField>
+          <CompactField label="Statutory Images" help="Optional, max 5 (back-of-pack, nutrition, etc.)">
+            <ImageUploader images={form.statutoryImages} onChange={(imgs) => update("statutoryImages", imgs)} />
+          </CompactField>
+        </div>
+      </CompactSection>
 
-      {/* Offers & Schemes — read-only, single column */}
-      <Card>
-        <CardHeader className="py-4 border-b border-gray-100">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Gift className="h-5 w-5 text-amber-600" />
-            Offers & Schemes
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-6">
-          <p className="text-sm text-gray-700">
+      {/* Offers summary — compact */}
+      <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
+        <div className="flex items-center gap-2">
+          <Gift className="h-4 w-4 text-amber-600" />
+          <span className="text-sm font-medium text-gray-800">Offers & Schemes</span>
+          <span className="text-sm text-gray-600">
             {mockOffers[sku.id]?.length
-              ? `${mockOffers[sku.id].length} offer(s) applied from DMS`
-              : "No offers from DMS"}
-          </p>
-          <p className="text-xs text-gray-500 mt-1">
-            Read-only — managed centrally in DMS
-          </p>
-        </CardContent>
-      </Card>
+              ? `— ${mockOffers[sku.id].length} offer(s) applied`
+              : "— none"}
+          </span>
+        </div>
+        <span className="text-xs text-gray-500">Managed in Offers & Schemes tab</span>
+      </div>
     </div>
   );
 }
 
-// ---------- Dual-column section primitives ----------
+// ---------- Compact form primitives (grid-based, minimal whitespace) ----------
 
-function DualSection({
+function CompactSection({
   title,
   icon,
   children,
@@ -866,69 +823,156 @@ function DualSection({
 }) {
   return (
     <Card>
-      <CardHeader className="py-4 border-b border-gray-100">
-        <CardTitle className="text-base flex items-center gap-2">
+      <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
           {icon}
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
-        {/* Column headers */}
-        <div className="grid grid-cols-[220px_1fr_1fr] bg-gray-50 border-b border-gray-200">
-          <div className="px-5 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider">
-            Field Name
-          </div>
-          <div className="px-5 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200">
-            DMS Value (Read-only)
-          </div>
-          <div className="px-5 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200">
-            ONDC Value (Editable)
-          </div>
-        </div>
-        <div className="divide-y divide-gray-100">{children}</div>
-      </CardContent>
+      <CardContent className="p-4">{children}</CardContent>
     </Card>
   );
 }
 
-function DualRow({
+function CompactField({
   label,
   required,
-  dms,
-  ondc,
-  multiline,
   ondcRequired,
+  conditional,
+  help,
+  span2,
+  children,
 }: {
   label: string;
   required?: boolean;
-  dms: React.ReactNode;
-  ondc: React.ReactNode;
-  multiline?: boolean;
   ondcRequired?: boolean;
+  conditional?: boolean;
+  help?: string;
+  span2?: boolean;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[220px_1fr_1fr] hover:bg-gray-50/40 transition-colors">
-      <div className="px-5 py-4 flex items-start gap-1.5">
-        <span className="text-sm font-medium text-gray-700">
+    <div className={`space-y-1 ${span2 ? "md:col-span-2" : ""}`}>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <label className="text-xs font-semibold text-gray-700">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
-        </span>
+        </label>
         {ondcRequired && (
-          <span className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 leading-none" title="Required for ONDC compliance">
+          <span
+            className="inline-flex items-center shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 leading-none"
+            title="Required for ONDC compliance"
+          >
             ONDC
           </span>
         )}
-      </div>
-      <div className="px-5 py-4 border-l border-gray-100">
-        {typeof dms === "string" ? (
-          <p className={`text-sm text-gray-900 ${multiline ? "whitespace-pre-wrap" : ""}`}>
-            {dms || "—"}
-          </p>
-        ) : (
-          dms
+        {conditional && (
+          <span
+            className="inline-flex items-center shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 leading-none"
+            title="Conditional (packaged commodities)"
+          >
+            Conditional
+          </span>
         )}
       </div>
-      <div className="px-5 py-4 border-l border-gray-100">{ondc}</div>
+      {children}
+      {help && <p className="text-[11px] text-gray-500 leading-tight">{help}</p>}
+    </div>
+  );
+}
+
+function StatusToggle({ active, onChange }: { active: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="inline-flex items-center bg-gray-100 rounded-full p-0.5 border border-gray-200">
+      <button
+        type="button"
+        onClick={() => onChange(true)}
+        className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+          active
+            ? "bg-green-600 text-white shadow-sm"
+            : "text-gray-600 hover:text-gray-900"
+        }`}
+      >
+        Active
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange(false)}
+        className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+          !active
+            ? "bg-gray-600 text-white shadow-sm"
+            : "text-gray-600 hover:text-gray-900"
+        }`}
+      >
+        Inactive
+      </button>
+    </div>
+  );
+}
+
+function BooleanToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        role="switch"
+        aria-checked={value}
+        onClick={() => onChange(!value)}
+        className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 ${
+          value ? "bg-blue-600" : "bg-gray-300"
+        }`}
+      >
+        <span
+          className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+            value ? "translate-x-5" : "translate-x-0.5"
+          }`}
+        />
+      </button>
+      <span className={`text-xs font-medium ${value ? "text-blue-700" : "text-gray-500"}`}>
+        {value ? "Yes" : "No"}
+      </span>
+    </div>
+  );
+}
+
+function ImageUploader({
+  images,
+  onChange,
+}: {
+  images: string[];
+  onChange: (imgs: string[]) => void;
+}) {
+  return (
+    <div>
+      <div className="flex flex-wrap gap-2">
+        {images.map((_img, idx) => (
+          <div
+            key={idx}
+            className="relative w-24 h-24 rounded-lg bg-gray-100 border border-gray-200 flex items-center justify-center group"
+          >
+            <ImageIcon className="h-6 w-6 text-gray-400" />
+            <button
+              type="button"
+              onClick={() => onChange(images.filter((_, i) => i !== idx))}
+              className="absolute top-1 right-1 p-0.5 rounded bg-red-500 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        ))}
+        <button
+          type="button"
+          onClick={() => onChange([...images, `img-${images.length + 1}`])}
+          className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 flex flex-col items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
+        >
+          <ImageIcon className="h-5 w-5 mb-1" />
+          <span className="text-xs">Upload</span>
+        </button>
+      </div>
+      <p className="text-xs text-gray-500 mt-1">
+        {images.length} image{images.length !== 1 ? "s" : ""} uploaded
+      </p>
     </div>
   );
 }
@@ -941,12 +985,14 @@ function TextInput({
   edited,
   required,
   type = "text",
+  placeholder,
 }: {
   value: string;
   onChange: (v: string) => void;
   edited?: boolean;
   required?: boolean;
   type?: "text" | "number";
+  placeholder?: string;
 }) {
   const missing = required && (!value || String(value).trim() === "");
   const borderClass = missing
@@ -959,8 +1005,9 @@ function TextInput({
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-3 py-2 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
+        className={`w-full px-2.5 py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
       />
       <FieldStatus edited={edited} missing={missing} />
     </div>
@@ -989,8 +1036,8 @@ function TextAreaInput({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        rows={3}
-        className={`w-full px-3 py-2 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
+        rows={2}
+        className={`w-full px-2.5 py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
       />
       <FieldStatus edited={edited} missing={missing} />
     </div>
@@ -1211,19 +1258,19 @@ export function SKUDetail() {
   const offersCount = mockOffers[skuId || "1"]?.length || 0;
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-full">
-      {/* Header */}
+    <div className="p-4 space-y-3 bg-gray-50 min-h-full">
+      {/* Header — compact */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Button variant="outline" size="icon" onClick={() => navigate("/products/my-sku")}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
           <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold text-gray-900">{sku.name}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold text-gray-900">{sku.name}</h1>
               {getStatusBadge(sku.status)}
             </div>
-            <p className="text-gray-600 mt-1">SKU: {sku.sku}</p>
+            <p className="text-sm text-gray-600">SKU: {sku.sku}</p>
           </div>
         </div>
       </div>
@@ -1233,7 +1280,7 @@ export function SKUDetail() {
         <nav className="flex gap-8">
           <button
             onClick={() => setActiveTab("details")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === "details"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
@@ -1246,7 +1293,7 @@ export function SKUDetail() {
           </button>
           <button
             onClick={() => setActiveTab("offers")}
-            className={`py-3 px-1 border-b-2 font-medium text-sm transition-colors ${
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === "offers"
                 ? "border-blue-600 text-blue-600"
                 : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
