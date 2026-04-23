@@ -47,6 +47,13 @@ import {
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { validateSKU, ValidationError, SKUInput } from "../../lib/ondc-validation";
+import {
+  importBizomCsv,
+  BizomValidationResult,
+  BIZOM_REQUIRED_HEADERS,
+  AggregatedSKU,
+} from "../../lib/bizom-validation";
+import { Layers } from "lucide-react";
 
 // ONDC Data structure
 interface ONDCData {
@@ -77,6 +84,13 @@ interface SKUData {
   status: string;
   lastUpdated: string;
   sku: string;
+  // Price & Inventory fields — merged into the SKU record (previously on a separate page)
+  mrp?: number;
+  sellingPrice?: number;
+  availableStock?: number;
+  isInfiniteStock?: boolean;
+  thresholdLevel?: number;
+  reservedStock?: number;
   ondcCompliance: {
     isCompliant: boolean;
     missingFields: string[];
@@ -95,7 +109,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-22",
     sku: "180000005",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 3091, sellingPrice: 2810, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000006",
@@ -106,7 +121,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-22",
     sku: "180000006",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 2838, sellingPrice: 2580, availableStock: 252, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000008",
@@ -117,6 +133,7 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-22",
     sku: "180000008",
+    mrp: 188, sellingPrice: 171, availableStock: 642, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
     ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
   },
   {
@@ -128,7 +145,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-14",
     sku: "180000076",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 191, sellingPrice: 174, availableStock: 27, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000179",
@@ -139,7 +157,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-08",
     sku: "180000179",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 388, sellingPrice: 353, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000248",
@@ -150,11 +169,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-03-20",
     sku: "180000248",
-    ondcCompliance: {
-      isCompliant: false,
-      missingFields: ["Stock"],
-      ondcData: {},
-    },
+    mrp: 190, sellingPrice: 173, availableStock: 0, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000249",
@@ -165,6 +181,7 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-14",
     sku: "180000249",
+    mrp: 963, sellingPrice: 875, availableStock: 138, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
     ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
   },
   {
@@ -176,7 +193,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-06",
     sku: "180000260",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 194, sellingPrice: 176, availableStock: 12, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000377",
@@ -187,7 +205,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-03-20",
     sku: "180000377",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 172, sellingPrice: 156, availableStock: 9, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000419",
@@ -198,7 +217,8 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-08",
     sku: "180000419",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 190, sellingPrice: 173, availableStock: 28, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000437",
@@ -209,6 +229,7 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-08",
     sku: "180000437",
+    mrp: 179, sellingPrice: 163, availableStock: 50, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
     ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
   },
   {
@@ -220,44 +241,17 @@ const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-03-16",
     sku: "180000490",
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+    mrp: 129, sellingPrice: 117.4, availableStock: 19, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
 ];
 
 
-// ONDC mandatory fields for bulk-import validation (column headers in template)
-const ONDC_REQUIRED_COLUMNS = [
-  "Item Status",
-  "Item Name",
-  "Item Code",
-  "Symbol/Thumbnail",
-  "Short Description",
-  "Long Description",
-  "Measure Unit",
-  "Measure Value",
-  "Available Count",
-  "Maximum Order Qty",
-  "Minimum Order Qty",
-  "Category ID",
-  "Fulfillment ID",
-  "Location ID",
-  "Returnable",
-  "Cancellable",
-  "Time to Ship",
-  "Available on COD",
-  "Consumer Care Contact",
-  "Country of Origin",
-  "Brand Attribute",
-];
-
-const ONDC_OPTIONAL_COLUMNS = [
-  "Unitized Count (Pack Size)",
-  "Additional Images",
-  "Manufacturer/Packer Name",
-  "Manufacturer/Packer Address",
-  "Additional Images (Statutory)",
-  "Return Window",
-];
+// Bulk-import columns — Phase-change:
+// The import file now carries ONLY the SKU Code and SKU Name. All other ONDC fields
+// are filled in per-SKU via the SKU Detail page and validated on save there.
+const ONDC_REQUIRED_COLUMNS = ["SKU Code", "SKU Name"];
+const ONDC_OPTIONAL_COLUMNS: string[] = [];
 
 interface ValidationRow {
   rowNumber: number;
@@ -287,6 +281,15 @@ export function MySKU() {
   const [isValidating, setIsValidating] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Price & Stock bulk update dialog (Bizom DMS export)
+  const [isPriceStockOpen, setIsPriceStockOpen] = useState(false);
+  const [psFile, setPsFile] = useState<File | null>(null);
+  const [isPsValidating, setIsPsValidating] = useState(false);
+  const [psResult, setPsResult] = useState<BizomValidationResult | null>(null);
+  const [psSkippedSkus, setPsSkippedSkus] = useState<AggregatedSKU[]>([]);
+  const [psView, setPsView] = useState<"aggregated" | "batches">("aggregated");
+  const psFileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
@@ -370,43 +373,15 @@ export function MySKU() {
   };
 
   const handleDownloadSample = () => {
-    const mandatoryHeaders = ONDC_REQUIRED_COLUMNS.map((c) => `${c}*`);
-    const headers = [...mandatoryHeaders, ...ONDC_OPTIONAL_COLUMNS];
-
-    // Two example rows per ONDC spec
-    const sampleRows = [
-      [
-        "enable", // Item Status
-        "Ashirwad Plain Atta 1kg", // Item Name (3-100 chars, brand + variant + pack size)
-        "1:8901030865278", // Item Code — valid EAN-13 with correct checksum
-        "https://seller-np.com/images/ashirwad-atta-1kg.png", // Thumbnail (HTTPS, .png/.jpg/.jpeg/.webp, ≤ 2MB)
-        "Ashirwad Plain Atta 1kg Pack — premium wheat flour", // Short Description (10-150 chars)
-        "Premium quality whole wheat flour sourced from the finest Indian wheat, perfect for making soft rotis and parathas.", // Long Description (20-1000 chars)
-        "kilogram", // Measure Unit (lowercase enum)
-        "1", // Measure Value (>0, up to 3 decimals)
-        "50", // Available Count (0-99)
-        "20", // Maximum Order Qty (≤ Available Count)
-        "1", // Minimum Order Qty (≥1, ≤ Max)
-        "Atta, Flours and Sooji", // Category ID (from ONDC taxonomy)
-        "F1", // Fulfillment ID (must exist at provider)
-        "L1", // Location ID (enabled location)
-        "TRUE", // Returnable
-        "TRUE", // Cancellable
-        "PT4H", // Time to Ship (PT15M..P7D)
-        "FALSE", // Available on COD
-        "Support Team,support@abcdist.com,18004254444", // Consumer Care (name,email,phone — no spaces after commas)
-        "IND", // Country of Origin (ISO 3166-1 alpha-3)
-        "Ashirwad", // Brand Attribute (2-50 chars)
-        "10", // Unitized Count (Pack Size)
-        "https://seller-np.com/images/img1.jpg;https://seller-np.com/images/img2.jpg", // Additional Images (semicolon-separated)
-        "ITC Limited", // Manufacturer Name
-        "ITC Quality Care Cell, P.O Box 592, Bangalore 560005", // Manufacturer Address (must contain 6-digit PIN)
-        "back_image|https://seller-np.com/images/back.jpg", // Statutory Images (type|url;...)
-        "P7D", // Return Window (P1D..P30D, required when Returnable=true)
-      ],
+    // Phase-change: template only needs SKU Code + SKU Name.
+    // All other ONDC attributes are filled in from the SKU Detail page.
+    const headers = ONDC_REQUIRED_COLUMNS.map((c) => `${c}*`);
+    const sampleRows: string[][] = [
+      ["180000005", "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN"],
+      ["180000006", "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN"],
+      ["180000008", "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS."],
     ];
 
-    // Create a CSV as stand-in for .xlsx (full xlsx needs a writer lib; CSV opens in Excel).
     const csv = [
       headers.join(","),
       ...sampleRows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")),
@@ -477,84 +452,92 @@ export function MySKU() {
       const headers = allRows[0].map((h) => h.replace(/\*+\s*$/, "").trim());
       const dataRows = allRows.slice(1);
 
-      // Map CSV header → SKUInput key
-      const headerMap: Record<string, keyof SKUInput | "__ignore__"> = {
-        "Item Status": "itemStatus",
-        "Item Name": "itemName",
-        "Item Code": "itemCode",
-        "Symbol/Thumbnail": "thumbnail",
-        "Symbol / Thumbnail": "thumbnail",
-        "Short Description": "shortDesc",
-        "Long Description": "longDesc",
-        "Additional Images": "additionalImages",
-        "Unitized Count (Pack Size)": "unitizedCount",
-        "Measure Unit": "measureUnit",
-        "Measure Value": "measureValue",
-        "Available Count": "availableCount",
-        "Maximum Order Qty": "maximumOrderQty",
-        "Minimum Order Qty": "minimumOrderQty",
-        "Category ID": "categoryId",
-        "Fulfillment ID": "fulfillmentId",
-        "Location ID": "locationId",
-        "Returnable": "returnable",
-        "Cancellable": "cancellable",
-        "Time to Ship": "timeToShip",
-        "Available on COD": "availableOnCod",
-        "Consumer Care Contact": "consumerCareContact",
-        "Manufacturer/Packer Name": "manufacturerName",
-        "Manufacturer / Packer Name": "manufacturerName",
-        "Manufacturer/Packer Address": "manufacturerAddress",
-        "Manufacturer / Packer Address": "manufacturerAddress",
-        "Country of Origin": "countryOfOrigin",
-        "Brand Attribute": "brandAttribute",
-        "Additional Images (Statutory)": "statutoryImages",
-        "Return Window": "returnWindow",
-      };
+      // The import file has only two columns. Accept a few common header spellings.
+      const skuCodeIdx = headers.findIndex((h) =>
+        /^(sku code|sku id|item code|skucode)$/i.test(h),
+      );
+      const skuNameIdx = headers.findIndex((h) =>
+        /^(sku name|item name|name)$/i.test(h),
+      );
+
+      if (skuCodeIdx < 0 || skuNameIdx < 0) {
+        setIsValidating(false);
+        toast.error(
+          "File must contain 'SKU Code' and 'SKU Name' columns. Use the sample template.",
+        );
+        return;
+      }
 
       const seenCodes = new Set<string>();
-      const seenNames = new Set<string>();
+      // Existing catalog — for ERR_IMP_004 (SKU already exists, new-SKU import rejects)
+      const existingCatalogCodes = new Set(skus.map((s) => s.sku));
 
       const details: ValidationRow[] = dataRows.map((cols, idx) => {
-        const input: SKUInput = {};
-        headers.forEach((h, ci) => {
-          const key = headerMap[h];
-          if (!key || key === "__ignore__") return;
-          const raw = (cols[ci] ?? "").trim();
-          if (raw === "") return;
+        const rowNumber = idx + 2;
+        const skuCode = (cols[skuCodeIdx] ?? "").trim();
+        const skuName = (cols[skuNameIdx] ?? "").trim();
 
-          if (key === "returnable" || key === "cancellable" || key === "availableOnCod") {
-            (input as any)[key] = /^true|1|yes$/i.test(raw);
-          } else if (key === "additionalImages") {
-            input.additionalImages = raw.split(";").map((s) => s.trim()).filter(Boolean);
-          } else if (key === "statutoryImages") {
-            // Format: type1|url1;type2|url2
-            input.statutoryImages = raw.split(";").map((s) => {
-              const [type, url] = s.split("|").map((x) => x.trim());
-              return { type, url };
-            });
-          } else {
-            (input as any)[key] = raw;
-          }
-        });
+        // Phase-change: only two fields are imported; the rest of the ONDC fields are
+        // filled later from the SKU Detail page (validated on save there).
+        const errors: ValidationError[] = [];
+        if (!skuCode) {
+          errors.push({
+            ruleId: "V-001-IMP",
+            code: "ERR_IMP_001",
+            field: "SKU Code",
+            message: "SKU Code is required.",
+          });
+        } else if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
+          errors.push({
+            ruleId: "V-001-IMP",
+            code: "ERR_IMP_001",
+            field: "SKU Code",
+            message: "SKU Code must be alphanumeric (letters, digits, dashes, or underscores).",
+          });
+        } else if (seenCodes.has(skuCode)) {
+          errors.push({
+            ruleId: "V-003-IMP",
+            code: "ERR_IMP_003",
+            field: "SKU Code",
+            message: "Duplicate SKU Code in this file — already appeared in an earlier row.",
+          });
+        } else if (existingCatalogCodes.has(skuCode)) {
+          // SKU Code is the uniqueness key. A new-SKU import cannot create an existing one.
+          errors.push({
+            ruleId: "V-004-IMP",
+            code: "ERR_IMP_004",
+            field: "SKU Code",
+            message: `SKU "${skuCode}" already exists in your catalog. Use the Price & Stock Update flow to modify it.`,
+          });
+        }
 
-        // Flag packaged commodity conditionally — simple heuristic: has manufacturer fields or F&B categories
-        const catLower = (input.categoryId || "").toLowerCase();
-        input.isPackagedCommodity =
-          !!(input.manufacturerName || input.manufacturerAddress) ||
-          /atta|flour|biscuit|salt|oil|food|packaged/.test(catLower);
+        if (!skuName) {
+          errors.push({
+            ruleId: "V-002-IMP",
+            code: "ERR_IMP_002",
+            field: "SKU Name",
+            message: "SKU Name is required.",
+          });
+        } else if (skuName.length < 3 || skuName.length > 100) {
+          errors.push({
+            ruleId: "V-002-IMP",
+            code: "ERR_IMP_002",
+            field: "SKU Name",
+            message: "SKU Name must be between 3 and 100 characters.",
+          });
+        }
 
-        const errors = validateSKU(input, {
-          existingItemCodes: seenCodes,
-          existingItemNames: seenNames,
-        });
+        if (skuCode) seenCodes.add(skuCode);
 
-        if (input.itemCode) seenCodes.add(input.itemCode.trim());
-        if (input.itemName) seenNames.add(input.itemName.trim().toLowerCase());
+        const input: SKUInput = {
+          itemCode: skuCode,
+          itemName: skuName,
+        };
 
         return {
-          rowNumber: idx + 2, // +1 for header, +1 for 1-based
-          skuCode: input.itemCode || "",
-          skuName: input.itemName || "",
+          rowNumber,
+          skuCode,
+          skuName,
           status: errors.length === 0 ? "valid" : "invalid",
           errors,
           parsed: input,
@@ -614,6 +597,108 @@ export function MySKU() {
     setValidationResult(null);
   };
 
+  // ---- Price & Stock update (Bizom DMS bulk import) ----
+  // Business rule: if the SKU Code from the file does NOT exist in the catalog, the row
+  // is silently skipped (no error, no record created). Only existing SKUs get their
+  // price and stock updated.
+  const handleDownloadPsSample = () => {
+    const headers = [
+      ...BIZOM_REQUIRED_HEADERS,
+      "Saleable Stock( Case ),Saleable Stock( Unit )",
+      "Total Non-Saleable Stock( Case ),Total Non-Saleable Stock( Unit )",
+      "In Transit Stock( Case ),In Transit Stock( Unit )",
+      "Total Stock( Case ),Total Stock( Unit )",
+      "Amount/Value",
+      "Stock Turnover Ratio(No. of days stock will last)",
+    ];
+    const sample = [
+      ["2", "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN", "180000005", "26106600284101", "2026-04-06", "2026-07-05", "0.00000", "2810.00000", "5.00", "'1,0", "0,0", "0,0", "'1,0", "2810", "0", ""],
+      ["3", "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN", "180000006", "26106600591101", "2026-04-08", "2026-07-07", "0.00000", "2580.00000", "5.00", "'52,0", "0,0", "0,0", "'52,0", "134160", "3", ""],
+    ];
+    const toCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const csv = [
+      headers.map(toCell).join(","),
+      ...sample.map((r) => r.map(toCell).join(",")),
+    ].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "Bizom_Price_Stock_Template.csv";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Sample template downloaded");
+  };
+
+  const handlePsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!/\.(csv|xlsx|xls)$/i.test(f.name)) {
+      toast.error("Invalid file format. Upload .csv, .xlsx, or .xls.");
+      return;
+    }
+    setPsFile(f);
+    setIsPsValidating(true);
+    setPsResult(null);
+    setPsSkippedSkus([]);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = String(ev.target?.result || "");
+      const result = importBizomCsv(text);
+      // Silent-skip: split aggregated SKUs into those present in the catalog vs not.
+      const catalog = new Set(skus.map((s) => s.sku));
+      const matched: AggregatedSKU[] = [];
+      const skipped: AggregatedSKU[] = [];
+      for (const agg of result.aggregated) {
+        if (catalog.has(agg.skuCode)) matched.push(agg);
+        else skipped.push(agg);
+      }
+      setPsResult({ ...result, aggregated: matched });
+      setPsSkippedSkus(skipped);
+      setIsPsValidating(false);
+
+      if (result.fileLevelErrors.length > 0) {
+        toast.error(result.fileLevelErrors[0].message);
+      } else if (matched.length === 0 && skipped.length === 0) {
+        toast.warning("No valid SKUs found in the file.");
+      } else {
+        toast.success(
+          `${matched.length} SKU(s) ready to update${skipped.length > 0 ? `, ${skipped.length} skipped (not in catalog)` : ""}.`,
+        );
+      }
+    };
+    reader.readAsText(f);
+  };
+
+  const handleApplyPriceStock = () => {
+    if (!psResult || psResult.aggregated.length === 0) return;
+    const today = new Date().toISOString().split("T")[0];
+    const byCode = new Map(psResult.aggregated.map((s) => [s.skuCode, s]));
+    setSkus((prev) =>
+      prev.map((s) => {
+        const agg = byCode.get(s.sku);
+        if (!agg) return s;
+        return {
+          ...s,
+          mrp: agg.mrp,
+          sellingPrice: agg.sellingPrice,
+          availableStock: agg.totalStock,
+          lastUpdated: today,
+          source: "DMS Sync",
+        };
+      }),
+    );
+    toast.success(
+      `Updated price & stock for ${psResult.aggregated.length} SKU(s)${psSkippedSkus.length > 0 ? ` — ${psSkippedSkus.length} row(s) skipped (unknown SKU Code)` : ""}.`,
+    );
+    setIsPriceStockOpen(false);
+    setPsFile(null);
+    setPsResult(null);
+    setPsSkippedSkus([]);
+  };
+
   const getSourceBadge = (source: string) => {
     const badgeMap: Record<string, { color: string; icon?: React.ReactNode }> = {
       "Brand Sync": {
@@ -668,14 +753,34 @@ export function MySKU() {
                   <Filter className="h-4 w-4" />
                   Filters
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={handleOpenAddSku}
-                  className="gap-2 flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
-                >
-                  <Plus className="h-4 w-4" />
-                  Add SKU
-                </Button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="gap-2 flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
+                    >
+                      <Upload className="h-4 w-4" />
+                      Bulk Import
+                      <MoreVertical className="h-3.5 w-3.5 opacity-80" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuItem onClick={handleOpenAddSku} className="gap-2 cursor-pointer">
+                      <Plus className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Add New SKUs</p>
+                        <p className="text-[11px] text-gray-500">Create SKU stubs (SKU Code + Name)</p>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => setIsPriceStockOpen(true)} className="gap-2 cursor-pointer">
+                      <Database className="h-4 w-4 text-purple-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Update Price & Stock</p>
+                        <p className="text-[11px] text-gray-500">From Bizom DMS export</p>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 
@@ -797,21 +902,26 @@ export function MySKU() {
                       </td>
                       <td className="px-4 py-4 text-center">
                         {sku.ondcCompliance.isCompliant ? (
-                          <Badge className="bg-emerald-100 text-emerald-700 border-emerald-300 gap-1">
+                          <Badge
+                            className="bg-emerald-100 text-emerald-700 border-emerald-300 gap-1"
+                            title="All ONDC fields are filled in correctly."
+                          >
                             <CheckCircle2 className="h-3 w-3" />
-                            Compliant
+                            ONDC Compliant
                           </Badge>
                         ) : (
-                          <div className="flex flex-col items-center gap-1">
-                            <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                          <div
+                            className="inline-flex flex-col items-center gap-0.5"
+                            title={`Missing / invalid fields: ${sku.ondcCompliance.missingFields.join(", ") || "—"}`}
+                          >
+                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1">
                               <AlertCircle className="h-3 w-3" />
-                              Non-Compliant
+                              {sku.ondcCompliance.missingFields.length} field
+                              {sku.ondcCompliance.missingFields.length === 1 ? "" : "s"} pending
                             </Badge>
-                            {sku.ondcCompliance.missingFields.length > 0 && (
-                              <span className="text-[10px] text-gray-500">
-                                {sku.ondcCompliance.missingFields.length} field{sku.ondcCompliance.missingFields.length > 1 ? "s" : ""} missing
-                              </span>
-                            )}
+                            <span className="text-[10px] text-gray-500">
+                              Needs attention
+                            </span>
                           </div>
                         )}
                       </td>
@@ -1002,6 +1112,303 @@ export function MySKU() {
         )}
       </AnimatePresence>
 
+      {/* Price & Stock Update Dialog (Bizom DMS) — silent-skip for unknown SKU codes */}
+      <Dialog open={isPriceStockOpen} onOpenChange={setIsPriceStockOpen}>
+        <DialogContent className="!max-w-[min(96vw,1280px)] w-[min(96vw,1280px)] max-h-[92vh] overflow-y-auto p-5">
+          <DialogHeader className="pb-2">
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Database className="h-5 w-5 text-purple-600" />
+              Update Price & Stock — Bulk Import (Bizom DMS)
+            </DialogTitle>
+            <DialogDescription>
+              Upload the Bizom DMS export. Only existing SKUs are updated — rows whose SKU Code
+              does not exist in your catalog are <b>silently skipped</b> (no error, no record
+              created). Stock is summed across batches; prices follow the max-price-wins rule.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+              <div className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+                    <span className="text-purple-600 font-semibold text-sm">1</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900 text-sm">Download sample template</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Matches the Bizom DMS Price & Inventory export format.</p>
+                    <div className="flex items-center gap-2 mt-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
+                      <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-900 truncate">Bizom_Price_Stock_Template.csv</p>
+                        <p className="text-[10px] text-gray-500">Same columns as the Bizom DMS export</p>
+                      </div>
+                      <Button variant="outline" size="sm" onClick={handleDownloadPsSample} className="gap-1 h-7 px-2 text-xs">
+                        <Download className="h-3 w-3" /> Download
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-start gap-2">
+                  <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+                    <span className="text-purple-600 font-semibold text-sm">2</span>
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-gray-900 text-sm">Upload Bizom DMS export</p>
+                    <p className="text-xs text-gray-600 mt-0.5">Supported: .csv, .xlsx, .xls</p>
+                    <input ref={psFileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handlePsFileChange} className="hidden" />
+                    {!psFile ? (
+                      <button
+                        type="button"
+                        onClick={() => psFileInputRef.current?.click()}
+                        className="mt-2 w-full border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-lg py-3 flex items-center justify-center gap-2 text-gray-600 hover:text-purple-600 transition-colors"
+                      >
+                        <Upload className="h-4 w-4" />
+                        <span className="text-xs font-medium">Click to browse file</span>
+                      </button>
+                    ) : (
+                      <div className="mt-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
+                        <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-gray-900 truncate">{psFile.name}</p>
+                          <p className="text-[10px] text-gray-500">{(psFile.size / 1024).toFixed(1)} KB</p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0"
+                          onClick={() => {
+                            setPsFile(null);
+                            setPsResult(null);
+                            setPsSkippedSkus([]);
+                            if (psFileInputRef.current) psFileInputRef.current.value = "";
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {(isPsValidating || psResult) && (
+              <div className="border border-gray-200 rounded-lg p-3">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
+                      <span className="text-purple-600 font-semibold text-sm">3</span>
+                    </div>
+                    <p className="font-semibold text-gray-900 text-sm">Validation & preview</p>
+                  </div>
+                  {psResult && (
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
+                        Batch rows <b>{psResult.totalRows}</b>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">
+                        <FileCheck className="h-3 w-3" /> Valid <b>{psResult.validBatchRows}</b>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
+                        <FileWarning className="h-3 w-3" /> Invalid <b>{psResult.invalidBatchRows}</b>
+                      </span>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
+                        <Layers className="h-3 w-3" /> Will update <b>{psResult.aggregated.length}</b>
+                      </span>
+                      {psSkippedSkus.length > 0 && (
+                        <span
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded"
+                          title="SKU Code not found in your catalog — silently skipped."
+                        >
+                          Skipped <b>{psSkippedSkus.length}</b>
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {isPsValidating && (
+                  <p className="text-sm text-gray-600 py-4 text-center">Parsing and validating file…</p>
+                )}
+
+                {psResult && (
+                  <>
+                    {psResult.fileLevelErrors.length > 0 && (
+                      <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        {psResult.fileLevelErrors.map((err, i) => (
+                          <p key={i} className="text-xs text-red-700">
+                            <span className="font-mono font-semibold">[{err.code}]</span> {err.message}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="mb-2 inline-flex bg-gray-100 rounded-lg p-0.5 border border-gray-200">
+                      <button
+                        type="button"
+                        onClick={() => setPsView("aggregated")}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${psView === "aggregated" ? "bg-white shadow-sm text-gray-900" : "text-gray-600"}`}
+                      >
+                        Will Update ({psResult.aggregated.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setPsView("batches")}
+                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${psView === "batches" ? "bg-white shadow-sm text-gray-900" : "text-gray-600"}`}
+                      >
+                        Batch Rows ({psResult.totalRows})
+                      </button>
+                    </div>
+
+                    {psView === "aggregated" ? (
+                      <div className="max-h-[45vh] overflow-y-auto border border-gray-200 rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 sticky top-0 z-10">
+                            <tr className="text-left">
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Name</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-center">Batches</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">MRP (max)</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Selling Price (max)</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Total Stock</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Notes</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {psResult.aggregated.map((agg) => (
+                              <tr key={agg.skuCode} className="hover:bg-gray-50">
+                                <td className="px-3 py-2 font-mono text-xs text-gray-700">{agg.skuCode}</td>
+                                <td className="px-3 py-2 text-gray-900">{agg.skuName}</td>
+                                <td className="px-3 py-2 text-center">
+                                  <Badge className="bg-blue-50 text-blue-700 border-blue-200">{agg.batchCount}</Badge>
+                                </td>
+                                <td className="px-3 py-2 text-right font-semibold text-gray-900">₹{agg.mrp.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right font-semibold text-green-700">₹{agg.sellingPrice.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right font-semibold text-gray-900">{agg.totalStock}</td>
+                                <td className="px-3 py-2">
+                                  <div className="flex flex-wrap gap-1">
+                                    {agg.hasPriceDivergence && (
+                                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]" title="Batches had different prices — system took the maximum.">
+                                        Price varied
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                            {psSkippedSkus.map((agg) => (
+                              <tr key={"sk-" + agg.skuCode} className="bg-amber-50/40">
+                                <td className="px-3 py-2 font-mono text-xs text-gray-500">{agg.skuCode}</td>
+                                <td className="px-3 py-2 text-gray-500">{agg.skuName}</td>
+                                <td className="px-3 py-2 text-center text-gray-500">{agg.batchCount}</td>
+                                <td className="px-3 py-2 text-right text-gray-500">—</td>
+                                <td className="px-3 py-2 text-right text-gray-500">—</td>
+                                <td className="px-3 py-2 text-right text-gray-500">—</td>
+                                <td className="px-3 py-2">
+                                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                                    Skipped — SKU not in catalog
+                                  </Badge>
+                                </td>
+                              </tr>
+                            ))}
+                            {psResult.aggregated.length === 0 && psSkippedSkus.length === 0 && (
+                              <tr>
+                                <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">
+                                  No valid SKUs to update.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : (
+                      <div className="max-h-[45vh] overflow-y-auto border border-gray-200 rounded-lg">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 sticky top-0 z-10">
+                            <tr className="text-left">
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-14">Row</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Batch</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">MRP</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Price</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-28">Status</th>
+                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Errors</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-100">
+                            {psResult.batchRows.map((b) => (
+                              <tr key={b.raw.rowNumber} className={b.status === "invalid" ? "bg-red-50/50" : ""}>
+                                <td className="px-3 py-2 text-gray-700 align-top">{b.raw.rowNumber}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">{b.raw.skuCode || "—"}</td>
+                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">{b.raw.batch || "—"}</td>
+                                <td className="px-3 py-2 text-right text-gray-900 align-top">₹{b.parsed.mrp.toFixed(2)}</td>
+                                <td className="px-3 py-2 text-right text-green-700 align-top">₹{b.parsed.sellingPrice.toFixed(2)}</td>
+                                <td className="px-3 py-2 align-top">
+                                  {b.status === "valid" ? (
+                                    <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                                      <CheckCircle2 className="h-3 w-3" /> Valid
+                                    </Badge>
+                                  ) : (
+                                    <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                                      <AlertCircle className="h-3 w-3" /> {b.errors.length}
+                                    </Badge>
+                                  )}
+                                </td>
+                                <td className="px-3 py-2 align-top">
+                                  {b.errors.length === 0 ? (
+                                    <span className="text-xs text-green-700">All checks passed.</span>
+                                  ) : (
+                                    <ul className="space-y-1 text-xs text-red-700">
+                                      {b.errors.map((err, i) => (
+                                        <li key={i} className="flex gap-2">
+                                          <span className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start">
+                                            {err.code}
+                                          </span>
+                                          <span>{err.message}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
+              <p className="font-semibold mb-1">Rules for Price & Stock update:</p>
+              <ul className="list-disc list-inside space-y-0.5">
+                <li>SKUs that exist in your catalog are updated — MRP = max across batches, Selling Price = max across batches, Stock = sum of saleable batches.</li>
+                <li>Rows whose <b>SKU Code is not in your catalog</b> are <b>silently skipped</b> — no error is raised, no new SKU is created.</li>
+                <li>Batch-level errors (negative price/stock, MRP &lt; SP, invalid dates, duplicates) still reject only those specific rows.</li>
+                <li>To add a brand-new SKU, use <b>Bulk Import → Add New SKUs</b>.</li>
+              </ul>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPriceStockOpen(false)}>Cancel</Button>
+            <Button
+              onClick={handleApplyPriceStock}
+              disabled={!psResult || psResult.aggregated.length === 0}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              Update {psResult?.aggregated.length ?? 0} SKU{(psResult?.aggregated.length ?? 0) !== 1 ? "s" : ""}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add SKU — Bulk Import Dialog */}
       <Dialog open={isAddSkuOpen} onOpenChange={setIsAddSkuOpen}>
         <DialogContent className="!max-w-[min(95vw,1200px)] w-[min(95vw,1200px)] max-h-[92vh] overflow-y-auto p-5">
@@ -1011,8 +1418,9 @@ export function MySKU() {
               Add SKU — Bulk Import
             </DialogTitle>
             <DialogDescription>
-              Upload an Excel/CSV file with your SKUs. The system validates each row against
-              ONDC eB2B mandatory rules. Rows that pass validation are stored to your Seller Store.
+              Upload a file containing just <b>SKU Code</b> and <b>SKU Name</b>. Imported SKUs are
+              created as stubs — every other ONDC field is filled in from the SKU Detail page and
+              fully validated there when you click <b>Save</b>.
             </DialogDescription>
           </DialogHeader>
 
@@ -1189,30 +1597,22 @@ export function MySKU() {
               </div>
             )}
 
-            {/* Validation rule reference — cites rule IDs from ONDC_SKU_Validation_Rules */}
+            {/* Validation rules — simplified: import file only carries SKU Code + SKU Name */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
-              <p className="font-semibold mb-1">Validation rules (ONDC eB2B SKU, 23-Apr-2026):</p>
+              <p className="font-semibold mb-1">Import validation rules (SKU stubs only):</p>
               <ul className="list-disc list-inside space-y-0.5">
-                <li><span className="font-mono">V-001</span> Item Status — enum <span className="font-mono">enable</span>/<span className="font-mono">disable</span> (lowercase).</li>
-                <li><span className="font-mono">V-002</span> Item Name — 3–100 chars, brand + variant + pack size, unique per location.</li>
-                <li><span className="font-mono">V-003</span> Item Code — <span className="font-mono">type:code</span> (1=EAN 13d, 2=ISBN 10/13d, 3=GTIN 8/12/13/14d, 4=HSN 4–8d, 5=Others). EAN/GTIN checksum enforced.</li>
-                <li><span className="font-mono">V-004</span> Thumbnail — HTTPS URL; .png/.jpg/.jpeg/.webp only; ≤ 2 MB.</li>
-                <li><span className="font-mono">V-005</span> Short Desc — 10–150 chars, no HTML, no line breaks.</li>
-                <li><span className="font-mono">V-006</span> Long Desc — 20–1000 chars, no HTML/scripts.</li>
-                <li><span className="font-mono">V-007</span> Additional Images — max 8; same URL rules as thumbnail.</li>
-                <li><span className="font-mono">V-008</span> Pack Size — positive integer, ≤ 10,000.</li>
-                <li><span className="font-mono">V-009</span> Measure Unit — unit/dozen/gram/kilogram/tonne/litre/millilitre (lowercase).</li>
-                <li><span className="font-mono">V-010</span> Measure Value — positive number, up to 3 decimals.</li>
-                <li><span className="font-mono">V-011</span> Available Count — integer 0–99.</li>
-                <li><span className="font-mono">V-012/13/27</span> Min ≤ Max ≤ Available Count.</li>
-                <li><span className="font-mono">V-019</span> Time to Ship — ISO-8601 duration between PT15M and P7D.</li>
-                <li><span className="font-mono">V-021</span> Consumer Care — <span className="font-mono">name,email,contact_no</span> (no spaces; name letters only; 10–11 digit phone).</li>
-                <li><span className="font-mono">V-022/23/29</span> Manufacturer Name & Address — required for packaged commodities (address must contain 6-digit PIN).</li>
-                <li><span className="font-mono">V-024</span> Country of Origin — ISO 3166-1 alpha-3 uppercase (e.g., IND).</li>
-                <li><span className="font-mono">V-025</span> Brand — 2–50 chars, letters/digits/spaces/hyphen/apostrophe.</li>
-                <li><span className="font-mono">V-028</span> Return Window required when Returnable = true (P1D..P30D).</li>
-                <li><span className="font-mono">V-032</span> Duplicate item code / item name rejected within the same location.</li>
+                <li><span className="font-mono">ERR_IMP_001</span> SKU Code required, alphanumeric (letters, digits, dashes or underscores).</li>
+                <li><span className="font-mono">ERR_IMP_002</span> SKU Name required, 3–100 characters.</li>
+                <li><span className="font-mono">ERR_IMP_003</span> Duplicate SKU Code within the same file is rejected.</li>
+                <li><span className="font-mono">ERR_IMP_004</span> SKU Code already exists in catalog — use the <b>Price & Stock Update</b> flow to modify it.</li>
               </ul>
+              <p className="mt-2 text-[11px]">
+                <b>Note:</b> Only SKU Code and SKU Name are imported. All other ONDC fields
+                (Item Code, Thumbnail, Descriptions, Measure Unit/Value, Commerce Attributes,
+                Consumer Care, Country of Origin, Brand, etc.) are filled in per-SKU on the
+                <b> SKU Detail</b> page and fully validated on <b>Save</b> against ONDC rules
+                (V-001 → V-033).
+              </p>
             </div>
           </div>
 

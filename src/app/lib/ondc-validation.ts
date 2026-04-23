@@ -162,7 +162,10 @@ function gtinChecksum(digits: string): boolean {
 }
 
 function parseItemCode(code: string): { type: string; value: string } | null {
-  const m = /^([1-5]):(.+)$/.exec(code);
+  // Accept any single-character type prefix here so we can emit a specific
+  // "Invalid code type" error downstream (per docx V-003) rather than a
+  // generic "invalid format".
+  const m = /^([^:]+):(.+)$/.exec(code);
   if (!m) return null;
   return { type: m[1], value: m[2] };
 }
@@ -216,9 +219,12 @@ export function validateSKU(input: SKUInput, opts: ValidateOptions = {}): Valida
         "Invalid item code format. Please use the format type:code (e.g., 1:8901234567890).");
     } else {
       const { type, value } = parsed;
-      let lengthOk = true;
-      if (type === "1") {
-        lengthOk = /^\d{13}$/.test(value);
+      // Per docx: surface "Invalid code type" distinctly from length errors.
+      if (!["1", "2", "3", "4", "5"].includes(type)) {
+        push("V-003", "ERR_SKU_003", "items[].descriptor.code",
+          "Invalid code type. Allowed values: 1 (EAN), 2 (ISBN), 3 (GTIN), 4 (HSN), 5 (Others).");
+      } else if (type === "1") {
+        const lengthOk = /^\d{13}$/.test(value);
         if (!lengthOk) push("V-003", "ERR_SKU_003", "items[].descriptor.code",
           "Invalid EAN length. EAN must be exactly 13 digits.");
         else if (!ean13Checksum(value)) {
@@ -226,11 +232,11 @@ export function validateSKU(input: SKUInput, opts: ValidateOptions = {}): Valida
             "Invalid EAN/GTIN checksum digit. Please verify the code.");
         }
       } else if (type === "2") {
-        lengthOk = /^\d{10}$/.test(value) || /^\d{13}$/.test(value);
+        const lengthOk = /^\d{10}$/.test(value) || /^\d{13}$/.test(value);
         if (!lengthOk) push("V-003", "ERR_SKU_003", "items[].descriptor.code",
           "Invalid ISBN length. ISBN must be 10 or 13 digits.");
       } else if (type === "3") {
-        lengthOk = /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(value);
+        const lengthOk = /^\d{8}$|^\d{12}$|^\d{13}$|^\d{14}$/.test(value);
         if (!lengthOk) push("V-003", "ERR_SKU_003", "items[].descriptor.code",
           "Invalid GTIN length. GTIN must be 8, 12, 13 or 14 digits.");
         else if (!gtinChecksum(value)) {
@@ -537,12 +543,20 @@ export function validateSKU(input: SKUInput, opts: ValidateOptions = {}): Valida
   }
 
   // ---------- V-024 Country of Origin ----------
+  // Accept either a 3-letter ISO code (e.g., "IND") or a plain country name
+  // in letters (e.g., "India"). Reject values that contain digits or other
+  // non-letter characters — the field is a text field, not numeric.
   if (isBlank(input.countryOfOrigin)) {
     push("V-024", "ERR_SKU_024", "items[].tags[code=origin].country",
       "Country of origin is required.");
-  } else if (!ISO3_RE.test(input.countryOfOrigin!)) {
-    push("V-024", "ERR_SKU_024", "items[].tags[code=origin].country",
-      "Invalid country code. Please use a 3-letter ISO country code (e.g., IND for India).");
+  } else {
+    const v = input.countryOfOrigin!;
+    const isIsoAlpha3 = ISO3_RE.test(v);
+    const isCountryName = /^[A-Za-z][A-Za-z ]{1,}$/.test(v);
+    if (!isIsoAlpha3 && !isCountryName) {
+      push("V-024", "ERR_SKU_024", "items[].tags[code=origin].country",
+        "Country of origin must be a text value (e.g., India) or a 3-letter ISO code (e.g., IND). Numbers and special characters are not allowed.");
+    }
   }
 
   // ---------- V-025 Brand Attribute ----------
