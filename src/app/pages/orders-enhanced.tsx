@@ -687,9 +687,6 @@ export function Orders() {
                 Company / Brand
               </th>
               <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
-                Source
-              </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
                 Retailer Name
               </th>
               <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
@@ -736,11 +733,6 @@ export function Orders() {
                   </p>
                 </td>
                 <td className="py-4 px-6">
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    {order.source}
-                  </Badge>
-                </td>
-                <td className="py-4 px-6">
                   <p className="font-medium text-gray-900">
                     {order.retailerName}
                   </p>
@@ -752,7 +744,7 @@ export function Orders() {
                 </td>
                 <td className="py-4 px-6">
                   <Badge variant="outline" className="bg-gray-50">
-                    {order.marketplace}
+                    ONDC
                   </Badge>
                 </td>
                 <td className="py-4 px-6">
