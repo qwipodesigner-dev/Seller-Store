@@ -100,6 +100,25 @@ interface SKUData {
 
 // SKU data — aligned with the Bizom DMS inventory export (Freedom / Sri Krupa / First Klass).
 const sampleSKUs: SKUData[] = [
+  // Demo SKU — fully ONDC-compliant Aashirvaad Atta 10 kg (ITC Limited).
+  // Showcases what a complete, ready-to-publish SKU looks like.
+  {
+    id: "190000001",
+    name: "Aashirvaad Whole Wheat Atta 10 kg",
+    category: "Cooking and Baking Needs",
+    brand: "Aashirvaad",
+    source: "DMS",
+    status: "Active",
+    lastUpdated: "2026-04-25",
+    sku: "190000001",
+    mrp: 565,
+    sellingPrice: 525,
+    availableStock: 320,
+    isInfiniteStock: false,
+    thresholdLevel: 30,
+    reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
   {
     id: "180000005",
     name: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",

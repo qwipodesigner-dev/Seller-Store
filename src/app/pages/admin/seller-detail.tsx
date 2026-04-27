@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -46,6 +46,8 @@ import {
   updateSellerOndcConfig,
   disconnectSellerConnector,
   updateManagedCompanies,
+  updateCompanyBrandSelections,
+  updateSellerImage,
   getQwipoCompanies,
   emptyBizomConfig,
   emptyOndcConfig,
@@ -54,7 +56,15 @@ import {
   type BizomConfig,
   type OndcConfig,
   type ConnectorType,
+  type CompanyBrandSelection,
 } from "../../lib/mock-store";
+import {
+  getCompanies as getAdminCatalogCompanies,
+  subscribeToCompanies as subscribeToAdminCatalog,
+  revokeImage,
+  type Company as AdminCatalogCompany,
+} from "../../lib/admin-catalog";
+import { Camera, Upload as UploadIcon } from "lucide-react";
 
 const emptyPermissions: SellerPermissions = {
   view: false,
@@ -319,9 +329,9 @@ export function AdminSellerDetail() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
+      {/* Header — back arrow + seller avatar (click to upload) + name */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -330,10 +340,19 @@ export function AdminSellerDetail() {
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
+
+            {/* Avatar with click-to-replace */}
+            <SellerAvatar
+              seller={seller}
+              onChange={(url) => {
+                const updated = updateSellerImage(seller.id, url);
+                if (updated) setSeller(updated);
+                toast.success(url ? "Photo updated" : "Photo removed");
+              }}
+            />
+
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {seller.name}
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900">{seller.name}</h2>
               <p className="text-sm text-gray-500">
                 {seller.businessName} • {seller.city}
               </p>
@@ -362,6 +381,13 @@ export function AdminSellerDetail() {
                   Profile
                 </TabsTrigger>
                 <TabsTrigger
+                  value="catalog"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                >
+                  <Building2 className="h-4 w-4 mr-2" />
+                  Companies &amp; Brands
+                </TabsTrigger>
+                <TabsTrigger
                   value="connectors"
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
                 >
@@ -373,38 +399,49 @@ export function AdminSellerDetail() {
 
             {/* Profile */}
             <TabsContent value="profile" className="p-6 mt-0">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
-                <Field label="Full Name" value={seller.name} />
-                <Field label="Email" value={seller.email} />
-                <Field label="Phone" value={seller.phone} />
-                <Field label="City" value={seller.city} />
-                <Field label="Business Name" value={seller.businessName} />
-                <Field
-                  label="Approved On"
-                  value={
-                    seller.approvedAt
-                      ? new Date(seller.approvedAt).toLocaleDateString()
-                      : "—"
-                  }
-                />
-                {/* Active/Inactive Toggle */}
-                <div className="md:col-span-2 pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <Label className="text-sm font-medium">Status</Label>
-                      <p className="text-xs text-gray-500">
-                        Toggle to activate or deactivate this seller
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-green-700">
-                        Active
-                      </span>
-                      <Switch defaultChecked />
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl">
+                  <Field label="Full Name" value={seller.name} />
+                  <Field label="Email" value={seller.email} />
+                  <Field label="Phone" value={seller.phone} />
+                  <Field label="City" value={seller.city} />
+                  <Field label="Business Name" value={seller.businessName} />
+                  <Field
+                    label="Approved On"
+                    value={
+                      seller.approvedAt
+                        ? new Date(seller.approvedAt).toLocaleDateString()
+                        : "—"
+                    }
+                  />
+                  {/* Active/Inactive Toggle */}
+                  <div className="md:col-span-2 pt-4 border-t border-gray-100">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label className="text-sm font-medium">Status</Label>
+                        <p className="text-xs text-gray-500">
+                          Toggle to activate or deactivate this seller
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-green-700">
+                          Active
+                        </span>
+                        <Switch defaultChecked />
+                      </div>
                     </div>
                   </div>
                 </div>
+
               </div>
+            </TabsContent>
+
+            {/* Companies & Brands attached to this seller */}
+            <TabsContent value="catalog" className="p-6 mt-0">
+              <SellerCatalogTab
+                seller={seller}
+                onChange={(s) => setSeller(s)}
+              />
             </TabsContent>
 
             {/* KYC — hidden */}
@@ -901,6 +938,473 @@ function Field({ label, value }: { label: string; value: string }) {
     <div>
       <Label className="text-xs text-gray-500">{label}</Label>
       <p className="mt-1 text-sm text-gray-900 font-medium">{value}</p>
+    </div>
+  );
+}
+
+// ---- Seller Avatar — header tile with click-to-upload + remove ----
+function SellerAvatar({
+  seller,
+  onChange,
+}: {
+  seller: Seller;
+  onChange: (url: string | null) => void;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
+  const initials = seller.name
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
+  const handlePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    if (!f.type.startsWith("image/")) {
+      toast.error("Only image files allowed");
+      return;
+    }
+    revokeImage(seller.imageUrl ?? null);
+    const url = URL.createObjectURL(f);
+    onChange(url);
+    if (ref.current) ref.current.value = "";
+  };
+
+  const handleClear = () => {
+    revokeImage(seller.imageUrl ?? null);
+    onChange(null);
+  };
+
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handlePick}
+      />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className="relative w-12 h-12 rounded-full border border-gray-200 bg-gradient-to-br from-blue-50 to-purple-100 flex items-center justify-center overflow-hidden group"
+        title="Click to upload / change photo"
+      >
+        {seller.imageUrl ? (
+          <>
+            <img src={seller.imageUrl} alt={seller.name} className="w-full h-full object-cover" />
+            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera className="h-4 w-4 text-white" />
+            </span>
+          </>
+        ) : (
+          <>
+            <span className="text-sm font-semibold text-blue-700">{initials || "S"}</span>
+            <span className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Camera className="h-4 w-4 text-white" />
+            </span>
+          </>
+        )}
+      </button>
+      {seller.imageUrl && (
+        <button
+          type="button"
+          onClick={handleClear}
+          className="text-[11px] text-red-600 hover:text-red-700 underline"
+          title="Remove photo"
+        >
+          Remove
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ---- Companies & Brands tab on the Seller Detail page ----
+// Shows companies/brands tagged to this seller and lets the admin
+// add more from the master Companies & Brands catalog, or remove
+// existing links.
+export function SellerCatalogTab({
+  seller,
+  onChange,
+}: {
+  seller: Seller;
+  onChange: (s: Seller) => void;
+}) {
+  const [companies, setCompanies] = useState<AdminCatalogCompany[]>(getAdminCatalogCompanies());
+  useEffect(() => subscribeToAdminCatalog(() => setCompanies([...getAdminCatalogCompanies()])), []);
+
+  const selections = seller.companyBrandSelections ?? [];
+
+  // ---- Add Company dialog ----
+  const [addOpen, setAddOpen] = useState(false);
+  const [addCompanyId, setAddCompanyId] = useState<string>("");
+  const [addAllBrands, setAddAllBrands] = useState(true);
+  const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
+
+  // Companies available to add: active and not already linked.
+  const linkedIds = new Set(selections.map((s) => s.companyId));
+  const availableCompanies = companies.filter(
+    (c) => c.isActive !== false && !linkedIds.has(c.id),
+  );
+  const selectedAddCompany = companies.find((c) => c.id === addCompanyId);
+
+  const openAdd = () => {
+    setAddCompanyId("");
+    setAddAllBrands(true);
+    setAddBrandIds([]);
+    setAddOpen(true);
+  };
+
+  const toggleAddBrand = (brandId: string) => {
+    setAddBrandIds((prev) =>
+      prev.includes(brandId) ? prev.filter((b) => b !== brandId) : [...prev, brandId],
+    );
+  };
+
+  const persistSelections = (next: CompanyBrandSelection[]) => {
+    const updated = updateCompanyBrandSelections(seller.id, next);
+    if (updated) onChange(updated);
+  };
+
+  const handleAddSubmit = () => {
+    if (!addCompanyId) {
+      toast.error("Please select a company");
+      return;
+    }
+    if (!addAllBrands && addBrandIds.length === 0) {
+      toast.error("Pick at least one brand or choose 'Use all brands'");
+      return;
+    }
+    const newSel: CompanyBrandSelection = {
+      companyId: addCompanyId,
+      brandIds: addAllBrands ? [] : addBrandIds,
+    };
+    persistSelections([...selections, newSel]);
+    toast.success(`Linked "${selectedAddCompany?.name ?? "company"}" to seller`);
+    setAddOpen(false);
+  };
+
+  const handleRemove = (companyId: string) => {
+    const company = companies.find((c) => c.id === companyId);
+    persistSelections(selections.filter((s) => s.companyId !== companyId));
+    toast.success(`Unlinked "${company?.name ?? "company"}"`);
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-base font-semibold text-gray-900 flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-blue-600" />
+            Companies &amp; Brands
+          </h3>
+          <p className="text-sm text-gray-500">
+            Companies and brands this distributor sells. Add more to grant
+            access to additional catalog products.
+          </p>
+        </div>
+        <Button
+          className="gap-2 bg-blue-600 hover:bg-blue-700"
+          onClick={openAdd}
+          disabled={availableCompanies.length === 0}
+          title={
+            availableCompanies.length === 0
+              ? "All active companies are already linked"
+              : undefined
+          }
+        >
+          <Plus className="h-4 w-4" />
+          Add Company
+        </Button>
+      </div>
+
+      {selections.length === 0 ? (
+        <div className="text-center py-12 border-2 border-dashed rounded-lg">
+          <Building2 className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+          <p className="font-medium text-gray-600">No companies linked</p>
+          <p className="text-sm text-gray-500 mt-1 mb-4">
+            Link companies from the master catalog so this seller can list
+            their products.
+          </p>
+          <Button
+            variant="outline"
+            onClick={openAdd}
+            className="gap-2"
+            disabled={availableCompanies.length === 0}
+          >
+            <Plus className="h-4 w-4" />
+            Add Company
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {selections.map((sel) => {
+            const company = companies.find((c) => c.id === sel.companyId);
+            if (!company) return null;
+            const allBrands = sel.brandIds.length === 0;
+            const visibleBrands = allBrands
+              ? company.brands
+              : company.brands.filter((b) => sel.brandIds.includes(b.id));
+            const isInactive = company.isActive === false;
+            return (
+              <div
+                key={sel.companyId}
+                className="border border-gray-200 rounded-lg p-4 bg-white"
+              >
+                <div className="flex items-start gap-3 flex-wrap">
+                  <div className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                    {company.imageUrl ? (
+                      <img
+                        src={company.imageUrl}
+                        alt={company.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Building2 className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {company.name}
+                      </p>
+                      {isInactive && (
+                        <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">
+                          Inactive in catalog
+                        </Badge>
+                      )}
+                      {allBrands && (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                          All brands
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {allBrands
+                        ? `All ${company.brands.length} brands`
+                        : `${visibleBrands.length} of ${company.brands.length} brands`}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {visibleBrands.map((b) => (
+                        <span
+                          key={b.id}
+                          className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2 py-0.5 text-xs text-gray-800"
+                        >
+                          <div className="w-5 h-5 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center">
+                            {b.imageUrl ? (
+                              <img
+                                src={b.imageUrl}
+                                alt={b.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : null}
+                          </div>
+                          {b.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-gray-400 hover:text-red-600"
+                    onClick={() => handleRemove(sel.companyId)}
+                    title="Unlink company"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Add Company Dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5 text-blue-600" />
+              Link a Company
+            </DialogTitle>
+            <DialogDescription>
+              Pick a company from the master catalog and choose the brands this
+              seller should have access to.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <Label className="text-xs">Company</Label>
+              <select
+                value={addCompanyId}
+                onChange={(e) => {
+                  setAddCompanyId(e.target.value);
+                  setAddAllBrands(true);
+                  setAddBrandIds([]);
+                }}
+                className="w-full h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
+              >
+                <option value="">Choose a company…</option>
+                {availableCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              {availableCompanies.length === 0 && (
+                <p className="text-[11px] text-amber-700">
+                  All active catalog companies are already linked.
+                </p>
+              )}
+            </div>
+
+            {selectedAddCompany && (
+              <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Brands</Label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Switch
+                      checked={addAllBrands}
+                      onCheckedChange={(v) => {
+                        setAddAllBrands(v);
+                        if (v) setAddBrandIds([]);
+                      }}
+                    />
+                    <span className="text-gray-700">Use all brands</span>
+                  </label>
+                </div>
+                {!addAllBrands && (
+                  <div className="flex flex-wrap gap-2">
+                    {selectedAddCompany.brands.map((b) => {
+                      const checked = addBrandIds.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => toggleAddBrand(b.id)}
+                          className={`inline-flex items-center gap-1.5 border rounded-full pl-1 pr-2 py-0.5 text-xs transition-colors ${
+                            checked
+                              ? "bg-blue-50 border-blue-300 text-blue-800"
+                              : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleAddBrand(b.id)}
+                            className="h-3.5 w-3.5"
+                          />
+                          {b.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {addAllBrands && (
+                  <p className="text-[11px] text-gray-600">
+                    All {selectedAddCompany.brands.length} brands will be
+                    available. Future brands added to this company will also be
+                    accessible automatically.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={handleAddSubmit}
+              disabled={!addCompanyId}
+            >
+              Link Company
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
+// ---- Companies & Brands attached to the seller (admin-catalog data) ----
+export function SellerCompaniesAndBrands({ seller }: { seller: Seller }) {
+  const [companies, setCompanies] = useState<AdminCatalogCompany[]>(getAdminCatalogCompanies());
+  useEffect(() => subscribeToAdminCatalog(() => setCompanies([...getAdminCatalogCompanies()])), []);
+
+  const selections = seller.companyBrandSelections ?? [];
+
+  if (selections.length === 0) {
+    return (
+      <div className="border-2 border-dashed border-gray-200 rounded-lg p-6 text-center">
+        <Building2 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+        <p className="text-sm font-medium text-gray-700">No companies linked yet</p>
+        <p className="text-xs text-gray-500 mt-1">
+          Companies and brands selected during seller creation will show here. To
+          add them now, edit this seller's catalog access.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {selections.map((sel) => {
+        const company = companies.find((c) => c.id === sel.companyId);
+        if (!company) return null;
+        const allBrands = sel.brandIds.length === 0;
+        const visibleBrands = allBrands
+          ? company.brands
+          : company.brands.filter((b) => sel.brandIds.includes(b.id));
+        return (
+          <div
+            key={sel.companyId}
+            className="border border-gray-200 rounded-lg p-3 bg-white"
+          >
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="w-10 h-10 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
+                {company.imageUrl ? (
+                  <img src={company.imageUrl} alt={company.name} className="w-full h-full object-cover" />
+                ) : (
+                  <Building2 className="h-5 w-5 text-gray-400" />
+                )}
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">{company.name}</p>
+                <p className="text-[11px] text-gray-500">
+                  {allBrands
+                    ? `All ${company.brands.length} brands`
+                    : `${visibleBrands.length} of ${company.brands.length} brands`}
+                </p>
+              </div>
+              {allBrands && (
+                <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                  All brands
+                </Badge>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {visibleBrands.map((b) => (
+                <span
+                  key={b.id}
+                  className="inline-flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full pl-1 pr-2 py-0.5 text-xs text-gray-800"
+                >
+                  <div className="w-5 h-5 rounded-full bg-white border border-gray-200 overflow-hidden flex items-center justify-center">
+                    {b.imageUrl ? (
+                      <img src={b.imageUrl} alt={b.name} className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                  {b.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }

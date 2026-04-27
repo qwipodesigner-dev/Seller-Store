@@ -103,6 +103,14 @@ export interface SellerPermissions {
   update: boolean;
 }
 
+/** Selection of company + (optionally) specific brands for the seller.
+ *  Empty `brandIds` means "all brands of that company". Companies/brands
+ *  reference the admin-catalog data (src/app/lib/admin-catalog.ts). */
+export interface CompanyBrandSelection {
+  companyId: string;
+  brandIds: string[];
+}
+
 export interface Seller {
   id: string;
   name: string;
@@ -110,15 +118,21 @@ export interface Seller {
   phone: string;
   businessName: string;
   city: string;
+  /** Optional avatar image (blob: or http(s) URL) */
+  imageUrl?: string | null;
   kyc: SellerKyc;
   connectors: SellerConnectors;
   permissions: SellerPermissions;
-  managedCompanies: string[]; // company ids
+  managedCompanies: string[]; // legacy Qwipo company ids
+  /** Companies & brands attached to this seller (added via Add Seller flow) */
+  companyBrandSelections?: CompanyBrandSelection[];
   approvedAt?: string;
 }
 
 const REQUESTS_KEY = "qwipo.mock.requests";
-const SELLERS_KEY = "qwipo.mock.sellers.v2";
+// Bumped to v3 — older v2 records were seeded before companyBrandSelections
+// existed, which made the seller-side Company/Brand dropdowns appear empty.
+const SELLERS_KEY = "qwipo.mock.sellers.v3";
 
 // ---- Default factory helpers ----
 
@@ -234,6 +248,11 @@ const SEED_SELLERS: Seller[] = [
     },
     permissions: { view: true, write: true, edit: true, update: true },
     managedCompanies: ["itc", "hul", "nestle", "britannia", "parle"],
+    // Catalog companies/brands selected when this seller was created
+    companyBrandSelections: [
+      { companyId: "co-freedom", brandIds: [] }, // all brands of Gemini Edibles
+      { companyId: "co-itc", brandIds: ["br-aashirvaad", "br-sunfeast"] }, // 2 specific ITC brands
+    ],
     approvedAt: "2026-02-10T08:00:00Z",
   },
   {
@@ -527,6 +546,24 @@ export function updateManagedCompanies(
     validIds.has(cid),
   );
   return writeSeller(id, (s) => ({ ...s, managedCompanies: deduped }));
+}
+
+// ---- Seller image ----
+
+export function updateSellerImage(
+  id: string,
+  imageUrl: string | null,
+): Seller | null {
+  return writeSeller(id, (s) => ({ ...s, imageUrl }));
+}
+
+// ---- Seller company / brand selections (admin-catalog) ----
+
+export function updateCompanyBrandSelections(
+  id: string,
+  selections: CompanyBrandSelection[],
+): Seller | null {
+  return writeSeller(id, (s) => ({ ...s, companyBrandSelections: selections }));
 }
 
 // Force-reset (useful when testing)

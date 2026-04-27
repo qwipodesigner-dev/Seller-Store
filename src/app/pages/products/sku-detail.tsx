@@ -50,6 +50,13 @@ import {
   DialogFooter,
 } from "../../components/ui/dialog";
 import { validateSKU, ValidationError } from "../../lib/ondc-validation";
+import { useAuth } from "../../lib/auth-context";
+import { getSellerById } from "../../lib/mock-store";
+import {
+  getCompanies as getAdminCatalogCompanies,
+  subscribeToCompanies as subscribeToAdminCatalog,
+} from "../../lib/admin-catalog";
+import { useEffect } from "react";
 
 // ONDC eB2B category taxonomy — shown as the Category ID dropdown options.
 const CATEGORY_OPTIONS = [
@@ -207,6 +214,80 @@ const skuData: Record<string, any> = {
     tax: {
       gstRate: "12%",
       hsnCode: "19023010",
+    },
+  },
+  // Fully-prefilled ONDC SKU — Aashirvaad Atta 10 kg from ITC Limited.
+  // Used to demo what the SKU detail screen looks like once every ONDC field
+  // is populated (including images). Linked to seller-1 via the ITC company.
+  "190000001": {
+    id: "190000001",
+    name: "Aashirvaad Whole Wheat Atta 10 kg",
+    sku: "190000001",
+    category: "Cooking and Baking Needs",
+    brand: "Aashirvaad",
+    source: "DMS",
+    status: "Active",
+    lastUpdated: "2026-04-25",
+    description:
+      "Aashirvaad Atta is made from 100% whole wheat sourced from the heartlands of India, stone-ground for chakki-fresh taste. Each 10 kg pack delivers consistently soft, fluffy rotis with high fibre content and rich aroma.",
+    specifications: {
+      weight: "10 Kilogram",
+      packaging: "Multi-layer Polypropylene Bag",
+      shelfLife: "6 months",
+      manufacturer: "ITC",
+      countryOfOrigin: "India",
+    },
+    pricing: {
+      mrp: 565.0,
+      sellingPrice: 525.0,
+      costPrice: 470.0,
+      margin: "10.47%",
+    },
+    inventory: {
+      currentStock: 320,
+      minStockLevel: 30,
+      reorderPoint: 60,
+      warehouse: "WH-Hyderabad-001",
+    },
+    tax: {
+      gstRate: "5%",
+      hsnCode: "11010000",
+    },
+    // Pre-populated ONDC values — when present, ProductDetailsTab seeds the
+    // ONDC editor with these instead of leaving the form blank.
+    ondcPrefilled: {
+      itemStatus: "enable",
+      shortDesc:
+        "Stone-ground whole wheat atta for soft, fluffy rotis. 10 kg value pack.",
+      longDesc:
+        "Aashirvaad Atta is made from 100% whole wheat sourced from the heartlands of India and stone-ground using the traditional chakki process for authentic taste. Each 10 kg pack delivers consistently soft, fluffy rotis with high fibre content, slow-release energy and a rich aroma. Hygienically packed in a multi-layer polypropylene bag to preserve freshness for up to six months.",
+      measureUnit: "kilogram",
+      measureValue: "10",
+      unitizedCount: "1",
+      maximumOrderQty: "100",
+      minimumOrderQty: "1",
+      upc: "8901725100015",
+      skuWeight: "10",
+      categoryId: "Cooking and Baking Needs",
+      fulfillmentId: "Store Delivery",
+      locationId: "WH-001",
+      returnable: true,
+      cancellable: true,
+      timeToShip: "PT24H",
+      availableOnCod: true,
+      consumerCareContactName: "ITC Consumer Care",
+      consumerCareContactEmail: "consumer.care@itc.in",
+      consumerCareContactPhone: "18004253030",
+      manufacturerName: "ITC",
+      manufacturerAddress:
+        "ITC Limited, Virginia House, 37 J.L. Nehru Road, Kolkata, West Bengal, India - 700071",
+      countryOfOrigin: "India",
+      brandAttribute: "Aashirvaad",
+      productImages: [
+        "https://images.unsplash.com/photo-1586201375761-83865001e31c?w=600&q=80",
+        "https://images.unsplash.com/photo-1568051243851-f9b136146e97?w=600&q=80",
+        "https://images.unsplash.com/photo-1528712306091-ed0763094c98?w=600&q=80",
+      ],
     },
   },
 };
@@ -645,6 +726,52 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
 
 // Product Details Tab Component — DMS (read-only reference) + ONDC (editable) dual-column layout.
 function ProductDetailsTab({ sku }: { sku: any }) {
+  // ----- Seller-scoped Company / Brand picker source -----
+  // The Manufacturer/Packer Name dropdown is restricted to companies the
+  // super-admin tagged to this seller; the Brand dropdown is restricted to
+  // brands within the chosen company.
+  const { user, activeSeller } = useAuth();
+  const resolvedSellerId = activeSeller?.sellerId ?? user?.id ?? null;
+  const seller = resolvedSellerId ? getSellerById(resolvedSellerId) : null;
+  const [adminCompanies, setAdminCompanies] = useState(() => getAdminCatalogCompanies());
+  useEffect(
+    () => subscribeToAdminCatalog(() => setAdminCompanies([...getAdminCatalogCompanies()])),
+    [],
+  );
+  const sellerSelections = seller?.companyBrandSelections ?? [];
+  // Companies linked to this seller that are still active in the master catalog.
+  let sellerCompanies = sellerSelections
+    .map((sel) => {
+      const c = adminCompanies.find((co) => co.id === sel.companyId);
+      if (!c || c.isActive === false) return null;
+      const brands =
+        sel.brandIds.length === 0
+          ? c.brands
+          : c.brands.filter((b) => sel.brandIds.includes(b.id));
+      return { ...c, brands };
+    })
+    .filter((c): c is NonNullable<typeof c> => c !== null);
+
+  // Defensive: if the SKU ships with a prefilled company/brand (e.g. demo SKUs)
+  // that the seller record doesn't currently link, still surface that company
+  // in the dropdown so the prefilled value renders. This guards against stale
+  // localStorage and makes demo SKUs work even before the catalog is wired up.
+  const prefilledCompanyName = sku.ondcPrefilled?.manufacturerName as
+    | string
+    | undefined;
+  if (prefilledCompanyName) {
+    const already = sellerCompanies.some((c) => c.name === prefilledCompanyName);
+    const fromCatalog = adminCompanies.find(
+      (c) => c.name === prefilledCompanyName && c.isActive !== false,
+    );
+    if (!already && fromCatalog) {
+      sellerCompanies = [
+        { ...fromCatalog, brands: fromCatalog.brands },
+        ...sellerCompanies,
+      ];
+    }
+  }
+
   // DMS snapshot — read-only reference that comes from the DMS system of record.
   const dms = {
     itemStatus: sku.status === "Active" ? "enable" : "disable",
@@ -709,11 +836,32 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     statutoryImages: [],
     productImages: [],
   };
-  const [ondc, setOndc] = useState({ ...blankOndc });
+  // Some SKUs (e.g. the demo Aashirvaad Atta) ship with a fully-populated ONDC
+  // record. When present, seed the editor with those values so the page shows
+  // what a "complete" SKU looks like.
+  const seededOndc: typeof dms = sku.ondcPrefilled
+    ? { ...blankOndc, ...sku.ondcPrefilled }
+    : blankOndc;
+  const [ondc, setOndc] = useState({ ...seededOndc });
   const update = (key: keyof typeof dms, value: any) =>
     setOndc((prev) => ({ ...prev, [key]: value }));
   const isEdited = (key: keyof typeof dms) =>
     JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
+
+  // The Manufacturer/Packer Name dropdown stores the company name as text
+  // (matching the existing string field). We derive the company-id from the
+  // saved name so the Brand dropdown can filter to that company's brands.
+  const selectedSellerCompany = sellerCompanies.find(
+    (c) => c.name === ondc.manufacturerName,
+  );
+  const handleCompanyChange = (companyName: string) => {
+    update("manufacturerName", companyName);
+    // Reset Brand if it no longer belongs to the new company
+    const next = sellerCompanies.find((c) => c.name === companyName);
+    if (!next || !next.brands.some((b) => b.name === ondc.brandAttribute)) {
+      update("brandAttribute", "");
+    }
+  };
 
   // Incremental-save error summary — displayed as a non-blocking warning card
   // below the action bar after a save that had validation issues. Save always
@@ -1028,14 +1176,88 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
       </DualSection>
 
-      {/* Statutory */}
-      <DualSection title="Statutory — Packaged Commodities" icon={<Info className="h-5 w-5 text-rose-600" />}>
+      {/* Company & Brand Information (was: Statutory — Packaged Commodities) */}
+      <DualSection
+        title="Company & Brand Information"
+        icon={<Info className="h-5 w-5 text-rose-600" />}
+      >
         <DualRow
-          label="Manufacturer / Packer Name"
+          label="Manufacturer / Packer Name (Company Name)"
+          required
+          ondcRequired
           conditional
-          help="2–100 chars (when packaged commodity)"
+          help="Pick a company linked to your account"
           dms={""}
-          ondc={<TextInput value={ondc.manufacturerName} onChange={(v) => update("manufacturerName", v)} edited={isEdited("manufacturerName")} />}
+          ondc={
+            sellerCompanies.length === 0 ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                No companies are linked to your account. Ask your administrator
+                to link companies under Manage Seller → Companies &amp; Brands.
+              </p>
+            ) : (
+              <Select
+                value={ondc.manufacturerName || ""}
+                onValueChange={handleCompanyChange}
+              >
+                <SelectTrigger
+                  className={`h-9 text-sm ${
+                    isEdited("manufacturerName")
+                      ? "border-blue-400 ring-1 ring-blue-200"
+                      : ""
+                  }`}
+                >
+                  <SelectValue placeholder="Select company…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {sellerCompanies.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>
+                      {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )
+          }
+        />
+        <DualRow
+          label="Brand"
+          required
+          ondcRequired
+          help="Brands available depend on the selected company"
+          dms={""}
+          ondc={
+            !selectedSellerCompany ? (
+              <p className="text-xs text-gray-500">
+                Select a company first to choose a brand.
+              </p>
+            ) : selectedSellerCompany.brands.length === 0 ? (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5">
+                No brands available for this company.
+              </p>
+            ) : (
+              <Select
+                value={ondc.brandAttribute || ""}
+                onValueChange={(v) => update("brandAttribute", v)}
+              >
+                <SelectTrigger
+                  className={`h-9 text-sm ${
+                    isEdited("brandAttribute")
+                      ? "border-blue-400 ring-1 ring-blue-200"
+                      : ""
+                  }`}
+                >
+                  <SelectValue placeholder="Select brand…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedSellerCompany.brands.map((b) => (
+                    <SelectItem key={b.id} value={b.name}>
+                      {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )
+          }
         />
         <DualRow
           label="Manufacturer / Packer Address"
@@ -1056,14 +1278,6 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           help="ISO 3166-1 alpha-3 uppercase (e.g. IND)"
           dms={""}
           ondc={<TextInput value={ondc.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} edited={isEdited("countryOfOrigin")} required />}
-        />
-        <DualRow
-          label="Brand Attribute"
-          required
-          ondcRequired
-          help="2–50 chars"
-          dms={""}
-          ondc={<TextInput value={ondc.brandAttribute} onChange={(v) => update("brandAttribute", v)} edited={isEdited("brandAttribute")} required />}
         />
       </DualSection>
 
