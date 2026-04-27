@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { Switch } from "../../components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -55,6 +56,8 @@ import {
 } from "../../lib/qps-validation";
 
 // Seed QPS schemes — these populate the list on first load.
+// Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
+// so the seller can see how each looks on the list.
 const seedQpsSchemes: QpsScheme[] = [
   {
     id: "QPS-180000008",
@@ -81,11 +84,41 @@ const seedQpsSchemes: QpsScheme[] = [
     sellingPrice: 875,
     startDate: "2026-04-15",
     endDate: "2026-06-30",
-    status: "Active",
+    status: "Inactive", // toggled off by seller
     slabs: [
       { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 875, effectivePrice: 875 },
       { minQty: 5, maxQty: 19, discountType: "flat", slabPrice: 855, effectivePrice: 855 },
       { minQty: 20, maxQty: null, discountType: "flat", slabPrice: 820, effectivePrice: 820 },
+    ],
+  },
+  {
+    id: "QPS-180000005",
+    name: "QPS – Sunflower Oil 15 KG",
+    skuCode: "180000005",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
+    mrp: 3091,
+    sellingPrice: 2810,
+    startDate: "2026-05-15",
+    endDate: "2026-07-31",
+    status: "Scheduled", // future-dated, not yet active
+    slabs: [
+      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 2810, effectivePrice: 2810 },
+      { minQty: 5, maxQty: null, discountType: "percent", slabPercent: 4, effectivePrice: +(2810 * 0.96).toFixed(2) },
+    ],
+  },
+  {
+    id: "QPS-180000006",
+    name: "QPS – Sunflower Oil 15 LTR",
+    skuCode: "180000006",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN",
+    mrp: 2838,
+    sellingPrice: 2580,
+    startDate: "2026-01-01",
+    endDate: "2026-03-31",
+    status: "Expired", // past end date — not editable
+    slabs: [
+      { minQty: 1, maxQty: 9, discountType: "flat", slabPrice: 2580, effectivePrice: 2580 },
+      { minQty: 10, maxQty: null, discountType: "percent", slabPercent: 6, effectivePrice: +(2580 * 0.94).toFixed(2) },
     ],
   },
 ];
@@ -94,10 +127,12 @@ const getStatusColor = (status: string) => {
   switch (status) {
     case "Active":
       return "bg-green-100 text-green-800 border-green-200";
+    case "Inactive":
+      return "bg-orange-100 text-orange-800 border-orange-200";
     case "Scheduled":
       return "bg-yellow-100 text-yellow-800 border-yellow-200";
     case "Expired":
-      return "bg-gray-100 text-gray-800 border-gray-200";
+      return "bg-gray-200 text-gray-700 border-gray-300";
     default:
       return "bg-gray-100 text-gray-800 border-gray-200";
   }
@@ -122,6 +157,7 @@ export function OffersList() {
   const [editorSlabs, setEditorSlabs] = useState<Partial<QpsSlab>[]>([
     { minQty: 1, maxQty: 5, discountType: "flat", slabPrice: 0 },
   ]);
+  const [editorActive, setEditorActive] = useState<boolean>(true);
 
   // View Details dialog
   const [viewSchemeId, setViewSchemeId] = useState<string | null>(null);
@@ -171,6 +207,7 @@ export function OffersList() {
     setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
     setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "flat", slabPrice: 0 }]);
+    setEditorActive(true);
     setIsEditorOpen(true);
   };
 
@@ -188,6 +225,9 @@ export function OffersList() {
         slabPercent: s.slabPercent,
       })),
     );
+    // Active toggle reflects whether the seller chose to keep the scheme running.
+    // Scheduled = future-active, so toggle is on. Inactive / Expired = off.
+    setEditorActive(scheme.status === "Active" || scheme.status === "Scheduled");
     setIsEditorOpen(true);
   };
 
@@ -250,6 +290,15 @@ export function OffersList() {
       effectivePrice: computeEffectivePrice(s, selectedSku.sellingPrice),
     }));
 
+    // Resolve final status: end-date past → Expired (auto); otherwise the
+    // seller's Active/Inactive toggle decides; future-dated → Scheduled.
+    const today = new Date().toISOString().slice(0, 10);
+    let finalStatus: QpsScheme["status"];
+    if (editorEndDate < today) finalStatus = "Expired";
+    else if (!editorActive) finalStatus = "Inactive";
+    else if (editorStartDate > today) finalStatus = "Scheduled";
+    else finalStatus = "Active";
+
     if (editingId) {
       // Edit mode — replace the existing scheme in place
       setQpsSchemes((prev) =>
@@ -264,8 +313,7 @@ export function OffersList() {
                 startDate: editorStartDate,
                 endDate: editorEndDate,
                 slabs: finalSlabs,
-                status:
-                  editorStartDate > new Date().toISOString().slice(0, 10) ? "Scheduled" : "Active",
+                status: finalStatus,
               }
             : s,
         ),
@@ -282,8 +330,7 @@ export function OffersList() {
         slabs: finalSlabs,
         startDate: editorStartDate,
         endDate: editorEndDate,
-        status:
-          editorStartDate > new Date().toISOString().slice(0, 10) ? "Scheduled" : "Active",
+        status: finalStatus,
       };
       setQpsSchemes((prev) => [newScheme, ...prev]);
       toast.success(`QPS scheme created for ${selectedSku.skuName}`);
@@ -438,6 +485,7 @@ export function OffersList() {
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
                   <SelectItem value="Scheduled">Scheduled</SelectItem>
                   <SelectItem value="Expired">Expired</SelectItem>
                 </SelectContent>
@@ -541,10 +589,11 @@ export function OffersList() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
-                              title="Edit"
+                              title={s.status === "Expired" ? "Expired schemes cannot be edited" : "Edit"}
+                              disabled={s.status === "Expired"}
                               onClick={() => handleOpenEdit(s)}
                             >
-                              <Pencil className="h-4 w-4 text-gray-700" />
+                              <Pencil className={`h-4 w-4 ${s.status === "Expired" ? "text-gray-300" : "text-gray-700"}`} />
                             </Button>
                             <Button
                               variant="ghost"
@@ -683,6 +732,12 @@ export function OffersList() {
                   Close
                 </Button>
                 <Button
+                  disabled={viewScheme.status === "Expired"}
+                  title={
+                    viewScheme.status === "Expired"
+                      ? "Expired schemes cannot be edited — create a new one if needed"
+                      : undefined
+                  }
                   onClick={() => {
                     const s = viewScheme;
                     setViewSchemeId(null);
@@ -691,7 +746,7 @@ export function OffersList() {
                   className="bg-blue-600 hover:bg-blue-700 gap-2"
                 >
                   <Pencil className="h-4 w-4" />
-                  Edit Scheme
+                  {viewScheme.status === "Expired" ? "Edit (Expired)" : "Edit Scheme"}
                 </Button>
               </DialogFooter>
             </>
@@ -778,6 +833,40 @@ export function OffersList() {
                   End Date <span className="text-red-500">*</span>
                 </Label>
                 <Input type="date" value={editorEndDate} onChange={(e) => setEditorEndDate(e.target.value)} />
+              </div>
+            </div>
+
+            {/* Scheme Status — Active / Inactive toggle */}
+            <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-lg px-4 py-3">
+              <div>
+                <Label className="text-sm font-semibold text-gray-800">
+                  Scheme Status
+                </Label>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {editorActive
+                    ? "Active — slab pricing applies on matching orders within the validity window."
+                    : "Inactive — slab pricing is paused. Orders use the regular Selling Price."}
+                  {editorEndDate && editorEndDate < new Date().toISOString().slice(0, 10) && (
+                    <span className="text-red-700 font-medium"> · End date is in the past — scheme will save as Expired.</span>
+                  )}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <span
+                  className={`text-xs font-semibold ${editorActive ? "text-green-700" : "text-gray-400"}`}
+                >
+                  Active
+                </span>
+                <Switch
+                  checked={editorActive}
+                  onCheckedChange={setEditorActive}
+                  disabled={!!editorEndDate && editorEndDate < new Date().toISOString().slice(0, 10)}
+                />
+                <span
+                  className={`text-xs font-semibold ${!editorActive ? "text-orange-700" : "text-gray-400"}`}
+                >
+                  Inactive
+                </span>
               </div>
             </div>
 
