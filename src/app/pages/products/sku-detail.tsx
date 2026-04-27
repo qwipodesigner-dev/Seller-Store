@@ -977,7 +977,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       {/* Descriptor */}
       <DualSection title="Descriptor (Product Identity)" icon={<FileText className="h-5 w-5 text-blue-600" />}>
         <DualRow
-          label="Item Name"
+          label="Product Name"
           required
           ondcRequired
           help="Display name: brand + variant + pack size (3–100 chars)"
@@ -985,7 +985,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required />}
         />
         <DualRow
-          label="Item Code"
+          label="SKU Code"
           required
           ondcRequired
           help="System-generated unique identifier — cannot be edited"
@@ -995,7 +995,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               <p className="text-sm text-gray-900 font-mono">{ondc.itemCode || "—"}</p>
               <span
                 className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
-                title="Item Code is generated at SKU import and cannot be changed"
+                title="SKU Code is generated at SKU import and cannot be changed"
               >
                 Read-only
               </span>
