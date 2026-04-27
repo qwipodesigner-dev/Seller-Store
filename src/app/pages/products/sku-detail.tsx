@@ -2011,10 +2011,23 @@ function OffersTab({ skuId }: { skuId: string }) {
 
 function PriceInventoryTab({ sku }: { sku: any }) {
   // DMS snapshot — read-only reference from the DMS system.
+  // Stock is split Case + Piece-wise for all SKUs. MRP and Selling Price are
+  // captured per Case; the per-PC equivalents are derived from Units per Case.
+  const seedUnitsPerCase = String(sku.unitsPerCase ?? sku.ondcPrefilled?.unitizedCount ?? "1");
+  const seedTotalStock = Number(sku.availableStock ?? sku.inventory?.currentStock ?? 0);
+  const seedUpc = Math.max(1, Number(seedUnitsPerCase) || 1);
+  // Decompose total seed stock into cases + loose pieces so the form starts populated.
+  const seedCases = Math.floor(seedTotalStock / seedUpc);
+  const seedPieces = seedTotalStock - seedCases * seedUpc;
+
   const dmsPI = {
     mrp: String(sku.mrp ?? sku.pricing?.mrp ?? ""),
     sellingPrice: String(sku.sellingPrice ?? sku.pricing?.sellingPrice ?? ""),
-    stock: String(sku.availableStock ?? sku.inventory?.currentStock ?? ""),
+    // Pack Size (Inner Pack) — optional, 1–10,000.
+    packSize: String(sku.packSize ?? sku.ondcPrefilled?.unitizedCount ?? ""),
+    unitsPerCase: seedUnitsPerCase,
+    stockCases: String(seedCases || ""),
+    stockPieces: String(seedPieces || ""),
     isInfiniteStock: Boolean(sku.isInfiniteStock),
   };
   // ONDC (editable) — starts populated same as DMS (per business rule).
@@ -2022,6 +2035,11 @@ function PriceInventoryTab({ sku }: { sku: any }) {
   const [ondcPI, setOndcPI] = useState({ ...dmsPI });
   const updatePI = (key: keyof typeof dmsPI, value: any) =>
     setOndcPI((prev) => ({ ...prev, [key]: value }));
+
+  // Helpers for the read-only derived fields.
+  const upcNum = Math.max(1, Number(ondcPI.unitsPerCase) || 1);
+  const totalPieces =
+    (Number(ondcPI.stockCases) || 0) * upcNum + (Number(ondcPI.stockPieces) || 0);
 
   // Incremental save — pending errors list shown as a non-blocking warning card
   const [pendingPIErrors, setPendingPIErrors] = useState<
@@ -2038,15 +2056,28 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     const errs: { code: string; field: string; message: string }[] = [];
     const mrp = parseFloat(ondcPI.mrp);
     const sp = parseFloat(ondcPI.sellingPrice);
-    const stock = parseInt(ondcPI.stock, 10);
+    const upc = parseInt(ondcPI.unitsPerCase, 10);
+    const cases = parseInt(ondcPI.stockCases, 10);
+    const pieces = parseInt(ondcPI.stockPieces, 10);
 
-    // MRP: must be present, numeric, and strictly greater than 0 (per business rule — "if 0, show error")
+    const packSize = parseInt(ondcPI.packSize, 10);
+    // Pack Size (Inner Pack): optional, but if present must be 1–10,000.
+    if (ondcPI.packSize !== "" && (isNaN(packSize) || packSize < 1 || packSize > 10000)) {
+      errs.push({ code: "ERR_PI_009", field: "Pack Size (Inner Pack)", message: "Pack Size (Inner Pack) must be a whole number between 1 and 10,000." });
+    }
+    // UPC (Unit Per Case): required & ≥ 1
+    if (ondcPI.unitsPerCase === "" || isNaN(upc)) {
+      errs.push({ code: "ERR_PI_010", field: "UPC (Unit Per Case)", message: "UPC (Unit Per Case) is required." });
+    } else if (upc < 1) {
+      errs.push({ code: "ERR_PI_010", field: "UPC (Unit Per Case)", message: "UPC (Unit Per Case) must be at least 1." });
+    }
+    // MRP: required, numeric, > 0
     if (ondcPI.mrp === "" || isNaN(mrp)) {
       errs.push({ code: "ERR_PI_003", field: "MRP", message: "MRP is required and must be a valid number." });
     } else if (mrp <= 0) {
       errs.push({ code: "ERR_PI_003", field: "MRP", message: "MRP must be greater than 0." });
     }
-    // Selling Price: must be present, numeric, > 0
+    // Selling Price: required, numeric, > 0
     if (ondcPI.sellingPrice === "" || isNaN(sp)) {
       errs.push({ code: "ERR_PI_004", field: "Selling Price", message: "Selling price is required and must be a valid number." });
     } else if (sp < 0) {
@@ -2054,15 +2085,25 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     } else if (sp === 0) {
       errs.push({ code: "ERR_PI_004", field: "Selling Price", message: "Selling price must be greater than 0." });
     }
-    // MRP ≥ SP — surfaced on the MRP field ("MRP less than SP → error, user needs to add value")
+    // MRP ≥ SP
     if (!isNaN(mrp) && !isNaN(sp) && mrp > 0 && sp > 0 && mrp < sp) {
       errs.push({ code: "ERR_PI_005", field: "MRP", message: "MRP cannot be less than Selling Price — please enter a valid MRP (≥ Selling Price)." });
     }
     if (!ondcPI.isInfiniteStock) {
-      if (ondcPI.stock === "" || isNaN(stock)) {
-        errs.push({ code: "ERR_PI_011", field: "Available Stock", message: "Stock quantity is required and must be a whole number." });
-      } else if (stock < 0) {
-        errs.push({ code: "ERR_PI_011", field: "Available Stock", message: "Stock quantity cannot be negative." });
+      // Stock — Case-wise + PC-wise.
+      const casesEmpty = ondcPI.stockCases === "";
+      const piecesEmpty = ondcPI.stockPieces === "";
+      if (casesEmpty && piecesEmpty) {
+        errs.push({ code: "ERR_PI_011", field: "Stock", message: "Enter Stock in Cases and/or Pieces (or enable Infinite Stock)." });
+      }
+      if (!casesEmpty && (isNaN(cases) || cases < 0)) {
+        errs.push({ code: "ERR_PI_011", field: "Stock (Cases)", message: "Stock in Cases must be a whole number ≥ 0." });
+      }
+      if (!piecesEmpty && (isNaN(pieces) || pieces < 0)) {
+        errs.push({ code: "ERR_PI_011", field: "Stock (Pieces)", message: "Stock in Pieces must be a whole number ≥ 0." });
+      }
+      if (!isNaN(upc) && upc >= 1 && !isNaN(pieces) && pieces >= upc) {
+        errs.push({ code: "ERR_PI_012", field: "Stock (Pieces)", message: `Loose Pieces must be less than Units per Case (${upc}). Convert full multiples into Cases.` });
       }
     }
     // Incremental save — always persist. Show errors only for incorrectly
@@ -2110,12 +2151,100 @@ function PriceInventoryTab({ sku }: { sku: any }) {
         </div>
       </div>
 
-      {/* Price & Inventory — same DMS/ONDC dual-column layout as the Product Details tab */}
-      <DualSection title="Price & Inventory" icon={<IndianRupee className="h-5 w-5 text-green-600" />}>
+      {/* Inventory — shown first, Case + Piece split */}
+      <DualSection title="Inventory" icon={<Archive className="h-5 w-5 text-emerald-600" />}>
+        <DualRow
+          label="Pack Size (Inner Pack)"
+          help="Optional, 1–10,000."
+          dms={dmsPI.packSize}
+          ondc={
+            <TextInput
+              value={ondcPI.packSize}
+              onChange={(v) => updatePI("packSize", v)}
+              edited={isEditedPI("packSize")}
+              type="number"
+            />
+          }
+        />
+        <DualRow
+          label="UPC (Unit Per Case)"
+          required
+          help="Number of units in one case."
+          dms={dmsPI.unitsPerCase}
+          ondc={
+            <TextInput
+              value={ondcPI.unitsPerCase}
+              onChange={(v) => updatePI("unitsPerCase", v)}
+              edited={isEditedPI("unitsPerCase")}
+              required
+              type="number"
+            />
+          }
+        />
+        <DualRow
+          label="Mark as Infinite Stock"
+          help="When enabled, stock is always available and quantity is not tracked."
+          dms={dmsPI.isInfiniteStock ? "Yes" : "No"}
+          ondc={
+            <BooleanToggle
+              value={ondcPI.isInfiniteStock}
+              onChange={(v) => updatePI("isInfiniteStock", v)}
+            />
+          }
+        />
+        {!ondcPI.isInfiniteStock && (
+          <>
+            <DualRow
+              label="Stock (Cases)"
+              required
+              help="Number of full Cases in inventory."
+              dms={dmsPI.stockCases}
+              ondc={
+                <TextInput
+                  value={ondcPI.stockCases}
+                  onChange={(v) => updatePI("stockCases", v)}
+                  edited={isEditedPI("stockCases")}
+                  type="number"
+                />
+              }
+            />
+            <DualRow
+              label="Stock (PCs)"
+              help={`Loose pieces below one Case. Must be < Units per Case (${upcNum}).`}
+              dms={dmsPI.stockPieces}
+              ondc={
+                <TextInput
+                  value={ondcPI.stockPieces}
+                  onChange={(v) => updatePI("stockPieces", v)}
+                  edited={isEditedPI("stockPieces")}
+                  type="number"
+                />
+              }
+            />
+            <DualRow
+              label="Total Stock (PCs)"
+              help="Auto-calculated: Cases × Units per Case + Loose PCs."
+              dms={String(
+                (Number(dmsPI.stockCases) || 0) *
+                  (Math.max(1, Number(dmsPI.unitsPerCase) || 1)) +
+                  (Number(dmsPI.stockPieces) || 0),
+              )}
+              ondc={
+                <p className="text-sm font-semibold text-gray-900">
+                  {totalPieces.toLocaleString()} PCs
+                </p>
+              }
+            />
+          </>
+        )}
+      </DualSection>
+
+      {/* Price — single SKU-level MRP + Selling Price */}
+      <DualSection title="Price" icon={<IndianRupee className="h-5 w-5 text-green-600" />}>
         <DualRow
           label="MRP"
           required
-          help="Maximum Retail Price. Must be ≥ 0."
+          help="Maximum Retail Price. Must be ≥ Selling Price."
           dms={dmsPI.mrp ? `₹${dmsPI.mrp}` : ""}
           ondc={
             <div className="relative">
@@ -2152,34 +2281,6 @@ function PriceInventoryTab({ sku }: { sku: any }) {
             </div>
           }
         />
-        <DualRow
-          label="Mark as Infinite Stock"
-          help="When enabled, stock is always available and quantity is not tracked."
-          dms={dmsPI.isInfiniteStock ? "Yes" : "No"}
-          ondc={
-            <BooleanToggle
-              value={ondcPI.isInfiniteStock}
-              onChange={(v) => updatePI("isInfiniteStock", v)}
-            />
-          }
-        />
-        {!ondcPI.isInfiniteStock && (
-          <DualRow
-            label="Available Stock"
-            required
-            help="Total saleable units. Must be ≥ 0."
-            dms={dmsPI.stock}
-            ondc={
-              <TextInput
-                value={ondcPI.stock}
-                onChange={(v) => updatePI("stock", v)}
-                edited={isEditedPI("stock")}
-                required
-                type="number"
-              />
-            }
-          />
-        )}
       </DualSection>
 
       {/* Save-time error popup */}
