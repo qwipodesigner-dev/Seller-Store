@@ -23,6 +23,9 @@ import {
   TrendingDown,
   Rocket,
   ChevronRight,
+  Tag,
+  Users,
+  Clock,
 } from "lucide-react";
 
 const topProducts = [
@@ -71,7 +74,83 @@ const recentOrders = [
   },
 ];
 
+// Phase 1 placeholder — the full Dashboard (KPIs, charts, recent orders, etc.) is
+// not part of the Phase 1 scope. We surface a clean "Coming Soon" screen and
+// route the seller to the modules that ARE shipping in this phase.
 export function Dashboard() {
+  const navigate = useNavigate();
+
+  const phase1Modules = [
+    { label: "My SKU", description: "Manage your catalog and ONDC details", href: "/products/my-sku", icon: Package },
+    { label: "Orders", description: "View and manage incoming orders", href: "/orders", icon: ShoppingCart },
+    { label: "Customers", description: "Customer list, filters and exports", href: "/customers", icon: Users },
+    { label: "Offers & Schemes", description: "Quantity Pricing Schemes (QPS)", href: "/offers", icon: Tag },
+  ];
+
+  return (
+    <div className="min-h-full bg-gradient-to-b from-blue-50 via-white to-purple-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-3xl">
+        <div className="text-center mb-10">
+          <div className="inline-flex h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 items-center justify-center shadow-xl mb-5">
+            <Rocket className="h-10 w-10 text-white" />
+          </div>
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 mb-3">
+            <Clock className="h-3 w-3 mr-1" />
+            Coming Soon
+          </Badge>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Dashboard is on the way
+          </h1>
+          <p className="text-base text-gray-600 max-w-xl mx-auto leading-relaxed">
+            Sales KPIs, smart insights, recent-orders feed and other dashboard
+            visualisations are <b>not part of Phase 1</b>. They will be released in a
+            later phase. In the meantime, jump straight into the modules below.
+          </p>
+        </div>
+
+        <Card className="border-blue-200 shadow-sm">
+          <CardContent className="p-6">
+            <p className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
+              Available now in Phase 1
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {phase1Modules.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={m.label}
+                    onClick={() => navigate(m.href)}
+                    className="group flex items-center gap-3 text-left p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                  >
+                    <div className="h-10 w-10 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-colors">
+                      <Icon className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{m.label}</p>
+                      <p className="text-xs text-gray-600 truncate">{m.description}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-xs text-gray-500 mt-6">
+          Have feedback or need a metric urgently?{" "}
+          <a href="/support" className="text-blue-600 hover:text-blue-700 font-medium">
+            Contact support
+          </a>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---- Legacy Phase-1 dashboard implementation (kept for the future re-launch) ----
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _LegacyDashboard() {
   const navigate = useNavigate();
   const [dateRange, setDateRange] = useState("30");
   const [channel, setChannel] = useState("all");
