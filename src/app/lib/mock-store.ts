@@ -130,7 +130,9 @@ export interface Seller {
 }
 
 const REQUESTS_KEY = "qwipo.mock.requests";
-const SELLERS_KEY = "qwipo.mock.sellers.v2";
+// Bumped to v3 — older v2 records were seeded before companyBrandSelections
+// existed, which made the seller-side Company/Brand dropdowns appear empty.
+const SELLERS_KEY = "qwipo.mock.sellers.v3";
 
 // ---- Default factory helpers ----
 

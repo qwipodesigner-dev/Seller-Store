@@ -740,7 +740,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   );
   const sellerSelections = seller?.companyBrandSelections ?? [];
   // Companies linked to this seller that are still active in the master catalog.
-  const sellerCompanies = sellerSelections
+  let sellerCompanies = sellerSelections
     .map((sel) => {
       const c = adminCompanies.find((co) => co.id === sel.companyId);
       if (!c || c.isActive === false) return null;
@@ -751,6 +751,26 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       return { ...c, brands };
     })
     .filter((c): c is NonNullable<typeof c> => c !== null);
+
+  // Defensive: if the SKU ships with a prefilled company/brand (e.g. demo SKUs)
+  // that the seller record doesn't currently link, still surface that company
+  // in the dropdown so the prefilled value renders. This guards against stale
+  // localStorage and makes demo SKUs work even before the catalog is wired up.
+  const prefilledCompanyName = sku.ondcPrefilled?.manufacturerName as
+    | string
+    | undefined;
+  if (prefilledCompanyName) {
+    const already = sellerCompanies.some((c) => c.name === prefilledCompanyName);
+    const fromCatalog = adminCompanies.find(
+      (c) => c.name === prefilledCompanyName && c.isActive !== false,
+    );
+    if (!already && fromCatalog) {
+      sellerCompanies = [
+        { ...fromCatalog, brands: fromCatalog.brands },
+        ...sellerCompanies,
+      ];
+    }
+  }
 
   // DMS snapshot — read-only reference that comes from the DMS system of record.
   const dms = {
