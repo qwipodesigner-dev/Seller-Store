@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -19,6 +19,9 @@ import {
   Tag,
   FileText,
   DollarSign,
+  IndianRupee,
+  Upload,
+  X,
   Image as ImageIcon,
   Archive,
   Gift,
@@ -672,6 +675,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     countryOfOrigin: "IND",
     brandAttribute: sku.brand || "",
     statutoryImages: [] as string[],
+    productImages: [] as string[],
   };
 
   // ONDC starts mostly blank — only Item Name and Item Code are copied from DMS
@@ -703,6 +707,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     countryOfOrigin: "",
     brandAttribute: "",
     statutoryImages: [],
+    productImages: [],
   };
   const [ondc, setOndc] = useState({ ...blankOndc });
   const update = (key: keyof typeof dms, value: any) =>
@@ -835,9 +840,19 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="Item Code"
           required
           ondcRequired
-          help="Format: type:code (1=EAN, 2=ISBN, 3=GTIN, 4=HSN, 5=others)"
+          help="System-generated unique identifier — cannot be edited"
           dms={dms.itemCode}
-          ondc={<TextInput value={ondc.itemCode} onChange={(v) => update("itemCode", v)} edited={isEdited("itemCode")} required />}
+          ondc={
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">{ondc.itemCode || "—"}</p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="Item Code is generated at SKU import and cannot be changed"
+              >
+                Read-only
+              </span>
+            </div>
+          }
         />
         <DualRow
           label="Short Description"
@@ -1051,6 +1066,12 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondc={<TextInput value={ondc.brandAttribute} onChange={(v) => update("brandAttribute", v)} edited={isEdited("brandAttribute")} required />}
         />
       </DualSection>
+
+      {/* Product Images — at least 1 mandatory, up to 5 total (1 + 4 more) */}
+      <ProductImagesSection
+        images={ondc.productImages}
+        onChange={(imgs) => update("productImages", imgs)}
+      />
 
       {/* Save-time error popup — shown when the user clicks Save and there are
           invalid values. Valid values have already been saved; this popup
@@ -1331,6 +1352,142 @@ function BooleanToggle({ value, onChange }: { value: boolean; onChange: (v: bool
         {value ? "Yes" : "No"}
       </span>
     </div>
+  );
+}
+
+// ---------- Product Images section ----------
+// At least one image is mandatory; up to 5 images total (1 + 4 more).
+// Uses the browser File API to render real previews (URL.createObjectURL).
+function ProductImagesSection({
+  images,
+  onChange,
+}: {
+  images: string[];
+  onChange: (imgs: string[]) => void;
+}) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const MAX_IMAGES = 5;
+  const remaining = MAX_IMAGES - images.length;
+
+  const handleSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    // Only image files
+    const imgFiles = files.filter((f) => f.type.startsWith("image/"));
+    if (imgFiles.length === 0) {
+      toast.error("Only image files (PNG / JPG / JPEG / WEBP) are allowed.");
+      return;
+    }
+    const slots = Math.max(0, MAX_IMAGES - images.length);
+    if (slots === 0) {
+      toast.error(`You can upload a maximum of ${MAX_IMAGES} images.`);
+      return;
+    }
+    const accepted = imgFiles.slice(0, slots);
+    const urls = accepted.map((f) => URL.createObjectURL(f));
+    onChange([...images, ...urls]);
+    if (imgFiles.length > slots) {
+      toast.warning(
+        `Only ${slots} more image${slots === 1 ? "" : "s"} could be added (max ${MAX_IMAGES}).`,
+      );
+    } else {
+      toast.success(
+        `${accepted.length} image${accepted.length === 1 ? "" : "s"} added.`,
+      );
+    }
+    // Reset input so the same file can be re-selected later
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleRemove = (idx: number) => {
+    const removed = images[idx];
+    if (removed?.startsWith("blob:")) URL.revokeObjectURL(removed);
+    onChange(images.filter((_, i) => i !== idx));
+  };
+
+  const isMissing = images.length === 0;
+
+  return (
+    <Card>
+      <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+          <ImageIcon className="h-5 w-5 text-fuchsia-600" />
+          Product Images
+          <span className="text-red-500 ml-0.5">*</span>
+          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 ml-2 text-[10px]">
+            {images.length}/{MAX_IMAGES}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-4 space-y-3">
+        <div className="text-xs text-gray-600">
+          At least <b>1 image is required</b>. You can add up to <b>{MAX_IMAGES} images</b> in
+          total (1 primary + 4 more). PNG, JPG, JPEG, or WEBP.
+        </div>
+
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/png,image/jpeg,image/jpg,image/webp"
+          multiple
+          onChange={handleSelect}
+          className="hidden"
+        />
+
+        <div className="flex flex-wrap gap-3">
+          {images.map((src, idx) => (
+            <div
+              key={idx}
+              className="relative w-28 h-28 rounded-lg bg-gray-100 border border-gray-200 overflow-hidden group"
+            >
+              <img src={src} alt={`Product ${idx + 1}`} className="w-full h-full object-cover" />
+              {idx === 0 && (
+                <span className="absolute top-1 left-1 bg-blue-600 text-white text-[9px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded">
+                  Primary
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => handleRemove(idx)}
+                className="absolute top-1 right-1 p-1 rounded bg-red-600 text-white text-xs opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-700"
+                title="Remove image"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          ))}
+
+          {/* Upload tile — only shown if we still have slots */}
+          {remaining > 0 && (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className={`w-28 h-28 rounded-lg border-2 border-dashed flex flex-col items-center justify-center transition-colors ${
+                isMissing
+                  ? "border-red-400 hover:border-red-600 text-red-600 hover:text-red-700 bg-red-50"
+                  : "border-gray-300 hover:border-blue-400 text-gray-500 hover:text-blue-600"
+              }`}
+            >
+              <Upload className="h-5 w-5 mb-1" />
+              <span className="text-xs font-medium">Upload</span>
+              <span className="text-[10px] mt-0.5">
+                {remaining} more allowed
+              </span>
+            </button>
+          )}
+        </div>
+
+        {isMissing && (
+          <div className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-md px-3 py-2 text-xs text-red-800">
+            <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+            <span>
+              <b>At least one product image is required.</b> The first image you upload becomes
+              the primary image shown to buyers.
+            </span>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1740,35 +1897,45 @@ function PriceInventoryTab({ sku }: { sku: any }) {
       </div>
 
       {/* Price & Inventory — same DMS/ONDC dual-column layout as the Product Details tab */}
-      <DualSection title="Price & Inventory" icon={<Package className="h-5 w-5 text-green-600" />}>
+      <DualSection title="Price & Inventory" icon={<IndianRupee className="h-5 w-5 text-green-600" />}>
         <DualRow
           label="MRP"
           required
           help="Maximum Retail Price. Must be ≥ 0."
-          dms={dmsPI.mrp}
+          dms={dmsPI.mrp ? `₹${dmsPI.mrp}` : ""}
           ondc={
-            <TextInput
-              value={ondcPI.mrp}
-              onChange={(v) => updatePI("mrp", v)}
-              edited={isEditedPI("mrp")}
-              required
-              type="number"
-            />
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">₹</span>
+              <div className="pl-4">
+                <TextInput
+                  value={ondcPI.mrp}
+                  onChange={(v) => updatePI("mrp", v)}
+                  edited={isEditedPI("mrp")}
+                  required
+                  type="number"
+                />
+              </div>
+            </div>
           }
         />
         <DualRow
           label="Selling Price"
           required
           help="Must be > 0 and ≤ MRP."
-          dms={dmsPI.sellingPrice}
+          dms={dmsPI.sellingPrice ? `₹${dmsPI.sellingPrice}` : ""}
           ondc={
-            <TextInput
-              value={ondcPI.sellingPrice}
-              onChange={(v) => updatePI("sellingPrice", v)}
-              edited={isEditedPI("sellingPrice")}
-              required
-              type="number"
-            />
+            <div className="relative">
+              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">₹</span>
+              <div className="pl-4">
+                <TextInput
+                  value={ondcPI.sellingPrice}
+                  onChange={(v) => updatePI("sellingPrice", v)}
+                  edited={isEditedPI("sellingPrice")}
+                  required
+                  type="number"
+                />
+              </div>
+            </div>
           }
         />
         <DualRow
@@ -1914,7 +2081,7 @@ export function SKUDetail() {
             }`}
           >
             <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4" />
+              <IndianRupee className="h-4 w-4" />
               Price & Inventory
             </div>
           </button>

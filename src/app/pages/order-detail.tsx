@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -31,6 +31,8 @@ import {
   CreditCard,
   Hash,
   DollarSign,
+  Layers,
+  TrendingDown,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -44,6 +46,15 @@ interface OrderProduct {
   pricePerUnit: number;
   totalPrice: number;
   isModified: boolean;
+  /** Base selling price before any QPS slab discount is applied (per unit). */
+  basePrice?: number;
+  /** Snapshot of the QPS slab applied to this line item, if any. */
+  qps?: {
+    slabLabel: string;       // e.g. "Slab 2 · 12–47 qty"
+    discountLabel: string;   // e.g. "5% off" or "Flat ₹155"
+    savingPerUnit: number;   // ₹ saved per unit vs basePrice
+    totalSaving: number;     // ₹ saved on the whole line
+  };
 }
 
 interface OrderDetails {
@@ -83,7 +94,28 @@ const mockOrderData: OrderDetails = {
   orderValue: 12450.00,
   products: [
     {
+      // QPS-eligible line: SKU 180000008 has a 3-slab QPS scheme
+      //   1–11 qty → ₹171/unit · 12–47 qty → 5% off (₹162.45) · 48+ qty → 10% off (₹153.90)
+      // This order has 25 units → falls in Slab 2, 5% off.
       id: "1",
+      name: "Freedom Refined Sunflower Oil 1L × 16",
+      skuId: "180000008",
+      orderedQuantity: 25,
+      availableStock: 642,
+      editableQuantity: 25,
+      basePrice: 171,
+      pricePerUnit: 162.45,
+      totalPrice: 4061.25,
+      isModified: false,
+      qps: {
+        slabLabel: "Slab 2 · 12–47 qty",
+        discountLabel: "5% off",
+        savingPerUnit: 8.55,
+        totalSaving: 213.75,
+      },
+    },
+    {
+      id: "1a",
       name: "Aashirvaad Atta 10kg",
       skuId: "SKU-AASH-10",
       orderedQuantity: 20,
@@ -511,34 +543,100 @@ export function OrderDetail() {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {orderData.products.map((product) => (
-                      <tr key={product.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-4">
-                          <p className="font-medium text-gray-900">{product.name}</p>
-                        </td>
-                        <td className="px-4 py-4">
-                          <p className="text-sm font-mono text-gray-600">{product.skuId}</p>
-                        </td>
-                        <td className="px-4 py-4 text-center">
-                          <p className="font-semibold text-gray-900">{product.orderedQuantity}</p>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <p className="text-gray-900">₹{product.pricePerUnit}</p>
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <p className="font-semibold text-gray-900">₹{product.totalPrice}</p>
-                        </td>
-                      </tr>
+                      <React.Fragment key={product.id}>
+                        <tr className="hover:bg-gray-50">
+                          <td className="px-4 py-4">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-gray-900">{product.name}</p>
+                              {product.qps && (
+                                <Badge
+                                  className="bg-purple-100 text-purple-700 border-purple-300 gap-1 text-[10px]"
+                                  title="Quantity Pricing Scheme applied to this line item"
+                                >
+                                  <Layers className="h-3 w-3" />
+                                  QPS
+                                </Badge>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <p className="text-sm font-mono text-gray-600">{product.skuId}</p>
+                          </td>
+                          <td className="px-4 py-4 text-center">
+                            <p className="font-semibold text-gray-900">{product.orderedQuantity}</p>
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            {product.qps && product.basePrice ? (
+                              <div>
+                                <p className="text-[11px] text-gray-400 line-through">
+                                  ₹{product.basePrice.toFixed(2)}
+                                </p>
+                                <p className="font-semibold text-green-700">
+                                  ₹{product.pricePerUnit.toFixed(2)}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-gray-900">₹{product.pricePerUnit}</p>
+                            )}
+                          </td>
+                          <td className="px-4 py-4 text-right">
+                            <p className="font-semibold text-gray-900">
+                              ₹{product.totalPrice.toLocaleString("en-IN", { minimumFractionDigits: product.totalPrice % 1 ? 2 : 0 })}
+                            </p>
+                          </td>
+                        </tr>
+                        {product.qps && (
+                          <tr className="bg-purple-50/40">
+                            <td colSpan={5} className="px-4 py-2">
+                              <div className="flex items-start gap-2 text-xs">
+                                <Layers className="h-3.5 w-3.5 text-purple-600 mt-0.5 shrink-0" />
+                                <div className="flex-1">
+                                  <p className="text-purple-900">
+                                    <b>{product.qps.slabLabel}</b> applied · {product.qps.discountLabel} vs base price of
+                                    ₹{product.basePrice?.toFixed(2)}
+                                  </p>
+                                  <p className="text-[11px] text-purple-700 mt-0.5 flex items-center gap-1">
+                                    <TrendingDown className="h-3 w-3" />
+                                    Customer saved ₹{product.qps.savingPerUnit.toFixed(2)}/unit · total QPS saving
+                                    on this line: <b>₹{product.qps.totalSaving.toFixed(2)}</b>
+                                  </p>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                   <tfoot className="bg-gray-50 border-t-2">
-                    <tr>
-                      <td colSpan={4} className="px-4 py-4 text-right font-semibold">
-                        Total Order Value:
-                      </td>
-                      <td className="px-4 py-4 text-right font-bold text-lg text-green-600">
-                        ₹{orderData.orderValue.toLocaleString("en-IN")}
-                      </td>
-                    </tr>
+                    {(() => {
+                      const totalQpsSaving = orderData.products.reduce(
+                        (sum, p) => sum + (p.qps?.totalSaving ?? 0),
+                        0,
+                      );
+                      return (
+                        <>
+                          {totalQpsSaving > 0 && (
+                            <tr className="bg-purple-50">
+                              <td colSpan={4} className="px-4 py-2 text-right text-xs font-semibold text-purple-800">
+                                Total QPS savings on this order
+                              </td>
+                              <td className="px-4 py-2 text-right text-sm font-bold text-purple-700">
+                                −₹{totalQpsSaving.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                              </td>
+                            </tr>
+                          )}
+                          <tr>
+                            <td colSpan={4} className="px-4 py-4 text-right font-semibold">
+                              Total Order Value:
+                            </td>
+                            <td className="px-4 py-4 text-right font-bold text-lg text-green-600">
+                              ₹{orderData.orderValue.toLocaleString("en-IN")}
+                            </td>
+                          </tr>
+                        </>
+                      );
+                    })()}
                   </tfoot>
                 </table>
               </div>

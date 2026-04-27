@@ -39,7 +39,7 @@ export interface QpsScheme {
   slabs: QpsSlab[];
   startDate: string;
   endDate: string;
-  status: "Active" | "Scheduled" | "Expired";
+  status: "Active" | "Inactive" | "Scheduled" | "Expired";
 }
 
 export interface QpsError {

@@ -12,14 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../../components/ui/select";
-import { ArrowLeft, Save, ShoppingCart } from "lucide-react";
+import { ArrowLeft, Save, ShoppingCart, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 export function OrderSettings() {
   const navigate = useNavigate();
-  const [autoAcceptDMS, setAutoAcceptDMS] = useState(true);
-  const [autoAcceptONDC, setAutoAcceptONDC] = useState(false);
-  const [allowCancellation, setAllowCancellation] = useState(true);
+  const [returnsEnabled, setReturnsEnabled] = useState(true);
+  const [returnWindow, setReturnWindow] = useState("24");
 
   const handleSave = () => {
     toast.success("Order settings saved successfully!");
@@ -43,7 +42,7 @@ export function OrderSettings() {
             Order Settings
           </h1>
           <p className="text-gray-600 mt-1">
-            Configure minimum order values and order rules
+            Configure minimum order values and order processing
           </p>
         </div>
       </div>
@@ -78,51 +77,6 @@ export function OrderSettings() {
                   Optional limit for single orders
                 </p>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Order Rules */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Order Rules</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Auto-Accept Orders from DMS</Label>
-                <p className="text-sm text-gray-600">
-                  Automatically accept orders originating from the DMS (Bizom) without manual approval
-                </p>
-              </div>
-              <Switch
-                checked={autoAcceptDMS}
-                onCheckedChange={setAutoAcceptDMS}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Auto-Accept Orders from ONDC</Label>
-                <p className="text-sm text-gray-600">
-                  Automatically accept orders from the ONDC marketplace network without manual approval
-                </p>
-              </div>
-              <Switch
-                checked={autoAcceptONDC}
-                onCheckedChange={setAutoAcceptONDC}
-              />
-            </div>
-            <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label className="text-base">Allow Customer Cancellation</Label>
-                <p className="text-sm text-gray-600">
-                  Customers can cancel orders before processing
-                </p>
-              </div>
-              <Switch
-                checked={allowCancellation}
-                onCheckedChange={setAllowCancellation}
-              />
             </div>
           </CardContent>
         </Card>
@@ -168,6 +122,66 @@ export function OrderSettings() {
               </Select>
               <p className="text-xs text-gray-500">
                 Time window for customers to cancel orders
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Order Return — Phase 1: full-order return only */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <RotateCcw className="h-5 w-5 text-purple-600" />
+              Order Return
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="text-base">Allow Returns</Label>
+                <p className="text-sm text-gray-600">
+                  Let buyers raise return requests for delivered orders
+                </p>
+              </div>
+              <Switch checked={returnsEnabled} onCheckedChange={setReturnsEnabled} />
+            </div>
+
+            {/* Return Type — phase 1 only supports full-order return */}
+            <div className="space-y-2">
+              <Label>Return Type</Label>
+              <Select value="full-order" disabled>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full-order">Full Order Return Only</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                <b>Phase 1:</b> only full-order returns are supported. Partial /
+                line-item returns will be enabled in a later phase.
+              </p>
+            </div>
+
+            {/* Return Window — 24h or 48h */}
+            <div className="space-y-2">
+              <Label>Return Window</Label>
+              <Select
+                value={returnWindow}
+                onValueChange={setReturnWindow}
+                disabled={!returnsEnabled}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24">24 hours</SelectItem>
+                  <SelectItem value="48">48 hours</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                Time window from delivery within which the buyer can request a
+                full-order return.
               </p>
             </div>
           </CardContent>
