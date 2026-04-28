@@ -318,7 +318,7 @@ export function MySKU() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 25;
 
   // Get unique values for filters
   const uniqueCategories = Array.from(new Set(skus.map((s) => s.category))).sort();
