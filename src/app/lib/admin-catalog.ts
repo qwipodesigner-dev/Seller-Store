@@ -21,6 +21,13 @@ export interface Company {
   imageUrl: string | null;
   brands: Brand[];
   /**
+   * Per-company copy of the 37 ONDC categories. Each company gets its own
+   * dedicated category images so the storefront can show brand-specific
+   * tiles (e.g. ITC's "Atta, Flours and Sooji" tile differs from Adani's).
+   * Auto-seeded with all 37 ONDC category names (imageUrl=null) on create.
+   */
+  categories: AdminCategory[];
+  /**
    * Whether this company is active (available to be assigned to sellers and
    * shown in seller-side pickers). Defaults to `true`. Inactive companies
    * remain in the catalog (can't be deleted because multiple sellers may
@@ -76,6 +83,12 @@ export const ONDC_CATEGORY_NAMES: string[] = [
   "Snacks & Branded Foods",
 ];
 
+/** Build a fresh, image-less copy of the 37 ONDC categories — used as the
+ *  starting set when a new company is created. */
+export function makeCompanyCategorySeed(): AdminCategory[] {
+  return ONDC_CATEGORY_NAMES.map((name) => ({ name, imageUrl: null }));
+}
+
 // Seed companies — match the brands appearing on the seller-side SKU list.
 export const seedCompanies: Company[] = [
   {
@@ -87,6 +100,7 @@ export const seedCompanies: Company[] = [
       { id: "br-fortune", name: "Fortune", imageUrl: null },
       { id: "br-kohinoor", name: "Kohinoor", imageUrl: null },
     ],
+    categories: makeCompanyCategorySeed(),
   },
   {
     id: "co-freedom",
@@ -97,6 +111,7 @@ export const seedCompanies: Company[] = [
       { id: "br-freedom", name: "Freedom", imageUrl: null },
       { id: "br-firstklass", name: "First Klass", imageUrl: null },
     ],
+    categories: makeCompanyCategorySeed(),
   },
   {
     id: "co-srikrupa",
@@ -104,6 +119,7 @@ export const seedCompanies: Company[] = [
     imageUrl: null,
     isActive: true,
     brands: [{ id: "br-srikrupa", name: "Sri Krupa", imageUrl: null }],
+    categories: makeCompanyCategorySeed(),
   },
   {
     id: "co-itc",
@@ -117,6 +133,7 @@ export const seedCompanies: Company[] = [
       { id: "br-yippee", name: "Yippee", imageUrl: null },
       { id: "br-classmate", name: "Classmate", imageUrl: null },
     ],
+    categories: makeCompanyCategorySeed(),
   },
 ];
 

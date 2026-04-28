@@ -23,13 +23,19 @@ import {
   X,
   Search,
   AlertCircle,
+  LayoutGrid,
+  CheckCircle2,
+  Trash2,
 } from "lucide-react";
 import { Switch } from "../../components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import { toast } from "sonner";
 import {
+  AdminCategory,
   Brand,
   Company,
   getCompanies,
+  makeCompanyCategorySeed,
   makeId,
   revokeImage,
   setCompanies,
@@ -61,6 +67,12 @@ export function AdminCompanies() {
   const [drafts, setDrafts] = useState<DraftBrand[]>([
     { id: makeId("br"), name: "", imageUrl: null },
   ]);
+  // Per-company ONDC category list (37 entries — auto-seeded for new companies)
+  const [draftCategories, setDraftCategories] = useState<AdminCategory[]>(
+    makeCompanyCategorySeed(),
+  );
+  const [categorySearch, setCategorySearch] = useState("");
+  const [activeTab, setActiveTab] = useState("brands");
   const companyImgRef = useRef<HTMLInputElement | null>(null);
 
   const openCreate = () => {
@@ -68,6 +80,10 @@ export function AdminCompanies() {
     setName("");
     setImageUrl(null);
     setDrafts([{ id: makeId("br"), name: "", imageUrl: null }]);
+    // New companies start with all 37 ONDC categories (no images yet)
+    setDraftCategories(makeCompanyCategorySeed());
+    setCategorySearch("");
+    setActiveTab("brands");
     setIsOpen(true);
   };
 
@@ -80,7 +96,40 @@ export function AdminCompanies() {
         ? c.brands.map((b) => ({ id: b.id, name: b.name, imageUrl: b.imageUrl }))
         : [{ id: makeId("br"), name: "", imageUrl: null }],
     );
+    // Edit existing categories (or seed from scratch if missing on legacy records)
+    setDraftCategories(
+      c.categories && c.categories.length > 0
+        ? c.categories.map((cat) => ({ ...cat }))
+        : makeCompanyCategorySeed(),
+    );
+    setCategorySearch("");
+    setActiveTab("brands");
     setIsOpen(true);
+  };
+
+  // Category image handlers — operate on the in-dialog draft only;
+  // persisted to the company record on Save.
+  const handleCategoryImage = (catName: string, file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Only image files allowed");
+      return;
+    }
+    setDraftCategories((prev) =>
+      prev.map((c) => {
+        if (c.name !== catName) return c;
+        revokeImage(c.imageUrl);
+        return { ...c, imageUrl: URL.createObjectURL(file) };
+      }),
+    );
+  };
+  const handleCategoryImageRemove = (catName: string) => {
+    setDraftCategories((prev) =>
+      prev.map((c) => {
+        if (c.name !== catName) return c;
+        revokeImage(c.imageUrl);
+        return { ...c, imageUrl: null };
+      }),
+    );
   };
 
   const handleCompanyImage = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,6 +192,7 @@ export function AdminCompanies() {
         name: b.name.trim(),
         imageUrl: b.imageUrl,
       })),
+      categories: draftCategories.map((c) => ({ ...c })),
     };
     const next = editingId
       ? companies.map((c) => (c.id === editingId ? company : c))
@@ -347,36 +397,123 @@ export function AdminCompanies() {
               </div>
             </div>
 
-            {/* Brands */}
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between bg-gray-50 border-b border-gray-200 px-3 py-2">
-                <p className="text-sm font-semibold flex items-center gap-2">
-                  <Tag className="h-4 w-4 text-purple-600" />
+            {/* Brands / Categories tabs — every company has its own copy of
+                the 37 ONDC categories with company-specific images. */}
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+              <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto">
+                <TabsTrigger
+                  value="brands"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 text-sm"
+                >
+                  <Tag className="h-4 w-4 mr-2 text-purple-600" />
                   Brands
-                  <span className="text-red-500">*</span>
-                </p>
-                <Button variant="outline" size="sm" onClick={addBrandRow} className="gap-1 h-7 text-xs">
-                  <Plus className="h-3.5 w-3.5" />
-                  Add brand
-                </Button>
-              </div>
-              <div className="divide-y divide-gray-100">
-                {drafts.map((b, i) => (
-                  <BrandRow
-                    key={b.id}
-                    brand={b}
-                    onName={(v) => updateBrandName(i, v)}
-                    onImage={(f) => handleBrandImage(i, f)}
-                    onRemove={() => removeBrandRow(i)}
-                    canRemove={drafts.length > 1}
-                  />
-                ))}
-              </div>
-              <div className="px-3 py-2 bg-blue-50 border-t border-blue-100 text-[11px] text-blue-900 flex items-center gap-1.5">
-                <AlertCircle className="h-3 w-3 shrink-0" />
-                At least one brand with a name is required to save.
-              </div>
-            </div>
+                  <Badge className="ml-2 bg-purple-50 text-purple-700 border-purple-200 text-[10px]">
+                    {drafts.filter((b) => b.name.trim() !== "").length}
+                  </Badge>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="categories"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 text-sm"
+                >
+                  <LayoutGrid className="h-4 w-4 mr-2 text-pink-600" />
+                  Categories
+                  <Badge className="ml-2 bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                    {draftCategories.filter((c) => c.imageUrl).length}/{draftCategories.length}
+                  </Badge>
+                </TabsTrigger>
+              </TabsList>
+
+              {/* Brands tab */}
+              <TabsContent value="brands" className="mt-3">
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between bg-gray-50 border-b border-gray-200 px-3 py-2">
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <Tag className="h-4 w-4 text-purple-600" />
+                      Brands
+                      <span className="text-red-500">*</span>
+                    </p>
+                    <Button variant="outline" size="sm" onClick={addBrandRow} className="gap-1 h-7 text-xs">
+                      <Plus className="h-3.5 w-3.5" />
+                      Add brand
+                    </Button>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {drafts.map((b, i) => (
+                      <BrandRow
+                        key={b.id}
+                        brand={b}
+                        onName={(v) => updateBrandName(i, v)}
+                        onImage={(f) => handleBrandImage(i, f)}
+                        onRemove={() => removeBrandRow(i)}
+                        canRemove={drafts.length > 1}
+                      />
+                    ))}
+                  </div>
+                  <div className="px-3 py-2 bg-blue-50 border-t border-blue-100 text-[11px] text-blue-900 flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    At least one brand with a name is required to save.
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Categories tab — per-company ONDC category images */}
+              <TabsContent value="categories" className="mt-3">
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <div className="flex items-center justify-between bg-gray-50 border-b border-gray-200 px-3 py-2 gap-2 flex-wrap">
+                    <p className="text-sm font-semibold flex items-center gap-2">
+                      <LayoutGrid className="h-4 w-4 text-pink-600" />
+                      Company Categories
+                      <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        {draftCategories.filter((c) => c.imageUrl).length} / {draftCategories.length} with images
+                      </Badge>
+                    </p>
+                    <div className="relative">
+                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400" />
+                      <Input
+                        value={categorySearch}
+                        onChange={(e) => setCategorySearch(e.target.value)}
+                        placeholder="Search category..."
+                        className="pl-8 h-7 text-xs w-56"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-3 max-h-[420px] overflow-y-auto">
+                    {(() => {
+                      const filteredCats = draftCategories.filter(
+                        (c) =>
+                          categorySearch === "" ||
+                          c.name.toLowerCase().includes(categorySearch.toLowerCase()),
+                      );
+                      if (filteredCats.length === 0) {
+                        return (
+                          <p className="text-sm text-gray-500 text-center py-6">
+                            No categories match your search.
+                          </p>
+                        );
+                      }
+                      return (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                          {filteredCats.map((c) => (
+                            <CategoryTile
+                              key={c.name}
+                              category={c}
+                              onUpload={(f) => handleCategoryImage(c.name, f)}
+                              onRemove={() => handleCategoryImageRemove(c.name)}
+                            />
+                          ))}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                  <div className="px-3 py-2 bg-pink-50 border-t border-pink-100 text-[11px] text-pink-900 flex items-center gap-1.5">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    Each company has its own copy of all 37 ONDC categories.
+                    Images are scoped to this company only.
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </div>
 
           <DialogFooter>
@@ -450,5 +587,71 @@ function BrandRow({
         <X className="h-4 w-4 text-red-600" />
       </Button>
     </div>
+  );
+}
+
+// ---- Per-company category image tile (used inside the dialog's Categories tab) ----
+function CategoryTile({
+  category,
+  onUpload,
+  onRemove,
+}: {
+  category: AdminCategory;
+  onUpload: (f: File) => void;
+  onRemove: () => void;
+}) {
+  const ref = useRef<HTMLInputElement | null>(null);
+  return (
+    <Card className="overflow-hidden hover:border-pink-300 transition-colors">
+      <input
+        ref={ref}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          if (f) onUpload(f);
+          if (ref.current) ref.current.value = "";
+        }}
+      />
+      <button
+        type="button"
+        onClick={() => ref.current?.click()}
+        className="w-full aspect-square bg-gray-50 hover:bg-gray-100 flex items-center justify-center overflow-hidden relative group"
+      >
+        {category.imageUrl ? (
+          <>
+            <img
+              src={category.imageUrl}
+              alt={category.name}
+              className="w-full h-full object-cover"
+            />
+            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Upload className="h-5 w-5 text-white" />
+            </span>
+          </>
+        ) : (
+          <div className="flex flex-col items-center gap-1 text-gray-400">
+            <ImageIcon className="h-6 w-6" />
+            <span className="text-[10px] font-medium">Upload</span>
+          </div>
+        )}
+      </button>
+      <div className="p-2 flex items-center justify-between gap-2">
+        <p className="text-[11px] font-medium text-gray-900 line-clamp-2 leading-tight">
+          {category.name}
+        </p>
+        {category.imageUrl && (
+          <button
+            type="button"
+            onClick={onRemove}
+            className="p-1 text-red-600 hover:bg-red-50 rounded shrink-0"
+            title="Remove image"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        )}
+      </div>
+    </Card>
   );
 }
