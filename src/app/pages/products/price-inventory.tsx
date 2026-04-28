@@ -466,12 +466,11 @@ export function PriceInventory() {
     toast.success("Exporting price & inventory data...");
   };
 
-  // ---- Bizom DMS bulk import handlers ----
+  // ---- Bulk import: routes to the standalone Stock & Price update page
+  // (download existing → edit offline → re-upload). The legacy Bizom-DMS
+  // dialog below is kept for reference but no longer opened. ----
   const handleOpenImport = () => {
-    setImportFile(null);
-    setImportResult(null);
-    setImportView("aggregated");
-    setIsImportOpen(true);
+    navigate("/products/add-sku/import");
   };
 
   const handleDownloadBizomTemplate = () => {

@@ -22,15 +22,12 @@ import {
   Phone,
   MapPin,
   Package,
-  AlertTriangle,
   CheckCircle2,
   XCircle,
   Edit3,
   RotateCcw,
   Calendar,
-  CreditCard,
   Hash,
-  DollarSign,
   Layers,
   TrendingDown,
 } from "lucide-react";
@@ -44,6 +41,8 @@ interface OrderProduct {
   availableStock: number;
   editableQuantity: number;
   pricePerUnit: number;
+  /** In-flight edit of price-per-unit. Mirrors pricePerUnit until the seller modifies it. */
+  editablePricePerUnit: number;
   totalPrice: number;
   isModified: boolean;
   /** Base selling price before any QPS slab discount is applied (per unit). */
@@ -105,6 +104,7 @@ const mockOrderData: OrderDetails = {
       editableQuantity: 25,
       basePrice: 171,
       pricePerUnit: 162.45,
+      editablePricePerUnit: 162.45,
       totalPrice: 4061.25,
       isModified: false,
       qps: {
@@ -122,6 +122,7 @@ const mockOrderData: OrderDetails = {
       availableStock: 15,
       editableQuantity: 20,
       pricePerUnit: 420,
+      editablePricePerUnit: 420,
       totalPrice: 8400,
       isModified: false,
     },
@@ -133,6 +134,7 @@ const mockOrderData: OrderDetails = {
       availableStock: 100,
       editableQuantity: 50,
       pricePerUnit: 35,
+      editablePricePerUnit: 35,
       totalPrice: 1750,
       isModified: false,
     },
@@ -144,6 +146,7 @@ const mockOrderData: OrderDetails = {
       availableStock: 25,
       editableQuantity: 30,
       pricePerUnit: 45,
+      editablePricePerUnit: 45,
       totalPrice: 1350,
       isModified: false,
     },
@@ -155,6 +158,7 @@ const mockOrderData: OrderDetails = {
       availableStock: 80,
       editableQuantity: 40,
       pricePerUnit: 20,
+      editablePricePerUnit: 20,
       totalPrice: 800,
       isModified: false,
     },
@@ -166,6 +170,7 @@ const mockOrderData: OrderDetails = {
       availableStock: 10,
       editableQuantity: 25,
       pricePerUnit: 12,
+      editablePricePerUnit: 12,
       totalPrice: 300,
       isModified: false,
     },
@@ -182,6 +187,12 @@ export function OrderDetail() {
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("Out of Stock");
   const [cancelOtherReason, setCancelOtherReason] = useState("");
+  // Modify mode — when true, the items table renders Qty and Price/Unit as
+  // editable inputs and the seller can adjust them line-by-line. Available
+  // only while the order is in New or Confirmed state.
+  const [isEditMode, setIsEditMode] = useState(false);
+  const canModify =
+    orderData.status === "New" || orderData.status === "Confirmed";
 
   const getStatusBadge = (status: OrderDetails["status"]) => {
     switch (status) {
@@ -224,30 +235,41 @@ export function OrderDetail() {
     return <Badge variant="secondary" className="text-sm">{channel}</Badge>;
   };
 
-  const handleQuantityChange = (productId: string, newQuantity: string) => {
-    const quantity = parseInt(newQuantity) || 0;
-    
-    setOrderData((prev) => ({
-      ...prev,
-      products: prev.products.map((product) => {
-        if (product.id === productId) {
-          const isModified = quantity !== product.orderedQuantity;
-          return {
-            ...product,
-            editableQuantity: quantity,
-            totalPrice: quantity * product.pricePerUnit,
-            isModified,
-          };
-        }
-        return product;
-      }),
-    }));
+  // Recompute the row's totalPrice + isModified flag after any qty/price edit.
+  const recalcLine = (product: OrderProduct, patch: Partial<OrderProduct>) => {
+    const next = { ...product, ...patch };
+    next.totalPrice = next.editableQuantity * next.editablePricePerUnit;
+    next.isModified =
+      next.editableQuantity !== next.orderedQuantity ||
+      next.editablePricePerUnit !== next.pricePerUnit;
+    return next;
+  };
 
-    // Check if any product is modified
-    const anyModified = orderData.products.some(
-      (p) => p.id === productId ? quantity !== p.orderedQuantity : p.isModified
-    );
-    setHasModifications(anyModified);
+  const refreshHasModifications = (products: OrderProduct[]) => {
+    setHasModifications(products.some((p) => p.isModified));
+  };
+
+  const handleQuantityChange = (productId: string, newQuantity: string) => {
+    const quantity = Math.max(0, parseInt(newQuantity) || 0);
+    setOrderData((prev) => {
+      const products = prev.products.map((p) =>
+        p.id === productId ? recalcLine(p, { editableQuantity: quantity }) : p,
+      );
+      refreshHasModifications(products);
+      return { ...prev, products };
+    });
+  };
+
+  const handlePriceChange = (productId: string, newPrice: string) => {
+    // Allow decimals for price; clamp negatives to 0.
+    const price = Math.max(0, parseFloat(newPrice) || 0);
+    setOrderData((prev) => {
+      const products = prev.products.map((p) =>
+        p.id === productId ? recalcLine(p, { editablePricePerUnit: price }) : p,
+      );
+      refreshHasModifications(products);
+      return { ...prev, products };
+    });
   };
 
   const handleResetChanges = () => {
@@ -256,39 +278,47 @@ export function OrderDetail() {
       products: prev.products.map((product) => ({
         ...product,
         editableQuantity: product.orderedQuantity,
+        editablePricePerUnit: product.pricePerUnit,
         totalPrice: product.orderedQuantity * product.pricePerUnit,
         isModified: false,
       })),
     }));
     setHasModifications(false);
-    toast.info("Changes have been reset");
+    toast.info("Changes have been discarded");
+  };
+
+  const handleEnterEditMode = () => {
+    setIsEditMode(true);
+  };
+
+  const handleCancelEdit = () => {
+    handleResetChanges();
+    setIsEditMode(false);
   };
 
   const handleUpdateOrder = () => {
-    // Validate stock availability
-    const invalidProducts = orderData.products.filter(
-      (p) => p.editableQuantity > p.availableStock
-    );
-
-    if (invalidProducts.length > 0) {
-      toast.error("Some quantities exceed available stock. Please adjust.");
-      return;
-    }
-
     setIsUpdateModalOpen(true);
   };
 
   const handleConfirmUpdate = () => {
     setOrderData((prev) => ({
       ...prev,
+      // Recalculate the order total from the persisted lines so the header
+      // value stays in sync with whatever the seller just saved.
+      orderValue: prev.products.reduce(
+        (sum, p) => sum + p.editableQuantity * p.editablePricePerUnit,
+        0,
+      ),
       products: prev.products.map((product) => ({
         ...product,
         orderedQuantity: product.editableQuantity,
+        pricePerUnit: product.editablePricePerUnit,
         isModified: false,
       })),
     }));
     setHasModifications(false);
     setIsUpdateModalOpen(false);
+    setIsEditMode(false);
     toast.success("Order updated successfully!");
   };
 
@@ -297,17 +327,6 @@ export function OrderDetail() {
       toast.error("Please save your modifications before confirming the order");
       return;
     }
-
-    // Validate stock availability
-    const invalidProducts = orderData.products.filter(
-      (p) => p.editableQuantity > p.availableStock
-    );
-
-    if (invalidProducts.length > 0) {
-      toast.error("Cannot confirm order. Some quantities exceed available stock.");
-      return;
-    }
-
     setIsConfirmModalOpen(true);
   };
 
@@ -338,206 +357,183 @@ export function OrderDetail() {
     return orderData.products.reduce((sum, product) => sum + product.totalPrice, 0);
   };
 
-  const getStockWarning = (product: OrderProduct) => {
-    if (product.editableQuantity > product.availableStock) {
-      return (
-        <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
-          <AlertTriangle className="h-3 w-3" />
-          Exceeds available stock!
-        </p>
-      );
-    }
-    if (product.availableStock < product.orderedQuantity) {
-      return (
-        <p className="text-xs text-amber-600 flex items-center gap-1 mt-1">
-          <AlertTriangle className="h-3 w-3" />
-          Only {product.availableStock} units available
-        </p>
-      );
-    }
-    return null;
-  };
+  // Stock-availability warnings are no longer shown — distributors don't
+  // maintain real-time stock counts (they sell offline & on other channels),
+  // so the order line treats the entered qty as authoritative.
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-white border-b border-gray-200 shadow-sm">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="px-4 py-2.5 flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3 min-w-0">
             <Button
               variant="ghost"
+              size="sm"
               onClick={() => navigate("/orders")}
-              className="gap-2"
+              className="gap-1.5 h-8"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Orders
+              Back
             </Button>
-            <div className="flex items-center gap-3">
-              {orderData.status === "New" && (
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-lg font-semibold text-gray-900 truncate">
+                  Order #{orderData.orderId}
+                </h1>
+                {getStatusBadge(orderData.status)}
+                {getChannelBadge(orderData.channel)}
+              </div>
+              <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
+                <Calendar className="h-3 w-3" />
+                {orderData.orderTime}
+                <span className="mx-1">•</span>
+                <span className="font-mono">{orderData.channelOrderId}</span>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-wrap">
+              {/* Modify / Save / Discard — visible when order is New or Confirmed */}
+              {canModify && !isEditMode && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="border-blue-300 text-blue-700 hover:bg-blue-50 h-8"
+                  onClick={handleEnterEditMode}
+                >
+                  <Edit3 className="h-3.5 w-3.5 mr-1.5" />
+                  Modify Items
+                </Button>
+              )}
+              {canModify && isEditMode && (
+                <>
+                  <Button variant="outline" size="sm" className="h-8" onClick={handleCancelEdit}>
+                    <RotateCcw className="h-3.5 w-3.5 mr-1.5" />
+                    Discard
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 h-8"
+                    onClick={handleUpdateOrder}
+                    disabled={!hasModifications}
+                  >
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
+                    Save Changes
+                  </Button>
+                </>
+              )}
+              {orderData.status === "New" && !isEditMode && (
                 <>
                   <Button
                     variant="outline"
-                    className="border-red-300 text-red-700 hover:bg-red-50"
+                    size="sm"
+                    className="border-red-300 text-red-700 hover:bg-red-50 h-8"
                     onClick={handleCancelOrder}
                   >
-                    <XCircle className="h-4 w-4 mr-2" />
-                    Cancel Order
+                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Cancel
                   </Button>
                   <Button
-                    className="bg-green-600 hover:bg-green-700"
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 h-8"
                     onClick={handleConfirmOrder}
                   >
-                    <CheckCircle2 className="h-4 w-4 mr-2" />
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                     Confirm Order
                   </Button>
                 </>
               )}
             </div>
-          </div>
-
-          {/* Order Summary */}
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Order #{orderData.orderId}
-                </h1>
-                <div className="flex items-center gap-3 mt-2 text-sm text-gray-600">
-                  <span className="flex items-center gap-1">
-                    <Calendar className="h-4 w-4" />
-                    {orderData.orderTime}
-                  </span>
-                  <span>•</span>
-                  {getChannelBadge(orderData.channel)}
-                </div>
-              </div>
-            </div>
-            {getStatusBadge(orderData.status)}
-          </div>
         </div>
       </div>
 
-      <div className="p-6 space-y-6">
-        {/* Buyer & Seller Information */}
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Buyer Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Store className="h-5 w-5 text-blue-600" />
-                Buyer Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <Label className="text-gray-600 text-xs">Store Name</Label>
-                <p className="font-semibold text-gray-900">{orderData.buyerStoreName}</p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Owner Name</Label>
-                <p className="text-gray-900">{orderData.buyerOwnerName}</p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Phone Number</Label>
-                <p className="text-gray-900 flex items-center gap-1">
-                  <Phone className="h-3 w-3 text-gray-400" />
-                  {orderData.buyerPhone}
-                </p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Delivery Address</Label>
-                <p className="text-gray-900 flex gap-1">
-                  <MapPin className="h-3 w-3 text-gray-400 mt-0.5 flex-shrink-0" />
-                  <span>{orderData.buyerAddress}</span>
-                </p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Buyer ID</Label>
-                <p className="text-gray-900 font-mono text-sm">{orderData.buyerId}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Seller Details */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-green-600" />
-                Seller Details
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div>
-                <Label className="text-gray-600 text-xs">Seller Name</Label>
-                <p className="font-semibold text-gray-900">{orderData.sellerName}</p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Seller ID</Label>
-                <p className="text-gray-900 font-mono text-sm">{orderData.sellerId}</p>
-              </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Contact Info</Label>
-                <p className="text-gray-900 flex items-center gap-1">
-                  <Phone className="h-3 w-3 text-gray-400" />
-                  {orderData.sellerContact}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Order Meta Information */}
+      <div className="p-4 space-y-3">
+        {/* Buyer / Seller / Meta — compact 3-up grid */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Hash className="h-5 w-5 text-gray-600" />
-              Order Meta Information
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid md:grid-cols-2 gap-6">
-              <div>
-                <Label className="text-gray-600 text-xs">Channel Order ID</Label>
-                <p className="font-mono text-sm text-gray-900">{orderData.channelOrderId}</p>
+          <CardContent className="p-3 grid md:grid-cols-3 gap-3 text-sm">
+            {/* Buyer */}
+            <div className="space-y-1">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                <Store className="h-3.5 w-3.5 text-blue-600" />
+                Buyer
+              </p>
+              <p className="font-semibold text-gray-900">{orderData.buyerStoreName}</p>
+              <p className="text-gray-700">{orderData.buyerOwnerName}</p>
+              <p className="text-gray-700 flex items-center gap-1 text-xs">
+                <Phone className="h-3 w-3 text-gray-400" />
+                {orderData.buyerPhone}
+              </p>
+              <p className="text-gray-600 flex gap-1 text-xs leading-snug">
+                <MapPin className="h-3 w-3 text-gray-400 mt-0.5 shrink-0" />
+                <span>{orderData.buyerAddress}</span>
+              </p>
+              <p className="text-[11px] text-gray-500 font-mono">{orderData.buyerId}</p>
+            </div>
+            {/* Seller */}
+            <div className="space-y-1 md:border-l md:pl-3 md:border-gray-200">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5 text-green-600" />
+                Seller
+              </p>
+              <p className="font-semibold text-gray-900">{orderData.sellerName}</p>
+              <p className="text-gray-700 flex items-center gap-1 text-xs">
+                <Phone className="h-3 w-3 text-gray-400" />
+                {orderData.sellerContact}
+              </p>
+              <p className="text-[11px] text-gray-500 font-mono">{orderData.sellerId}</p>
+            </div>
+            {/* Meta */}
+            <div className="space-y-1 md:border-l md:pl-3 md:border-gray-200">
+              <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-1">
+                <Hash className="h-3.5 w-3.5 text-gray-600" />
+                Order Meta
+              </p>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Payment</span>
+                <span className="text-gray-900 font-medium">{orderData.paymentMode}</span>
               </div>
-              <div>
-                <Label className="text-gray-600 text-xs">Original Order Value</Label>
-                <p className="font-semibold text-gray-900">
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Channel Order ID</span>
+                <span className="text-gray-900 font-mono">{orderData.channelOrderId}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-500">Original Value</span>
+                <span className="text-gray-900 font-semibold">
                   ₹{orderData.orderValue.toLocaleString("en-IN")}
-                </p>
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* Product List — read-only */}
+        {/* Product List */}
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Package className="h-5 w-5 text-purple-600" />
+          <CardHeader className="py-2 px-3 border-b border-gray-100">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <Package className="h-4 w-4 text-purple-600" />
               Order Items ({orderData.products.length})
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="border rounded-lg overflow-hidden">
-              <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
-                <table className="w-full">
+          <CardContent className="p-0">
+            <div className="overflow-hidden">
+              <div className="overflow-x-auto max-h-[55vh] overflow-y-auto">
+                <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b sticky top-0 z-[5]">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        Product Name
+                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                        Product
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        SKU ID
+                      <th className="px-3 py-2 text-left text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                        SKU
                       </th>
-                      <th className="px-4 py-3 text-center text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-center text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                         Qty
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
+                      <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
                         Price/Unit
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 uppercase tracking-wider">
-                        Total Price
+                      <th className="px-3 py-2 text-right text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+                        Total
                       </th>
                     </tr>
                   </thead>
@@ -545,28 +541,80 @@ export function OrderDetail() {
                     {orderData.products.map((product) => (
                       <React.Fragment key={product.id}>
                         <tr className="hover:bg-gray-50">
-                          <td className="px-4 py-4">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="font-medium text-gray-900">{product.name}</p>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-medium text-gray-900 text-sm">{product.name}</p>
                               {product.qps && (
                                 <Badge
-                                  className="bg-purple-100 text-purple-700 border-purple-300 gap-1 text-[10px]"
+                                  className="bg-purple-100 text-purple-700 border-purple-300 gap-1 text-[10px] py-0"
                                   title="Quantity Pricing Scheme applied to this line item"
                                 >
-                                  <Layers className="h-3 w-3" />
+                                  <Layers className="h-2.5 w-2.5" />
                                   QPS
                                 </Badge>
                               )}
                             </div>
                           </td>
-                          <td className="px-4 py-4">
-                            <p className="text-sm font-mono text-gray-600">{product.skuId}</p>
+                          <td className="px-3 py-2">
+                            <p className="text-xs font-mono text-gray-600">{product.skuId}</p>
                           </td>
-                          <td className="px-4 py-4 text-center">
-                            <p className="font-semibold text-gray-900">{product.orderedQuantity}</p>
+                          <td className="px-3 py-2 text-center">
+                            {isEditMode ? (
+                              <div className="flex flex-col items-center gap-1">
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  value={product.editableQuantity}
+                                  onChange={(e) =>
+                                    handleQuantityChange(product.id, e.target.value)
+                                  }
+                                  className={`w-20 h-8 text-center ${
+                                    product.editableQuantity !== product.orderedQuantity
+                                      ? "border-blue-400 ring-1 ring-blue-200"
+                                      : ""
+                                  }`}
+                                />
+                                {product.editableQuantity !== product.orderedQuantity && (
+                                  <span className="text-[10px] text-gray-500">
+                                    was {product.orderedQuantity}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <p className="font-semibold text-gray-900">
+                                {product.orderedQuantity}
+                              </p>
+                            )}
                           </td>
-                          <td className="px-4 py-4 text-right">
-                            {product.qps && product.basePrice ? (
+                          <td className="px-3 py-2 text-right">
+                            {isEditMode ? (
+                              <div className="flex flex-col items-end gap-1">
+                                <div className="relative">
+                                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500 pointer-events-none">
+                                    ₹
+                                  </span>
+                                  <Input
+                                    type="number"
+                                    min={0}
+                                    step="0.01"
+                                    value={product.editablePricePerUnit}
+                                    onChange={(e) =>
+                                      handlePriceChange(product.id, e.target.value)
+                                    }
+                                    className={`w-28 h-8 pl-5 text-right ${
+                                      product.editablePricePerUnit !== product.pricePerUnit
+                                        ? "border-blue-400 ring-1 ring-blue-200"
+                                        : ""
+                                    }`}
+                                  />
+                                </div>
+                                {product.editablePricePerUnit !== product.pricePerUnit && (
+                                  <span className="text-[10px] text-gray-500">
+                                    was ₹{product.pricePerUnit.toFixed(2)}
+                                  </span>
+                                )}
+                              </div>
+                            ) : product.qps && product.basePrice ? (
                               <div>
                                 <p className="text-[11px] text-gray-400 line-through">
                                   ₹{product.basePrice.toFixed(2)}
@@ -579,28 +627,31 @@ export function OrderDetail() {
                               <p className="text-gray-900">₹{product.pricePerUnit}</p>
                             )}
                           </td>
-                          <td className="px-4 py-4 text-right">
-                            <p className="font-semibold text-gray-900">
-                              ₹{product.totalPrice.toLocaleString("en-IN", { minimumFractionDigits: product.totalPrice % 1 ? 2 : 0 })}
+                          <td className="px-3 py-2 text-right">
+                            <p
+                              className={`font-semibold text-sm ${
+                                product.isModified ? "text-blue-700" : "text-gray-900"
+                              }`}
+                            >
+                              ₹
+                              {product.totalPrice.toLocaleString("en-IN", {
+                                minimumFractionDigits: product.totalPrice % 1 ? 2 : 0,
+                              })}
                             </p>
                           </td>
                         </tr>
                         {product.qps && (
                           <tr className="bg-purple-50/40">
-                            <td colSpan={5} className="px-4 py-2">
-                              <div className="flex items-start gap-2 text-xs">
-                                <Layers className="h-3.5 w-3.5 text-purple-600 mt-0.5 shrink-0" />
-                                <div className="flex-1">
-                                  <p className="text-purple-900">
-                                    <b>{product.qps.slabLabel}</b> applied · {product.qps.discountLabel} vs base price of
-                                    ₹{product.basePrice?.toFixed(2)}
-                                  </p>
-                                  <p className="text-[11px] text-purple-700 mt-0.5 flex items-center gap-1">
-                                    <TrendingDown className="h-3 w-3" />
-                                    Customer saved ₹{product.qps.savingPerUnit.toFixed(2)}/unit · total QPS saving
-                                    on this line: <b>₹{product.qps.totalSaving.toFixed(2)}</b>
-                                  </p>
-                                </div>
+                            <td colSpan={5} className="px-3 py-1">
+                              <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
+                                <Layers className="h-3 w-3 text-purple-600 shrink-0" />
+                                <span>
+                                  <b>{product.qps.slabLabel}</b> · {product.qps.discountLabel} vs ₹{product.basePrice?.toFixed(2)}
+                                </span>
+                                <span className="text-purple-700 inline-flex items-center gap-1">
+                                  <TrendingDown className="h-3 w-3" />
+                                  saved <b>₹{product.qps.totalSaving.toFixed(2)}</b>
+                                </span>
                               </div>
                             </td>
                           </tr>
@@ -618,20 +669,26 @@ export function OrderDetail() {
                         <>
                           {totalQpsSaving > 0 && (
                             <tr className="bg-purple-50">
-                              <td colSpan={4} className="px-4 py-2 text-right text-xs font-semibold text-purple-800">
+                              <td colSpan={4} className="px-3 py-1.5 text-right text-[11px] font-semibold text-purple-800">
                                 Total QPS savings on this order
                               </td>
-                              <td className="px-4 py-2 text-right text-sm font-bold text-purple-700">
+                              <td className="px-3 py-1.5 text-right text-xs font-bold text-purple-700">
                                 −₹{totalQpsSaving.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                               </td>
                             </tr>
                           )}
                           <tr>
-                            <td colSpan={4} className="px-4 py-4 text-right font-semibold">
-                              Total Order Value:
+                            <td colSpan={4} className="px-3 py-2 text-right text-sm font-semibold">
+                              {isEditMode ? "Updated Order Value:" : "Total Order Value:"}
                             </td>
-                            <td className="px-4 py-4 text-right font-bold text-lg text-green-600">
-                              ₹{orderData.orderValue.toLocaleString("en-IN")}
+                            <td className="px-3 py-2 text-right font-bold text-base text-green-600">
+                              ₹
+                              {(isEditMode
+                                ? calculateTotal()
+                                : orderData.orderValue
+                              ).toLocaleString("en-IN", {
+                                minimumFractionDigits: 2,
+                              })}
                             </td>
                           </tr>
                         </>
@@ -647,42 +704,75 @@ export function OrderDetail() {
 
       {/* Update Order Confirmation Modal */}
       <Dialog open={isUpdateModalOpen} onOpenChange={setIsUpdateModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Update Order</DialogTitle>
+            <DialogTitle>Save Changes</DialogTitle>
             <DialogDescription>
-              You have modified the quantities for this order
+              You have modified the following line items. Review and confirm to apply.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-4">
+          <div className="py-2">
             <div className="space-y-2">
-              <p className="text-sm text-gray-700 font-medium">Modified Items:</p>
-              <div className="bg-gray-50 p-3 rounded-lg space-y-2">
+              <div className="bg-gray-50 p-3 rounded-lg max-h-72 overflow-y-auto divide-y divide-gray-200">
                 {orderData.products
                   .filter((p) => p.isModified)
-                  .map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex justify-between text-sm"
-                    >
-                      <span>{product.name}</span>
-                      <span className="font-semibold">
-                        {product.orderedQuantity} → {product.editableQuantity}
-                      </span>
-                    </div>
-                  ))}
+                  .map((product) => {
+                    const qtyChanged =
+                      product.editableQuantity !== product.orderedQuantity;
+                    const priceChanged =
+                      product.editablePricePerUnit !== product.pricePerUnit;
+                    return (
+                      <div key={product.id} className="py-2 first:pt-0 last:pb-0">
+                        <p className="text-sm font-medium text-gray-900">
+                          {product.name}
+                        </p>
+                        <div className="flex flex-wrap gap-3 text-xs mt-1">
+                          {qtyChanged && (
+                            <span className="text-gray-700">
+                              Qty:&nbsp;
+                              <span className="text-gray-400 line-through">
+                                {product.orderedQuantity}
+                              </span>
+                              &nbsp;→&nbsp;
+                              <span className="font-semibold text-blue-700">
+                                {product.editableQuantity}
+                              </span>
+                            </span>
+                          )}
+                          {priceChanged && (
+                            <span className="text-gray-700">
+                              Price:&nbsp;
+                              <span className="text-gray-400 line-through">
+                                ₹{product.pricePerUnit.toFixed(2)}
+                              </span>
+                              &nbsp;→&nbsp;
+                              <span className="font-semibold text-blue-700">
+                                ₹{product.editablePricePerUnit.toFixed(2)}
+                              </span>
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
               </div>
-              <p className="text-sm text-gray-700 mt-4">
-                New Total: <span className="font-bold text-green-600">₹{calculateTotal().toFixed(2)}</span>
-              </p>
+              <div className="flex items-center justify-between text-sm pt-2">
+                <span className="text-gray-700">Updated Total:</span>
+                <span className="font-bold text-green-600 text-lg">
+                  ₹
+                  {calculateTotal().toLocaleString("en-IN", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
+              </div>
             </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsUpdateModalOpen(false)}>
-              Cancel
+              Back
             </Button>
             <Button onClick={handleConfirmUpdate} className="bg-blue-600 hover:bg-blue-700">
-              Confirm Changes
+              Save &amp; Apply
             </Button>
           </DialogFooter>
         </DialogContent>
