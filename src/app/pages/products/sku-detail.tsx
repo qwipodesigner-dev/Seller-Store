@@ -1364,14 +1364,17 @@ function DualSection({
   title,
   icon,
   children,
+  dense,
 }: {
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
+  /** Tighter vertical paddings — useful for short tabs like Price & Inventory */
+  dense?: boolean;
 }) {
   return (
     <Card>
-      <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+      <CardHeader className={`${dense ? "py-1.5 px-3" : "py-2.5 px-4"} border-b border-gray-100`}>
         <CardTitle className="text-sm font-semibold flex items-center gap-2">
           {icon}
           {title}
@@ -1380,13 +1383,13 @@ function DualSection({
       <CardContent className="p-0">
         {/* Column headers */}
         <div className="grid grid-cols-[200px_1fr_1fr] bg-gray-50 border-b border-gray-200">
-          <div className="px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider">
+          <div className={`${dense ? "px-3 py-1" : "px-4 py-2"} text-[10px] font-semibold text-gray-600 uppercase tracking-wider`}>
             Field Name
           </div>
-          <div className="px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200">
+          <div className={`${dense ? "px-3 py-1" : "px-4 py-2"} text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200`}>
             DMS Value (Read-only)
           </div>
-          <div className="px-4 py-2 text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200">
+          <div className={`${dense ? "px-3 py-1" : "px-4 py-2"} text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200`}>
             ONDC Value (Editable)
           </div>
         </div>
@@ -1405,6 +1408,7 @@ function DualRow({
   dms,
   ondc,
   multiline,
+  dense,
 }: {
   label: string;
   required?: boolean;
@@ -1414,10 +1418,13 @@ function DualRow({
   dms: React.ReactNode;
   ondc: React.ReactNode;
   multiline?: boolean;
+  /** Tighter vertical paddings — useful for short tabs like Price & Inventory */
+  dense?: boolean;
 }) {
+  const cellPad = dense ? "px-3 py-1.5" : "px-4 py-3";
   return (
     <div className="grid grid-cols-[200px_1fr_1fr] hover:bg-gray-50/40 transition-colors">
-      <div className="px-4 py-3 flex items-start flex-wrap gap-1">
+      <div className={`${cellPad} flex items-center flex-wrap gap-1`}>
         <span className="text-sm font-medium text-gray-700">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
@@ -1430,9 +1437,11 @@ function DualRow({
             Cond.
           </span>
         )}
-        {help && <p className="text-[10px] text-gray-500 leading-tight w-full mt-0.5">{help}</p>}
+        {help && !dense && (
+          <p className="text-[10px] text-gray-500 leading-tight w-full mt-0.5">{help}</p>
+        )}
       </div>
-      <div className="px-4 py-3 border-l border-gray-100">
+      <div className={`${cellPad} border-l border-gray-100`}>
         {typeof dms === "string" ? (
           <p className={`text-sm text-gray-900 ${multiline ? "whitespace-pre-wrap" : ""}`}>
             {dms || "—"}
@@ -1441,7 +1450,7 @@ function DualRow({
           dms
         )}
       </div>
-      <div className="px-4 py-3 border-l border-gray-100">{ondc}</div>
+      <div className={`${cellPad} border-l border-gray-100`}>{ondc}</div>
     </div>
   );
 }
@@ -2011,14 +2020,15 @@ function OffersTab({ skuId }: { skuId: string }) {
 
 function PriceInventoryTab({ sku }: { sku: any }) {
   // DMS snapshot — read-only reference from the DMS system.
-  // Stock is split Case + Piece-wise for all SKUs. MRP and Selling Price are
-  // captured per Case; the per-PC equivalents are derived from Units per Case.
+  // Distributors typically can't enter real-time quantities (they sell offline
+  // and on other marketplaces too), so stock is captured as a single toggle:
+  // "Stock Available" yes/no. No piece-/case-level counts on this screen.
   const seedUnitsPerCase = String(sku.unitsPerCase ?? sku.ondcPrefilled?.unitizedCount ?? "1");
-  const seedTotalStock = Number(sku.availableStock ?? sku.inventory?.currentStock ?? 0);
-  const seedUpc = Math.max(1, Number(seedUnitsPerCase) || 1);
-  // Decompose total seed stock into cases + loose pieces so the form starts populated.
-  const seedCases = Math.floor(seedTotalStock / seedUpc);
-  const seedPieces = seedTotalStock - seedCases * seedUpc;
+  const seedHasStock =
+    sku.inStock !== undefined
+      ? Boolean(sku.inStock)
+      : Number(sku.availableStock ?? sku.inventory?.currentStock ?? 0) > 0 ||
+        Boolean(sku.isInfiniteStock);
 
   const dmsPI = {
     mrp: String(sku.mrp ?? sku.pricing?.mrp ?? ""),
@@ -2026,20 +2036,13 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     // Pack Size (Inner Pack) — optional, 1–10,000.
     packSize: String(sku.packSize ?? sku.ondcPrefilled?.unitizedCount ?? ""),
     unitsPerCase: seedUnitsPerCase,
-    stockCases: String(seedCases || ""),
-    stockPieces: String(seedPieces || ""),
-    isInfiniteStock: Boolean(sku.isInfiniteStock),
+    inStock: seedHasStock,
   };
   // ONDC (editable) — starts populated same as DMS (per business rule).
   // The seller reviews and edits if needed before publishing to ONDC.
   const [ondcPI, setOndcPI] = useState({ ...dmsPI });
   const updatePI = (key: keyof typeof dmsPI, value: any) =>
     setOndcPI((prev) => ({ ...prev, [key]: value }));
-
-  // Helpers for the read-only derived fields.
-  const upcNum = Math.max(1, Number(ondcPI.unitsPerCase) || 1);
-  const totalPieces =
-    (Number(ondcPI.stockCases) || 0) * upcNum + (Number(ondcPI.stockPieces) || 0);
 
   // Incremental save — pending errors list shown as a non-blocking warning card
   const [pendingPIErrors, setPendingPIErrors] = useState<
@@ -2057,9 +2060,6 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     const mrp = parseFloat(ondcPI.mrp);
     const sp = parseFloat(ondcPI.sellingPrice);
     const upc = parseInt(ondcPI.unitsPerCase, 10);
-    const cases = parseInt(ondcPI.stockCases, 10);
-    const pieces = parseInt(ondcPI.stockPieces, 10);
-
     const packSize = parseInt(ondcPI.packSize, 10);
     // Pack Size (Inner Pack): optional, but if present must be 1–10,000.
     if (ondcPI.packSize !== "" && (isNaN(packSize) || packSize < 1 || packSize > 10000)) {
@@ -2089,23 +2089,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     if (!isNaN(mrp) && !isNaN(sp) && mrp > 0 && sp > 0 && mrp < sp) {
       errs.push({ code: "ERR_PI_005", field: "MRP", message: "MRP cannot be less than Selling Price — please enter a valid MRP (≥ Selling Price)." });
     }
-    if (!ondcPI.isInfiniteStock) {
-      // Stock — Case-wise + PC-wise.
-      const casesEmpty = ondcPI.stockCases === "";
-      const piecesEmpty = ondcPI.stockPieces === "";
-      if (casesEmpty && piecesEmpty) {
-        errs.push({ code: "ERR_PI_011", field: "Stock", message: "Enter Stock in Cases and/or Pieces (or enable Infinite Stock)." });
-      }
-      if (!casesEmpty && (isNaN(cases) || cases < 0)) {
-        errs.push({ code: "ERR_PI_011", field: "Stock (Cases)", message: "Stock in Cases must be a whole number ≥ 0." });
-      }
-      if (!piecesEmpty && (isNaN(pieces) || pieces < 0)) {
-        errs.push({ code: "ERR_PI_011", field: "Stock (Pieces)", message: "Stock in Pieces must be a whole number ≥ 0." });
-      }
-      if (!isNaN(upc) && upc >= 1 && !isNaN(pieces) && pieces >= upc) {
-        errs.push({ code: "ERR_PI_012", field: "Stock (Pieces)", message: `Loose Pieces must be less than Units per Case (${upc}). Convert full multiples into Cases.` });
-      }
-    }
+    // Stock is now a single toggle (Stock Available). No quantity validation.
     // Incremental save — always persist. Show errors only for incorrectly
     // entered values, not for merely empty fields.
     const invalidErrs = errs.filter(
@@ -2151,11 +2135,11 @@ function PriceInventoryTab({ sku }: { sku: any }) {
         </div>
       </div>
 
-      {/* Inventory — shown first, Case + Piece split */}
-      <DualSection title="Inventory" icon={<Archive className="h-5 w-5 text-emerald-600" />}>
+      {/* Inventory — compact, single Stock Available toggle */}
+      <DualSection title="Inventory" icon={<Archive className="h-5 w-5 text-emerald-600" />} dense>
         <DualRow
+          dense
           label="Pack Size (Inner Pack)"
-          help="Optional, 1–10,000."
           dms={dmsPI.packSize}
           ondc={
             <TextInput
@@ -2167,9 +2151,9 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           }
         />
         <DualRow
+          dense
           label="UPC (Unit Per Case)"
           required
-          help="Number of units in one case."
           dms={dmsPI.unitsPerCase}
           ondc={
             <TextInput
@@ -2182,69 +2166,24 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           }
         />
         <DualRow
-          label="Mark as Infinite Stock"
-          help="When enabled, stock is always available and quantity is not tracked."
-          dms={dmsPI.isInfiniteStock ? "Yes" : "No"}
+          dense
+          label="Stock Available"
+          dms={dmsPI.inStock ? "Yes" : "No"}
           ondc={
             <BooleanToggle
-              value={ondcPI.isInfiniteStock}
-              onChange={(v) => updatePI("isInfiniteStock", v)}
+              value={ondcPI.inStock}
+              onChange={(v) => updatePI("inStock", v)}
             />
           }
         />
-        {!ondcPI.isInfiniteStock && (
-          <>
-            <DualRow
-              label="Stock (Cases)"
-              required
-              help="Number of full Cases in inventory."
-              dms={dmsPI.stockCases}
-              ondc={
-                <TextInput
-                  value={ondcPI.stockCases}
-                  onChange={(v) => updatePI("stockCases", v)}
-                  edited={isEditedPI("stockCases")}
-                  type="number"
-                />
-              }
-            />
-            <DualRow
-              label="Stock (PCs)"
-              help={`Loose pieces below one Case. Must be < Units per Case (${upcNum}).`}
-              dms={dmsPI.stockPieces}
-              ondc={
-                <TextInput
-                  value={ondcPI.stockPieces}
-                  onChange={(v) => updatePI("stockPieces", v)}
-                  edited={isEditedPI("stockPieces")}
-                  type="number"
-                />
-              }
-            />
-            <DualRow
-              label="Total Stock (PCs)"
-              help="Auto-calculated: Cases × Units per Case + Loose PCs."
-              dms={String(
-                (Number(dmsPI.stockCases) || 0) *
-                  (Math.max(1, Number(dmsPI.unitsPerCase) || 1)) +
-                  (Number(dmsPI.stockPieces) || 0),
-              )}
-              ondc={
-                <p className="text-sm font-semibold text-gray-900">
-                  {totalPieces.toLocaleString()} PCs
-                </p>
-              }
-            />
-          </>
-        )}
       </DualSection>
 
       {/* Price — single SKU-level MRP + Selling Price */}
-      <DualSection title="Price" icon={<IndianRupee className="h-5 w-5 text-green-600" />}>
+      <DualSection title="Price" icon={<IndianRupee className="h-5 w-5 text-green-600" />} dense>
         <DualRow
+          dense
           label="MRP"
           required
-          help="Maximum Retail Price. Must be ≥ Selling Price."
           dms={dmsPI.mrp ? `₹${dmsPI.mrp}` : ""}
           ondc={
             <div className="relative">
@@ -2262,9 +2201,9 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           }
         />
         <DualRow
+          dense
           label="Selling Price"
           required
-          help="Must be > 0 and ≤ MRP."
           dms={dmsPI.sellingPrice ? `₹${dmsPI.sellingPrice}` : ""}
           ondc={
             <div className="relative">

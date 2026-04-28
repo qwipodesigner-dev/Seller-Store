@@ -791,11 +791,16 @@ export function MySKU() {
                         <p className="text-[11px] text-gray-500">Create SKU stubs (SKU Code + Name)</p>
                       </div>
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setIsPriceStockOpen(true)} className="gap-2 cursor-pointer">
+                    <DropdownMenuItem
+                      onClick={() => navigate("/products/add-sku/import")}
+                      className="gap-2 cursor-pointer"
+                    >
                       <Database className="h-4 w-4 text-purple-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Update Price & Stock</p>
-                        <p className="text-[11px] text-gray-500">From Bizom DMS export</p>
+                        <p className="text-[11px] text-gray-500">
+                          Download existing → edit offline → re-upload
+                        </p>
                       </div>
                     </DropdownMenuItem>
                   </DropdownMenuContent>
