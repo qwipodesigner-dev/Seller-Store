@@ -42,7 +42,12 @@ interface Beat {
   fileName: string;
 }
 
-const DAYS_OF_WEEK = [
+// "Next Day" is an express option: instead of pinning the beat to a fixed
+// weekday, the seller commits to delivering the day after the order is placed.
+const NEXT_DAY = "Next Day";
+
+const DELIVERY_DAY_OPTIONS = [
+  NEXT_DAY,
   "Monday",
   "Tuesday",
   "Wednesday",
@@ -53,6 +58,7 @@ const DAYS_OF_WEEK = [
 ] as const;
 
 const dayBadgeColor: Record<string, string> = {
+  [NEXT_DAY]: "bg-orange-50 text-orange-700 border-orange-300",
   Monday: "bg-blue-50 text-blue-700 border-blue-200",
   Tuesday: "bg-purple-50 text-purple-700 border-purple-200",
   Wednesday: "bg-pink-50 text-pink-700 border-pink-200",
@@ -61,6 +67,10 @@ const dayBadgeColor: Record<string, string> = {
   Saturday: "bg-indigo-50 text-indigo-700 border-indigo-200",
   Sunday: "bg-rose-50 text-rose-700 border-rose-200",
 };
+
+// Compact label used for the day chip in the list view (e.g. "Mon", "Next Day").
+const dayShortLabel = (day: string) =>
+  day === NEXT_DAY ? "Next Day" : day.slice(0, 3);
 
 type ViewMode = "list" | "configure";
 
@@ -342,7 +352,7 @@ export function ServiceabilitySettings() {
                                     dayBadgeColor[b.deliveryDay] || ""
                                   }`}
                                 >
-                                  {b.deliveryDay.slice(0, 3)}
+                                  {dayShortLabel(b.deliveryDay)}
                                 </span>
                               </span>
                             ))}
@@ -533,7 +543,7 @@ export function ServiceabilitySettings() {
                         <SelectValue placeholder="Choose a day…" />
                       </SelectTrigger>
                       <SelectContent>
-                        {DAYS_OF_WEEK.map((d) => (
+                        {DELIVERY_DAY_OPTIONS.map((d) => (
                           <SelectItem key={d} value={d}>
                             {d}
                           </SelectItem>
