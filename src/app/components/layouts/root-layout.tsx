@@ -19,7 +19,6 @@ import {
   HelpCircle,
   Search,
   X,
-  ArrowLeftRight,
 } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
@@ -66,9 +65,8 @@ const getSellerPageTitle = (pathname: string): string => {
 export function RootLayout() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { user, logout, activeSeller, setActiveSeller } = useAuth();
+  const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
-  const isAdminSeller = user?.role === "admin_seller";
   const navigation = isAdmin ? adminNavigation : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
@@ -206,15 +204,9 @@ export function RootLayout() {
   const displayName = user?.name ?? "Guest";
   const displaySubtitle = isAdmin
     ? "Super Admin Portal"
-    : isAdminSeller && activeSeller
-      ? activeSeller.businessName
-      : user?.businessName ?? "";
+    : user?.businessName ?? "";
   const avatarInitials = user?.avatarInitials ?? "?";
-  const avatarColor = isAdmin
-    ? "bg-purple-600"
-    : isAdminSeller
-      ? "bg-indigo-600"
-      : "bg-blue-600";
+  const avatarColor = isAdmin ? "bg-purple-600" : "bg-blue-600";
 
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden">
@@ -330,17 +322,6 @@ export function RootLayout() {
                       Settings
                     </DropdownMenuItem>
                   </>
-                )}
-                {isAdminSeller && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setActiveSeller(null);
-                      navigate("/select-seller");
-                    }}
-                  >
-                    <ArrowLeftRight className="h-4 w-4 mr-2" />
-                    Switch Seller
-                  </DropdownMenuItem>
                 )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

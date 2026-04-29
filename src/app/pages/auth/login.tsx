@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Shield, Store, Users, Phone, KeyRound } from "lucide-react";
+import { Shield, Store, Phone, KeyRound } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
@@ -52,19 +52,15 @@ export function Login() {
       toast.success(`Welcome, ${user.name}!`);
       if (user.role === "admin") {
         navigate("/admin");
-      } else if (user.role === "admin_seller") {
-        navigate("/select-seller");
       } else {
         navigate("/");
       }
     }, 600);
   };
 
-  const fillDemo = (role: "admin" | "seller" | "admin_seller") => {
+  const fillDemo = (role: "admin" | "seller") => {
     if (role === "admin") {
       setMobile("9900000001");
-    } else if (role === "admin_seller") {
-      setMobile("9900000003");
     } else {
       setMobile("9900000002");
     }
@@ -231,7 +227,7 @@ export function Login() {
                 <p className="text-xs font-semibold text-blue-900 mb-2">
                   Demo accounts — tap to autofill (OTP: 1234)
                 </p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => fillDemo("admin")}
@@ -244,21 +240,6 @@ export function Login() {
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
                         9900000001
-                      </p>
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => fillDemo("admin_seller")}
-                    className="flex items-start gap-2 p-2 rounded-md bg-white border border-blue-200 hover:border-blue-400 transition-all text-left"
-                  >
-                    <Users className="h-4 w-4 text-indigo-600 flex-shrink-0 mt-0.5" />
-                    <div className="min-w-0">
-                      <p className="text-xs font-semibold text-gray-900">
-                        Admin Seller
-                      </p>
-                      <p className="text-[10px] text-gray-500 truncate">
-                        9900000003
                       </p>
                     </div>
                   </button>

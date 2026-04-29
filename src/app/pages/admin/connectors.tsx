@@ -5,7 +5,6 @@ import { Badge } from "../../components/ui/badge";
 import {
   Database,
   ShoppingBag,
-  Activity,
   CheckCircle,
   ChevronRight,
   Settings,
@@ -23,19 +22,9 @@ interface ConnectorInfo {
   syncFrequency: string;
 }
 
+// Phase 1 ships ONDC only. Bizom (DMS) and other DMS connectors are deferred
+// to Phase 2 — keep this list ONDC-only for now.
 const connectors: ConnectorInfo[] = [
-  {
-    id: "bizom",
-    name: "Bizom",
-    type: "DMS",
-    description:
-      "Retail intelligence & distribution platform. Syncs SKU, customer and order data between DMS and Seller Store.",
-    icon: <Database className="h-6 w-6" />,
-    iconBg: "bg-blue-100 text-blue-600",
-    status: "active",
-    lastSync: "2 minutes ago",
-    syncFrequency: "Real-time",
-  },
   {
     id: "ondc",
     name: "ONDC",
@@ -47,18 +36,6 @@ const connectors: ConnectorInfo[] = [
     status: "active",
     lastSync: "1 minute ago",
     syncFrequency: "Real-time",
-  },
-  {
-    id: "tally",
-    name: "Tally",
-    type: "DMS",
-    description:
-      "Business accounting & ERP software. Invoice, ledger and payment reconciliation.",
-    icon: <Activity className="h-6 w-6" />,
-    iconBg: "bg-green-100 text-green-600",
-    status: "active",
-    lastSync: "5 minutes ago",
-    syncFrequency: "Every 10 mins",
   },
 ];
 

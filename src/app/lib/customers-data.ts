@@ -27,6 +27,44 @@ export const CLASS_TYPES: ClassType[] = [
   "Other",
 ];
 
+/**
+ * Customer ↔ Company link. A buyer registers from the buyer-app and may
+ * request access to multiple companies the distributor carries. The seller
+ * approves/rejects each company independently, so a single customer (unique
+ * by mobile) can be APPROVED for one company and REJECTED for another.
+ *
+ * Customer uniqueness is by mobile number — the same person stays one
+ * Customer record across companies.
+ */
+export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+/** Allowed delivery days. "Next Day" (NDD) is the express option. */
+export const NEXT_DAY = "Next Day";
+export const DELIVERY_DAY_OPTIONS = [
+  NEXT_DAY,
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+] as const;
+export type DeliveryDay = (typeof DELIVERY_DAY_OPTIONS)[number];
+
+export interface CompanyApproval {
+  /** Matches admin-catalog Company id (e.g. "co-itc"). */
+  companyId: string;
+  companyName: string;
+  status: ApprovalStatus;
+  /** Required when status === "approved" — Mon–Sun OR Next Day. */
+  deliveryDay?: DeliveryDay;
+  /** ISO date string the seller acted on the request. */
+  decidedAt?: string;
+  /** Optional reason captured at reject-time. */
+  rejectionReason?: string;
+}
+
 export interface Customer {
   id: string;
   /** Owner / primary contact person */
@@ -49,6 +87,37 @@ export interface Customer {
   totalRevenue: number;
   email?: string;
   gstNumber?: string;
+  /**
+   * One record per company the customer requested access to. When omitted or
+   * empty the buyer-app submission is still in transit — treated as fully
+   * "Pending Approval" by the list-page status helper.
+   */
+  companyApprovals?: CompanyApproval[];
+}
+
+/** Aggregate status used on the list page + filter chip. */
+export type OverallApprovalStatus =
+  | "Approved"           // every requested company approved
+  | "Rejected"           // every requested company rejected
+  | "Pending Approval"   // at least one pending and none decided yet
+  | "Mixed";             // some approved, some rejected (possibly some pending)
+
+export function getOverallApprovalStatus(c: Customer): OverallApprovalStatus {
+  const a = c.companyApprovals ?? [];
+  if (a.length === 0) return "Pending Approval";
+  const statuses = new Set(a.map((x) => x.status));
+  if (statuses.size === 1) {
+    if (statuses.has("approved")) return "Approved";
+    if (statuses.has("rejected")) return "Rejected";
+    return "Pending Approval";
+  }
+  // Mixed — but treat all-pending-vs-decided cleanly
+  if (statuses.has("approved") && statuses.has("rejected")) return "Mixed";
+  if (statuses.has("approved") || statuses.has("rejected")) {
+    // some pending, some decided — surface as Mixed so the seller acts on the rest
+    return "Mixed";
+  }
+  return "Pending Approval";
 }
 
 // Real-looking mock data spanning multiple class types, cities, and registration
@@ -72,6 +141,10 @@ export const customers: Customer[] = [
     totalRevenue: 185000,
     email: "ramesh.kumar@example.com",
     gstNumber: "29ABCDE1234F1Z5",
+    companyApprovals: [
+      { companyId: "co-itc", companyName: "ITC", status: "approved", deliveryDay: "Wednesday", decidedAt: "2026-01-18" },
+      { companyId: "co-freedom", companyName: "Gemini Edibles & Fats India", status: "rejected", decidedAt: "2026-01-19", rejectionReason: "Outside delivery polygon" },
+    ],
   },
   {
     id: "CUST-002",
@@ -90,6 +163,9 @@ export const customers: Customer[] = [
     totalOrders: 31,
     totalRevenue: 142000,
     gstNumber: "27FGHIJ5678K1L9",
+    companyApprovals: [
+      { companyId: "co-itc", companyName: "ITC", status: "approved", deliveryDay: "Next Day", decidedAt: "2026-02-05" },
+    ],
   },
   {
     id: "CUST-003",
@@ -109,6 +185,11 @@ export const customers: Customer[] = [
     totalRevenue: 520000,
     email: "mahesh@citysupermart.in",
     gstNumber: "07MNOPQ1234R1S6",
+    companyApprovals: [
+      { companyId: "co-itc", companyName: "ITC", status: "approved", deliveryDay: "Monday", decidedAt: "2025-11-12" },
+      { companyId: "co-freedom", companyName: "Gemini Edibles & Fats India", status: "approved", deliveryDay: "Thursday", decidedAt: "2025-11-12" },
+      { companyId: "co-adani", companyName: "Adani Wilmar Ltd", status: "approved", deliveryDay: "Saturday", decidedAt: "2025-11-13" },
+    ],
   },
   {
     id: "CUST-004",
@@ -161,6 +242,10 @@ export const customers: Customer[] = [
     totalOrders: 145,
     totalRevenue: 892000,
     gstNumber: "27VWXYZ5678A1B2",
+    companyApprovals: [
+      { companyId: "co-itc", companyName: "ITC", status: "approved", deliveryDay: "Tuesday", decidedAt: "2025-10-04" },
+      { companyId: "co-freedom", companyName: "Gemini Edibles & Fats India", status: "approved", deliveryDay: "Friday", decidedAt: "2025-10-04" },
+    ],
   },
   {
     id: "CUST-007",
@@ -283,6 +368,10 @@ export const customers: Customer[] = [
     registeredDate: "2026-04-02",
     totalOrders: 3,
     totalRevenue: 7900,
+    companyApprovals: [
+      { companyId: "co-itc", companyName: "ITC", status: "pending" },
+      { companyId: "co-freedom", companyName: "Gemini Edibles & Fats India", status: "pending" },
+    ],
   },
   {
     id: "CUST-014",
@@ -318,6 +407,9 @@ export const customers: Customer[] = [
     registeredDate: "2026-04-15",
     totalOrders: 5,
     totalRevenue: 28900,
+    companyApprovals: [
+      { companyId: "co-itc", companyName: "ITC", status: "pending" },
+    ],
   },
 ];
 

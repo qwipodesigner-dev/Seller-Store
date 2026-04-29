@@ -16,6 +16,13 @@ import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
 import { Label } from "../components/ui/label";
 import { Textarea } from "../components/ui/textarea";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import {
   ArrowLeft,
   MapPin,
   Phone,
@@ -35,7 +42,13 @@ import {
   ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
-import { findCustomer, customers as allCustomers } from "../lib/customers-data";
+import {
+  findCustomer,
+  customers as allCustomers,
+  DELIVERY_DAY_OPTIONS,
+  type CompanyApproval,
+  type DeliveryDay,
+} from "../lib/customers-data";
 
 interface CustomerDetail {
   id: string;
@@ -120,27 +133,93 @@ export function CustomerDetail() {
       category: source.classType,
     };
   });
-  const [approveDialogOpen, setApproveDialogOpen] = useState(false);
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  // Per-company approvals — mutable so the seller can act without round-tripping.
+  const [companyApprovals, setCompanyApprovals] = useState<CompanyApproval[]>(() => {
+    const source = (customerId && findCustomer(customerId)) || allCustomers[0];
+    return (source.companyApprovals ?? []).map((a) => ({ ...a }));
+  });
+  // Approve / Reject per-company dialogs
+  const [approveCompanyId, setApproveCompanyId] = useState<string | null>(null);
+  const [approveDeliveryDay, setApproveDeliveryDay] = useState<DeliveryDay | "">("");
+  const [rejectCompanyId, setRejectCompanyId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectOtherReason, setRejectOtherReason] = useState("");
 
-  const handleApprove = () => {
-    toast.success("Customer approved successfully!");
-    setApproveDialogOpen(false);
-    setTimeout(() => navigate("/customers"), 1500);
-  };
+  const todayIso = () => new Date().toISOString().slice(0, 10);
 
-  const handleReject = () => {
-    const reason = rejectReason === "Other" ? rejectOtherReason : rejectReason;
-    if (!reason) {
-      toast.error("Please provide a reason for rejection");
+  // ----- Per-company Approve flow -----
+  const openApproveCompany = (companyId: string) => {
+    setApproveCompanyId(companyId);
+    setApproveDeliveryDay("");
+  };
+  const closeApproveCompany = () => {
+    setApproveCompanyId(null);
+    setApproveDeliveryDay("");
+  };
+  const handleApproveCompany = () => {
+    if (!approveCompanyId) return;
+    if (!approveDeliveryDay) {
+      toast.error("Please select a delivery day before approving.");
       return;
     }
-    toast.success("Customer rejected");
-    setRejectDialogOpen(false);
-    setTimeout(() => navigate("/customers"), 1500);
+    setCompanyApprovals((prev) =>
+      prev.map((a) =>
+        a.companyId === approveCompanyId
+          ? {
+              ...a,
+              status: "approved",
+              deliveryDay: approveDeliveryDay,
+              decidedAt: todayIso(),
+              rejectionReason: undefined,
+            }
+          : a,
+      ),
+    );
+    const co = companyApprovals.find((a) => a.companyId === approveCompanyId);
+    toast.success(
+      `Approved for ${co?.companyName ?? "company"} · delivery ${approveDeliveryDay}`,
+    );
+    closeApproveCompany();
   };
+
+  // ----- Per-company Reject flow -----
+  const openRejectCompany = (companyId: string) => {
+    setRejectCompanyId(companyId);
+    setRejectReason("");
+    setRejectOtherReason("");
+  };
+  const closeRejectCompany = () => {
+    setRejectCompanyId(null);
+    setRejectReason("");
+    setRejectOtherReason("");
+  };
+  const handleRejectCompany = () => {
+    if (!rejectCompanyId) return;
+    const reason = rejectReason === "Other" ? rejectOtherReason : rejectReason;
+    if (!reason) {
+      toast.error("Please provide a reason for rejection.");
+      return;
+    }
+    setCompanyApprovals((prev) =>
+      prev.map((a) =>
+        a.companyId === rejectCompanyId
+          ? {
+              ...a,
+              status: "rejected",
+              deliveryDay: undefined,
+              decidedAt: todayIso(),
+              rejectionReason: reason,
+            }
+          : a,
+      ),
+    );
+    const co = companyApprovals.find((a) => a.companyId === rejectCompanyId);
+    toast.error(`Rejected for ${co?.companyName ?? "company"} · ${reason}`);
+    closeRejectCompany();
+  };
+
+  const approveCompany = companyApprovals.find((a) => a.companyId === approveCompanyId);
+  const rejectCompany = companyApprovals.find((a) => a.companyId === rejectCompanyId);
 
   const handleRetrySync = () => {
     toast.info("Retrying customer sync...");
@@ -213,6 +292,128 @@ export function CustomerDetail() {
           </p>
         </div>
       </div>
+
+      {/* Linked Companies — per-company approvals + delivery-day assignment.
+          A single customer (unique by mobile) can register against multiple
+          companies; each must be approved/rejected independently. */}
+      <Card>
+        <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Building2 className="h-4 w-4 text-blue-600" />
+            Linked Companies ({companyApprovals.length})
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3">
+          {companyApprovals.length === 0 ? (
+            <p className="text-sm text-gray-500 text-center py-4">
+              No companies linked to this customer yet.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              {companyApprovals.map((a) => {
+                const colorMap = {
+                  approved: "bg-green-50 border-green-200",
+                  rejected: "bg-red-50 border-red-200",
+                  pending: "bg-amber-50 border-amber-200",
+                } as const;
+                const labelColor = {
+                  approved: "bg-green-600",
+                  rejected: "bg-red-600",
+                  pending: "bg-amber-500",
+                } as const;
+                const labelMap = {
+                  approved: "Approved",
+                  rejected: "Rejected",
+                  pending: "Pending Approval",
+                } as const;
+                return (
+                  <div
+                    key={a.companyId}
+                    className={`flex items-center justify-between gap-3 border rounded-lg p-3 ${colorMap[a.status]}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="font-semibold text-sm text-gray-900">{a.companyName}</p>
+                        <Badge
+                          className={`text-[10px] text-white border-transparent ${labelColor[a.status]}`}
+                        >
+                          {labelMap[a.status]}
+                        </Badge>
+                        {a.status === "approved" && a.deliveryDay && (
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] bg-white border-gray-200 text-gray-700"
+                          >
+                            <Calendar className="h-3 w-3 mr-1" />
+                            {a.deliveryDay}
+                          </Badge>
+                        )}
+                      </div>
+                      {a.status === "rejected" && a.rejectionReason && (
+                        <p className="text-[11px] text-gray-700 mt-0.5">
+                          Reason: {a.rejectionReason}
+                        </p>
+                      )}
+                      {a.decidedAt && a.status !== "pending" && (
+                        <p className="text-[10px] text-gray-500 mt-0.5">
+                          Acted on {a.decidedAt}
+                        </p>
+                      )}
+                    </div>
+                    {a.status === "pending" ? (
+                      <div className="flex gap-2 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 border-red-300 text-red-700 hover:bg-red-50"
+                          onClick={() => openRejectCompany(a.companyId)}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Reject
+                        </Button>
+                        <Button
+                          size="sm"
+                          className="h-8 bg-green-600 hover:bg-green-700"
+                          onClick={() => openApproveCompany(a.companyId)}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5 mr-1" />
+                          Approve
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 text-gray-600"
+                        onClick={() => {
+                          // Allow flipping the decision back to pending → re-action.
+                          setCompanyApprovals((prev) =>
+                            prev.map((x) =>
+                              x.companyId === a.companyId
+                                ? {
+                                    ...x,
+                                    status: "pending",
+                                    deliveryDay: undefined,
+                                    decidedAt: undefined,
+                                    rejectionReason: undefined,
+                                  }
+                                : x,
+                            ),
+                          );
+                          toast.info(`Re-opened decision for ${a.companyName}`);
+                        }}
+                        title="Re-open decision"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Main Content Grid — left column (details) + right column (map) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -399,41 +600,71 @@ export function CustomerDetail() {
         </div>
       </div>
 
-      {/* Approve Dialog */}
-      <Dialog open={approveDialogOpen} onOpenChange={setApproveDialogOpen}>
+      {/* Approve dialog — per company. Forces the seller to assign a
+          delivery day (Mon-Sun OR Next Day / NDD) before approval. */}
+      <Dialog open={!!approveCompanyId} onOpenChange={(o) => !o && closeApproveCompany()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-green-600" />
-              Approve Customer
+              Approve for {approveCompany?.companyName}
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to approve <strong>{customer.storeName}</strong>? The customer
-              will be able to place orders immediately.
+              Approve <strong>{customer.storeName}</strong> for{" "}
+              <strong>{approveCompany?.companyName}</strong> and pin a delivery day for
+              the customer's beat. Required.
             </DialogDescription>
           </DialogHeader>
+          <div className="py-2 space-y-2">
+            <Label className="text-xs">
+              Delivery Day <span className="text-red-500">*</span>
+            </Label>
+            <Select
+              value={approveDeliveryDay}
+              onValueChange={(v) => setApproveDeliveryDay(v as DeliveryDay)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Choose a delivery day…" />
+              </SelectTrigger>
+              <SelectContent>
+                {DELIVERY_DAY_OPTIONS.map((d) => (
+                  <SelectItem key={d} value={d}>
+                    {d === "Next Day" ? "Next Day Delivery (NDD)" : d}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-gray-500">
+              Either pin a fixed weekday (Mon–Sun) or commit to next-day delivery.
+            </p>
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setApproveDialogOpen(false)}>
+            <Button variant="outline" onClick={closeApproveCompany}>
               Cancel
             </Button>
-            <Button onClick={handleApprove} className="bg-green-600 hover:bg-green-700">
+            <Button
+              onClick={handleApproveCompany}
+              className="bg-green-600 hover:bg-green-700"
+              disabled={!approveDeliveryDay}
+            >
               <CheckCircle2 className="h-4 w-4 mr-2" />
-              Approve Customer
+              Approve
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Reject Dialog */}
-      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+      {/* Reject dialog — per company */}
+      <Dialog open={!!rejectCompanyId} onOpenChange={(o) => !o && closeRejectCompany()}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-red-600" />
-              Reject Customer
+              Reject for {rejectCompany?.companyName}
             </DialogTitle>
             <DialogDescription>
-              Please provide a reason for rejecting <strong>{customer.storeName}</strong>.
+              Please provide a reason for rejecting <strong>{customer.storeName}</strong>{" "}
+              against <strong>{rejectCompany?.companyName}</strong>.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -470,16 +701,16 @@ export function CustomerDetail() {
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectDialogOpen(false)}>
+            <Button variant="outline" onClick={closeRejectCompany}>
               Cancel
             </Button>
             <Button
-              onClick={handleReject}
+              onClick={handleRejectCompany}
               className="bg-red-600 hover:bg-red-700 text-white"
               disabled={!rejectReason || (rejectReason === "Other" && !rejectOtherReason)}
             >
               <XCircle className="h-4 w-4 mr-2" />
-              Reject Customer
+              Reject
             </Button>
           </DialogFooter>
         </DialogContent>

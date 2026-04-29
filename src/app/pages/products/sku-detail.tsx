@@ -730,8 +730,8 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   // The Manufacturer/Packer Name dropdown is restricted to companies the
   // super-admin tagged to this seller; the Brand dropdown is restricted to
   // brands within the chosen company.
-  const { user, activeSeller } = useAuth();
-  const resolvedSellerId = activeSeller?.sellerId ?? user?.id ?? null;
+  const { user } = useAuth();
+  const resolvedSellerId = user?.id ?? null;
   const seller = resolvedSellerId ? getSellerById(resolvedSellerId) : null;
   const [adminCompanies, setAdminCompanies] = useState(() => getAdminCatalogCompanies());
   useEffect(
