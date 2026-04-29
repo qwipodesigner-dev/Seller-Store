@@ -472,6 +472,13 @@ function writeSeller(id: string, update: (s: Seller) => Seller): Seller | null {
   return all[idx];
 }
 
+export function updateSellerProfile(
+  id: string,
+  profile: Pick<Seller, "name" | "email" | "phone" | "businessName" | "city">,
+): Seller | null {
+  return writeSeller(id, (s) => ({ ...s, ...profile }));
+}
+
 export function updateSellerPermissions(
   id: string,
   permissions: SellerPermissions,
