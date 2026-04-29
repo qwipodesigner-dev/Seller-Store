@@ -1,158 +1,100 @@
-import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
+import { Badge } from "../../components/ui/badge";
 import {
-  Inbox,
-  Users,
-  CheckCircle,
-  XCircle,
+  Rocket,
+  Clock,
   ChevronRight,
+  Store,
+  Building2,
+  Plug,
 } from "lucide-react";
-import {
-  getRequests,
-  getSellers,
-  type SellerRequest,
-  type Seller,
-} from "../../lib/mock-store";
 
+// Phase 1 placeholder — the full Super Admin dashboard (KPIs, request feeds,
+// charts, etc.) is not part of Phase 1 scope. We surface a clean "Coming
+// Soon" screen and route the admin to the modules that ARE shipping in
+// this phase. Mirrors the seller-side Dashboard placeholder.
 export function AdminDashboard() {
   const navigate = useNavigate();
-  const [requests, setRequests] = useState<SellerRequest[]>([]);
-  const [sellers, setSellers] = useState<Seller[]>([]);
 
-  useEffect(() => {
-    setRequests(getRequests());
-    setSellers(getSellers());
-  }, []);
-
-  const pendingCount = requests.filter((r) => r.status === "pending").length;
-  const activeCount = sellers.length;
-  const approvedCount = requests.filter((r) => r.status === "approved").length;
-  const rejectedCount = requests.filter((r) => r.status === "rejected").length;
-
-  const metrics = [
+  const phase1Modules = [
     {
-      label: "Pending Requests",
-      value: String(pendingCount),
-      icon: Inbox,
-      iconBg: "bg-amber-100",
-      iconColor: "text-amber-600",
-      borderColor: "border-l-amber-500",
-      link: "/admin/users",
+      label: "Sellers",
+      description: "Approve new requests, manage sellers and their company links",
+      href: "/admin/users",
+      icon: Store,
     },
     {
-      label: "Active Sellers",
-      value: String(activeCount),
-      icon: Users,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      borderColor: "border-l-blue-500",
-      link: "/admin/users",
+      label: "Companies & Brands",
+      description: "Master catalog with per-company brands and ONDC categories",
+      href: "/admin/companies",
+      icon: Building2,
     },
     {
-      label: "Approved",
-      value: String(approvedCount),
-      icon: CheckCircle,
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-      borderColor: "border-l-green-500",
-      link: "/admin/users",
-    },
-    {
-      label: "Rejected",
-      value: String(rejectedCount),
-      icon: XCircle,
-      iconBg: "bg-red-100",
-      iconColor: "text-red-600",
-      borderColor: "border-l-red-500",
-      link: "/admin/users",
+      label: "Connectors",
+      description: "DMS / ONDC connector configuration",
+      href: "/admin/connectors",
+      icon: Plug,
     },
   ];
 
-  const recentRequests = requests
-    .filter((r) => r.status === "pending")
-    .slice(0, 5);
-
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Metrics */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <Card
-                key={metric.label}
-                className={`border-l-4 ${metric.borderColor} hover:shadow-lg transition-shadow cursor-pointer`}
-                onClick={() => navigate(metric.link)}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600 mb-2">
-                        {metric.label}
-                      </p>
-                      <p className="text-3xl font-bold text-gray-900 mb-2">
-                        {metric.value}
-                      </p>
-                    </div>
-                    <div
-                      className={`${metric.iconBg} ${metric.iconColor} p-3 rounded-xl`}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Recent Pending Requests */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-gray-900">
-              Recent Pending Requests
-            </h2>
-            <button
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium inline-flex items-center gap-1"
-              onClick={() => navigate("/admin/users")}
-            >
-              View all
-              <ChevronRight className="h-4 w-4" />
-            </button>
+    <div className="min-h-full bg-gradient-to-b from-blue-50 via-white to-purple-50 flex items-center justify-center p-6">
+      <div className="w-full max-w-3xl">
+        <div className="text-center mb-10">
+          <div className="inline-flex h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 items-center justify-center shadow-xl mb-5">
+            <Rocket className="h-10 w-10 text-white" />
           </div>
-
-          <Card>
-            <CardContent className="p-0">
-              {recentRequests.length === 0 ? (
-                <div className="p-8 text-center text-gray-500 text-sm">
-                  No pending requests. You're all caught up.
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {recentRequests.map((r) => (
-                    <div
-                      key={r.id}
-                      className="flex items-center justify-between px-5 py-4 hover:bg-gray-50 cursor-pointer"
-                      onClick={() => navigate("/admin/users")}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900">{r.name}</p>
-                        <p className="text-sm text-gray-600 truncate">
-                          {r.businessName} • {r.city}
-                        </p>
-                      </div>
-                      <div className="text-sm text-gray-500 flex-shrink-0">
-                        {new Date(r.submittedAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <Badge className="bg-amber-100 text-amber-800 border-amber-300 mb-3">
+            <Clock className="h-3 w-3 mr-1" />
+            Coming Soon
+          </Badge>
+          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+            Admin Dashboard is on the way
+          </h1>
+          <p className="text-base text-gray-600 max-w-xl mx-auto leading-relaxed">
+            Network-level KPIs, seller activity, request analytics and other
+            dashboard visualisations are <b>not part of Phase 1</b>. They will
+            be released in a later phase. In the meantime, jump straight into
+            the modules below.
+          </p>
         </div>
+
+        <Card className="border-blue-200 shadow-sm">
+          <CardContent className="p-6">
+            <p className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
+              Available now in Phase 1
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {phase1Modules.map((m) => {
+                const Icon = m.icon;
+                return (
+                  <button
+                    key={m.label}
+                    onClick={() => navigate(m.href)}
+                    className="group flex items-center gap-3 text-left p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+                  >
+                    <div className="h-10 w-10 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-colors">
+                      <Icon className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{m.label}</p>
+                      <p className="text-xs text-gray-600 truncate">{m.description}</p>
+                    </div>
+                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <p className="text-center text-xs text-gray-500 mt-6">
+          Need a metric urgently or have feedback?{" "}
+          <a href="mailto:support@qwipo.com" className="text-blue-600 hover:text-blue-700 font-medium">
+            Contact support
+          </a>
+        </p>
       </div>
     </div>
   );

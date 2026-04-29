@@ -48,7 +48,6 @@ import { AdminSellerDetail } from "./pages/admin/seller-detail";
 import { AdminAddUser } from "./pages/admin/add-user";
 import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCompanies } from "./pages/admin/companies";
-import { SellerPicker } from "./pages/admin/seller-picker";
 
 export const router = createBrowserRouter([
   {
@@ -58,11 +57,6 @@ export const router = createBrowserRouter([
   {
     path: "/onboarding",
     Component: Onboarding,
-  },
-  // Seller picker — admin_seller picks which seller to act as
-  {
-    path: "/select-seller",
-    Component: SellerPicker,
   },
   // Admin subtree — role-gated to "admin"
   {
@@ -91,11 +85,11 @@ export const router = createBrowserRouter([
       { path: "sellers/:sellerId/connectors/:connectorId", Component: ConnectorDetail },
     ],
   },
-  // Seller subtree — seller + admin_seller both access
+  // Seller subtree — seller-only
   {
     path: "/",
     element: (
-      <ProtectedRoute allow={["seller", "admin_seller"]}>
+      <ProtectedRoute allow="seller">
         <RootLayout />
       </ProtectedRoute>
     ),

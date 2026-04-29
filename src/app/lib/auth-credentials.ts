@@ -28,16 +28,6 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       avatarInitials: "RK",
     },
   },
-  "9900000003": {
-    otp: "1234",
-    user: {
-      id: "admin-seller-1",
-      name: "Omkar Charankar",
-      email: "adminseller@qwipo.com",
-      role: "admin_seller",
-      avatarInitials: "OC",
-    },
-  },
 };
 
 export function validateCredentials(

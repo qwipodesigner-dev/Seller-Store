@@ -9,10 +9,9 @@ interface ProtectedRouteProps {
 
 // Client-side route guard.
 // - Not authenticated → /login
-// - Wrong role → own home
-// - admin_seller without active seller on seller routes → /select-seller
+// - Wrong role → own home (admin → /admin, seller → /)
 export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
-  const { user, isAuthenticated, activeSeller } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const location = useLocation();
 
   if (!isAuthenticated || !user) {
@@ -22,24 +21,8 @@ export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
   const allowed = Array.isArray(allow) ? allow : [allow];
 
   if (!allowed.includes(user.role)) {
-    // Redirect to own home
     if (user.role === "admin") return <Navigate to="/admin" replace />;
-    if (user.role === "admin_seller") {
-      // If they have an active seller, send to seller home
-      if (activeSeller) return <Navigate to="/" replace />;
-      return <Navigate to="/select-seller" replace />;
-    }
     return <Navigate to="/" replace />;
-  }
-
-  // admin_seller accessing seller routes must have picked a seller
-  if (
-    user.role === "admin_seller" &&
-    allowed.includes("admin_seller") &&
-    !activeSeller &&
-    location.pathname !== "/select-seller"
-  ) {
-    return <Navigate to="/select-seller" replace />;
   }
 
   return <>{children}</>;
