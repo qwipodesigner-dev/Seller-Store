@@ -1339,19 +1339,6 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         </DialogContent>
       </Dialog>
 
-      {/* Offers summary — compact */}
-      <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-lg px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <Gift className="h-4 w-4 text-amber-600" />
-          <span className="text-sm font-medium text-gray-800">Offers & Schemes</span>
-          <span className="text-sm text-gray-600">
-            {mockOffers[sku.id]?.length
-              ? `— ${mockOffers[sku.id].length} offer(s) applied`
-              : "— none"}
-          </span>
-        </div>
-        <span className="text-xs text-gray-500">Managed in Offers & Schemes tab</span>
-      </div>
     </div>
   );
 }
@@ -2273,7 +2260,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
 export function SKUDetail() {
   const navigate = useNavigate();
   const { skuId } = useParams();
-  const [activeTab, setActiveTab] = useState<"details" | "pricing" | "offers">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "pricing">("details");
 
   const sku = skuData[skuId || "1"] || skuData["1"];
 
@@ -2289,8 +2276,6 @@ export function SKUDetail() {
         return <Badge variant="outline">{status}</Badge>;
     }
   };
-
-  const offersCount = mockOffers[skuId || "1"]?.length || 0;
 
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
@@ -2339,31 +2324,12 @@ export function SKUDetail() {
               Price & Inventory
             </div>
           </button>
-          <button
-            onClick={() => setActiveTab("offers")}
-            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === "offers"
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <Gift className="h-4 w-4" />
-              Offers & Schemes
-              {offersCount > 0 && (
-                <Badge className="bg-red-500 text-white border-red-600 ml-1">
-                  {offersCount}
-                </Badge>
-              )}
-            </div>
-          </button>
         </nav>
       </div>
 
       {/* Tab Content */}
       {activeTab === "details" && <ProductDetailsTab sku={sku} />}
       {activeTab === "pricing" && <PriceInventoryTab sku={sku} />}
-      {activeTab === "offers" && <OffersTab skuId={skuId || "1"} />}
     </div>
   );
 }
