@@ -33,6 +33,17 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+/** One row in the QPS slab schedule for a SKU. */
+interface QpsSlabDef {
+  minQty: number;
+  /** Upper bound; undefined = open-ended (highest tier). */
+  maxQty?: number;
+  /** Pretty name for the discount, e.g. "5% off" / "Flat ₹155" / "—" for no discount. */
+  discountLabel: string;
+  /** Effective per-unit price in this tier. */
+  pricePerUnit: number;
+}
+
 interface OrderProduct {
   id: string;
   name: string;
@@ -53,7 +64,29 @@ interface OrderProduct {
     discountLabel: string;   // e.g. "5% off" or "Flat ₹155"
     savingPerUnit: number;   // ₹ saved per unit vs basePrice
     totalSaving: number;     // ₹ saved on the whole line
+    /** Full slab schedule — present so we can re-evaluate live when the seller
+     *  modifies the order quantity in edit mode. */
+    slabs?: QpsSlabDef[];
   };
+}
+
+/** Build a Slab N · X–Y qty (or X+) label from a slab definition. */
+function slabLabelFor(idx: number, slab: QpsSlabDef): string {
+  const range = slab.maxQty
+    ? `${slab.minQty}–${slab.maxQty} qty`
+    : `${slab.minQty}+ qty`;
+  return `Slab ${idx + 1} · ${range}`;
+}
+
+/** Locate the slab that a given quantity falls into. Returns null if qty < lowest tier. */
+function findSlabIdx(qty: number, slabs: QpsSlabDef[]): number {
+  for (let i = 0; i < slabs.length; i++) {
+    const s = slabs[i];
+    const inRange =
+      qty >= s.minQty && (s.maxQty === undefined || qty <= s.maxQty);
+    if (inRange) return i;
+  }
+  return -1;
 }
 
 interface OrderDetails {
@@ -112,19 +145,39 @@ const mockOrderData: OrderDetails = {
         discountLabel: "5% off",
         savingPerUnit: 8.55,
         totalSaving: 213.75,
+        slabs: [
+          { minQty: 1, maxQty: 11, discountLabel: "—", pricePerUnit: 171 },
+          { minQty: 12, maxQty: 47, discountLabel: "5% off", pricePerUnit: 162.45 },
+          { minQty: 48, discountLabel: "10% off", pricePerUnit: 153.9 },
+        ],
       },
     },
     {
+      // QPS-eligible: Aashirvaad Atta 10kg slabs
+      //   1–9 qty → ₹450 (no discount) · 10–24 → 6.67% off (₹420) · 25+ → 11.11% off (₹400)
+      // This order has 20 units → falls in Slab 2.
       id: "1a",
       name: "Aashirvaad Atta 10kg",
       skuId: "SKU-AASH-10",
       orderedQuantity: 20,
       availableStock: 15,
       editableQuantity: 20,
+      basePrice: 450,
       pricePerUnit: 420,
       editablePricePerUnit: 420,
       totalPrice: 8400,
       isModified: false,
+      qps: {
+        slabLabel: "Slab 2 · 10–24 qty",
+        discountLabel: "Flat ₹30 off",
+        savingPerUnit: 30,
+        totalSaving: 600,
+        slabs: [
+          { minQty: 1, maxQty: 9, discountLabel: "—", pricePerUnit: 450 },
+          { minQty: 10, maxQty: 24, discountLabel: "Flat ₹30 off", pricePerUnit: 420 },
+          { minQty: 25, discountLabel: "Flat ₹50 off", pricePerUnit: 400 },
+        ],
+      },
     },
     {
       id: "2",
@@ -641,20 +694,13 @@ export function OrderDetail() {
                           </td>
                         </tr>
                         {product.qps && (
-                          <tr className="bg-purple-50/40">
-                            <td colSpan={5} className="px-3 py-1">
-                              <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
-                                <Layers className="h-3 w-3 text-purple-600 shrink-0" />
-                                <span>
-                                  <b>{product.qps.slabLabel}</b> · {product.qps.discountLabel} vs ₹{product.basePrice?.toFixed(2)}
-                                </span>
-                                <span className="text-purple-700 inline-flex items-center gap-1">
-                                  <TrendingDown className="h-3 w-3" />
-                                  saved <b>₹{product.qps.totalSaving.toFixed(2)}</b>
-                                </span>
-                              </div>
-                            </td>
-                          </tr>
+                          <QpsImpactRow
+                            product={product}
+                            isEditMode={isEditMode}
+                            onApplySlabPrice={(price) =>
+                              handlePriceChange(product.id, String(price))
+                            }
+                          />
                         )}
                       </React.Fragment>
                     ))}
@@ -713,7 +759,7 @@ export function OrderDetail() {
           </DialogHeader>
           <div className="py-2">
             <div className="space-y-2">
-              <div className="bg-gray-50 p-3 rounded-lg max-h-72 overflow-y-auto divide-y divide-gray-200">
+              <div className="bg-gray-50 p-3 rounded-lg max-h-80 overflow-y-auto divide-y divide-gray-200">
                 {orderData.products
                   .filter((p) => p.isModified)
                   .map((product) => {
@@ -721,12 +767,35 @@ export function OrderDetail() {
                       product.editableQuantity !== product.orderedQuantity;
                     const priceChanged =
                       product.editablePricePerUnit !== product.pricePerUnit;
+
+                    // Recompute slab impact for QPS-eligible lines so the seller sees
+                    // exactly how the modification affects discount tier and saving.
+                    const slabs = product.qps?.slabs;
+                    const hasSlabs = !!slabs && slabs.length > 0;
+                    const origIdx = hasSlabs ? findSlabIdx(product.orderedQuantity, slabs!) : -1;
+                    const newIdx = hasSlabs ? findSlabIdx(product.editableQuantity, slabs!) : -1;
+                    const slabChanged = hasSlabs && origIdx !== newIdx;
+                    const origSlab = origIdx >= 0 ? slabs![origIdx] : null;
+                    const newSlab = newIdx >= 0 ? slabs![newIdx] : null;
+                    const base = product.basePrice ?? 0;
+                    const origSaving = product.qps?.totalSaving ?? 0;
+                    const newSavingPerUnit =
+                      newSlab && base ? Math.max(0, base - newSlab.pricePerUnit) : 0;
+                    const newSaving = newSavingPerUnit * product.editableQuantity;
+                    const savingDelta = +(newSaving - origSaving).toFixed(2);
+                    const direction =
+                      !slabChanged
+                        ? "unchanged"
+                        : newIdx > origIdx
+                          ? "upgraded"
+                          : "downgraded";
+
                     return (
                       <div key={product.id} className="py-2 first:pt-0 last:pb-0">
                         <p className="text-sm font-medium text-gray-900">
                           {product.name}
                         </p>
-                        <div className="flex flex-wrap gap-3 text-xs mt-1">
+                        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs mt-1">
                           {qtyChanged && (
                             <span className="text-gray-700">
                               Qty:&nbsp;
@@ -752,10 +821,126 @@ export function OrderDetail() {
                             </span>
                           )}
                         </div>
+
+                        {/* QPS slab-change indicator — only when slab actually moved */}
+                        {slabChanged && (
+                          <div
+                            className={`mt-1.5 rounded-md border text-[11px] px-2 py-1.5 ${
+                              direction === "upgraded"
+                                ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                                : "bg-red-50 border-red-200 text-red-900"
+                            }`}
+                          >
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <Layers
+                                className={`h-3 w-3 ${
+                                  direction === "upgraded"
+                                    ? "text-emerald-600"
+                                    : "text-red-600"
+                                }`}
+                              />
+                              <span className="font-semibold">
+                                {direction === "upgraded"
+                                  ? "QPS slab upgraded"
+                                  : "QPS slab dropped"}
+                              </span>
+                              <span className="opacity-80">·</span>
+                              <span>
+                                <span className="line-through opacity-60">
+                                  {product.qps?.slabLabel ?? "—"} ({product.qps?.discountLabel})
+                                </span>
+                                &nbsp;→&nbsp;
+                                <b>
+                                  {newSlab
+                                    ? `${slabLabelFor(newIdx, newSlab)} (${newSlab.discountLabel})`
+                                    : "Below lowest slab — no QPS price"}
+                                </b>
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center gap-2 flex-wrap text-[11px]">
+                              <span>
+                                Saving on this line:&nbsp;
+                                <span className="line-through opacity-60">
+                                  ₹{origSaving.toFixed(2)}
+                                </span>
+                                &nbsp;→&nbsp;
+                                <b>₹{newSaving.toFixed(2)}</b>
+                              </span>
+                              <Badge
+                                className={`text-[10px] gap-1 border ${
+                                  direction === "upgraded"
+                                    ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                                    : "bg-red-100 text-red-800 border-red-300"
+                                }`}
+                              >
+                                {savingDelta >= 0 ? "+" : "−"}₹
+                                {Math.abs(savingDelta).toFixed(2)}{" "}
+                                {direction === "upgraded"
+                                  ? "extra saving"
+                                  : "less saving"}
+                              </Badge>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
               </div>
+
+              {/* Aggregate QPS saving impact across the whole modification */}
+              {(() => {
+                const totals = orderData.products
+                  .filter((p) => p.isModified && p.qps?.slabs && p.qps.slabs.length > 0)
+                  .reduce(
+                    (acc, p) => {
+                      const slabs = p.qps!.slabs!;
+                      const origIdx = findSlabIdx(p.orderedQuantity, slabs);
+                      const newIdx = findSlabIdx(p.editableQuantity, slabs);
+                      if (origIdx === newIdx) return acc;
+                      const newSlab = newIdx >= 0 ? slabs[newIdx] : null;
+                      const base = p.basePrice ?? 0;
+                      const newSavingPerUnit = newSlab && base ? Math.max(0, base - newSlab.pricePerUnit) : 0;
+                      const newSaving = newSavingPerUnit * p.editableQuantity;
+                      acc.origSaving += p.qps!.totalSaving;
+                      acc.newSaving += newSaving;
+                      acc.lines += 1;
+                      return acc;
+                    },
+                    { origSaving: 0, newSaving: 0, lines: 0 },
+                  );
+                const delta = +(totals.newSaving - totals.origSaving).toFixed(2);
+                if (totals.lines === 0) return null;
+                return (
+                  <div
+                    className={`rounded-md border px-3 py-2 text-xs flex items-center justify-between gap-2 ${
+                      delta >= 0
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                        : "bg-red-50 border-red-200 text-red-900"
+                    }`}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      <Layers
+                        className={`h-3.5 w-3.5 ${
+                          delta >= 0 ? "text-emerald-600" : "text-red-600"
+                        }`}
+                      />
+                      <b>QPS impact across {totals.lines} line{totals.lines === 1 ? "" : "s"}:</b>{" "}
+                      saving ₹{totals.origSaving.toFixed(2)} → ₹{totals.newSaving.toFixed(2)}
+                    </span>
+                    <Badge
+                      className={`text-[10px] border ${
+                        delta >= 0
+                          ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                          : "bg-red-100 text-red-800 border-red-300"
+                      }`}
+                    >
+                      {delta >= 0 ? "+" : "−"}₹{Math.abs(delta).toFixed(2)}{" "}
+                      {delta >= 0 ? "extra" : "lost"}
+                    </Badge>
+                  </div>
+                );
+              })()}
+
               <div className="flex items-center justify-between text-sm pt-2">
                 <span className="text-gray-700">Updated Total:</span>
                 <span className="font-bold text-green-600 text-lg">
@@ -887,5 +1072,222 @@ export function OrderDetail() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+// ---------- QPS impact row ----------
+// Renders the per-line QPS slab indicator below each order item. When the
+// seller is editing quantity, this recomputes which slab the new qty lands in
+// and visually contrasts it against the originally-applied slab so the impact
+// of the modification (slab dropped / upgraded / lost saving) is obvious.
+function QpsImpactRow({
+  product,
+  isEditMode,
+  onApplySlabPrice,
+}: {
+  product: OrderProduct;
+  isEditMode: boolean;
+  onApplySlabPrice: (price: number) => void;
+}) {
+  const qps = product.qps!;
+  const slabs = qps.slabs;
+
+  // No slab schedule available → fall back to the static snapshot row.
+  if (!slabs || slabs.length === 0) {
+    return (
+      <tr className="bg-purple-50/40">
+        <td colSpan={5} className="px-3 py-1">
+          <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
+            <Layers className="h-3 w-3 text-purple-600 shrink-0" />
+            <span>
+              <b>{qps.slabLabel}</b> · {qps.discountLabel} vs ₹{product.basePrice?.toFixed(2)}
+            </span>
+            <span className="text-purple-700 inline-flex items-center gap-1">
+              <TrendingDown className="h-3 w-3" />
+              saved <b>₹{qps.totalSaving.toFixed(2)}</b>
+            </span>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  const origIdx = findSlabIdx(product.orderedQuantity, slabs);
+  const newIdx = findSlabIdx(product.editableQuantity, slabs);
+  const origSlab = origIdx >= 0 ? slabs[origIdx] : null;
+  const newSlab = newIdx >= 0 ? slabs[newIdx] : null;
+
+  // Net change in saving on the whole line, comparing original line saving
+  // vs what the new qty/slab combo would yield.
+  const base = product.basePrice ?? 0;
+  const origSaving = qps.totalSaving;
+  const newSavingPerUnit = newSlab && base ? Math.max(0, base - newSlab.pricePerUnit) : 0;
+  const newSaving = newSavingPerUnit * product.editableQuantity;
+  const savingDelta = +(newSaving - origSaving).toFixed(2);
+  const slabChanged = origIdx !== newIdx;
+  const direction: "unchanged" | "upgraded" | "downgraded" =
+    !slabChanged ? "unchanged" : newIdx > origIdx ? "upgraded" : "downgraded";
+
+  // Default (non-edit) compact view = the existing one-liner.
+  if (!isEditMode) {
+    return (
+      <tr className="bg-purple-50/40">
+        <td colSpan={5} className="px-3 py-1">
+          <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
+            <Layers className="h-3 w-3 text-purple-600 shrink-0" />
+            <span>
+              <b>{qps.slabLabel}</b> · {qps.discountLabel} vs ₹{base.toFixed(2)}
+            </span>
+            <span className="text-purple-700 inline-flex items-center gap-1">
+              <TrendingDown className="h-3 w-3" />
+              saved <b>₹{qps.totalSaving.toFixed(2)}</b>
+            </span>
+          </div>
+        </td>
+      </tr>
+    );
+  }
+
+  // Edit-mode impact row.
+  return (
+    <tr className="bg-purple-50/40">
+      <td colSpan={5} className="px-3 py-2">
+        <div className="space-y-2">
+          {/* Inline before / after summary */}
+          <div className="flex items-center gap-3 text-[11px] flex-wrap">
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-3 w-3 text-purple-600 shrink-0" />
+              <span className="text-gray-600">Was:</span>
+              <span className={slabChanged ? "line-through text-gray-400" : "text-purple-900"}>
+                <b>{qps.slabLabel}</b> · {qps.discountLabel} · ₹
+                {origSlab?.pricePerUnit.toFixed(2)} ·{" "}
+                <span className="text-purple-700">
+                  saved ₹{origSaving.toFixed(2)}
+                </span>
+              </span>
+            </div>
+            {slabChanged && (
+              <div className="flex items-center gap-1.5">
+                <span className="text-gray-400">→</span>
+                <span className="text-gray-600">Now:</span>
+                {newSlab ? (
+                  <span
+                    className={`font-medium ${
+                      direction === "upgraded"
+                        ? "text-emerald-700"
+                        : "text-red-700"
+                    }`}
+                  >
+                    <b>{slabLabelFor(newIdx, newSlab)}</b> · {newSlab.discountLabel} ·
+                    ₹{newSlab.pricePerUnit.toFixed(2)} ·{" "}
+                    saved ₹{newSaving.toFixed(2)}
+                  </span>
+                ) : (
+                  <span className="font-medium text-red-700">
+                    Below lowest slab — no QPS price applies
+                  </span>
+                )}
+              </div>
+            )}
+            {slabChanged && (
+              <Badge
+                className={`text-[10px] gap-1 border ${
+                  direction === "upgraded"
+                    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                    : "bg-red-50 text-red-700 border-red-200"
+                }`}
+              >
+                {direction === "upgraded" ? "Slab upgraded" : "Slab dropped"} ·{" "}
+                {savingDelta > 0 ? "+" : ""}₹{Math.abs(savingDelta).toFixed(2)}{" "}
+                {direction === "upgraded" ? "extra saving" : "less saving"}
+              </Badge>
+            )}
+            {slabChanged && newSlab && product.editablePricePerUnit !== newSlab.pricePerUnit && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[10px] border-purple-300 text-purple-700 hover:bg-purple-50"
+                onClick={() => onApplySlabPrice(newSlab.pricePerUnit)}
+                title="Update Price/Unit to the new slab's effective price"
+              >
+                Apply slab price ₹{newSlab.pricePerUnit.toFixed(2)}
+              </Button>
+            )}
+          </div>
+
+          {/* Compact slab-table impact preview — highlights the active tier */}
+          <div className="bg-white border border-purple-200 rounded overflow-hidden">
+            <table className="w-full text-[10px]">
+              <thead className="bg-purple-50 text-purple-800">
+                <tr>
+                  <th className="text-left px-2 py-1 font-semibold">Slab</th>
+                  <th className="text-left px-2 py-1 font-semibold">Qty range</th>
+                  <th className="text-left px-2 py-1 font-semibold">Discount</th>
+                  <th className="text-right px-2 py-1 font-semibold">Price / unit</th>
+                  <th className="text-center px-2 py-1 font-semibold">Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                {slabs.map((s, i) => {
+                  const isCurrent = i === newIdx;
+                  const wasOriginal = i === origIdx;
+                  return (
+                    <tr
+                      key={i}
+                      className={
+                        isCurrent
+                          ? direction === "downgraded"
+                            ? "bg-red-50"
+                            : direction === "upgraded"
+                              ? "bg-emerald-50"
+                              : "bg-purple-50"
+                          : "hover:bg-gray-50"
+                      }
+                    >
+                      <td className="px-2 py-1 font-medium text-gray-900">
+                        Slab {i + 1}
+                      </td>
+                      <td className="px-2 py-1 text-gray-700">
+                        {s.maxQty
+                          ? `${s.minQty}–${s.maxQty}`
+                          : `${s.minQty}+`}
+                      </td>
+                      <td className="px-2 py-1 text-gray-700">{s.discountLabel}</td>
+                      <td className="px-2 py-1 text-right font-mono text-gray-900">
+                        ₹{s.pricePerUnit.toFixed(2)}
+                      </td>
+                      <td className="px-2 py-1 text-center">
+                        {isCurrent ? (
+                          <Badge
+                            className={`text-[9px] py-0 px-1 ${
+                              direction === "downgraded"
+                                ? "bg-red-600 text-white border-red-600"
+                                : direction === "upgraded"
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : "bg-purple-600 text-white border-purple-600"
+                            }`}
+                          >
+                            Now
+                          </Badge>
+                        ) : wasOriginal ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] py-0 px-1 bg-gray-50 text-gray-600 border-gray-300"
+                          >
+                            Was
+                          </Badge>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </td>
+    </tr>
   );
 }
