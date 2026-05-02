@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Card } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -28,12 +28,6 @@ import {
   Package,
   Percent,
   Filter,
-  Upload,
-  Download,
-  FileSpreadsheet,
-  FileCheck,
-  FileWarning,
-  X,
   Trash2,
   AlertCircle,
   CheckCircle2,
@@ -49,9 +43,6 @@ import {
   QpsSlab,
   SlabDiscountType,
   validateSlabs,
-  importQpsCsv,
-  buildQpsSampleCsv,
-  BulkQpsResult,
   computeEffectivePrice,
 } from "../../lib/qps-validation";
 
@@ -163,15 +154,11 @@ export function OffersList() {
   const [viewSchemeId, setViewSchemeId] = useState<string | null>(null);
 
   // Delete confirmation
-  const [deleteSchemeId, setDeleteSchemeId] = useState<string | null>(null);
+  // Schemes are immutable once created — no delete flow. (Sellers can mark a
+  // scheme Inactive via the toggle if they want it off.)
 
-  // Bulk Import dialog
-  const [isImportOpen, setIsImportOpen] = useState(false);
-  const [importFile, setImportFile] = useState<File | null>(null);
-  const [importResult, setImportResult] = useState<BulkQpsResult | null>(null);
-  const [isImporting, setIsImporting] = useState(false);
-  const [importView, setImportView] = useState<"schemes" | "rows">("schemes");
-  const importFileInput = useRef<HTMLInputElement | null>(null);
+  // Bulk Import has been removed for Phase 1 — schemes are created one at a
+  // time via the Create QPS Scheme button.
 
   // ---- Filter + Search ----
   const filteredSchemes = qpsSchemes.filter((s) => {
@@ -338,86 +325,7 @@ export function OffersList() {
     setIsEditorOpen(false);
   };
 
-  // ---- Delete ----
-  const handleConfirmDelete = () => {
-    if (!deleteSchemeId) return;
-    const scheme = qpsSchemes.find((s) => s.id === deleteSchemeId);
-    setQpsSchemes((prev) => prev.filter((s) => s.id !== deleteSchemeId));
-    setDeleteSchemeId(null);
-    toast.success(`Deleted QPS scheme${scheme ? ` for ${scheme.skuName}` : ""}`);
-  };
-
-  // ---- Bulk Import handlers ----
-  const handleOpenImport = () => {
-    setImportFile(null);
-    setImportResult(null);
-    setImportView("schemes");
-    setIsImportOpen(true);
-  };
-
-  const handleDownloadQpsSample = () => {
-    const csv = buildQpsSampleCsv();
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "QPS_Bulk_Import_Template.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Sample template downloaded");
-  };
-
-  const handleImportFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!/\.(csv|xlsx|xls)$/i.test(f.name)) {
-      toast.error("Invalid file format. Upload .csv, .xlsx, or .xls.");
-      return;
-    }
-    setImportFile(f);
-    setIsImporting(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = String(ev.target?.result || "");
-      const result = importQpsCsv(text);
-      setImportResult(result);
-      setIsImporting(false);
-      if (result.fileLevelErrors.length > 0) {
-        toast.error(result.fileLevelErrors[0].message);
-      } else if (result.invalidRows > 0) {
-        toast.warning(
-          `${result.invalidRows} row(s) failed validation. ${result.schemes.length} scheme(s) ready to import.`,
-        );
-      } else {
-        toast.success(`All ${result.validRows} rows passed. ${result.schemes.length} scheme(s) ready.`);
-      }
-    };
-    reader.readAsText(f);
-  };
-
-  const handleApplyImport = () => {
-    if (!importResult || importResult.schemes.length === 0) return;
-    const byCode = new Map(qpsSchemes.map((s) => [s.skuCode, s]));
-    let merged = 0;
-    let added = 0;
-    for (const s of importResult.schemes) {
-      if (byCode.has(s.skuCode)) {
-        byCode.set(s.skuCode, s);
-        merged++;
-      } else {
-        byCode.set(s.skuCode, s);
-        added++;
-      }
-    }
-    setQpsSchemes(Array.from(byCode.values()));
-    toast.success(`Imported ${importResult.schemes.length} scheme(s) — ${added} new, ${merged} updated.`);
-    setIsImportOpen(false);
-  };
-
   const viewScheme = viewSchemeId ? qpsSchemes.find((s) => s.id === viewSchemeId) : null;
-  const deleteScheme = deleteSchemeId ? qpsSchemes.find((s) => s.id === deleteSchemeId) : null;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -492,10 +400,6 @@ export function OffersList() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={handleOpenImport} className="gap-2">
-                <Upload className="h-4 w-4" />
-                Bulk Import
-              </Button>
               <Button size="sm" onClick={handleOpenCreate} className="gap-2 bg-blue-600 hover:bg-blue-700">
                 <Plus className="h-4 w-4" />
                 Create QPS
@@ -594,15 +498,6 @@ export function OffersList() {
                               onClick={() => handleOpenEdit(s)}
                             >
                               <Pencil className={`h-4 w-4 ${s.status === "Expired" ? "text-gray-300" : "text-gray-700"}`} />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              title="Delete"
-                              onClick={() => setDeleteSchemeId(s.id)}
-                            >
-                              <Trash2 className="h-4 w-4 text-red-600" />
                             </Button>
                           </div>
                         </td>
@@ -751,39 +646,6 @@ export function OffersList() {
               </DialogFooter>
             </>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* ====================== Delete Confirmation Dialog ====================== */}
-      <Dialog
-        open={deleteSchemeId !== null}
-        onOpenChange={(open) => !open && setDeleteSchemeId(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
-              <Trash2 className="h-5 w-5" />
-              Delete QPS Scheme
-            </DialogTitle>
-            <DialogDescription>
-              {deleteScheme && (
-                <>
-                  Are you sure you want to delete the QPS scheme for{" "}
-                  <b>{deleteScheme.skuName}</b> ({deleteScheme.skuCode})? This will remove{" "}
-                  {deleteScheme.slabs.length} pricing rule
-                  {deleteScheme.slabs.length !== 1 ? "s" : ""} and cannot be undone.
-                </>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteSchemeId(null)}>
-              Cancel
-            </Button>
-            <Button variant="destructive" onClick={handleConfirmDelete}>
-              Delete Scheme
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1082,265 +944,6 @@ export function OffersList() {
         </DialogContent>
       </Dialog>
 
-      {/* ====================== Bulk Import Dialog ====================== */}
-      <Dialog open={isImportOpen} onOpenChange={setIsImportOpen}>
-        <DialogContent className="!max-w-[min(96vw,1280px)] w-[min(96vw,1280px)] max-h-[92vh] overflow-y-auto p-5">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Upload className="h-5 w-5 text-blue-600" />
-              Bulk Import QPS Schemes
-            </DialogTitle>
-            <DialogDescription>
-              Upload a CSV with one row per (SKU × slab). Rows of the same SKU are
-              aggregated into a single scheme after cross-slab validation.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-blue-600 font-semibold text-sm">1</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900 text-sm">Download sample template</p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Columns: SKU ID, SKU Name, MRP, SP, Slab Start, Slab End, Slab Price, Slab Discount %, Effective Value.
-                    </p>
-                    <div className="flex items-center gap-2 mt-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                      <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">QPS_Bulk_Import_Template.csv</p>
-                        <p className="text-[10px] text-gray-500">9 columns, 6 sample rows</p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={handleDownloadQpsSample} className="gap-1 h-7 px-2 text-xs">
-                        <Download className="h-3 w-3" /> Download
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-blue-600 font-semibold text-sm">2</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900 text-sm">Upload filled file</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Supported: .csv, .xlsx, .xls</p>
-                    <input ref={importFileInput} type="file" accept=".csv,.xlsx,.xls" onChange={handleImportFileChange} className="hidden" />
-                    {!importFile ? (
-                      <button
-                        type="button"
-                        onClick={() => importFileInput.current?.click()}
-                        className="mt-2 w-full border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg py-3 flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-                      >
-                        <Upload className="h-4 w-4" />
-                        <span className="text-xs font-medium">Click to browse file</span>
-                      </button>
-                    ) : (
-                      <div className="mt-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                        <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-900 truncate">{importFile.name}</p>
-                          <p className="text-[10px] text-gray-500">{(importFile.size / 1024).toFixed(1)} KB</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => {
-                            setImportFile(null);
-                            setImportResult(null);
-                            if (importFileInput.current) importFileInput.current.value = "";
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {(isImporting || importResult) && (
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                      <span className="text-blue-600 font-semibold text-sm">3</span>
-                    </div>
-                    <p className="font-semibold text-gray-900 text-sm">Validation & preview</p>
-                  </div>
-                  {importResult && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                        Rows <b>{importResult.totalRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">
-                        <FileCheck className="h-3 w-3" /> Valid <b>{importResult.validRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
-                        <FileWarning className="h-3 w-3" /> Invalid <b>{importResult.invalidRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
-                        <Layers className="h-3 w-3" /> Schemes <b>{importResult.schemes.length}</b>
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {isImporting && <p className="text-sm text-gray-600 py-4 text-center">Validating file…</p>}
-
-                {importResult && (
-                  <>
-                    {importResult.fileLevelErrors.length > 0 && (
-                      <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
-                        {importResult.fileLevelErrors.map((err, i) => (
-                          <p key={i} className="text-xs text-red-700">
-                            <span className="font-mono font-semibold">[{err.code}]</span> {err.message}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="mb-2 inline-flex bg-gray-100 rounded-lg p-0.5 border border-gray-200">
-                      <button
-                        type="button"
-                        onClick={() => setImportView("schemes")}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${importView === "schemes" ? "bg-white shadow-sm text-gray-900" : "text-gray-600"}`}
-                      >
-                        Aggregated Schemes ({importResult.schemes.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setImportView("rows")}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${importView === "rows" ? "bg-white shadow-sm text-gray-900" : "text-gray-600"}`}
-                      >
-                        Rows ({importResult.totalRows})
-                      </button>
-                    </div>
-
-                    {importView === "schemes" ? (
-                      <div className="max-h-[45vh] overflow-y-auto border border-gray-200 rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr className="text-left">
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Name</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-center">Slabs</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">MRP</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">SP</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Slab Summary</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {importResult.schemes.map((s) => (
-                              <tr key={s.id} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700">{s.skuCode}</td>
-                                <td className="px-3 py-2 text-gray-900">{s.skuName}</td>
-                                <td className="px-3 py-2 text-center">
-                                  <Badge className="bg-blue-50 text-blue-700 border-blue-200">{s.slabs.length}</Badge>
-                                </td>
-                                <td className="px-3 py-2 text-right">₹{s.mrp}</td>
-                                <td className="px-3 py-2 text-right text-green-700 font-semibold">₹{s.sellingPrice}</td>
-                                <td className="px-3 py-2">
-                                  <div className="flex flex-wrap gap-1">
-                                    {s.slabs.map((slab, i) => (
-                                      <span key={i} className="inline-flex items-center text-[11px] bg-gray-100 text-gray-700 border border-gray-200 rounded px-1.5 py-0.5">
-                                        {slab.minQty}–{slab.maxQty ?? "∞"}: ₹{slab.effectivePrice.toFixed(2)}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                            {importResult.schemes.length === 0 && (
-                              <tr>
-                                <td colSpan={6} className="px-3 py-6 text-center text-sm text-gray-500">No valid schemes to import.</td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="max-h-[45vh] overflow-y-auto border border-gray-200 rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr className="text-left">
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-14">Row</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU ID</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-center">Slab</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Price / %</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-28">Status</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Errors</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {importResult.rows.map((r) => (
-                              <tr key={r.rowNumber} className={r.status === "invalid" ? "bg-red-50/50" : ""}>
-                                <td className="px-3 py-2 text-gray-700 align-top">{r.rowNumber}</td>
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">{r.skuId || "—"}</td>
-                                <td className="px-3 py-2 text-center align-top">
-                                  {r.slabStart}–{r.slabEnd || "∞"}
-                                </td>
-                                <td className="px-3 py-2 text-right align-top">
-                                  {r.slabPrice ? `₹${r.slabPrice}` : r.slabPercent ? `${r.slabPercent}%` : "—"}
-                                </td>
-                                <td className="px-3 py-2 align-top">
-                                  {r.status === "valid" ? (
-                                    <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
-                                      <CheckCircle2 className="h-3 w-3" /> Valid
-                                    </Badge>
-                                  ) : (
-                                    <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
-                                      <AlertCircle className="h-3 w-3" /> {r.errors.length} error{r.errors.length !== 1 ? "s" : ""}
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="px-3 py-2 align-top">
-                                  {r.errors.length === 0 ? (
-                                    <span className="text-xs text-green-700">All checks passed.</span>
-                                  ) : (
-                                    <ul className="space-y-1 text-xs text-red-700">
-                                      {r.errors.map((err, i) => (
-                                        <li key={i} className="flex gap-2">
-                                          <span className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start">
-                                            {err.code}
-                                          </span>
-                                          <span>{err.message}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsImportOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleApplyImport}
-              disabled={!importResult || importResult.schemes.length === 0}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              Import {importResult?.schemes.length ?? 0} Scheme{(importResult?.schemes.length ?? 0) !== 1 ? "s" : ""}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -9,7 +9,6 @@ import {
   Wallet,
   ChevronRight,
   MessageCircle,
-  HelpCircle,
 } from "lucide-react";
 
 interface SettingCard {
@@ -142,32 +141,6 @@ export function Settings() {
           ))}
         </div>
 
-        {/* Help Card */}
-        <Card className="mt-6 border border-gray-200">
-          <CardContent className="p-5">
-            <div className="flex items-start gap-3">
-              <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
-                <HelpCircle className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="font-medium text-gray-900 text-sm">
-                  Need help configuring?
-                </p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Check our documentation or contact support for assistance.
-                </p>
-                <div className="flex gap-4 mt-3">
-                  <button
-                    className="text-sm font-medium text-blue-600 hover:text-blue-700"
-                    onClick={() => navigate("/support")}
-                  >
-                    Visit Support →
-                  </button>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
