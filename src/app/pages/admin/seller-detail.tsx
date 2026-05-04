@@ -44,6 +44,7 @@ import {
   updateManagedCompanies,
   updateCompanyBrandSelections,
   updateSellerImage,
+  updateSellerActive,
   getQwipoCompanies,
   emptyOndcConfig,
   type Seller,
@@ -76,6 +77,10 @@ export function AdminSellerDetail() {
   const [activeTab, setActiveTab] = useState("profile");
 
   // Profile is read-only post-creation (no edit affordance in Phase 1).
+
+  // Active/Inactive toggle — pendingActiveValue holds the proposed flip
+  // until the admin confirms it in the dialog. null = no pending change.
+  const [pendingActiveValue, setPendingActiveValue] = useState<boolean | null>(null);
 
   // Permissions state
   const [permissions, setPermissions] = useState<SellerPermissions>(emptyPermissions);
@@ -329,9 +334,17 @@ export function AdminSellerDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Badge className="bg-blue-50 text-blue-700 border-blue-200">
-              Active Seller
-            </Badge>
+            {(seller.isActive ?? true) ? (
+              <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
+                <CheckCircle2 className="h-3 w-3" />
+                Active
+              </Badge>
+            ) : (
+              <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                <AlertCircle className="h-3 w-3" />
+                Inactive
+              </Badge>
+            )}
           </div>
         </div>
       </div>
@@ -366,39 +379,95 @@ export function AdminSellerDetail() {
               </TabsList>
             </div>
 
-            {/* Profile — read-only */}
+            {/* Profile — read-only. Mirrors the fields captured during
+                Add Seller so the admin sees exactly what was entered. */}
             <TabsContent value="profile" className="p-6 mt-0">
               <div className="space-y-6 max-w-3xl">
                 <p className="text-sm text-gray-500">
-                  Basic information about this seller (read-only)
+                  Basic information captured during seller creation (read-only).
                 </p>
 
+                {/* Identity */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <Field label="Full Name" value={seller.name} />
-                  <Field label="Email" value={seller.email} />
-                  <Field label="Phone" value={seller.phone} />
-                  <Field label="City" value={seller.city} />
+                  <Field label="Mobile Number" value={seller.phone} />
                   <Field label="Business Name" value={seller.businessName} />
+                  <Field
+                    label="Seller Type"
+                    value={
+                      seller.sellerType === "wholesaler"
+                        ? "Wholesaler"
+                        : "Distributor"
+                    }
+                  />
                   <Field
                     label="Created On"
                     value={seller.approvedAt ? new Date(seller.approvedAt).toLocaleDateString() : "—"}
                   />
+                </div>
 
-                  {/* Active/Inactive Toggle */}
-                  <div className="md:col-span-2 pt-4 border-t border-gray-100">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <Label className="text-sm font-medium">Status</Label>
-                        <p className="text-xs text-gray-500">
-                          Toggle to activate or deactivate this seller
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-green-700">
-                          Active
-                        </span>
-                        <Switch defaultChecked />
-                      </div>
+                {/* Address */}
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                    Address
+                  </p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Field label="PIN Code" value={seller.pinCode || "—"} />
+                    <Field label="City" value={seller.city || "—"} />
+                    <Field label="State" value={seller.state || "—"} />
+                    <Field
+                      label="Latitude"
+                      value={
+                        seller.latitude !== undefined
+                          ? String(seller.latitude)
+                          : "—"
+                      }
+                    />
+                    <Field
+                      label="Longitude"
+                      value={
+                        seller.longitude !== undefined
+                          ? String(seller.longitude)
+                          : "—"
+                      }
+                    />
+                    <div className="md:col-span-2">
+                      <Field
+                        label="Full Address"
+                        value={seller.fullAddress || "—"}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status — opens a confirmation prompt before flipping */}
+                <div className="pt-4 border-t border-gray-100">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <Label className="text-sm font-medium">Status</Label>
+                      <p className="text-xs text-gray-500">
+                        Toggle to activate or deactivate this seller. A
+                        confirmation will appear before the change is saved.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-sm font-medium ${
+                          (seller.isActive ?? true)
+                            ? "text-green-700"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {(seller.isActive ?? true) ? "Active" : "Inactive"}
+                      </span>
+                      <Switch
+                        checked={seller.isActive ?? true}
+                        onCheckedChange={(next) => {
+                          // Open the confirm dialog instead of flipping
+                          // immediately. The dialog persists on confirm.
+                          setPendingActiveValue(next);
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -797,6 +866,98 @@ export function AdminSellerDetail() {
         </DialogContent>
       </Dialog>
 
+      {/* Active / Inactive confirmation prompt — fires whenever the admin
+          flips the Status toggle on the Profile tab. The actual write only
+          happens after explicit confirmation. */}
+      <Dialog
+        open={pendingActiveValue !== null}
+        onOpenChange={(o) => !o && setPendingActiveValue(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {pendingActiveValue ? (
+                <CheckCircle2 className="h-5 w-5 text-green-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-red-600" />
+              )}
+              {pendingActiveValue
+                ? "Activate this seller?"
+                : "Deactivate this seller?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingActiveValue ? (
+                <>
+                  Re-activating <b>{seller.name}</b> will restore their access
+                  immediately:
+                </>
+              ) : (
+                <>
+                  Deactivating <b>{seller.name}</b> has the following effects:
+                </>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="text-sm text-gray-700 list-disc list-inside space-y-1 py-2">
+            {pendingActiveValue ? (
+              <>
+                <li>The seller will be able to log in again.</li>
+                <li>
+                  They'll be able to view and manage their orders, products and
+                  customers.
+                </li>
+                <li>
+                  You'll be able to link new companies and brands to this
+                  seller.
+                </li>
+              </>
+            ) : (
+              <>
+                <li>The seller will not be able to log in.</li>
+                <li>
+                  They will not be able to view or manage their orders or
+                  products.
+                </li>
+                <li>
+                  You will not be able to link new companies or brands to this
+                  seller until they are re-activated.
+                </li>
+                <li>Existing data is preserved and can be restored anytime.</li>
+              </>
+            )}
+          </ul>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingActiveValue(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingActiveValue === null) return;
+                const updated = updateSellerActive(seller.id, pendingActiveValue);
+                if (updated) {
+                  setSeller(updated);
+                  toast.success(
+                    pendingActiveValue
+                      ? `${updated.name} is now Active`
+                      : `${updated.name} has been deactivated`,
+                  );
+                } else {
+                  toast.error("Failed to update status");
+                }
+                setPendingActiveValue(null);
+              }}
+              className={
+                pendingActiveValue
+                  ? "bg-green-600 hover:bg-green-700"
+                  : "bg-red-600 hover:bg-red-700 text-white"
+              }
+            >
+              {pendingActiveValue ? "Yes, Activate" : "Yes, Deactivate"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add Managed Companies */}
       <Dialog open={addCompaniesOpen} onOpenChange={setAddCompaniesOpen}>
         <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
@@ -967,6 +1128,8 @@ export function SellerCatalogTab({
   useEffect(() => subscribeToAdminCatalog(() => setCompanies([...getAdminCatalogCompanies()])), []);
 
   const selections = seller.companyBrandSelections ?? [];
+  // Inactive sellers can't have new companies linked to them.
+  const isInactive = seller.isActive === false;
 
   // ---- Add Company dialog ----
   const [addOpen, setAddOpen] = useState(false);
@@ -974,11 +1137,11 @@ export function SellerCatalogTab({
   const [addAllBrands, setAddAllBrands] = useState(true);
   const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
 
-  // Companies available to add: active and not already linked.
-  const linkedIds = new Set(selections.map((s) => s.companyId));
-  const availableCompanies = companies.filter(
-    (c) => c.isActive !== false && !linkedIds.has(c.id),
-  );
+  // Once a company is linked it can't be removed — only extended. We allow
+  // re-selecting an already-linked company so the admin can merge in extra
+  // brands they missed the first time. So "available" is just every active
+  // catalog company.
+  const availableCompanies = companies.filter((c) => c.isActive !== false);
   const selectedAddCompany = companies.find((c) => c.id === addCompanyId);
 
   const openAdd = () => {
@@ -1008,19 +1171,41 @@ export function SellerCatalogTab({
       toast.error("Pick at least one brand or choose 'Use all brands'");
       return;
     }
-    const newSel: CompanyBrandSelection = {
-      companyId: addCompanyId,
-      brandIds: addAllBrands ? [] : addBrandIds,
-    };
-    persistSelections([...selections, newSel]);
-    toast.success(`Linked "${selectedAddCompany?.name ?? "company"}" to seller`);
+    const existing = selections.find((s) => s.companyId === addCompanyId);
+    const company = companies.find((c) => c.id === addCompanyId);
+    let next: CompanyBrandSelection[];
+    let toastMsg: string;
+    if (existing) {
+      // Already linked — merge brand selection. "All brands" is the most
+      // permissive state and wins on either side.
+      const wasAllBrands = existing.brandIds.length === 0;
+      const isAllBrands = addAllBrands || wasAllBrands;
+      const mergedBrandIds = isAllBrands
+        ? []
+        : Array.from(new Set([...existing.brandIds, ...addBrandIds]));
+      next = selections.map((s) =>
+        s.companyId === addCompanyId
+          ? { companyId: s.companyId, brandIds: mergedBrandIds }
+          : s,
+      );
+      toastMsg = isAllBrands
+        ? `${company?.name ?? "Company"} now has access to all brands`
+        : `${mergedBrandIds.length - existing.brandIds.length} new brand${
+            mergedBrandIds.length - existing.brandIds.length === 1 ? "" : "s"
+          } added to ${company?.name ?? "company"}`;
+    } else {
+      next = [
+        ...selections,
+        {
+          companyId: addCompanyId,
+          brandIds: addAllBrands ? [] : addBrandIds,
+        },
+      ];
+      toastMsg = `Linked "${company?.name ?? "company"}" to seller`;
+    }
+    persistSelections(next);
+    toast.success(toastMsg);
     setAddOpen(false);
-  };
-
-  const handleRemove = (companyId: string) => {
-    const company = companies.find((c) => c.id === companyId);
-    persistSelections(selections.filter((s) => s.companyId !== companyId));
-    toast.success(`Unlinked "${company?.name ?? "company"}"`);
   };
 
   return (
@@ -1039,17 +1224,32 @@ export function SellerCatalogTab({
         <Button
           className="gap-2 bg-blue-600 hover:bg-blue-700"
           onClick={openAdd}
-          disabled={availableCompanies.length === 0}
+          disabled={isInactive || availableCompanies.length === 0}
           title={
-            availableCompanies.length === 0
-              ? "All active companies are already linked"
-              : undefined
+            isInactive
+              ? "Activate this seller before linking new companies"
+              : availableCompanies.length === 0
+                ? "No active companies in the catalog"
+                : undefined
           }
         >
           <Plus className="h-4 w-4" />
           Add Company
         </Button>
       </div>
+
+      {isInactive && (
+        <div className="mb-3 flex items-start gap-2 p-3 rounded-lg border border-amber-200 bg-amber-50 text-xs">
+          <AlertCircle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+          <div>
+            <p className="font-medium text-amber-900">Seller is inactive</p>
+            <p className="text-amber-800">
+              You can't link new companies until this seller is re-activated
+              from the Profile tab.
+            </p>
+          </div>
+        </div>
+      )}
 
       {selections.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed rounded-lg">
@@ -1063,7 +1263,12 @@ export function SellerCatalogTab({
             variant="outline"
             onClick={openAdd}
             className="gap-2"
-            disabled={availableCompanies.length === 0}
+            disabled={isInactive || availableCompanies.length === 0}
+            title={
+              isInactive
+                ? "Activate this seller before linking companies"
+                : undefined
+            }
           >
             <Plus className="h-4 w-4" />
             Add Company
@@ -1137,15 +1342,6 @@ export function SellerCatalogTab({
                       ))}
                     </div>
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-gray-400 hover:text-red-600"
-                    onClick={() => handleRemove(sel.companyId)}
-                    title="Unlink company"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
                 </div>
               </div>
             );
@@ -1162,8 +1358,10 @@ export function SellerCatalogTab({
               Link a Company
             </DialogTitle>
             <DialogDescription>
-              Pick a company from the master catalog and choose the brands this
-              seller should have access to.
+              Pick a company from the master catalog and choose the brands
+              this seller should have access to. Re-selecting an already-linked
+              company will merge new brands with the existing ones — companies
+              cannot be unlinked once added.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1179,17 +1377,38 @@ export function SellerCatalogTab({
                 className="w-full h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
               >
                 <option value="">Choose a company…</option>
-                {availableCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
+                {availableCompanies.map((c) => {
+                  const linked = selections.find((s) => s.companyId === c.id);
+                  return (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                      {linked ? " (already linked — extend brands)" : ""}
+                    </option>
+                  );
+                })}
               </select>
               {availableCompanies.length === 0 && (
                 <p className="text-[11px] text-amber-700">
-                  All active catalog companies are already linked.
+                  No active catalog companies available.
                 </p>
               )}
+              {(() => {
+                const existing = selections.find((s) => s.companyId === addCompanyId);
+                if (!existing) return null;
+                const company = companies.find((c) => c.id === addCompanyId);
+                if (!company) return null;
+                const wasAllBrands = existing.brandIds.length === 0;
+                return (
+                  <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1.5 mt-1">
+                    <b>{company.name}</b> is already linked
+                    {wasAllBrands
+                      ? " with access to all brands. Adding more here is a no-op (all brands are already enabled)."
+                      : ` with ${existing.brandIds.length} brand${
+                          existing.brandIds.length === 1 ? "" : "s"
+                        }. New brands you pick below will be added on top of the existing list.`}
+                  </p>
+                );
+              })()}
             </div>
 
             {selectedAddCompany && (

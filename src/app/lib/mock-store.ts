@@ -111,15 +111,31 @@ export interface CompanyBrandSelection {
   brandIds: string[];
 }
 
+/** Seller business type. Wholesaler is reserved for Phase 2. */
+export type SellerType = "distributor" | "wholesaler";
+
 export interface Seller {
   id: string;
   name: string;
   email: string;
   phone: string;
   businessName: string;
+  /** Business type — defaults to "distributor" in Phase 1. */
+  sellerType?: SellerType;
   city: string;
+  /** Structured address fields captured during seller creation. PIN drives
+   *  city/state via the offline lookup; lat-long are required for map views. */
+  pinCode?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  /** Free-text street/area/landmark description. */
+  fullAddress?: string;
   /** Optional avatar image (blob: or http(s) URL) */
   imageUrl?: string | null;
+  /** Active flag — when false the seller cannot log in or be assigned new
+   *  companies. Defaults to true. */
+  isActive?: boolean;
   kyc: SellerKyc;
   connectors: SellerConnectors;
   permissions: SellerPermissions;
@@ -130,9 +146,9 @@ export interface Seller {
 }
 
 const REQUESTS_KEY = "qwipo.mock.requests";
-// Bumped to v3 — older v2 records were seeded before companyBrandSelections
-// existed, which made the seller-side Company/Brand dropdowns appear empty.
-const SELLERS_KEY = "qwipo.mock.sellers.v3";
+// Bumped to v5 — older v4 records were seeded before the sellerType field
+// existed; v5 forces a re-seed so Manage Seller shows the business type.
+const SELLERS_KEY = "qwipo.mock.sellers.v5";
 
 // ---- Default factory helpers ----
 
@@ -207,6 +223,13 @@ const SEED_SELLERS: Seller[] = [
     phone: "9810000001",
     businessName: "ABC Distributors",
     city: "Hyderabad",
+    pinCode: "500032",
+    state: "Telangana",
+    latitude: 17.4399,
+    longitude: 78.4983,
+    fullAddress: "Plot 12, Banjara Hills, near Jubilee Park",
+    isActive: true,
+    sellerType: "distributor",
     kyc: {
       pan: "ABCPK1234L",
       aadhaar: "XXXX-XXXX-1234",
@@ -262,6 +285,13 @@ const SEED_SELLERS: Seller[] = [
     phone: "9810000002",
     businessName: "QuickBazaar Wholesale",
     city: "Pune",
+    pinCode: "411038",
+    state: "Maharashtra",
+    latitude: 18.5074,
+    longitude: 73.8077,
+    fullAddress: "Shop 45, Kothrud Industrial Area",
+    isActive: true,
+    sellerType: "distributor",
     kyc: {
       pan: "SUNPR5678M",
       aadhaar: "XXXX-XXXX-5678",
@@ -297,6 +327,13 @@ const SEED_SELLERS: Seller[] = [
     phone: "9810000003",
     businessName: "Urban Kirana Stores",
     city: "Ahmedabad",
+    pinCode: "380009",
+    state: "Gujarat",
+    latitude: 23.0395,
+    longitude: 72.566,
+    fullAddress: "CG Road, Navrangpura",
+    isActive: true,
+    sellerType: "distributor",
     kyc: { status: "not_started" },
     connectors: {
       bizom: { status: "not_connected" },
@@ -313,6 +350,13 @@ const SEED_SELLERS: Seller[] = [
     phone: "9810000004",
     businessName: "Coast Grocers Ltd",
     city: "Chennai",
+    pinCode: "600001",
+    state: "Tamil Nadu",
+    latitude: 13.0827,
+    longitude: 80.2707,
+    fullAddress: "22 Marina Road",
+    isActive: true,
+    sellerType: "distributor",
     kyc: {
       pan: "MEEIR9012P",
       aadhaar: "XXXX-XXXX-9012",
@@ -573,8 +617,82 @@ export function updateCompanyBrandSelections(
   return writeSeller(id, (s) => ({ ...s, companyBrandSelections: selections }));
 }
 
+// Toggle a seller's active flag. Inactive sellers cannot log in or have new
+// companies linked to them by the admin.
+export function updateSellerActive(id: string, isActive: boolean): Seller | null {
+  return writeSeller(id, (s) => ({ ...s, isActive }));
+}
+
+// Create a new seller directly (used by Add Seller flow). Returns the
+// inserted seller record.
+export function addSeller(input: {
+  name: string;
+  email?: string;
+  phone: string;
+  businessName: string;
+  sellerType?: SellerType;
+  city: string;
+  pinCode?: string;
+  state?: string;
+  latitude?: number;
+  longitude?: number;
+  fullAddress?: string;
+  imageUrl?: string | null;
+  companyBrandSelections?: CompanyBrandSelection[];
+}): Seller {
+  const newSeller: Seller = {
+    id: makeId("seller"),
+    name: input.name,
+    email: input.email ?? "",
+    phone: input.phone,
+    businessName: input.businessName,
+    city: input.city,
+    pinCode: input.pinCode,
+    state: input.state,
+    latitude: input.latitude,
+    longitude: input.longitude,
+    fullAddress: input.fullAddress,
+    imageUrl: input.imageUrl ?? null,
+    isActive: true,
+    sellerType: input.sellerType ?? "distributor",
+    kyc: { status: "not_started" },
+    connectors: {
+      bizom: { status: "not_connected", config: emptyBizomConfig() },
+      ondc: { status: "not_connected", config: emptyOndcConfig() },
+    },
+    permissions: { view: true, write: false, edit: false, update: false },
+    managedCompanies: [],
+    companyBrandSelections: input.companyBrandSelections,
+    approvedAt: new Date().toISOString(),
+  };
+  const sellers = getSellers();
+  write(SELLERS_KEY, [newSeller, ...sellers]);
+  return newSeller;
+}
+
 // Force-reset (useful when testing)
 export function resetMockStore() {
   localStorage.removeItem(REQUESTS_KEY);
   localStorage.removeItem(SELLERS_KEY);
+}
+
+/**
+ * Switch persisted mock data between the demo seed and an empty state.
+ * Used by the empty-mode super-admin login to render inception-day screens.
+ *
+ * "demo" → re-seed both keys with SEED_REQUESTS / SEED_SELLERS.
+ * "empty" → write empty arrays so getSellers() / getRequests() return [].
+ */
+export function applyDataMode(mode: "demo" | "empty") {
+  try {
+    if (mode === "empty") {
+      localStorage.setItem(REQUESTS_KEY, JSON.stringify([]));
+      localStorage.setItem(SELLERS_KEY, JSON.stringify([]));
+    } else {
+      localStorage.setItem(REQUESTS_KEY, JSON.stringify(SEED_REQUESTS));
+      localStorage.setItem(SELLERS_KEY, JSON.stringify(SEED_SELLERS));
+    }
+  } catch {
+    /* localStorage may be unavailable in SSR — silent no-op */
+  }
 }

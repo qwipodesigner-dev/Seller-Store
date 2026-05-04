@@ -258,3 +258,27 @@ export function makeId(prefix: string): string {
 export function revokeImage(url: string | null) {
   if (url && url.startsWith("blob:")) URL.revokeObjectURL(url);
 }
+
+/**
+ * Switch the in-memory master data between the demo seed and an empty state.
+ * Used by the second super-admin login (empty mode) to demo inception-day
+ * empty screens.
+ */
+export function applyDataMode(mode: "demo" | "empty") {
+  if (mode === "empty") {
+    setCompanies([]);
+    setCategories([]);
+    setMasterCategories([]);
+  } else {
+    setCompanies(seedCompanies);
+    setCategories(ONDC_CATEGORY_NAMES.map((name) => ({ name, imageUrl: null })));
+    setMasterCategories(
+      ONDC_CATEGORY_NAMES.map((name) => ({
+        id: makeId("cat"),
+        name,
+        imageUrl: null,
+        parentId: null,
+      })),
+    );
+  }
+}

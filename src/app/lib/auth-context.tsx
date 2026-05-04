@@ -5,6 +5,8 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { applyDataMode as applyAdminCatalogDataMode } from "./admin-catalog";
+import { applyDataMode as applyMockStoreDataMode } from "./mock-store";
 
 // Phase 1 ships only two roles: super-admin and seller. The previous
 // "admin_seller" role (Qwipo staff acting as a specific seller via the
@@ -18,6 +20,16 @@ export interface AuthUser {
   role: Role;
   businessName?: string;
   avatarInitials: string;
+  /**
+   * Data presentation mode used for demos:
+   *  - "demo"  (default) → all mock master data (sellers, companies,
+   *                        categories, etc.) is pre-seeded so screens look
+   *                        populated.
+   *  - "empty"           → every master collection is wiped on login so the
+   *                        UI shows its inception-day empty states.
+   * Currently used to distinguish the two super-admin demo logins.
+   */
+  dataMode?: "demo" | "empty";
 }
 
 interface AuthContextValue {
@@ -53,6 +65,15 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
+/**
+ * Re-initialise every mock data store to match the user's `dataMode`.
+ * Called on login and on first boot when a stored user is rehydrated.
+ */
+function applyDataMode(mode: "demo" | "empty") {
+  applyAdminCatalogDataMode(mode);
+  applyMockStoreDataMode(mode);
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(() => {
     // Clean up legacy impersonation state from earlier builds.
@@ -61,7 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       /* noop */
     }
-    return readStoredUser();
+    const stored = readStoredUser();
+    // Rehydrate data mode for the stored session so reloads honour it.
+    if (stored) applyDataMode(stored.dataMode ?? "demo");
+    return stored;
   });
 
   // Sync across tabs
@@ -75,6 +99,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = (u: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
+    applyDataMode(u.dataMode ?? "demo");
     setUser(u);
   };
 

@@ -58,9 +58,11 @@ export function Login() {
     }, 600);
   };
 
-  const fillDemo = (role: "admin" | "seller") => {
+  const fillDemo = (role: "admin" | "admin-empty" | "seller") => {
     if (role === "admin") {
       setMobile("9900000001");
+    } else if (role === "admin-empty") {
+      setMobile("9999999999");
     } else {
       setMobile("9900000002");
     }
@@ -227,7 +229,7 @@ export function Login() {
                 <p className="text-xs font-semibold text-blue-900 mb-2">
                   Demo accounts — tap to autofill (OTP: 1234)
                 </p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => fillDemo("admin")}
@@ -240,6 +242,22 @@ export function Login() {
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
                         9900000001
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillDemo("admin-empty")}
+                    className="flex items-start gap-2 p-2 rounded-md bg-white border border-amber-200 hover:border-amber-400 transition-all text-left"
+                    title="Super admin with all empty data — useful to demo inception-day screens"
+                  >
+                    <Shield className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900">
+                        Admin (Empty)
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        9999999999
                       </p>
                     </div>
                   </button>
