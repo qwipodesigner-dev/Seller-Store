@@ -32,8 +32,6 @@ import {
   CheckCircle2,
   AlertCircle,
   Plus,
-  Settings as SettingsIcon,
-  Trash2,
   X,
   ArrowRight,
   Pencil,
@@ -43,7 +41,6 @@ import {
   getSellerById,
   updateSellerPermissions,
   updateSellerOndcConfig,
-  disconnectSellerConnector,
   updateManagedCompanies,
   updateCompanyBrandSelections,
   updateSellerImage,
@@ -93,7 +90,11 @@ export function AdminSellerDetail() {
   const [configDialogType, setConfigDialogType] = useState<ConnectorType | "">("");
   const [configSellerId, setConfigSellerId] = useState("");
   const [configApiKey, setConfigApiKey] = useState("");
-  const [confirmDisconnect, setConfirmDisconnect] = useState<ConnectorType | null>(null);
+  // Edit-existing-ONDC dialog: lets the admin update the stored Seller ID and
+  // API Key. Replaces the previous Manage/Delete buttons on the connector card.
+  const [editOndcOpen, setEditOndcOpen] = useState(false);
+  const [editOndcSellerId, setEditOndcSellerId] = useState("");
+  const [editOndcApiKey, setEditOndcApiKey] = useState("");
 
   // Phase 1 ships ONDC only — Bizom (DMS) connectors are deferred to Phase 2.
   // The legacy `extraDmsConnectors` list is kept here as an empty array so the
@@ -167,17 +168,12 @@ export function AdminSellerDetail() {
     setAddConnectorOpen(false);
   };
 
-  // Managing an already-connected connector opens the full connector details page.
-  const openConnectorDetailPage = (type: ConnectorType) => {
-    navigate(`/admin/users/${seller.id}/connectors/${type}`);
-  };
-
   const saveConnectorConfig = () => {
     if (!configSellerId.trim()) { toast.error("Seller ID is required"); return; }
     if (!configApiKey.trim()) { toast.error("API Key is required"); return; }
     // Phase 1: only ONDC is supported.
     const updated = updateSellerOndcConfig(seller.id, {
-      subscriberId: configSellerId, uniqueKeyId: "", privateKey: "", apiEndpoint: "", webhookUrl: "",
+      subscriberId: configSellerId, uniqueKeyId: "", privateKey: configApiKey, apiEndpoint: "", webhookUrl: "",
       dataSyncTypes: [], syncFrequencyMinutes: 15, maxRetries: 3, autoRetry: true, autoSyncEnabled: true,
     });
     if (updated) {
@@ -189,15 +185,30 @@ export function AdminSellerDetail() {
     }
   };
 
-  const handleDisconnect = () => {
-    if (!confirmDisconnect) return;
-    const updated = disconnectSellerConnector(seller.id, confirmDisconnect);
-    if (updated) {
-      toast.success("ONDC disconnected");
-      setSeller(updated);
-    }
-    setConfirmDisconnect(null);
+  // Open the Edit ONDC dialog pre-filled with the existing stored values.
+  const openEditOndc = () => {
+    setEditOndcSellerId(seller.connectors.ondc.config.subscriberId || "");
+    setEditOndcApiKey(seller.connectors.ondc.config.privateKey || "");
+    setEditOndcOpen(true);
   };
+
+  const saveEditOndc = () => {
+    if (!editOndcSellerId.trim()) { toast.error("Seller ID is required"); return; }
+    if (!editOndcApiKey.trim()) { toast.error("API Key is required"); return; }
+    const updated = updateSellerOndcConfig(seller.id, {
+      ...seller.connectors.ondc.config,
+      subscriberId: editOndcSellerId.trim(),
+      privateKey: editOndcApiKey.trim(),
+    });
+    if (updated) {
+      toast.success("ONDC connector updated");
+      setSeller(updated);
+      setEditOndcOpen(false);
+    } else {
+      toast.error("Failed to update connector");
+    }
+  };
+
 
   const toggleSyncType = (type: string) => {
     setOndcForm((f) => ({
@@ -571,7 +582,10 @@ export function AdminSellerDetail() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* ONDC — the only connector shipping in Phase 1. */}
+                  {/* ONDC — the only connector shipping in Phase 1.
+                      Once connected, the seller's Manage / Delete actions are
+                      replaced with a single Edit action that re-opens the
+                      stored Seller ID + API Key for update. */}
                   {ondcConnected && (
                     <ConnectorCard
                       icon={<ShoppingBag className="h-5 w-5" />}
@@ -580,8 +594,7 @@ export function AdminSellerDetail() {
                       subtitle="Marketplace"
                       description="Open Network for Digital Commerce — buyer-side order routing."
                       badge={connectorBadge(seller.connectors.ondc)}
-                      onManage={() => openConnectorDetailPage("ondc")}
-                      onRemove={() => setConfirmDisconnect("ondc")}
+                      onEdit={openEditOndc}
                     />
                   )}
                 </div>
@@ -816,27 +829,56 @@ export function AdminSellerDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Disconnect confirm */}
-      <Dialog
-        open={confirmDisconnect !== null}
-        onOpenChange={(o) => !o && setConfirmDisconnect(null)}
-      >
+      {/* Edit existing ONDC connector — pre-fills the stored Seller ID and
+          API Key so the admin can update them without re-creating the link. */}
+      <Dialog open={editOndcOpen} onOpenChange={setEditOndcOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Remove Connector?</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <ShoppingBag className="h-5 w-5 text-orange-600" />
+              Edit ONDC Connector
+            </DialogTitle>
             <DialogDescription>
-              This will disconnect <b>ONDC</b> for {seller.name}. You can re-add it later.
+              Update the stored Seller ID and API Key for this seller's ONDC link.
             </DialogDescription>
           </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>
+                Seller ID <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                placeholder="Enter seller ID"
+                value={editOndcSellerId}
+                onChange={(e) => setEditOndcSellerId(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>
+                API Key <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                type="password"
+                placeholder="Enter API key"
+                value={editOndcApiKey}
+                onChange={(e) => setEditOndcApiKey(e.target.value)}
+              />
+              <p className="text-[11px] text-gray-500">
+                Existing key is masked — replace it with a new value to rotate.
+              </p>
+            </div>
+          </div>
+
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setConfirmDisconnect(null)}
-            >
+            <Button variant="outline" onClick={() => setEditOndcOpen(false)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDisconnect}>
-              Remove
+            <Button
+              className="bg-blue-600 hover:bg-blue-700"
+              onClick={saveEditOndc}
+            >
+              Save Changes
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1415,8 +1457,7 @@ function ConnectorCard({
   subtitle,
   description,
   badge,
-  onManage,
-  onRemove,
+  onEdit,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -1424,8 +1465,7 @@ function ConnectorCard({
   subtitle: string;
   description: string;
   badge: React.ReactNode;
-  onManage: () => void;
-  onRemove: () => void;
+  onEdit: () => void;
 }) {
   return (
     <Card className="border border-gray-200">
@@ -1441,25 +1481,15 @@ function ConnectorCard({
           {badge}
         </div>
         <p className="text-xs text-gray-600 mb-4">{description}</p>
-        <div className="flex gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1 flex-1"
-            onClick={onManage}
-          >
-            <SettingsIcon className="h-3.5 w-3.5" />
-            Manage
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-1 text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
-            onClick={onRemove}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1 w-full"
+          onClick={onEdit}
+        >
+          <Pencil className="h-3.5 w-3.5" />
+          Edit
+        </Button>
       </CardContent>
     </Card>
   );
