@@ -288,6 +288,24 @@ export function addMasterCategory(input: {
 }
 
 /**
+ * Update the cover image on an existing master category. Pass `null` to
+ * clear it (the card falls back to the upload placeholder). Used by the
+ * Category Master page when the admin clicks an image tile to upload a
+ * new cover. The previous image's blob URL (if any) is revoked so we
+ * don't leak.
+ */
+export function setMasterCategoryImage(id: string, imageUrl: string | null) {
+  const target = masterCategories.find((c) => c.id === id);
+  if (!target) return;
+  if (target.imageUrl !== imageUrl) {
+    revokeImage(target.imageUrl);
+  }
+  setMasterCategories(
+    masterCategories.map((c) => (c.id === id ? { ...c, imageUrl } : c)),
+  );
+}
+
+/**
  * Toggle (or set) a company's active status. Companies are never deleted
  * because they may be referenced by sellers — flipping `isActive` to `false`
  * is the way to retire one.
