@@ -48,6 +48,7 @@ import { AdminSellerDetail } from "./pages/admin/seller-detail";
 import { AdminAddUser } from "./pages/admin/add-user";
 import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCompanies } from "./pages/admin/companies";
+import { AdminCategories } from "./pages/admin/categories";
 
 export const router = createBrowserRouter([
   {
@@ -76,8 +77,10 @@ export const router = createBrowserRouter([
       // Admin Connectors
       { path: "connectors", Component: AdminConnectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },
-      // Admin Companies & Brands (Categories now live inside each company's edit dialog)
+      // Admin Companies & Brands
       { path: "companies", Component: AdminCompanies },
+      // Category Master — hierarchical taxonomy (37 ONDC roots + add/sub)
+      { path: "categories", Component: AdminCategories },
       // Legacy aliases (keep old URLs working)
       { path: "requests", Component: AdminNewRequests },
       { path: "sellers", Component: AdminActiveSellers },

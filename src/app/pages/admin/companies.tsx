@@ -27,7 +27,6 @@ import {
   CheckCircle2,
   Trash2,
 } from "lucide-react";
-import { Switch } from "../../components/ui/switch";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../../components/ui/tabs";
 import { toast } from "sonner";
 import {
@@ -39,7 +38,6 @@ import {
   makeId,
   revokeImage,
   setCompanies,
-  setCompanyActive,
   subscribeToCompanies,
 } from "../../lib/admin-catalog";
 
@@ -47,6 +45,10 @@ interface DraftBrand {
   id: string;
   name: string;
   imageUrl: string | null;
+  /** True for brands already saved on the company. They cannot be removed
+   *  during edit — only new draft brands added in the current session may
+   *  be deleted. */
+  isExisting?: boolean;
 }
 
 export function AdminCompanies() {
@@ -93,7 +95,12 @@ export function AdminCompanies() {
     setImageUrl(c.imageUrl);
     setDrafts(
       c.brands.length > 0
-        ? c.brands.map((b) => ({ id: b.id, name: b.name, imageUrl: b.imageUrl }))
+        ? c.brands.map((b) => ({
+            id: b.id,
+            name: b.name,
+            imageUrl: b.imageUrl,
+            isExisting: true, // existing brands are locked from deletion
+          }))
         : [{ id: makeId("br"), name: "", imageUrl: null }],
     );
     // Edit existing categories (or seed from scratch if missing on legacy records)
@@ -202,11 +209,6 @@ export function AdminCompanies() {
     setIsOpen(false);
   };
 
-  const handleToggleActive = (c: Company, next: boolean) => {
-    setCompanyActive(c.id, next);
-    toast.success(`"${c.name}" marked ${next ? "Active" : "Inactive"}`);
-  };
-
   const filtered = companies.filter((c) => {
     const q = search.toLowerCase();
     return (
@@ -257,10 +259,8 @@ export function AdminCompanies() {
             </CardContent>
           </Card>
         )}
-        {filtered.map((c) => {
-          const isActive = c.isActive !== false;
-          return (
-          <Card key={c.id} className={isActive ? "" : "opacity-75"}>
+        {filtered.map((c) => (
+          <Card key={c.id}>
             <CardContent className="p-4">
               <div className="flex items-start gap-4">
                 <div className="w-14 h-14 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden shrink-0">
@@ -276,15 +276,6 @@ export function AdminCompanies() {
                     <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">
                       {c.brands.length} brand{c.brands.length === 1 ? "" : "s"}
                     </Badge>
-                    {isActive ? (
-                      <Badge className="bg-green-50 text-green-700 border-green-200 text-xs">
-                        Active
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-xs">
-                        Inactive
-                      </Badge>
-                    )}
                   </div>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {c.brands.map((b) => (
@@ -304,16 +295,7 @@ export function AdminCompanies() {
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div
-                    className="flex items-center gap-2"
-                    title={isActive ? "Deactivate company" : "Activate company"}
-                  >
-                    <Switch
-                      checked={isActive}
-                      onCheckedChange={(v) => handleToggleActive(c, v)}
-                    />
-                  </div>
+                <div className="flex items-center gap-2">
                   <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(c)} title="Edit">
                     <Pencil className="h-4 w-4 text-gray-700" />
                   </Button>
@@ -321,8 +303,7 @@ export function AdminCompanies() {
               </div>
             </CardContent>
           </Card>
-          );
-        })}
+        ))}
       </div>
 
       {/* Create / Edit Dialog */}
@@ -363,9 +344,13 @@ export function AdminCompanies() {
                       </span>
                     </>
                   ) : (
-                    <div className="flex flex-col items-center gap-1">
-                      <Upload className="h-5 w-5" />
+                    // Empty-state placeholder: image-frame + upload chip overlay.
+                    <div className="relative flex flex-col items-center gap-1 text-gray-400">
+                      <ImageIcon className="h-8 w-8 text-gray-300" />
                       <span className="text-[10px]">Upload logo</span>
+                      <span className="absolute top-0.5 right-0.5 bg-blue-600 text-white rounded-full p-0.5">
+                        <Upload className="h-2.5 w-2.5" />
+                      </span>
                     </div>
                   )}
                 </button>
@@ -445,13 +430,22 @@ export function AdminCompanies() {
                         onName={(v) => updateBrandName(i, v)}
                         onImage={(f) => handleBrandImage(i, f)}
                         onRemove={() => removeBrandRow(i)}
-                        canRemove={drafts.length > 1}
+                        // Existing brands cannot be deleted in Edit mode —
+                        // newly added drafts within this session still can be.
+                        canRemove={!b.isExisting && drafts.length > 1}
+                        removeBlockedReason={
+                          b.isExisting
+                            ? "Existing brands cannot be removed"
+                            : drafts.length === 1
+                              ? "At least one brand is required"
+                              : undefined
+                        }
                       />
                     ))}
                   </div>
                   <div className="px-3 py-2 bg-blue-50 border-t border-blue-100 text-[11px] text-blue-900 flex items-center gap-1.5">
                     <AlertCircle className="h-3 w-3 shrink-0" />
-                    At least one brand with a name is required to save.
+                    Add new brands as needed. Existing brands cannot be removed.
                   </div>
                 </div>
               </TabsContent>
@@ -538,12 +532,14 @@ function BrandRow({
   onImage,
   onRemove,
   canRemove,
+  removeBlockedReason,
 }: {
   brand: DraftBrand;
   onName: (v: string) => void;
   onImage: (f: File) => void;
   onRemove: () => void;
   canRemove: boolean;
+  removeBlockedReason?: string;
 }) {
   const ref = useRef<HTMLInputElement | null>(null);
   return (
@@ -562,13 +558,29 @@ function BrandRow({
       <button
         type="button"
         onClick={() => ref.current?.click()}
-        className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors"
+        className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors relative group"
         title="Upload brand image"
       >
         {brand.imageUrl ? (
-          <img src={brand.imageUrl} alt={brand.name || "Brand"} className="w-full h-full object-cover" />
+          <>
+            <img
+              src={brand.imageUrl}
+              alt={brand.name || "Brand"}
+              className="w-full h-full object-cover"
+            />
+            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+              <Upload className="h-3.5 w-3.5 text-white" />
+            </span>
+          </>
         ) : (
-          <ImageIcon className="h-4 w-4" />
+          // Empty-state placeholder: image-frame icon with a small upload chip
+          // overlay so the affordance is unmistakable.
+          <div className="relative flex items-center justify-center w-full h-full">
+            <ImageIcon className="h-5 w-5 text-gray-300" />
+            <span className="absolute -bottom-0.5 -right-0.5 bg-blue-600 text-white rounded-full p-0.5">
+              <Upload className="h-2.5 w-2.5" />
+            </span>
+          </div>
         )}
       </button>
       <Input
@@ -582,7 +594,7 @@ function BrandRow({
         className="h-8 w-8"
         onClick={onRemove}
         disabled={!canRemove}
-        title={canRemove ? "Remove brand" : "At least one brand is required"}
+        title={canRemove ? "Remove brand" : (removeBlockedReason ?? "At least one brand is required")}
       >
         <X className="h-4 w-4 text-red-600" />
       </Button>

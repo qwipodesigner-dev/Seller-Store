@@ -3,6 +3,7 @@ import {
   Store,
   Plug,
   Building2,
+  LayoutGrid,
   type LucideIcon,
 } from "lucide-react";
 
@@ -13,13 +14,13 @@ export interface NavItem {
   subItems?: { name: string; href: string }[];
 }
 
-// Admin sidebar — flat menu.
-// Note: Categories is no longer a top-level page — it now lives inside each
-// Company's edit dialog (per-company category images), so it's removed here.
+// Admin sidebar — flat menu. Category Master sits right after Companies &
+// Brands so the master-data items group together visually.
 export const adminNavigation: NavItem[] = [
   { name: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { name: "Sellers", href: "/admin/users", icon: Store },
   { name: "Companies & Brands", href: "/admin/companies", icon: Building2 },
+  { name: "Category Master", href: "/admin/categories", icon: LayoutGrid },
   { name: "Connectors", href: "/admin/connectors", icon: Plug },
 ];
 
@@ -29,6 +30,7 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/users/")) return "Seller Details";
   if (pathname.startsWith("/admin/users")) return "Sellers";
   if (pathname.startsWith("/admin/companies")) return "Companies & Brands";
+  if (pathname.startsWith("/admin/categories")) return "Category Master";
   if (pathname.startsWith("/admin/connectors/")) return "Connector Details";
   if (pathname.startsWith("/admin/connectors")) return "Connectors";
   if (pathname.startsWith("/admin/sellers/")) return "Seller Details";

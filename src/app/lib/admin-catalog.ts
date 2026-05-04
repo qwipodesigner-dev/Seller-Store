@@ -179,6 +179,65 @@ export function subscribeToCategories(fn: () => void): () => void {
   };
 }
 
+// ============================================================================
+// Category Master — hierarchical taxonomy (root + subcategories).
+//
+// The 37 ONDC categories are pre-seeded as roots (parentId = null). The super
+// admin can add brand-new root categories and subcategories under any node.
+// Categories are immutable once created — the UI surfaces no Edit / Delete
+// affordances.
+// ============================================================================
+
+export interface MasterCategory {
+  id: string;
+  name: string;
+  imageUrl: string | null;
+  /** null for top-level (root) categories. */
+  parentId: string | null;
+}
+
+const masterCategoryListeners = new Set<() => void>();
+
+let masterCategories: MasterCategory[] = ONDC_CATEGORY_NAMES.map((name) => ({
+  id: makeId("cat"),
+  name,
+  imageUrl: null,
+  parentId: null,
+}));
+
+export function getMasterCategories(): MasterCategory[] {
+  return masterCategories;
+}
+
+export function setMasterCategories(next: MasterCategory[]) {
+  masterCategories = next;
+  masterCategoryListeners.forEach((fn) => fn());
+}
+
+export function subscribeToMasterCategories(fn: () => void): () => void {
+  masterCategoryListeners.add(fn);
+  return () => {
+    masterCategoryListeners.delete(fn);
+  };
+}
+
+/** Add a new category. Pass `parentId` = null for a root category, or the
+ *  id of an existing category to nest under it. */
+export function addMasterCategory(input: {
+  name: string;
+  imageUrl: string | null;
+  parentId: string | null;
+}): MasterCategory {
+  const cat: MasterCategory = {
+    id: makeId("cat"),
+    name: input.name,
+    imageUrl: input.imageUrl,
+    parentId: input.parentId,
+  };
+  setMasterCategories([...masterCategories, cat]);
+  return cat;
+}
+
 /**
  * Toggle (or set) a company's active status. Companies are never deleted
  * because they may be referenced by sellers — flipping `isActive` to `false`
