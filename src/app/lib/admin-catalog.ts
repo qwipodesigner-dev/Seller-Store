@@ -8,6 +8,64 @@
  *    seller works with)
  */
 
+// Pre-baked category cover images. Vite turns these into hashed URLs at
+// build time so the admin sees real artwork on the Category Master page
+// without anyone having to upload them. Categories that don't have an
+// image here just keep `imageUrl: null` and fall back to the placeholder.
+import imgAttaFlours from "../../imports/categories/Atta, Flours & Sooji.png";
+import imgBeverages from "../../imports/categories/Beverages.png";
+import imgBiscuitsSnacks from "../../imports/categories/Biscuits, Snacks & Namkeen.png";
+import imgCleaningHousehold from "../../imports/categories/Cleaning & Household.png";
+import imgCookingOils from "../../imports/categories/Cooking Oils & Ghee.png";
+import imgDalsPulses from "../../imports/categories/Dals & Pulses.png";
+import imgDryFruits from "../../imports/categories/Dry Fruits.png";
+import imgOatsNoodles from "../../imports/categories/Oats & Noodles.png";
+import imgOthers from "../../imports/categories/Others.png";
+import imgPersonalCare from "../../imports/categories/Personal Care.png";
+import imgPicklesPodis from "../../imports/categories/Pickles & Podis.png";
+import imgPoojaNeeds from "../../imports/categories/Pooja Needs.png";
+import imgReadyToCook from "../../imports/categories/Ready to cook.png";
+import imgRiceProducts from "../../imports/categories/Rice & Rice Products.png";
+import imgSpreadsSauces from "../../imports/categories/Spreads, Sauces & Ketchups.png";
+import imgStationery from "../../imports/categories/Stationery.png";
+import imgSugarSpices from "../../imports/categories/Sugar & Spices.png";
+
+/**
+ * Map of category-name → cover image. Keyed by the ONDC name (or the
+ * extra root names we add below) so the Master Category seed can do a
+ * simple lookup. Image filenames sometimes use "&" while ONDC uses
+ * "and" — this map normalises that.
+ */
+const CATEGORY_IMAGES: Record<string, string> = {
+  "Atta, Flours and Sooji": imgAttaFlours,
+  "Beverages": imgBeverages,
+  "Snacks and Namkeen": imgBiscuitsSnacks,
+  "Oil & Ghee": imgCookingOils,
+  "Dals and Pulses": imgDalsPulses,
+  "Snacks, Dry Fruits, Nuts": imgDryFruits,
+  "Pasta, Soup and Noodles": imgOatsNoodles,
+  "Beauty & Hygiene": imgPersonalCare,
+  "Pickles and Chutney": imgPicklesPodis,
+  "Ready to Cook and Eat": imgReadyToCook,
+  "Rice and Rice Products": imgRiceProducts,
+  "Sauces, Spreads and Dips": imgSpreadsSauces,
+  "Masala & Seasoning": imgSugarSpices,
+  // Extra root categories that don't exist in the ONDC taxonomy but were
+  // shipped with the design assets — added via EXTRA_ROOT_CATEGORIES.
+  "Cleaning & Household": imgCleaningHousehold,
+  "Pooja Needs": imgPoojaNeeds,
+  "Stationery": imgStationery,
+  "Others": imgOthers,
+};
+
+/** Root categories the admin team wants beyond the 37 ONDC ones. */
+const EXTRA_ROOT_CATEGORIES: string[] = [
+  "Cleaning & Household",
+  "Pooja Needs",
+  "Stationery",
+  "Others",
+];
+
 export interface Brand {
   id: string;
   name: string;
@@ -198,12 +256,23 @@ export interface MasterCategory {
 
 const masterCategoryListeners = new Set<() => void>();
 
-let masterCategories: MasterCategory[] = ONDC_CATEGORY_NAMES.map((name) => ({
-  id: makeId("cat"),
-  name,
-  imageUrl: null,
-  parentId: null,
-}));
+/**
+ * Build the initial Master Category seed. Includes the 37 ONDC categories
+ * plus any extra roots, with their cover images injected from
+ * `CATEGORY_IMAGES`. Used by both the initial in-memory state and the
+ * `applyDataMode("demo")` reset.
+ */
+function buildMasterCategorySeed(): MasterCategory[] {
+  const names = [...ONDC_CATEGORY_NAMES, ...EXTRA_ROOT_CATEGORIES];
+  return names.map((name) => ({
+    id: makeId("cat"),
+    name,
+    imageUrl: CATEGORY_IMAGES[name] ?? null,
+    parentId: null,
+  }));
+}
+
+let masterCategories: MasterCategory[] = buildMasterCategorySeed();
 
 export function getMasterCategories(): MasterCategory[] {
   return masterCategories;
@@ -272,13 +341,6 @@ export function applyDataMode(mode: "demo" | "empty") {
   } else {
     setCompanies(seedCompanies);
     setCategories(ONDC_CATEGORY_NAMES.map((name) => ({ name, imageUrl: null })));
-    setMasterCategories(
-      ONDC_CATEGORY_NAMES.map((name) => ({
-        id: makeId("cat"),
-        name,
-        imageUrl: null,
-        parentId: null,
-      })),
-    );
+    setMasterCategories(buildMasterCategorySeed());
   }
 }
