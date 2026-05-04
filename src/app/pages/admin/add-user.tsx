@@ -3,8 +3,8 @@ import { useNavigate } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import { Label } from "../../components/ui/label";
-import { Switch } from "../../components/ui/switch";
 import { Badge } from "../../components/ui/badge";
 import {
   Select,
@@ -23,6 +23,7 @@ import {
   AlertCircle,
   Upload,
   Camera,
+  User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
@@ -39,8 +40,74 @@ export function AdminAddUser() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");
-  const [address, setAddress] = useState("");
-  const [isActive, setIsActive] = useState(true);
+  // Structured address — captured during creation so serviceability and other
+  // location-aware modules can reuse the seller's coordinates and pin.
+  const [pinCode, setPinCode] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+  // Free-text full address (street, area, landmarks). Not used for routing
+  // logic — purely informational.
+  const [addressLine, setAddressLine] = useState("");
+  const [pinLookupStatus, setPinLookupStatus] = useState<
+    "idle" | "loading" | "found" | "not-found"
+  >("idle");
+
+  // Lookup PIN → city, state. Phase 1 ships an offline lookup table
+  // covering the common Indian PIN prefixes we use in demo data; production
+  // would hit api.postalpincode.in or equivalent.
+  const PIN_LOOKUP: Record<string, { city: string; state: string }> = {
+    // Bangalore
+    "560001": { city: "Bangalore", state: "Karnataka" },
+    "560034": { city: "Bangalore", state: "Karnataka" },
+    "560038": { city: "Bangalore", state: "Karnataka" },
+    "560066": { city: "Bangalore", state: "Karnataka" },
+    // Mumbai
+    "400001": { city: "Mumbai", state: "Maharashtra" },
+    "400050": { city: "Mumbai", state: "Maharashtra" },
+    "400058": { city: "Mumbai", state: "Maharashtra" },
+    "400705": { city: "Navi Mumbai", state: "Maharashtra" },
+    // Delhi
+    "110001": { city: "Delhi", state: "Delhi" },
+    // Pune
+    "411014": { city: "Pune", state: "Maharashtra" },
+    "411038": { city: "Pune", state: "Maharashtra" },
+    // Hyderabad
+    "500003": { city: "Hyderabad", state: "Telangana" },
+    "500032": { city: "Hyderabad", state: "Telangana" },
+    "500081": { city: "Hyderabad", state: "Telangana" },
+    // Chennai
+    "600017": { city: "Chennai", state: "Tamil Nadu" },
+    "600090": { city: "Chennai", state: "Tamil Nadu" },
+    // Kochi
+    "682011": { city: "Kochi", state: "Kerala" },
+    // Ahmedabad
+    "380009": { city: "Ahmedabad", state: "Gujarat" },
+  };
+
+  const lookupPin = (pin: string) => {
+    if (!/^\d{6}$/.test(pin)) {
+      setCity("");
+      setState("");
+      setPinLookupStatus("idle");
+      return;
+    }
+    setPinLookupStatus("loading");
+    // Simulate a brief network delay so the UX feels real.
+    window.setTimeout(() => {
+      const hit = PIN_LOOKUP[pin];
+      if (hit) {
+        setCity(hit.city);
+        setState(hit.state);
+        setPinLookupStatus("found");
+      } else {
+        setCity("");
+        setState("");
+        setPinLookupStatus("not-found");
+      }
+    }, 250);
+  };
   // Optional avatar — not mandatory at creation
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const imageInputRef = useRef<HTMLInputElement | null>(null);
@@ -134,6 +201,43 @@ export function AdminAddUser() {
       toast.error("Company / Business Name is required");
       return;
     }
+    // PIN code is mandatory — used by serviceability + downstream modules.
+    if (!pinCode.trim()) {
+      toast.error("PIN Code is required");
+      return;
+    }
+    if (!/^\d{6}$/.test(pinCode.trim())) {
+      toast.error("PIN Code must be a 6-digit number");
+      return;
+    }
+    if (!city.trim() || !state.trim()) {
+      toast.error("City / State could not be resolved from PIN — please use a valid PIN code");
+      return;
+    }
+    // Latitude is mandatory.
+    if (!latitude.trim()) {
+      toast.error("Latitude is required");
+      return;
+    }
+    const lat = parseFloat(latitude);
+    if (isNaN(lat) || lat < -90 || lat > 90) {
+      toast.error("Latitude must be a number between -90 and 90");
+      return;
+    }
+    // Longitude is mandatory.
+    if (!longitude.trim()) {
+      toast.error("Longitude is required");
+      return;
+    }
+    const lng = parseFloat(longitude);
+    if (isNaN(lng) || lng < -180 || lng > 180) {
+      toast.error("Longitude must be a number between -180 and 180");
+      return;
+    }
+    if (!addressLine.trim()) {
+      toast.error("Full Address is required");
+      return;
+    }
     const completeRows = selections.filter((s) => s.companyId !== "");
     if (completeRows.length === 0) {
       toast.error("Please select at least one company the seller works with");
@@ -208,7 +312,13 @@ export function AdminAddUser() {
                       </span>
                     </>
                   ) : (
-                    <Camera className="h-6 w-6" />
+                    // Empty-state placeholder: portrait icon with upload chip.
+                    <div className="relative flex items-center justify-center w-full h-full text-gray-300">
+                      <UserIcon className="h-9 w-9" />
+                      <span className="absolute bottom-1.5 right-1.5 bg-blue-600 text-white rounded-full p-1">
+                        <Upload className="h-3 w-3" />
+                      </span>
+                    </div>
                   )}
                 </button>
                 <div className="flex-1 min-w-0">
@@ -279,32 +389,102 @@ export function AdminAddUser() {
                     placeholder="Enter business name (e.g. ABC Distributors)"
                   />
                 </div>
-                <div className="md:col-span-2 space-y-2">
-                  <Label>Full Address</Label>
+                {/* Structured address — PIN drives city/state lookup so the
+                    seller record stays consistent with the actual postcode. */}
+                <div className="space-y-2">
+                  <Label>
+                    PIN Code <span className="text-red-500">*</span>
+                  </Label>
                   <Input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Street, Area, City, State, PIN"
+                    value={pinCode}
+                    onChange={(e) => {
+                      const next = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setPinCode(next);
+                      lookupPin(next);
+                    }}
+                    placeholder="6-digit PIN"
+                    inputMode="numeric"
                   />
+                  <p className="text-[11px]">
+                    {pinLookupStatus === "loading" && (
+                      <span className="text-gray-500">Looking up city / state…</span>
+                    )}
+                    {pinLookupStatus === "found" && (
+                      <span className="text-emerald-700">
+                        ✓ Resolved to {city}, {state}
+                      </span>
+                    )}
+                    {pinLookupStatus === "not-found" && (
+                      <span className="text-amber-700">
+                        Couldn't resolve this PIN — please double-check.
+                      </span>
+                    )}
+                    {pinLookupStatus === "idle" && (
+                      <span className="text-gray-500">
+                        City and state are auto-filled from PIN.
+                      </span>
+                    )}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <Label>City</Label>
+                  <Input
+                    value={city}
+                    readOnly
+                    disabled
+                    placeholder="Auto-filled from PIN"
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>State</Label>
+                  <Input
+                    value={state}
+                    readOnly
+                    disabled
+                    placeholder="Auto-filled from PIN"
+                    className="bg-gray-50"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-1">
+                  <Label>
+                    Latitude <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={latitude}
+                    onChange={(e) => setLatitude(e.target.value)}
+                    placeholder="e.g. 12.9716"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div className="space-y-2 md:col-span-1">
+                  <Label>
+                    Longitude <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={longitude}
+                    onChange={(e) => setLongitude(e.target.value)}
+                    placeholder="e.g. 77.5946"
+                    inputMode="decimal"
+                  />
+                </div>
+                <div className="md:col-span-2 space-y-2">
+                  <Label>
+                    Full Address <span className="text-red-500">*</span>
+                  </Label>
+                  <Textarea
+                    value={addressLine}
+                    onChange={(e) => setAddressLine(e.target.value)}
+                    placeholder="Shop No., Street, Area, Landmark…"
+                    rows={3}
+                  />
+                  <p className="text-[11px] text-gray-500">
+                    Free-form description for invoices and dispatch — kept
+                    alongside the PIN / lat-long / city / state above.
+                  </p>
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2 border-t border-gray-100">
-                <div>
-                  <Label className="text-sm font-medium">Status</Label>
-                  <p className="text-xs text-gray-500">
-                    {isActive
-                      ? "Seller will be active immediately"
-                      : "Seller will be created as inactive"}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className={`text-sm font-medium ${isActive ? "text-green-700" : "text-gray-500"}`}>
-                    {isActive ? "Active" : "Inactive"}
-                  </span>
-                  <Switch checked={isActive} onCheckedChange={setIsActive} />
-                </div>
-              </div>
             </CardContent>
           </Card>
 

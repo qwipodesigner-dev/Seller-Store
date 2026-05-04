@@ -23,12 +23,10 @@ export function AdminActiveSellers() {
   const filtered = sellers.filter((s) => {
     if (!searchQuery.trim()) return true;
     const q = searchQuery.toLowerCase();
+    // Search restricted to seller name + business name only.
     return (
       s.name.toLowerCase().includes(q) ||
-      s.businessName.toLowerCase().includes(q) ||
-      s.email.toLowerCase().includes(q) ||
-      s.phone.toLowerCase().includes(q) ||
-      s.city.toLowerCase().includes(q)
+      s.businessName.toLowerCase().includes(q)
     );
   });
 
@@ -48,7 +46,7 @@ export function AdminActiveSellers() {
             <div className="relative w-64 md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search by name, business, city..."
+                placeholder="Search by name or business..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
@@ -106,13 +104,11 @@ export function AdminActiveSellers() {
                       <tr key={s.id} className="hover:bg-gray-50">
                         <td className="px-5 py-4">
                           <p className="font-medium text-gray-900">{s.name}</p>
-                          <p className="text-xs text-gray-500">{s.email}</p>
                         </td>
                         <td className="px-5 py-4">
                           <p className="text-sm font-medium text-gray-700">
                             {s.businessName}
                           </p>
-                          <p className="text-xs text-gray-500">{s.city}</p>
                         </td>
                         <td className="px-5 py-4 text-sm text-gray-700">
                           {s.phone}

@@ -44,7 +44,6 @@ import {
   updateManagedCompanies,
   updateCompanyBrandSelections,
   updateSellerImage,
-  updateSellerProfile,
   getQwipoCompanies,
   emptyOndcConfig,
   type Seller,
@@ -76,9 +75,7 @@ export function AdminSellerDetail() {
   const [seller, setSeller] = useState<Seller | null>(null);
   const [activeTab, setActiveTab] = useState("profile");
 
-  // Profile edit state
-  const [profileEditing, setProfileEditing] = useState(false);
-  const [profileForm, setProfileForm] = useState({ name: "", email: "", phone: "", businessName: "", city: "" });
+  // Profile is read-only post-creation (no edit affordance in Phase 1).
 
   // Permissions state
   const [permissions, setPermissions] = useState<SellerPermissions>(emptyPermissions);
@@ -119,7 +116,6 @@ export function AdminSellerDetail() {
     if (s) {
       setPermissions(s.permissions);
       setPermissionsDirty(false);
-      setProfileForm({ name: s.name, email: s.email, phone: s.phone, businessName: s.businessName, city: s.city });
     }
   }, [sellerId]);
 
@@ -333,7 +329,6 @@ export function AdminSellerDetail() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {kycBadge()}
             <Badge className="bg-blue-50 text-blue-700 border-blue-200">
               Active Seller
             </Badge>
@@ -371,105 +366,23 @@ export function AdminSellerDetail() {
               </TabsList>
             </div>
 
-            {/* Profile */}
+            {/* Profile — read-only */}
             <TabsContent value="profile" className="p-6 mt-0">
               <div className="space-y-6 max-w-3xl">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-500">Basic information about this seller</p>
-                  {!profileEditing ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => {
-                        setProfileForm({ name: seller.name, email: seller.email, phone: seller.phone, businessName: seller.businessName, city: seller.city });
-                        setProfileEditing(true);
-                      }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit Details
-                    </Button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setProfileForm({ name: seller.name, email: seller.email, phone: seller.phone, businessName: seller.businessName, city: seller.city });
-                          setProfileEditing(false);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        className="bg-blue-600 hover:bg-blue-700 gap-2"
-                        onClick={() => {
-                          if (!profileForm.name.trim()) { toast.error("Name is required"); return; }
-                          if (!profileForm.email.trim()) { toast.error("Email is required"); return; }
-                          const updated = updateSellerProfile(seller.id, {
-                            name: profileForm.name.trim(),
-                            email: profileForm.email.trim(),
-                            phone: profileForm.phone.trim(),
-                            businessName: profileForm.businessName.trim(),
-                            city: profileForm.city.trim(),
-                          });
-                          if (updated) {
-                            setSeller(updated);
-                            setProfileEditing(false);
-                            toast.success("Profile updated");
-                          } else {
-                            toast.error("Failed to update profile");
-                          }
-                        }}
-                      >
-                        Save
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <p className="text-sm text-gray-500">
+                  Basic information about this seller (read-only)
+                </p>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {profileEditing ? (
-                    <>
-                      <div>
-                        <Label className="text-xs text-gray-500">Full Name</Label>
-                        <Input className="mt-1" value={profileForm.name} onChange={(e) => setProfileForm((f) => ({ ...f, name: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">Email</Label>
-                        <Input className="mt-1" type="email" value={profileForm.email} onChange={(e) => setProfileForm((f) => ({ ...f, email: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">Phone</Label>
-                        <Input className="mt-1" value={profileForm.phone} onChange={(e) => setProfileForm((f) => ({ ...f, phone: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">City</Label>
-                        <Input className="mt-1" value={profileForm.city} onChange={(e) => setProfileForm((f) => ({ ...f, city: e.target.value }))} />
-                      </div>
-                      <div>
-                        <Label className="text-xs text-gray-500">Business Name</Label>
-                        <Input className="mt-1" value={profileForm.businessName} onChange={(e) => setProfileForm((f) => ({ ...f, businessName: e.target.value }))} />
-                      </div>
-                      <Field
-                        label="Approved On"
-                        value={seller.approvedAt ? new Date(seller.approvedAt).toLocaleDateString() : "—"}
-                      />
-                    </>
-                  ) : (
-                    <>
-                      <Field label="Full Name" value={seller.name} />
-                      <Field label="Email" value={seller.email} />
-                      <Field label="Phone" value={seller.phone} />
-                      <Field label="City" value={seller.city} />
-                      <Field label="Business Name" value={seller.businessName} />
-                      <Field
-                        label="Approved On"
-                        value={seller.approvedAt ? new Date(seller.approvedAt).toLocaleDateString() : "—"}
-                      />
-                    </>
-                  )}
+                  <Field label="Full Name" value={seller.name} />
+                  <Field label="Email" value={seller.email} />
+                  <Field label="Phone" value={seller.phone} />
+                  <Field label="City" value={seller.city} />
+                  <Field label="Business Name" value={seller.businessName} />
+                  <Field
+                    label="Created On"
+                    value={seller.approvedAt ? new Date(seller.approvedAt).toLocaleDateString() : "—"}
+                  />
 
                   {/* Active/Inactive Toggle */}
                   <div className="md:col-span-2 pt-4 border-t border-gray-100">
