@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -21,13 +21,11 @@ import {
   Plus,
   X,
   AlertCircle,
-  Upload,
-  Camera,
-  User as UserIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
 import { addSeller } from "../../lib/mock-store";
+import { ImageUploader } from "../../components/ui/image-uploader";
 
 interface SellerCompanySelection {
   companyId: string;
@@ -117,23 +115,10 @@ export function AdminAddUser() {
   };
   // Optional avatar — not mandatory at creation
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const imageInputRef = useRef<HTMLInputElement | null>(null);
 
-  const handlePickImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!f.type.startsWith("image/")) {
-      toast.error("Only image files allowed");
-      return;
-    }
+  const handleImageChange = (file: File | null) => {
     revokeImage(imageUrl);
-    setImageUrl(URL.createObjectURL(f));
-    if (imageInputRef.current) imageInputRef.current.value = "";
-  };
-
-  const handleClearImage = () => {
-    revokeImage(imageUrl);
-    setImageUrl(null);
+    setImageUrl(file ? URL.createObjectURL(file) : null);
   };
 
   // Companies / brands the seller works with
@@ -314,38 +299,19 @@ export function AdminAddUser() {
               <CardTitle className="text-base">Seller Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Profile photo — optional */}
-              <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-                <input
-                  ref={imageInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handlePickImage}
-                  className="hidden"
+              {/* Profile photo — optional. Uses the shared ImageUploader so
+                  it looks identical to every other image upload in the
+                  admin module. */}
+              <div className="flex items-start gap-4 pb-4 border-b border-gray-100">
+                <ImageUploader
+                  value={imageUrl}
+                  onChange={handleImageChange}
+                  aspect="circle"
+                  size="md"
+                  alt="Seller photo"
+                  placeholder="Upload photo"
+                  helper={null}
                 />
-                <button
-                  type="button"
-                  onClick={() => imageInputRef.current?.click()}
-                  className="relative w-24 h-24 rounded-full border-2 border-dashed border-gray-300 hover:border-blue-400 bg-gray-50 hover:bg-blue-50 flex items-center justify-center text-gray-500 hover:text-blue-600 overflow-hidden group transition-colors"
-                  title="Upload photo"
-                >
-                  {imageUrl ? (
-                    <>
-                      <img src={imageUrl} alt="Seller photo" className="w-full h-full object-cover" />
-                      <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Camera className="h-5 w-5 text-white" />
-                      </span>
-                    </>
-                  ) : (
-                    // Empty-state placeholder: portrait icon with upload chip.
-                    <div className="relative flex items-center justify-center w-full h-full text-gray-300">
-                      <UserIcon className="h-9 w-9" />
-                      <span className="absolute bottom-1.5 right-1.5 bg-blue-600 text-white rounded-full p-1">
-                        <Upload className="h-3 w-3" />
-                      </span>
-                    </div>
-                  )}
-                </button>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">
                     Profile Photo{" "}
@@ -357,29 +323,6 @@ export function AdminAddUser() {
                     A photo helps the seller show up correctly in the seller
                     picker. PNG, JPG, JPEG, or WEBP — under 2 MB.
                   </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="gap-1 h-7 text-xs"
-                      onClick={() => imageInputRef.current?.click()}
-                    >
-                      <Upload className="h-3 w-3" />
-                      {imageUrl ? "Change" : "Upload"}
-                    </Button>
-                    {imageUrl && (
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="text-red-600 hover:text-red-700 h-7 text-xs"
-                        onClick={handleClearImage}
-                      >
-                        Remove
-                      </Button>
-                    )}
-                  </div>
                 </div>
               </div>
 

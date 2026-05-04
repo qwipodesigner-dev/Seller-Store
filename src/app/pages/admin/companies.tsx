@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -18,8 +18,6 @@ import {
   Building2,
   Tag,
   Pencil,
-  Upload,
-  Image as ImageIcon,
   X,
   Search,
   AlertCircle,
@@ -41,6 +39,7 @@ import {
   subscribeToCompanies,
 } from "../../lib/admin-catalog";
 import { EmptyState } from "../../components/empty-state";
+import { ImageUploader } from "../../components/ui/image-uploader";
 
 interface DraftBrand {
   id: string;
@@ -76,7 +75,6 @@ export function AdminCompanies() {
   );
   const [categorySearch, setCategorySearch] = useState("");
   const [activeTab, setActiveTab] = useState("brands");
-  const companyImgRef = useRef<HTMLInputElement | null>(null);
 
   const openCreate = () => {
     setEditingId(null);
@@ -115,52 +113,34 @@ export function AdminCompanies() {
     setIsOpen(true);
   };
 
-  // Category image handlers — operate on the in-dialog draft only;
-  // persisted to the company record on Save.
-  const handleCategoryImage = (catName: string, file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files allowed");
-      return;
-    }
+  // Category image handler — operate on the in-dialog draft only;
+  // persisted to the company record on Save. `file === null` clears.
+  const handleCategoryImage = (catName: string, file: File | null) => {
     setDraftCategories((prev) =>
       prev.map((c) => {
         if (c.name !== catName) return c;
         revokeImage(c.imageUrl);
-        return { ...c, imageUrl: URL.createObjectURL(file) };
-      }),
-    );
-  };
-  const handleCategoryImageRemove = (catName: string) => {
-    setDraftCategories((prev) =>
-      prev.map((c) => {
-        if (c.name !== catName) return c;
-        revokeImage(c.imageUrl);
-        return { ...c, imageUrl: null };
+        return {
+          ...c,
+          imageUrl: file ? URL.createObjectURL(file) : null,
+        };
       }),
     );
   };
 
-  const handleCompanyImage = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!f.type.startsWith("image/")) {
-      toast.error("Only image files allowed");
-      return;
-    }
+  const handleCompanyImage = (file: File | null) => {
     revokeImage(imageUrl);
-    setImageUrl(URL.createObjectURL(f));
-    e.target.value = "";
+    setImageUrl(file ? URL.createObjectURL(file) : null);
   };
 
-  const handleBrandImage = (idx: number, file: File) => {
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files allowed");
-      return;
-    }
+  const handleBrandImage = (idx: number, file: File | null) => {
     setDrafts((prev) => {
       const next = [...prev];
       revokeImage(next[idx].imageUrl);
-      next[idx] = { ...next[idx], imageUrl: URL.createObjectURL(file) };
+      next[idx] = {
+        ...next[idx],
+        imageUrl: file ? URL.createObjectURL(file) : null,
+      };
       return next;
     });
   };
@@ -347,52 +327,20 @@ export function AdminCompanies() {
           </DialogHeader>
 
           <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1 min-h-0">
-            {/* Company name + logo */}
-            <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-4 items-start">
+            {/* Company name + logo. Grid column matches the ImageUploader
+                tile width (96px @ size="md") so the logo never spills over
+                onto the Company Name input. */}
+            <div className="grid grid-cols-1 md:grid-cols-[96px_1fr] gap-4 items-start">
               <div className="space-y-1">
                 <Label className="text-xs">Logo</Label>
-                <input
-                  ref={companyImgRef}
-                  type="file"
-                  accept="image/*"
+                <ImageUploader
+                  value={imageUrl}
                   onChange={handleCompanyImage}
-                  className="hidden"
+                  size="md"
+                  alt="Company logo"
+                  placeholder="Upload"
+                  helper={null}
                 />
-                <button
-                  type="button"
-                  onClick={() => companyImgRef.current?.click()}
-                  className="w-28 h-28 rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 bg-gray-50 flex items-center justify-center overflow-hidden text-gray-500 hover:text-blue-600 transition-colors relative group"
-                >
-                  {imageUrl ? (
-                    <>
-                      <img src={imageUrl} alt="Logo" className="w-full h-full object-cover" />
-                      <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <Upload className="h-5 w-5 text-white" />
-                      </span>
-                    </>
-                  ) : (
-                    // Empty-state placeholder: image-frame + upload chip overlay.
-                    <div className="relative flex flex-col items-center gap-1 text-gray-400">
-                      <ImageIcon className="h-8 w-8 text-gray-300" />
-                      <span className="text-[10px]">Upload logo</span>
-                      <span className="absolute top-0.5 right-0.5 bg-blue-600 text-white rounded-full p-0.5">
-                        <Upload className="h-2.5 w-2.5" />
-                      </span>
-                    </div>
-                  )}
-                </button>
-                {imageUrl && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      revokeImage(imageUrl);
-                      setImageUrl(null);
-                    }}
-                    className="text-[10px] text-red-600 hover:text-red-700 underline"
-                  >
-                    Remove
-                  </button>
-                )}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">
@@ -526,8 +474,7 @@ export function AdminCompanies() {
                             <CategoryTile
                               key={c.name}
                               category={c}
-                              onUpload={(f) => handleCategoryImage(c.name, f)}
-                              onRemove={() => handleCategoryImageRemove(c.name)}
+                              onChange={(f) => handleCategoryImage(c.name, f)}
                             />
                           ))}
                         </div>
@@ -571,53 +518,20 @@ function BrandRow({
 }: {
   brand: DraftBrand;
   onName: (v: string) => void;
-  onImage: (f: File) => void;
+  onImage: (f: File | null) => void;
   onRemove: () => void;
   canRemove: boolean;
   removeBlockedReason?: string;
 }) {
-  const ref = useRef<HTMLInputElement | null>(null);
   return (
-    <div className="grid grid-cols-[60px_1fr_36px] gap-2 items-center p-3">
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onImage(f);
-          if (ref.current) ref.current.value = "";
-        }}
+    <div className="grid grid-cols-[64px_1fr_36px] gap-3 items-center p-3">
+      <ImageUploader
+        value={brand.imageUrl}
+        onChange={onImage}
+        size="sm"
+        alt={brand.name || "Brand logo"}
+        removable={false}
       />
-      <button
-        type="button"
-        onClick={() => ref.current?.click()}
-        className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 hover:bg-gray-100 overflow-hidden flex items-center justify-center text-gray-400 hover:text-blue-600 transition-colors relative group"
-        title="Upload brand image"
-      >
-        {brand.imageUrl ? (
-          <>
-            <img
-              src={brand.imageUrl}
-              alt={brand.name || "Brand"}
-              className="w-full h-full object-cover"
-            />
-            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Upload className="h-3.5 w-3.5 text-white" />
-            </span>
-          </>
-        ) : (
-          // Empty-state placeholder: image-frame icon with a small upload chip
-          // overlay so the affordance is unmistakable.
-          <div className="relative flex items-center justify-center w-full h-full">
-            <ImageIcon className="h-5 w-5 text-gray-300" />
-            <span className="absolute -bottom-0.5 -right-0.5 bg-blue-600 text-white rounded-full p-0.5">
-              <Upload className="h-2.5 w-2.5" />
-            </span>
-          </div>
-        )}
-      </button>
       <Input
         value={brand.name}
         onChange={(e) => onName(e.target.value)}
@@ -646,58 +560,34 @@ function BrandRow({
 // ---- Per-company category image tile (used inside the dialog's Categories tab) ----
 function CategoryTile({
   category,
-  onUpload,
-  onRemove,
+  onChange,
 }: {
   category: AdminCategory;
-  onUpload: (f: File) => void;
-  onRemove: () => void;
+  onChange: (file: File | null) => void;
 }) {
-  const ref = useRef<HTMLInputElement | null>(null);
   return (
-    <Card className="overflow-hidden hover:border-pink-300 transition-colors">
-      <input
-        ref={ref}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(e) => {
-          const f = e.target.files?.[0];
-          if (f) onUpload(f);
-          if (ref.current) ref.current.value = "";
-        }}
+    <Card className="overflow-hidden hover:border-pink-300 transition-colors p-2 flex flex-col gap-2 items-stretch">
+      <ImageUploader
+        value={category.imageUrl}
+        onChange={onChange}
+        size="fill"
+        aspect="square"
+        alt={category.name}
+        placeholder="Upload"
+        helper={null}
+        removable={false}
       />
-      <button
-        type="button"
-        onClick={() => ref.current?.click()}
-        className="w-full aspect-square bg-gray-50 hover:bg-gray-100 flex items-center justify-center overflow-hidden relative group"
-      >
-        {category.imageUrl ? (
-          <>
-            <img
-              src={category.imageUrl}
-              alt={category.name}
-              className="w-full h-full object-cover"
-            />
-            <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Upload className="h-5 w-5 text-white" />
-            </span>
-          </>
-        ) : (
-          <div className="flex flex-col items-center gap-1 text-gray-400">
-            <ImageIcon className="h-6 w-6" />
-            <span className="text-[10px] font-medium">Upload</span>
-          </div>
-        )}
-      </button>
-      <div className="p-2 flex items-center justify-between gap-2">
-        <p className="text-[11px] font-medium text-gray-900 line-clamp-2 leading-tight">
+      <div className="flex items-center justify-between gap-2">
+        <p
+          className="text-[11px] font-medium text-gray-900 line-clamp-2 leading-tight flex-1"
+          title={category.name}
+        >
           {category.name}
         </p>
         {category.imageUrl && (
           <button
             type="button"
-            onClick={onRemove}
+            onClick={() => onChange(null)}
             className="p-1 text-red-600 hover:bg-red-50 rounded shrink-0"
             title="Remove image"
           >

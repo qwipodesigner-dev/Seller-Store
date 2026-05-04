@@ -380,38 +380,46 @@ export function AdminSellerDetail() {
             </div>
 
             {/* Profile — read-only. Mirrors the fields captured during
-                Add Seller so the admin sees exactly what was entered. */}
+                Add Seller. Laid out in dense 3-column rows so wide cards
+                aren't half-empty: short fields (Mobile, Seller Type, PIN,
+                City, State, Lat, Lng, Created On) pack tightly, and the
+                long Full Address field spans the row. */}
             <TabsContent value="profile" className="p-6 mt-0">
-              <div className="space-y-6 max-w-3xl">
-                <p className="text-sm text-gray-500">
-                  Basic information captured during seller creation (read-only).
-                </p>
-
+              <div className="space-y-6">
                 {/* Identity */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Field label="Full Name" value={seller.name} />
-                  <Field label="Mobile Number" value={seller.phone} />
-                  <Field label="Business Name" value={seller.businessName} />
-                  <Field
-                    label="Seller Type"
-                    value={
-                      seller.sellerType === "wholesaler"
-                        ? "Wholesaler"
-                        : "Distributor"
-                    }
-                  />
-                  <Field
-                    label="Created On"
-                    value={seller.approvedAt ? new Date(seller.approvedAt).toLocaleDateString() : "—"}
-                  />
-                </div>
+                <section>
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
+                    Identity
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
+                    <Field label="Full Name" value={seller.name} />
+                    <Field label="Mobile Number" value={seller.phone} />
+                    <Field
+                      label="Seller Type"
+                      value={
+                        seller.sellerType === "wholesaler"
+                          ? "Wholesaler"
+                          : "Distributor"
+                      }
+                    />
+                    <Field label="Business Name" value={seller.businessName} />
+                    <Field
+                      label="Created On"
+                      value={
+                        seller.approvedAt
+                          ? new Date(seller.approvedAt).toLocaleDateString()
+                          : "—"
+                      }
+                    />
+                  </div>
+                </section>
 
                 {/* Address */}
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+                <section className="pt-6 border-t border-gray-100">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
                     Address
-                  </p>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  </h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-5">
                     <Field label="PIN Code" value={seller.pinCode || "—"} />
                     <Field label="City" value={seller.city || "—"} />
                     <Field label="State" value={seller.state || "—"} />
@@ -431,21 +439,20 @@ export function AdminSellerDetail() {
                           : "—"
                       }
                     />
-                    <div className="md:col-span-2">
-                      <Field
-                        label="Full Address"
-                        value={seller.fullAddress || "—"}
-                      />
-                    </div>
+                    <Field
+                      label="Full Address"
+                      value={seller.fullAddress || "—"}
+                      className="sm:col-span-2 lg:col-span-3"
+                    />
                   </div>
-                </div>
+                </section>
 
                 {/* Status — opens a confirmation prompt before flipping */}
-                <div className="pt-4 border-t border-gray-100">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <section className="pt-6 border-t border-gray-100">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex-1 min-w-[260px]">
                       <Label className="text-sm font-medium">Status</Label>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-xs text-gray-500 mt-0.5">
                         Toggle to activate or deactivate this seller. A
                         confirmation will appear before the change is saved.
                       </p>
@@ -470,7 +477,7 @@ export function AdminSellerDetail() {
                       />
                     </div>
                   </div>
-                </div>
+                </section>
               </div>
             </TabsContent>
 
@@ -1024,11 +1031,21 @@ export function AdminSellerDetail() {
 
 // ---------- Small helpers ----------
 
-function Field({ label, value }: { label: string; value: string }) {
+function Field({
+  label,
+  value,
+  className,
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
   return (
-    <div>
-      <Label className="text-xs text-gray-500">{label}</Label>
-      <p className="mt-1 text-sm text-gray-900 font-medium">{value}</p>
+    <div className={className}>
+      <Label className="text-xs text-gray-500 font-normal">{label}</Label>
+      <p className="mt-1 text-sm text-gray-900 font-medium break-words">
+        {value}
+      </p>
     </div>
   );
 }
