@@ -251,31 +251,31 @@ export function OrderDetail() {
     switch (status) {
       case "New":
         return (
-          <Badge className="bg-blue-100 text-blue-700 border-blue-300 text-base px-4 py-1">
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-base px-4 py-1">
             New Order
           </Badge>
         );
       case "Confirmed":
         return (
-          <Badge className="bg-green-100 text-green-700 border-green-300 text-base px-4 py-1">
+          <Badge className="bg-green-50 text-green-700 border-green-200 text-base px-4 py-1">
             Confirmed
           </Badge>
         );
       case "In Progress":
         return (
-          <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300 text-base px-4 py-1">
+          <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200 text-base px-4 py-1">
             In Progress
           </Badge>
         );
       case "Rejected":
         return (
-          <Badge className="bg-red-100 text-red-700 border-red-300 text-base px-4 py-1">
+          <Badge className="bg-red-50 text-red-700 border-red-200 text-base px-4 py-1">
             Rejected
           </Badge>
         );
       case "Delivered":
         return (
-          <Badge className="bg-purple-100 text-purple-700 border-purple-300 text-base px-4 py-1">
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-base px-4 py-1">
             Delivered
           </Badge>
         );
@@ -466,7 +466,7 @@ export function OrderDetail() {
                   </Button>
                   <Button
                     size="sm"
-                    className="bg-blue-600 hover:bg-blue-700 h-8"
+                    className="h-8"
                     onClick={handleUpdateOrder}
                     disabled={!hasModifications}
                   >
@@ -590,16 +590,16 @@ export function OrderDetail() {
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
+                  <tbody className="divide-y divide-gray-100">
                     {orderData.products.map((product) => (
                       <React.Fragment key={product.id}>
                         <tr className="hover:bg-gray-50">
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3">
                             <div className="flex items-center gap-1.5 flex-wrap">
                               <p className="font-medium text-gray-900 text-sm">{product.name}</p>
                               {product.qps && (
                                 <Badge
-                                  className="bg-purple-100 text-purple-700 border-purple-300 gap-1 text-[10px] py-0"
+                                  className="bg-purple-50 text-purple-700 border-purple-200 gap-1 text-[10px] py-0"
                                   title="Quantity Pricing Scheme applied to this line item"
                                 >
                                   <Layers className="h-2.5 w-2.5" />
@@ -608,10 +608,10 @@ export function OrderDetail() {
                               )}
                             </div>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3">
                             <p className="text-xs font-mono text-gray-600">{product.skuId}</p>
                           </td>
-                          <td className="px-3 py-2 text-center">
+                          <td className="px-4 py-3 text-center">
                             {isEditMode ? (
                               <div className="flex flex-col items-center gap-1">
                                 <Input
@@ -639,7 +639,7 @@ export function OrderDetail() {
                               </p>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-4 py-3 text-right">
                             {isEditMode ? (
                               <div className="flex flex-col items-end gap-1">
                                 <div className="relative">
@@ -680,7 +680,7 @@ export function OrderDetail() {
                               <p className="text-gray-900">₹{product.pricePerUnit}</p>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-4 py-3 text-right">
                             <p
                               className={`font-semibold text-sm ${
                                 product.isModified ? "text-blue-700" : "text-gray-900"
@@ -715,19 +715,19 @@ export function OrderDetail() {
                         <>
                           {totalQpsSaving > 0 && (
                             <tr className="bg-purple-50">
-                              <td colSpan={4} className="px-3 py-1.5 text-right text-[11px] font-semibold text-purple-800">
+                              <td colSpan={4} className="px-4 py-3 text-right text-[11px] font-semibold text-purple-800">
                                 Total QPS savings on this order
                               </td>
-                              <td className="px-3 py-1.5 text-right text-xs font-bold text-purple-700">
+                              <td className="px-4 py-3 text-right text-xs font-bold text-purple-700">
                                 −₹{totalQpsSaving.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
                               </td>
                             </tr>
                           )}
                           <tr>
-                            <td colSpan={4} className="px-3 py-2 text-right text-sm font-semibold">
+                            <td colSpan={4} className="px-4 py-3 text-right text-sm font-semibold">
                               {isEditMode ? "Updated Order Value:" : "Total Order Value:"}
                             </td>
-                            <td className="px-3 py-2 text-right font-bold text-base text-green-600">
+                            <td className="px-4 py-3 text-right font-bold text-base text-green-600">
                               ₹
                               {(isEditMode
                                 ? calculateTotal()
@@ -870,7 +870,7 @@ export function OrderDetail() {
                                 className={`text-[10px] gap-1 border ${
                                   direction === "upgraded"
                                     ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                                    : "bg-red-100 text-red-800 border-red-300"
+                                    : "bg-red-50 text-red-700 border-red-200"
                                 }`}
                               >
                                 {savingDelta >= 0 ? "+" : "−"}₹
@@ -931,7 +931,7 @@ export function OrderDetail() {
                       className={`text-[10px] border ${
                         delta >= 0
                           ? "bg-emerald-100 text-emerald-800 border-emerald-300"
-                          : "bg-red-100 text-red-800 border-red-300"
+                          : "bg-red-50 text-red-700 border-red-200"
                       }`}
                     >
                       {delta >= 0 ? "+" : "−"}₹{Math.abs(delta).toFixed(2)}{" "}
@@ -956,7 +956,7 @@ export function OrderDetail() {
             <Button variant="outline" onClick={() => setIsUpdateModalOpen(false)}>
               Back
             </Button>
-            <Button onClick={handleConfirmUpdate} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleConfirmUpdate} className="">
               Save &amp; Apply
             </Button>
           </DialogFooter>
@@ -1096,7 +1096,7 @@ function QpsImpactRow({
   if (!slabs || slabs.length === 0) {
     return (
       <tr className="bg-purple-50/40">
-        <td colSpan={5} className="px-3 py-1">
+        <td colSpan={5} className="px-4 py-3">
           <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
             <Layers className="h-3 w-3 text-purple-600 shrink-0" />
             <span>
@@ -1132,7 +1132,7 @@ function QpsImpactRow({
   if (!isEditMode) {
     return (
       <tr className="bg-purple-50/40">
-        <td colSpan={5} className="px-3 py-1">
+        <td colSpan={5} className="px-4 py-3">
           <div className="flex items-center gap-2 text-[11px] text-purple-900 flex-wrap">
             <Layers className="h-3 w-3 text-purple-600 shrink-0" />
             <span>
@@ -1151,7 +1151,7 @@ function QpsImpactRow({
   // Edit-mode impact row.
   return (
     <tr className="bg-purple-50/40">
-      <td colSpan={5} className="px-3 py-2">
+      <td colSpan={5} className="px-4 py-3">
         <div className="space-y-2">
           {/* Inline before / after summary */}
           <div className="flex items-center gap-3 text-[11px] flex-wrap">
@@ -1244,19 +1244,19 @@ function QpsImpactRow({
                           : "hover:bg-gray-50"
                       }
                     >
-                      <td className="px-2 py-1 font-medium text-gray-900">
+                      <td className="px-4 py-3 font-medium text-gray-900">
                         Slab {i + 1}
                       </td>
-                      <td className="px-2 py-1 text-gray-700">
+                      <td className="px-4 py-3 text-gray-700">
                         {s.maxQty
                           ? `${s.minQty}–${s.maxQty}`
                           : `${s.minQty}+`}
                       </td>
-                      <td className="px-2 py-1 text-gray-700">{s.discountLabel}</td>
-                      <td className="px-2 py-1 text-right font-mono text-gray-900">
+                      <td className="px-4 py-3 text-gray-700">{s.discountLabel}</td>
+                      <td className="px-4 py-3 text-right font-mono text-gray-900">
                         ₹{s.pricePerUnit.toFixed(2)}
                       </td>
-                      <td className="px-2 py-1 text-center">
+                      <td className="px-4 py-3 text-center">
                         {isCurrent ? (
                           <Badge
                             className={`text-[9px] py-0 px-1 ${

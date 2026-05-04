@@ -212,7 +212,7 @@ export function ServiceabilitySettings() {
           </div>
           <Button
             onClick={handleAddNewCompany}
-            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+            className="gap-2 text-white"
             disabled={!hasUnconfigured && adminCompanies.length > 0}
             title={
               !hasUnconfigured && adminCompanies.length > 0
@@ -266,7 +266,7 @@ export function ServiceabilitySettings() {
                   </p>
                   <Button
                     onClick={handleAddNewCompany}
-                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="gap-2 text-white"
                   >
                     <Plus className="h-4 w-4" />
                     Add Company Serviceability
@@ -286,7 +286,7 @@ export function ServiceabilitySettings() {
                           <h3 className="font-semibold text-gray-900">
                             {row.companyName}
                           </h3>
-                          <Badge className="bg-green-100 text-green-700 border-green-300 text-[10px]">
+                          <Badge className="bg-green-50 text-green-700 border-green-200 text-[10px]">
                             <CheckCircle2 className="h-3 w-3 mr-1" />
                             Configured
                           </Badge>
@@ -395,7 +395,7 @@ export function ServiceabilitySettings() {
 
         {/* Polygon Upload Section */}
         <Card className="border-2 border-indigo-200">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-purple-50 border-b py-2.5 px-4">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 border-b py-2.5 px-4">
             <div className="flex items-center gap-2">
               <div className="bg-indigo-100 p-1.5 rounded">
                 <FileJson className="h-4 w-4 text-indigo-600" />
@@ -555,7 +555,7 @@ export function ServiceabilitySettings() {
           </Button>
           <Button
             onClick={handleSaveConfiguration}
-            className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+            className="gap-2 text-white"
           >
             <Save className="h-4 w-4" />
             Save Configuration

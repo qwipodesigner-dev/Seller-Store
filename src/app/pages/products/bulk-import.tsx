@@ -319,7 +319,7 @@ export function BulkImport() {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back to Add SKU
         </Link>
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-2xl font-semibold text-gray-900">
           Bulk Update — Stock &amp; Price
         </h1>
         <p className="text-gray-600 mt-1">
@@ -367,7 +367,7 @@ export function BulkImport() {
                   <p className="text-xs text-gray-600">{totalSkus} rows</p>
                 </div>
               </div>
-              <Button onClick={handleDownload} className="w-full gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleDownload} className="w-full gap-2">
                 <Download className="h-4 w-4" />
                 Download CSV
               </Button>
@@ -440,12 +440,12 @@ export function BulkImport() {
                   {result.unchanged} unchanged
                 </Badge>
                 {result.errored.length > 0 && (
-                  <Badge className="bg-red-100 text-red-700 border-red-300">
+                  <Badge className="bg-red-50 text-red-700 border-red-200">
                     {result.errored.length} with errors
                   </Badge>
                 )}
                 {result.unknown.length > 0 && (
-                  <Badge className="bg-amber-100 text-amber-700 border-amber-300">
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200">
                     {result.unknown.length} unknown SKUID
                   </Badge>
                 )}
@@ -529,7 +529,7 @@ export function BulkImport() {
               <Button
                 onClick={handleApply}
                 disabled={result.updated.length === 0}
-                className="bg-blue-600 hover:bg-blue-700 gap-2"
+                className="gap-2"
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Apply {result.updated.length} update{result.updated.length === 1 ? "" : "s"}
@@ -550,7 +550,7 @@ export function BulkImport() {
         <CardContent>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   {CSV_HEADER.map((h) => (
                     <th key={h} className="text-left p-2 font-semibold text-gray-700">

@@ -253,14 +253,14 @@ export function AdminSellerDetail() {
   const kycBadge = () => {
     if (seller.kyc.status === "verified") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300">
+        <Badge className="bg-green-50 text-green-700 border-green-200">
           Verified
         </Badge>
       );
     }
     if (seller.kyc.status === "submitted") {
       return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200">
           Submitted
         </Badge>
       );
@@ -535,7 +535,7 @@ export function AdminSellerDetail() {
                   </p>
                 </div>
                 <Button
-                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  className="gap-2"
                   onClick={() => setAddConnectorOpen(true)}
                 >
                   <Plus className="h-4 w-4" />
@@ -619,7 +619,7 @@ export function AdminSellerDetail() {
                     Reset
                   </Button>
                   <Button
-                    className="bg-blue-600 hover:bg-blue-700"
+                    className=""
                     disabled={!permissionsDirty}
                     onClick={savePermissions}
                   >
@@ -643,7 +643,7 @@ export function AdminSellerDetail() {
                   </p>
                 </div>
                 <Button
-                  className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  className="gap-2"
                   onClick={openAddCompanies}
                 >
                   <Plus className="h-4 w-4" />
@@ -735,7 +735,7 @@ export function AdminSellerDetail() {
                 <ShoppingBag className="h-5 w-5" />
               </div>
               <p className="font-semibold text-gray-900">ONDC</p>
-              <Badge className="bg-orange-100 text-orange-700 border-orange-300 text-xs my-1">
+              <Badge className="bg-orange-50 text-orange-700 border-orange-200 text-xs my-1">
                 Marketplace
               </Badge>
               <p className="text-xs text-gray-600 mt-1">
@@ -802,7 +802,7 @@ export function AdminSellerDetail() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
               onClick={saveConnectorConfig}
             >
               Connect
@@ -857,7 +857,7 @@ export function AdminSellerDetail() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
               onClick={saveEditOndc}
             >
               Save Changes
@@ -1010,7 +1010,7 @@ export function AdminSellerDetail() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
               onClick={saveManagedCompanies}
             >
               Save ({companiesSelection.size})
@@ -1222,7 +1222,7 @@ export function SellerCatalogTab({
           </p>
         </div>
         <Button
-          className="gap-2 bg-blue-600 hover:bg-blue-700"
+          className="gap-2"
           onClick={openAdd}
           disabled={isInactive || availableCompanies.length === 0}
           title={
@@ -1467,7 +1467,7 @@ export function SellerCatalogTab({
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
               onClick={handleAddSubmit}
               disabled={!addCompanyId}
             >

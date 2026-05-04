@@ -622,7 +622,7 @@ export function PriceInventory() {
   const getStockStatusBadge = (product: Product) => {
     if (product.isInfiniteStock) {
       return (
-        <Badge className="bg-purple-100 text-purple-700 border-purple-300 gap-1">
+        <Badge className="bg-purple-50 text-purple-700 border-purple-200 gap-1">
           <Infinity className="h-3 w-3" />
           Infinite
         </Badge>
@@ -631,7 +631,7 @@ export function PriceInventory() {
 
     if (product.availableStock === 0) {
       return (
-        <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+        <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
           <XCircle className="h-3 w-3" />
           Out of Stock
         </Badge>
@@ -640,7 +640,7 @@ export function PriceInventory() {
 
     if (product.availableStock <= product.thresholdLevel) {
       return (
-        <Badge className="bg-amber-100 text-amber-700 border-amber-300 gap-1">
+        <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
           <AlertTriangle className="h-3 w-3" />
           Low Stock
         </Badge>
@@ -648,7 +648,7 @@ export function PriceInventory() {
     }
 
     return (
-      <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+      <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
         <CheckCircle className="h-3 w-3" />
         In Stock
       </Badge>
@@ -688,7 +688,7 @@ export function PriceInventory() {
                 <Button
                   size="sm"
                   onClick={handleOpenImport}
-                  className="gap-2 flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
+                  className="gap-2 flex-1 sm:flex-initial"
                 >
                   <Upload className="h-4 w-4" />
                   Bulk Import
@@ -742,36 +742,36 @@ export function PriceInventory() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     SKU Code
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     SKU Name
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Brand
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                     MRP
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Selling Price
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Available
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {paginatedProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-0 py-0">
+                    <td colSpan={8} className="px-4 py-3">
                       <EmptyState
                         icon={Package}
                         title={
@@ -789,7 +789,7 @@ export function PriceInventory() {
                             <Button
                               size="sm"
                               onClick={handleOpenImport}
-                              className="gap-2 bg-blue-600 hover:bg-blue-700"
+                              className="gap-2"
                             >
                               <Upload className="h-4 w-4" />
                               Bulk Import
@@ -811,12 +811,12 @@ export function PriceInventory() {
                           : ""
                       }`}
                     >
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <span className="font-mono text-sm font-medium text-gray-900">
                           {product.skuCode}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <div>
                           <p className="font-medium text-gray-900 text-sm">
                             {product.skuName}
@@ -824,20 +824,20 @@ export function PriceInventory() {
                           <p className="text-xs text-gray-500">{product.category}</p>
                         </div>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{product.brand}</span>
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-gray-900">
                           ₹{Math.round(product.mrp)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-right">
+                      <td className="px-4 py-3 text-right">
                         <span className="font-semibold text-green-700">
                           ₹{Math.round(product.sellingPrice)}
                         </span>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         {product.isInfiniteStock ? (
                           <Infinity className="h-4 w-4 text-purple-600 mx-auto" />
                         ) : (
@@ -846,18 +846,18 @@ export function PriceInventory() {
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <Badge
                           className={
                             product.status === "Active"
-                              ? "bg-green-100 text-green-700 border-green-300"
+                              ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-gray-100 text-gray-700 border-gray-300"
                           }
                         >
                           {product.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -939,13 +939,13 @@ export function PriceInventory() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/50 border-b border-gray-200">
                   <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/4">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600 w-1/4">
                       Field Name
                     </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       DMS Value (Read-only)
                     </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       ONDC Value (Editable)
                     </th>
                   </tr>
@@ -1052,13 +1052,13 @@ export function PriceInventory() {
               <table className="w-full text-sm">
                 <thead className="bg-gray-50/50 border-b border-gray-200">
                   <tr>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider w-1/4">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600 w-1/4">
                       Field Name
                     </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       DMS Value (Read-only)
                     </th>
-                    <th className="text-left px-4 py-2.5 text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       ONDC Value (Editable)
                     </th>
                   </tr>
@@ -1170,7 +1170,7 @@ export function PriceInventory() {
             </Button>
             <Button
               onClick={handleSaveEdit}
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
             >
               Save ONDC Values
             </Button>
@@ -1458,32 +1458,32 @@ export function PriceInventory() {
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr className="text-left">
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Name</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-center">
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Name</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                                 Batches
                               </th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
                                 MRP (max)
                               </th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
                                 Selling Price (max)
                               </th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
                                 GST %
                               </th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
                                 Total Stock
                               </th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Notes</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Notes</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {importResult.aggregated.map((agg) => (
                               <tr key={agg.skuCode} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700">{agg.skuCode}</td>
-                                <td className="px-3 py-2 text-gray-900">{agg.skuName}</td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-4 py-3 font-mono text-xs text-gray-700">{agg.skuCode}</td>
+                                <td className="px-4 py-3 text-gray-900">{agg.skuName}</td>
+                                <td className="px-4 py-3 text-center">
                                   <Badge
                                     className="bg-blue-50 text-blue-700 border-blue-200"
                                     title={agg.batches.join(", ")}
@@ -1491,17 +1491,17 @@ export function PriceInventory() {
                                     {agg.batchCount}
                                   </Badge>
                                 </td>
-                                <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                <td className="px-4 py-3 text-right font-semibold text-gray-900">
                                   ₹{agg.mrp.toFixed(2)}
                                 </td>
-                                <td className="px-3 py-2 text-right font-semibold text-green-700">
+                                <td className="px-4 py-3 text-right font-semibold text-green-700">
                                   ₹{agg.sellingPrice.toFixed(2)}
                                 </td>
-                                <td className="px-3 py-2 text-right text-gray-700">{agg.gst}%</td>
-                                <td className="px-3 py-2 text-right font-semibold text-gray-900">
+                                <td className="px-4 py-3 text-right text-gray-700">{agg.gst}%</td>
+                                <td className="px-4 py-3 text-right font-semibold text-gray-900">
                                   {agg.totalStock}
                                 </td>
-                                <td className="px-3 py-2">
+                                <td className="px-4 py-3">
                                   <div className="flex flex-wrap gap-1">
                                     {agg.hasPriceDivergence && (
                                       <Badge
@@ -1525,7 +1525,7 @@ export function PriceInventory() {
                             ))}
                             {importResult.aggregated.length === 0 && (
                               <tr>
-                                <td colSpan={8} className="px-3 py-6 text-center text-sm text-gray-500">
+                                <td colSpan={8} className="px-4 py-3 text-center text-sm text-gray-500">
                                   No valid SKUs to import.
                                 </td>
                               </tr>
@@ -1538,15 +1538,15 @@ export function PriceInventory() {
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr className="text-left">
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-14">Row</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Batch</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">MRP</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-14">Row</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Batch</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
                                 Price
                               </th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-28">Status</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Errors</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-28">Status</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Errors</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
@@ -1555,32 +1555,32 @@ export function PriceInventory() {
                                 key={b.raw.rowNumber}
                                 className={b.status === "invalid" ? "bg-red-50/50" : ""}
                               >
-                                <td className="px-3 py-2 text-gray-700 align-top">{b.raw.rowNumber}</td>
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">
+                                <td className="px-4 py-3 text-gray-700 align-top">{b.raw.rowNumber}</td>
+                                <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top">
                                   {b.raw.skuCode || "—"}
                                 </td>
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">
+                                <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top">
                                   {b.raw.batch || "—"}
                                 </td>
-                                <td className="px-3 py-2 text-right text-gray-900 align-top">
+                                <td className="px-4 py-3 text-right text-gray-900 align-top">
                                   ₹{b.parsed.mrp.toFixed(2)}
                                 </td>
-                                <td className="px-3 py-2 text-right text-green-700 align-top">
+                                <td className="px-4 py-3 text-right text-green-700 align-top">
                                   ₹{b.parsed.sellingPrice.toFixed(2)}
                                 </td>
-                                <td className="px-3 py-2 align-top">
+                                <td className="px-4 py-3 align-top">
                                   {b.status === "valid" ? (
-                                    <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                                    <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
                                       <CheckCircle className="h-3 w-3" /> Valid
                                     </Badge>
                                   ) : (
-                                    <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                                    <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
                                       <AlertCircleIcon className="h-3 w-3" /> {b.errors.length} error
                                       {b.errors.length !== 1 ? "s" : ""}
                                     </Badge>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 align-top">
+                                <td className="px-4 py-3 align-top">
                                   {b.errors.length === 0 ? (
                                     <span className="text-xs text-green-700">All checks passed.</span>
                                   ) : (
@@ -1669,7 +1669,7 @@ export function PriceInventory() {
             <Button
               onClick={handleApplyImport}
               disabled={!importResult || importResult.aggregated.length === 0}
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
             >
               Import {importResult?.aggregated.length ?? 0} SKU
               {(importResult?.aggregated.length ?? 0) !== 1 ? "s" : ""}

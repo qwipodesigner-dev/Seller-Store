@@ -549,13 +549,13 @@ export function Orders() {
     switch (status) {
       case "New":
         return (
-          <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200">
             New
           </Badge>
         );
       case "Confirmed":
         return (
-          <Badge className="bg-green-100 text-green-700 border-green-300">
+          <Badge className="bg-green-50 text-green-700 border-green-200">
             Confirmed
           </Badge>
         );
@@ -567,7 +567,7 @@ export function Orders() {
         );
       case "Rejected":
         return (
-          <Badge className="bg-red-100 text-red-700 border-red-300">
+          <Badge className="bg-red-50 text-red-700 border-red-200">
             Rejected
           </Badge>
         );
@@ -681,28 +681,28 @@ export function Orders() {
                   />
                 </th>
               )}
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Order ID
               </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Company / Brand
               </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Retailer Name
               </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Order Value
               </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Marketplace
               </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Order Date
               </th>
-              <th className="text-left py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Status
               </th>
-              <th className="text-center py-4 px-6 text-sm font-semibold text-gray-700">
+              <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Actions
               </th>
             </tr>
@@ -714,7 +714,7 @@ export function Orders() {
                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
               >
                 {isActionable && (
-                  <td className="py-4 px-6">
+                  <td className="px-4 py-3">
                     <Checkbox
                       checked={selectedOrders.includes(order.id)}
                       onCheckedChange={(checked) =>
@@ -723,38 +723,38 @@ export function Orders() {
                     />
                   </td>
                 )}
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
                     {order.id}
                   </code>
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">
                     {order.brand}
                   </p>
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">
                     {order.retailerName}
                   </p>
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <p className="font-semibold text-gray-900">
                     ₹{order.orderValue.toLocaleString()}
                   </p>
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <Badge variant="outline" className="bg-gray-50">
                     ONDC
                   </Badge>
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <p className="text-sm text-gray-600">{order.orderDate}</p>
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   {getStatusBadge(order.status)}
                 </td>
-                <td className="py-4 px-6">
+                <td className="px-4 py-3">
                   <div className="flex items-center justify-center gap-2">
                     <Button
                       size="sm"
@@ -837,7 +837,7 @@ export function Orders() {
                     
                     {/* Export Button */}
                     <Button 
-                      className="gap-2 bg-gray-900 hover:bg-gray-800 text-white" 
+                      className="gap-2" 
                       onClick={() => setIsExportDialogOpen(true)}
                     >
                       <Download className="h-4 w-4" />

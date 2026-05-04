@@ -704,7 +704,7 @@ export function AdminAddUser() {
               Cancel
             </Button>
             <Button
-              className="bg-blue-600 hover:bg-blue-700 gap-2"
+              className="gap-2"
               onClick={handleSave}
               disabled={isSaving}
             >

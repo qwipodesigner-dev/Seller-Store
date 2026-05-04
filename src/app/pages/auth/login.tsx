@@ -174,7 +174,7 @@ export function Login() {
                 {!otpSent ? (
                   <Button
                     type="button"
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    className="w-full"
                     disabled={isLoading}
                     onClick={handleSendOtp}
                   >
@@ -217,7 +217,7 @@ export function Login() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full"
                       disabled={isLoading}
                     >
                       {isLoading ? "Verifying..." : "Verify & Sign In"}

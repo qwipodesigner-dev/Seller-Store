@@ -157,9 +157,9 @@ export function AdminCategories() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-slate-50 to-white">
+    <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex-shrink-0">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -191,7 +191,7 @@ export function AdminCategories() {
             </div>
             <Button
               onClick={openAddRoot}
-              className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              className="gap-2 text-white"
             >
               <Plus className="h-4 w-4" />
               Add Category
@@ -220,7 +220,7 @@ export function AdminCategories() {
                 rootCount === 0 ? (
                   <Button
                     onClick={openAddRoot}
-                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                    className="gap-2 text-white"
                   >
                     <Plus className="h-4 w-4" />
                     Add Category
@@ -333,7 +333,7 @@ export function AdminCategories() {
             </Button>
             <Button
               onClick={handleAddRoot}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
+              className="text-white"
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Category
@@ -441,7 +441,7 @@ function CategoryCard({
             size="sm"
             onClick={onAddSub}
             disabled={!draft.trim()}
-            className="h-8 gap-1 bg-blue-600 hover:bg-blue-700 text-white px-2.5"
+            className="h-8 gap-1 text-white px-2.5"
           >
             <Plus className="h-3.5 w-3.5" />
             Add

@@ -45,11 +45,11 @@ export function AdminDashboard() {
           <div className="inline-flex h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 items-center justify-center shadow-xl mb-5">
             <Rocket className="h-10 w-10 text-white" />
           </div>
-          <Badge className="bg-amber-100 text-amber-800 border-amber-300 mb-3">
+          <Badge className="bg-amber-50 text-amber-700 border-amber-200 mb-3">
             <Clock className="h-3 w-3 mr-1" />
             Coming Soon
           </Badge>
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-3">
             Admin Dashboard is on the way
           </h1>
           <p className="text-base text-gray-600 max-w-xl mx-auto leading-relaxed">

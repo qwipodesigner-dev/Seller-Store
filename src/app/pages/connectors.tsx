@@ -122,14 +122,14 @@ export function Connectors() {
   const getTypeBadge = (type: "DMS" | "Marketplace") => {
     if (type === "DMS") {
       return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1">
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
           <Database className="h-3 w-3" />
           DMS
         </Badge>
       );
     } else {
       return (
-        <Badge className="bg-orange-100 text-orange-700 border-orange-300 gap-1">
+        <Badge className="bg-orange-50 text-orange-700 border-orange-200 gap-1">
           <ShoppingBag className="h-3 w-3" />
           Marketplace
         </Badge>
@@ -141,7 +141,7 @@ export function Connectors() {
   const getStatusBadge = (status: "connected" | "not-connected") => {
     if (status === "connected") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
           <CheckCircle className="h-3 w-3" />
           Connected
         </Badge>
@@ -272,7 +272,7 @@ export function Connectors() {
         actions={
           <Button
             onClick={handleAddConnector}
-            className="gap-2 bg-gray-900 hover:bg-gray-800 text-white"
+            className="gap-2"
           >
             <Plus className="h-4 w-4" />
             Add Connector
@@ -301,7 +301,7 @@ export function Connectors() {
 
         {/* Connectors Grid */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900">
             Your Connectors ({connectors.length})
           </h2>
 
@@ -314,7 +314,7 @@ export function Connectors() {
                 action={
                   <Button
                     onClick={() => setIsAddDialogOpen(true)}
-                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    className="gap-2"
                   >
                     <Plus className="h-4 w-4" />
                     Add Connector
@@ -616,7 +616,7 @@ export function Connectors() {
                             </p>
                           </div>
                           {isMarketplaceAdded("ONDC") && (
-                            <Badge className="bg-green-100 text-green-700 border-green-300">
+                            <Badge className="bg-green-50 text-green-700 border-green-200">
                               Already Added
                             </Badge>
                           )}

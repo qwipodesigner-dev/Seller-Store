@@ -222,7 +222,7 @@ export function AdminCompanies() {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-3 flex-shrink-0">
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
             <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
@@ -243,7 +243,7 @@ export function AdminCompanies() {
                 className="pl-9 w-64 h-9"
               />
             </div>
-            <Button onClick={openCreate} className="gap-2 bg-blue-600 hover:bg-blue-700">
+            <Button onClick={openCreate} className="gap-2">
               <Plus className="h-4 w-4" />
               Add Company
             </Button>
@@ -271,7 +271,7 @@ export function AdminCompanies() {
                 companies.length === 0 ? (
                   <Button
                     onClick={openCreate}
-                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                    className="gap-2"
                   >
                     <Plus className="h-4 w-4" />
                     Add Company
@@ -536,7 +536,7 @@ export function AdminCompanies() {
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} className="bg-blue-600 hover:bg-blue-700">
+            <Button onClick={handleSave} className="">
               {editingId ? "Save Changes" : "Create Company"}
             </Button>
           </DialogFooter>

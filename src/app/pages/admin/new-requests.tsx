@@ -63,20 +63,20 @@ export function AdminNewRequests() {
   const getStatusBadge = (status: SellerRequest["status"]) => {
     if (status === "pending") {
       return (
-        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300">
+        <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200">
           Pending
         </Badge>
       );
     }
     if (status === "approved") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300">
+        <Badge className="bg-green-50 text-green-700 border-green-200">
           Approved
         </Badge>
       );
     }
     return (
-      <Badge className="bg-red-100 text-red-700 border-red-300">Rejected</Badge>
+      <Badge className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>
     );
   };
 
@@ -130,7 +130,7 @@ export function AdminNewRequests() {
               )}
             </div>
             {pendingCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-700 border-amber-300">
+              <Badge className="bg-amber-50 text-amber-700 border-amber-200">
                 {pendingCount} pending
               </Badge>
             )}
@@ -173,25 +173,25 @@ export function AdminNewRequests() {
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Name
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Business
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Phone
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         City
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Submitted
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Actions
                       </th>
                     </tr>
@@ -199,24 +199,24 @@ export function AdminNewRequests() {
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{r.name}</p>
                           <p className="text-xs text-gray-500">{r.email}</p>
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {r.businessName}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {r.phone}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {r.city}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600">
                           {new Date(r.submittedAt).toLocaleDateString()}
                         </td>
-                        <td className="px-5 py-4">{getStatusBadge(r.status)}</td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">{getStatusBadge(r.status)}</td>
+                        <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"

@@ -230,9 +230,9 @@ export function CustomerDetail() {
 
   const getStatusBadge = () => {
     const statusConfig = {
-      "Pending Approval": { color: "bg-amber-100 text-amber-800 border-amber-300", icon: Clock },
-      Active: { color: "bg-green-100 text-green-800 border-green-300", icon: CheckCircle2 },
-      Rejected: { color: "bg-red-100 text-red-800 border-red-300", icon: XCircle },
+      "Pending Approval": { color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
+      Active: { color: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle2 },
+      Rejected: { color: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
       Suspended: { color: "bg-gray-100 text-gray-800 border-gray-300", icon: AlertCircle },
     };
 
@@ -249,9 +249,9 @@ export function CustomerDetail() {
 
   const getSyncBadge = () => {
     const syncConfig = {
-      Synced: { color: "bg-green-100 text-green-700 border-green-300", icon: CheckCircle2 },
-      Pending: { color: "bg-amber-100 text-amber-700 border-amber-300", icon: Clock },
-      Failed: { color: "bg-red-100 text-red-700 border-red-300", icon: XCircle },
+      Synced: { color: "bg-green-50 text-green-700 border-green-200", icon: CheckCircle2 },
+      Pending: { color: "bg-amber-50 text-amber-700 border-amber-200", icon: Clock },
+      Failed: { color: "bg-red-50 text-red-700 border-red-200", icon: XCircle },
     };
 
     const config = syncConfig[customer.syncStatus];

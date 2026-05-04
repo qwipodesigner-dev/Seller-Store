@@ -44,12 +44,12 @@ export function AdminConnectors() {
 
   const typeBadge = (type: ConnectorInfo["type"]) =>
     type === "DMS" ? (
-      <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1 text-xs">
+      <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1 text-xs">
         <Database className="h-3 w-3" />
         DMS
       </Badge>
     ) : (
-      <Badge className="bg-orange-100 text-orange-700 border-orange-300 gap-1 text-xs">
+      <Badge className="bg-orange-50 text-orange-700 border-orange-200 gap-1 text-xs">
         <ShoppingBag className="h-3 w-3" />
         Marketplace
       </Badge>
@@ -57,7 +57,7 @@ export function AdminConnectors() {
 
   const statusBadge = (status: ConnectorInfo["status"]) =>
     status === "active" ? (
-      <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+      <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
         <CheckCircle className="h-3 w-3" />
         Active
       </Badge>

@@ -7,7 +7,7 @@ export function AddSKU() {
       <div className="w-full max-w-2xl">
         {/* Header */}
         <div className="text-center mb-12">
-          <h1 className="text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl font-semibold text-gray-900 mb-3">
             Add Products to Your Catalog
           </h1>
           <p className="text-lg text-gray-600">
@@ -17,10 +17,10 @@ export function AddSKU() {
 
         {/* Single Card - Sync from Central Catalog */}
         <Link to="/products/add-sku/central-catalog" className="group block">
-          <div className="relative bg-white rounded-2xl border-2 border-purple-300 p-10 transition-all duration-200 hover:border-purple-500 hover:shadow-2xl hover:-translate-y-2 cursor-pointer">
+          <div className="relative bg-white rounded-2xl border-2 border-blue-200 p-10 transition-all duration-200 hover:border-blue-400 hover:shadow-2xl hover:-translate-y-2 cursor-pointer">
             {/* Recommended Badge */}
             <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-              <div className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-sm font-semibold rounded-full shadow-lg">
+              <div className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-semibold rounded-full shadow-lg">
                 <Sparkles className="h-4 w-4" />
                 Single Source of Truth
               </div>
@@ -28,8 +28,8 @@ export function AddSKU() {
 
             <div className="flex flex-col items-center text-center space-y-6">
               {/* Icon */}
-              <div className="w-24 h-24 bg-gradient-to-br from-purple-100 to-purple-200 rounded-3xl flex items-center justify-center group-hover:from-purple-500 group-hover:to-purple-600 transition-all duration-200 shadow-lg">
-                <Database className="h-12 w-12 text-purple-600 group-hover:text-white transition-colors" />
+              <div className="w-24 h-24 bg-gradient-to-br from-blue-100 to-blue-200 rounded-3xl flex items-center justify-center group-hover:bg-blue-600 transition-all duration-200 shadow-lg">
+                <Database className="h-12 w-12 text-blue-600 group-hover:text-white transition-colors" />
               </div>
 
               {/* Title */}
@@ -44,7 +44,7 @@ export function AddSKU() {
 
               {/* CTA */}
               <div className="pt-6 w-full max-w-xs">
-                <div className="flex items-center justify-center gap-2 px-8 py-4 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl group-hover:from-purple-600 group-hover:to-purple-700 transition-all shadow-lg group-hover:shadow-xl">
+                <div className="flex items-center justify-center gap-2 px-8 py-4 bg-blue-600 text-white font-semibold rounded-xl group-hover:bg-blue-700 transition-all shadow-lg group-hover:shadow-xl">
                   <RefreshCw className="h-5 w-5" />
                   Start Syncing
                 </div>
@@ -53,15 +53,15 @@ export function AddSKU() {
               {/* Features */}
               <div className="grid grid-cols-3 gap-6 pt-8 border-t border-gray-100 w-full">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600 mb-1">500+</div>
+                  <div className="text-2xl font-bold text-blue-600 mb-1">500+</div>
                   <p className="text-xs text-gray-600">Brands Available</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600 mb-1">50K+</div>
+                  <div className="text-2xl font-bold text-blue-600 mb-1">50K+</div>
                   <p className="text-xs text-gray-600">Products</p>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600 mb-1">100%</div>
+                  <div className="text-2xl font-bold text-blue-600 mb-1">100%</div>
                   <p className="text-xs text-gray-600">Verified Data</p>
                 </div>
               </div>

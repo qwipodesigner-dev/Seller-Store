@@ -78,7 +78,7 @@ export function KycPage() {
     if (!seller) return null;
     if (seller.kyc.status === "verified") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
           <CheckCircle2 className="h-3 w-3" />
           Verified
         </Badge>
@@ -86,7 +86,7 @@ export function KycPage() {
     }
     if (seller.kyc.status === "submitted") {
       return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200">
           Submitted — Awaiting Verification
         </Badge>
       );
@@ -204,7 +204,7 @@ export function KycPage() {
                     </Button>
                     <Button
                       type="submit"
-                      className="bg-blue-600 hover:bg-blue-700"
+                      className=""
                       disabled={isSaving}
                     >
                       {isSaving ? "Saving..." : "Submit KYC"}

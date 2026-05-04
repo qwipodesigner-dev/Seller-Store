@@ -43,7 +43,7 @@ export function CustomerSettings() {
       <div className="max-w-5xl mx-auto space-y-6">
         {/* Auto Approval Section */}
         <Card className="border-2 shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-indigo-50 to-indigo-100/50 border-b">
+          <CardHeader className="bg-gradient-to-r from-blue-50 to-blue-100/50 border-b">
             <div className="flex items-center gap-3">
               <div className="bg-indigo-100 p-2 rounded-lg">
                 <CheckCircle2 className="h-5 w-5 text-indigo-600" />
@@ -58,7 +58,7 @@ export function CustomerSettings() {
           </CardHeader>
           <CardContent className="p-6 space-y-6">
             {/* Auto Approve Toggle */}
-            <div className="flex items-start justify-between p-4 bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg border-2 border-indigo-100">
+            <div className="flex items-start justify-between p-4 bg-blue-50 rounded-lg border-2 border-blue-100">
               <div className="flex-1">
                 <Label htmlFor="auto-approve" className="text-base font-semibold text-gray-900">
                   Enable Auto Approve

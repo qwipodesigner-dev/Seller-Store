@@ -109,8 +109,8 @@ export function BrandSync() {
           Back to Add SKU
         </Link>
         <div className="flex items-center gap-3">
-          <h1 className="text-3xl font-bold text-gray-900">Brand Catalog Sync</h1>
-          <Badge className="bg-gradient-to-r from-purple-500 to-purple-600">
+          <h1 className="text-2xl font-semibold text-gray-900">Brand Catalog Sync</h1>
+          <Badge className="bg-blue-600">
             <Sparkles className="h-3 w-3 mr-1" />
             Recommended
           </Badge>
@@ -197,7 +197,7 @@ export function BrandSync() {
       </Card>
 
       {/* Benefits Banner */}
-      <Card className="mb-6 bg-gradient-to-r from-purple-50 to-blue-50 border-purple-200">
+      <Card className="mb-6 bg-blue-50 border-blue-200">
         <CardContent className="pt-6">
           <div className="grid md:grid-cols-3 gap-6">
             <div className="flex items-start gap-3">

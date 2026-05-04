@@ -297,7 +297,7 @@ export function PriceList() {
       );
     } else {
       return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1">
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
           <FileEdit className="h-3 w-3" />
           Manual
         </Badge>
@@ -463,7 +463,7 @@ export function PriceList() {
                             }
                             className={
                               product.status === "Active"
-                                ? "bg-green-100 text-green-700 border-green-300"
+                                ? "bg-green-50 text-green-700 border-green-200"
                                 : "bg-gray-100 text-gray-700 border-gray-300"
                             }
                           >

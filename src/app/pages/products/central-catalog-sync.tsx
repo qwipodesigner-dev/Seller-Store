@@ -235,14 +235,14 @@ export function CentralCatalogSync() {
     switch (status) {
       case "Already Synced":
         return (
-          <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+          <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
             <CheckCircle2 className="h-3 w-3" />
             Already Synced
           </Badge>
         );
       case "Newly Added in Catalog":
         return (
-          <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1">
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
             <AlertCircle className="h-3 w-3" />
             Newly Added
           </Badge>
@@ -323,7 +323,7 @@ export function CentralCatalogSync() {
           <div className="flex items-center gap-3">
             <Database className="h-8 w-8 text-purple-600" />
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">
+              <h1 className="text-2xl font-semibold text-gray-900">
                 {viewMode === "brands"
                   ? "Qwipo Master Catalog"
                   : `${selectedBrand?.name} Products`}
@@ -339,7 +339,7 @@ export function CentralCatalogSync() {
           {viewMode === "products" && selectedBrand && (
             <Button
               onClick={() => handleFullCatalogSync(selectedBrand)}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
+              className="gap-2"
             >
               <RefreshCw className="h-4 w-4" />
               Sync Catalog
@@ -454,7 +454,7 @@ export function CentralCatalogSync() {
                     <Button
                       size="sm"
                       onClick={() => handleFullCatalogSync(brand)}
-                      className="gap-1 bg-purple-600 hover:bg-purple-700"
+                      className="gap-1"
                     >
                       <RefreshCw className="h-4 w-4" />
                       Sync Catalog
@@ -479,31 +479,31 @@ export function CentralCatalogSync() {
               <table className="w-full">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Image
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       SKU Code
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       SKU Name
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Category
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Brand
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Variant
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Packaging
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Status
                     </th>
-                    <th className="text-left py-4 px-4 text-xs font-semibold text-gray-700 uppercase">
+                    <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                       Last Updated
                     </th>
                   </tr>
@@ -514,36 +514,36 @@ export function CentralCatalogSync() {
                       key={product.id}
                       className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                     >
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center text-2xl">
                           {product.image}
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">
                           {product.skuCode}
                         </code>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <p className="font-medium text-gray-900 text-sm">{product.name}</p>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <div className="text-sm">
                           <p className="text-gray-900">{product.category}</p>
                           <p className="text-xs text-gray-500">{product.subcategory}</p>
                         </div>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-900">{product.brand}</p>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-900">{product.variant}</p>
                       </td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-600">{product.packaging}</p>
                       </td>
-                      <td className="py-4 px-4">{getSyncStatusBadge(product.syncStatus)}</td>
-                      <td className="py-4 px-4">
+                      <td className="px-4 py-3">{getSyncStatusBadge(product.syncStatus)}</td>
+                      <td className="px-4 py-3">
                         <p className="text-xs text-gray-600">{product.lastUpdated}</p>
                       </td>
                     </tr>
@@ -631,7 +631,7 @@ export function CentralCatalogSync() {
             </Button>
             <Button
               onClick={handleConfirmSync}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
+              className="gap-2"
             >
               <RefreshCw className="h-4 w-4" />
               Sync Catalog
