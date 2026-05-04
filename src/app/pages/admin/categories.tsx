@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -19,8 +19,8 @@ import {
   Plus,
   Tag,
   X,
-  Trash2,
 } from "lucide-react";
+import { ImageUploader } from "../../components/ui/image-uploader";
 import { toast } from "sonner";
 import {
   addMasterCategory,
@@ -54,7 +54,6 @@ export function AdminCategories() {
   const [editImageFor, setEditImageFor] = useState<MasterCategory | null>(null);
   // Draft URL while the dialog is open. Committed to the store on Save.
   const [draftImageUrl, setDraftImageUrl] = useState<string | null>(null);
-  const draftImageRef = useRef<HTMLInputElement | null>(null);
 
   const roots = useMemo(
     () => flat.filter((c) => c.parentId === null).sort((a, b) => a.name.localeCompare(b.name)),
@@ -116,27 +115,6 @@ export function AdminCategories() {
     }
     setEditImageFor(null);
     setDraftImageUrl(null);
-    if (draftImageRef.current) draftImageRef.current.value = "";
-  };
-
-  const handleDraftImagePick = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!f.type.startsWith("image/")) {
-      toast.error("Only image files allowed");
-      return;
-    }
-    // Free the previous draft (if it was a fresh blob — not the
-    // already-saved one) before swapping in the new one.
-    if (
-      draftImageUrl &&
-      draftImageUrl !== editImageFor?.imageUrl &&
-      draftImageUrl.startsWith("blob:")
-    ) {
-      revokeImage(draftImageUrl);
-    }
-    setDraftImageUrl(URL.createObjectURL(f));
-    if (draftImageRef.current) draftImageRef.current.value = "";
   };
 
   const handleSaveImage = () => {
@@ -149,7 +127,6 @@ export function AdminCategories() {
     );
     setEditImageFor(null);
     setDraftImageUrl(null);
-    if (draftImageRef.current) draftImageRef.current.value = "";
   };
 
   const handleRemoveDraftImage = () => {
@@ -163,7 +140,6 @@ export function AdminCategories() {
       revokeImage(draftImageUrl);
     }
     setDraftImageUrl(null);
-    if (draftImageRef.current) draftImageRef.current.value = "";
   };
 
   // ---- Inline subcategory add ----
@@ -268,49 +244,28 @@ export function AdminCategories() {
           </DialogHeader>
 
           <div className="py-2">
-            <input
-              ref={draftImageRef}
-              type="file"
-              accept="image/*"
-              onChange={handleDraftImagePick}
-              className="hidden"
+            <ImageUploader
+              value={draftImageUrl}
+              onChange={(file) => {
+                if (file) {
+                  // Free the previous draft (if it was a fresh blob — not
+                  // the already-saved one) before swapping in the new one.
+                  if (
+                    draftImageUrl &&
+                    draftImageUrl !== editImageFor?.imageUrl &&
+                    draftImageUrl.startsWith("blob:")
+                  ) {
+                    revokeImage(draftImageUrl);
+                  }
+                  setDraftImageUrl(URL.createObjectURL(file));
+                } else {
+                  handleRemoveDraftImage();
+                }
+              }}
+              size="fill"
+              aspect="16/9"
+              alt={editImageFor?.name ?? ""}
             />
-            <button
-              type="button"
-              onClick={() => draftImageRef.current?.click()}
-              className="w-full aspect-[16/9] rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 bg-gray-50 flex items-center justify-center overflow-hidden text-gray-500 hover:text-blue-600 transition-colors relative group"
-              title="Click to choose an image"
-            >
-              {draftImageUrl ? (
-                <>
-                  <img
-                    src={draftImageUrl}
-                    alt={editImageFor?.name}
-                    className="w-full h-full object-cover"
-                  />
-                  <span className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 text-white">
-                    <Upload className="h-5 w-5" />
-                    <span className="text-xs font-medium">Replace image</span>
-                  </span>
-                </>
-              ) : (
-                <div className="flex flex-col items-center gap-2 text-gray-400">
-                  <ImageIcon className="h-10 w-10 text-gray-300" />
-                  <span className="text-xs font-medium">Click to upload</span>
-                  <span className="text-[11px] text-gray-400">PNG / JPG up to a few MB</span>
-                </div>
-              )}
-            </button>
-            {draftImageUrl && (
-              <button
-                type="button"
-                onClick={handleRemoveDraftImage}
-                className="mt-3 inline-flex items-center gap-1 text-xs text-red-600 hover:text-red-700"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-                Remove image
-              </button>
-            )}
           </div>
 
           <DialogFooter>
