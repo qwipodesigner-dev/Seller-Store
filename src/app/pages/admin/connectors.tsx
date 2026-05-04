@@ -8,6 +8,7 @@ import {
   CheckCircle,
   ChevronRight,
   Settings,
+  Plug,
 } from "lucide-react";
 
 interface ConnectorInfo {
@@ -44,12 +45,12 @@ export function AdminConnectors() {
 
   const typeBadge = (type: ConnectorInfo["type"]) =>
     type === "DMS" ? (
-      <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1 text-xs">
+      <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1 text-xs">
         <Database className="h-3 w-3" />
         DMS
       </Badge>
     ) : (
-      <Badge className="bg-orange-100 text-orange-700 border-orange-300 gap-1 text-xs">
+      <Badge className="bg-orange-50 text-orange-700 border-orange-200 gap-1 text-xs">
         <ShoppingBag className="h-3 w-3" />
         Marketplace
       </Badge>
@@ -57,7 +58,7 @@ export function AdminConnectors() {
 
   const statusBadge = (status: ConnectorInfo["status"]) =>
     status === "active" ? (
-      <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+      <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
         <CheckCircle className="h-3 w-3" />
         Active
       </Badge>
@@ -69,14 +70,17 @@ export function AdminConnectors() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
+      {/* Toolbar — matches the Sellers / Companies / Categories pattern.
+          Connectors don't have a primary CTA right now (Phase 1 ships
+          ONDC only and it's added by default), so the toolbar just
+          shows the count. */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Connectors</h2>
-            <p className="text-sm text-gray-500">
-              Manage integrations with external systems
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Plug className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {connectors.length} connector{connectors.length === 1 ? "" : "s"}
+            </span>
           </div>
         </div>
       </div>

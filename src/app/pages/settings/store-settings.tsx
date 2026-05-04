@@ -356,7 +356,7 @@ export function StoreSettings() {
                   onChange={(e) => setNewHolidayDate(e.target.value)}
                 />
               </div>
-              <Button onClick={handleAddHoliday} className="gap-1 bg-blue-600 hover:bg-blue-700">
+              <Button onClick={handleAddHoliday} className="gap-1">
                 <Plus className="h-4 w-4" />
                 Add Holiday
               </Button>

@@ -45,6 +45,8 @@ import {
   validateSlabs,
   computeEffectivePrice,
 } from "../../lib/qps-validation";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
 
 // Seed QPS schemes — these populate the list on first load.
 // Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
@@ -130,7 +132,9 @@ const getStatusColor = (status: string) => {
 };
 
 export function OffersList() {
-  const [qpsSchemes, setQpsSchemes] = useState<QpsScheme[]>(seedQpsSchemes);
+  const [qpsSchemes, setQpsSchemes] = useState<QpsScheme[]>(() =>
+    isEmptyMode() ? [] : seedQpsSchemes,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -400,7 +404,7 @@ export function OffersList() {
               </Select>
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleOpenCreate} className="gap-2 bg-blue-600 hover:bg-blue-700">
+              <Button size="sm" onClick={handleOpenCreate} className="gap-2">
                 <Plus className="h-4 w-4" />
                 Create QPS
               </Button>
@@ -410,35 +414,58 @@ export function OffersList() {
           {/* Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-gray-50 border-b border-gray-200">
                 <tr className="text-left">
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">SKU Code</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">SKU Name</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Offer Type</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-center">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Offer Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                     Pricing Rules
                   </th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-right">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
                     MRP / SP
                   </th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase">Validity</th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-center">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Validity</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-xs font-semibold text-gray-700 uppercase text-center">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {filteredSchemes.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center">
-                      <Tag className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-gray-900">No QPS schemes</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Click <b>Create QPS</b> above to define quantity-based pricing.
-                      </p>
+                    <td colSpan={8} className="px-4 py-3">
+                      <EmptyState
+                        icon={Tag}
+                        title={
+                          qpsSchemes.length === 0
+                            ? "No QPS schemes yet"
+                            : "No matches"
+                        }
+                        description={
+                          qpsSchemes.length === 0
+                            ? "Create a quantity-based pricing scheme to reward bulk buyers and grow your average order value."
+                            : "No schemes match your search or filters. Try clearing them to see everything."
+                        }
+                        action={
+                          qpsSchemes.length === 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setEditingId(null);
+                                setIsEditorOpen(true);
+                              }}
+                              className="gap-2"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Create QPS
+                            </Button>
+                          ) : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (
@@ -579,28 +606,28 @@ export function OffersList() {
                         const savingPct = (saving / viewScheme.sellingPrice) * 100;
                         return (
                           <tr key={i}>
-                            <td className="px-3 py-2.5 text-sm font-medium text-gray-700">Slab {i + 1}</td>
-                            <td className="px-3 py-2.5 text-sm text-gray-800">
+                            <td className="px-4 py-3 text-sm font-medium text-gray-700">Slab {i + 1}</td>
+                            <td className="px-4 py-3 text-sm text-gray-800">
                               {slab.minQty}–{slab.maxQty === null ? "∞" : slab.maxQty} units
                             </td>
-                            <td className="px-3 py-2.5 text-sm">
+                            <td className="px-4 py-3 text-sm">
                               {slab.discountType === "percent" ? (
-                                <Badge className="bg-purple-100 text-purple-800 border-purple-300">
+                                <Badge className="bg-purple-50 text-purple-700 border-purple-200">
                                   {slab.slabPercent}% off
                                 </Badge>
                               ) : (
-                                <Badge className="bg-blue-100 text-blue-800 border-blue-300">
+                                <Badge className="bg-blue-50 text-blue-700 border-blue-200">
                                   Flat ₹{slab.slabPrice}/unit
                                 </Badge>
                               )}
                             </td>
-                            <td className="px-3 py-2.5 text-right">
+                            <td className="px-4 py-3 text-right">
                               <p className="text-base font-bold text-green-700">
                                 ₹{slab.effectivePrice.toFixed(2)}
                               </p>
                               <p className="text-[10px] text-gray-500">per unit</p>
                             </td>
-                            <td className="px-3 py-2.5 text-right">
+                            <td className="px-4 py-3 text-right">
                               {saving > 0 ? (
                                 <>
                                   <p className="text-sm font-semibold text-purple-700">
@@ -638,7 +665,7 @@ export function OffersList() {
                     setViewSchemeId(null);
                     handleOpenEdit(s);
                   }}
-                  className="bg-blue-600 hover:bg-blue-700 gap-2"
+                  className="gap-2"
                 >
                   <Pencil className="h-4 w-4" />
                   {viewScheme.status === "Expired" ? "Edit (Expired)" : "Edit Scheme"}
@@ -789,8 +816,8 @@ export function OffersList() {
                       const savingPct = spForEditor > 0 ? (saving / spForEditor) * 100 : 0;
                       return (
                         <tr key={i} className={isError ? "bg-red-50/60" : ""}>
-                          <td className="px-3 py-2 text-xs font-medium text-gray-700">Slab {i + 1}</td>
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3 text-xs font-medium text-gray-700">Slab {i + 1}</td>
+                          <td className="px-4 py-3">
                             <Input
                               type="number"
                               min={1}
@@ -799,7 +826,7 @@ export function OffersList() {
                               className="h-8"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3">
                             <Input
                               type="number"
                               min={1}
@@ -812,7 +839,7 @@ export function OffersList() {
                               className="h-8"
                             />
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3">
                             <Select
                               value={slab.discountType ?? "flat"}
                               onValueChange={(v) =>
@@ -832,7 +859,7 @@ export function OffersList() {
                               </SelectContent>
                             </Select>
                           </td>
-                          <td className="px-3 py-2">
+                          <td className="px-4 py-3">
                             {slab.discountType === "percent" ? (
                               <div className="relative">
                                 <Input
@@ -860,11 +887,11 @@ export function OffersList() {
                               </div>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-4 py-3 text-right">
                             <p className="text-base font-bold text-green-700">₹{eff.toFixed(2)}</p>
                             <p className="text-[10px] text-gray-500">per unit</p>
                           </td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-4 py-3 text-right">
                             {saving > 0.01 ? (
                               <>
                                 <p className="text-sm font-semibold text-purple-700">
@@ -876,7 +903,7 @@ export function OffersList() {
                               <p className="text-xs text-gray-400">—</p>
                             )}
                           </td>
-                          <td className="px-3 py-2 text-right">
+                          <td className="px-4 py-3 text-right">
                             <Button
                               variant="ghost"
                               size="icon"
@@ -936,7 +963,7 @@ export function OffersList() {
             <Button
               onClick={handleSaveEditor}
               disabled={!selectedSku || editorErrors.length > 0}
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
             >
               {editingId ? "Save Changes" : "Create QPS Scheme"}
             </Button>

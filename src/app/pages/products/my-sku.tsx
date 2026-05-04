@@ -53,7 +53,9 @@ import {
   BIZOM_REQUIRED_HEADERS,
   AggregatedSKU,
 } from "../../lib/bizom-validation";
-import { Layers } from "lucide-react";
+import { Layers, PackageSearch } from "lucide-react";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
 
 // ONDC Data structure
 interface ONDCData {
@@ -290,7 +292,9 @@ interface ValidationResult {
 
 export function MySKU() {
   const navigate = useNavigate();
-  const [skus, setSkus] = useState<SKUData[]>(sampleSKUs);
+  const [skus, setSkus] = useState<SKUData[]>(() =>
+    isEmptyMode() ? [] : sampleSKUs,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
@@ -776,7 +780,7 @@ export function MySKU() {
                   <DropdownMenuTrigger asChild>
                     <Button
                       size="sm"
-                      className="gap-2 flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
+                      className="gap-2 flex-1 sm:flex-initial"
                     >
                       <Upload className="h-4 w-4" />
                       Bulk Import
@@ -863,68 +867,92 @@ export function MySKU() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     SKU Code
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Product Name
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Brand
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Category
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     ONDC Compliance
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Last Updated
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {paginatedSKUs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No SKUs found
+                    <td colSpan={8} className="px-4 py-3">
+                      <EmptyState
+                        icon={PackageSearch}
+                        title={
+                          skus.length === 0
+                            ? "No SKUs in your catalog yet"
+                            : "No matches"
+                        }
+                        description={
+                          skus.length === 0
+                            ? "Bulk-import your DMS catalog or add SKUs one by one to start publishing them on ONDC."
+                            : "No SKUs match your current search or filters. Try clearing them to see everything."
+                        }
+                        action={
+                          skus.length === 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={() => setIsAddSkuOpen(true)}
+                              className="gap-2"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add SKUs
+                            </Button>
+                          ) : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (
                   paginatedSKUs.map((sku) => (
                     <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <span className="font-mono text-sm font-medium text-gray-900">
                           {sku.sku}
                         </span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <p className="font-medium text-gray-900 text-sm">{sku.name}</p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{sku.brand}</span>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{sku.category}</span>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <Badge
                           className={
                             sku.status === "Active"
-                              ? "bg-green-100 text-green-700 border-green-300"
+                              ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-gray-100 text-gray-700 border-gray-300"
                           }
                         >
                           {sku.status}
                         </Badge>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         {sku.ondcCompliance.isCompliant ? (
                           <Badge
                             className="bg-emerald-100 text-emerald-700 border-emerald-300 gap-1"
@@ -938,7 +966,7 @@ export function MySKU() {
                             className="inline-flex flex-col items-center gap-0.5"
                             title={`Missing / invalid fields: ${sku.ondcCompliance.missingFields.join(", ") || "—"}`}
                           >
-                            <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1">
+                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
                               <AlertCircle className="h-3 w-3" />
                               {sku.ondcCompliance.missingFields.length} field
                               {sku.ondcCompliance.missingFields.length === 1 ? "" : "s"} pending
@@ -949,10 +977,10 @@ export function MySKU() {
                           </div>
                         )}
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <span className="text-sm text-gray-600">{sku.lastUpdated}</span>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <Button
                           variant="ghost"
                           size="icon"
@@ -1293,27 +1321,27 @@ export function MySKU() {
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr className="text-left">
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Name</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-center">Batches</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">MRP (max)</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Selling Price (max)</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Total Stock</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Notes</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Name</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">Batches</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP (max)</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Selling Price (max)</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Total Stock</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Notes</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {psResult.aggregated.map((agg) => (
                               <tr key={agg.skuCode} className="hover:bg-gray-50">
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700">{agg.skuCode}</td>
-                                <td className="px-3 py-2 text-gray-900">{agg.skuName}</td>
-                                <td className="px-3 py-2 text-center">
+                                <td className="px-4 py-3 font-mono text-xs text-gray-700">{agg.skuCode}</td>
+                                <td className="px-4 py-3 text-gray-900">{agg.skuName}</td>
+                                <td className="px-4 py-3 text-center">
                                   <Badge className="bg-blue-50 text-blue-700 border-blue-200">{agg.batchCount}</Badge>
                                 </td>
-                                <td className="px-3 py-2 text-right font-semibold text-gray-900">₹{agg.mrp.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-right font-semibold text-green-700">₹{agg.sellingPrice.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-right font-semibold text-gray-900">{agg.totalStock}</td>
-                                <td className="px-3 py-2">
+                                <td className="px-4 py-3 text-right font-semibold text-gray-900">₹{agg.mrp.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-semibold text-green-700">₹{agg.sellingPrice.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-semibold text-gray-900">{agg.totalStock}</td>
+                                <td className="px-4 py-3">
                                   <div className="flex flex-wrap gap-1">
                                     {agg.hasPriceDivergence && (
                                       <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]" title="Batches had different prices — system took the maximum.">
@@ -1326,14 +1354,14 @@ export function MySKU() {
                             ))}
                             {psSkippedSkus.map((agg) => (
                               <tr key={"sk-" + agg.skuCode} className="bg-amber-50/40">
-                                <td className="px-3 py-2 font-mono text-xs text-gray-500">{agg.skuCode}</td>
-                                <td className="px-3 py-2 text-gray-500">{agg.skuName}</td>
-                                <td className="px-3 py-2 text-center text-gray-500">{agg.batchCount}</td>
-                                <td className="px-3 py-2 text-right text-gray-500">—</td>
-                                <td className="px-3 py-2 text-right text-gray-500">—</td>
-                                <td className="px-3 py-2 text-right text-gray-500">—</td>
-                                <td className="px-3 py-2">
-                                  <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                                <td className="px-4 py-3 font-mono text-xs text-gray-500">{agg.skuCode}</td>
+                                <td className="px-4 py-3 text-gray-500">{agg.skuName}</td>
+                                <td className="px-4 py-3 text-center text-gray-500">{agg.batchCount}</td>
+                                <td className="px-4 py-3 text-right text-gray-500">—</td>
+                                <td className="px-4 py-3 text-right text-gray-500">—</td>
+                                <td className="px-4 py-3 text-right text-gray-500">—</td>
+                                <td className="px-4 py-3">
+                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
                                     Skipped — SKU not in catalog
                                   </Badge>
                                 </td>
@@ -1341,7 +1369,7 @@ export function MySKU() {
                             ))}
                             {psResult.aggregated.length === 0 && psSkippedSkus.length === 0 && (
                               <tr>
-                                <td colSpan={7} className="px-3 py-6 text-center text-sm text-gray-500">
+                                <td colSpan={7} className="px-4 py-3 text-center text-sm text-gray-500">
                                   No valid SKUs to update.
                                 </td>
                               </tr>
@@ -1354,35 +1382,35 @@ export function MySKU() {
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr className="text-left">
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-14">Row</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">SKU Code</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Batch</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">MRP</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 text-right">Price</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-28">Status</th>
-                              <th className="px-3 py-2 text-xs font-semibold text-gray-600">Errors</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-14">Row</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Batch</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Price</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-28">Status</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Errors</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-gray-100">
                             {psResult.batchRows.map((b) => (
                               <tr key={b.raw.rowNumber} className={b.status === "invalid" ? "bg-red-50/50" : ""}>
-                                <td className="px-3 py-2 text-gray-700 align-top">{b.raw.rowNumber}</td>
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">{b.raw.skuCode || "—"}</td>
-                                <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top">{b.raw.batch || "—"}</td>
-                                <td className="px-3 py-2 text-right text-gray-900 align-top">₹{b.parsed.mrp.toFixed(2)}</td>
-                                <td className="px-3 py-2 text-right text-green-700 align-top">₹{b.parsed.sellingPrice.toFixed(2)}</td>
-                                <td className="px-3 py-2 align-top">
+                                <td className="px-4 py-3 text-gray-700 align-top">{b.raw.rowNumber}</td>
+                                <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top">{b.raw.skuCode || "—"}</td>
+                                <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top">{b.raw.batch || "—"}</td>
+                                <td className="px-4 py-3 text-right text-gray-900 align-top">₹{b.parsed.mrp.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right text-green-700 align-top">₹{b.parsed.sellingPrice.toFixed(2)}</td>
+                                <td className="px-4 py-3 align-top">
                                   {b.status === "valid" ? (
-                                    <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                                    <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
                                       <CheckCircle2 className="h-3 w-3" /> Valid
                                     </Badge>
                                   ) : (
-                                    <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                                    <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
                                       <AlertCircle className="h-3 w-3" /> {b.errors.length}
                                     </Badge>
                                   )}
                                 </td>
-                                <td className="px-3 py-2 align-top">
+                                <td className="px-4 py-3 align-top">
                                   {b.errors.length === 0 ? (
                                     <span className="text-xs text-green-700">All checks passed.</span>
                                   ) : (
@@ -1425,7 +1453,7 @@ export function MySKU() {
             <Button
               onClick={handleApplyPriceStock}
               disabled={!psResult || psResult.aggregated.length === 0}
-              className="bg-purple-600 hover:bg-purple-700"
+              className=""
             >
               Update {psResult?.aggregated.length ?? 0} SKU{(psResult?.aggregated.length ?? 0) !== 1 ? "s" : ""}
             </Button>
@@ -1566,34 +1594,34 @@ export function MySKU() {
                     <table className="w-full text-sm">
                       <thead className="bg-gray-50 sticky top-0 z-10">
                         <tr className="text-left">
-                          <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-14">Row</th>
-                          <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-44">Item Code</th>
-                          <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-56">Item Name</th>
-                          <th className="px-3 py-2 text-xs font-semibold text-gray-600 w-28">Status</th>
-                          <th className="px-3 py-2 text-xs font-semibold text-gray-600">Errors</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-14">Row</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-44">Item Code</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-56">Item Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-28">Status</th>
+                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Errors</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {validationResult.details.map((r) => (
                           <tr key={r.rowNumber} className={r.status === "invalid" ? "bg-red-50/50" : ""}>
-                            <td className="px-3 py-2 text-gray-700 align-top">{r.rowNumber}</td>
-                            <td className="px-3 py-2 font-mono text-xs text-gray-700 align-top break-all">
+                            <td className="px-4 py-3 text-gray-700 align-top">{r.rowNumber}</td>
+                            <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top break-all">
                               {r.skuCode || "—"}
                             </td>
-                            <td className="px-3 py-2 text-gray-900 align-top">{r.skuName || "—"}</td>
-                            <td className="px-3 py-2 align-top">
+                            <td className="px-4 py-3 text-gray-900 align-top">{r.skuName || "—"}</td>
+                            <td className="px-4 py-3 align-top">
                               {r.status === "valid" ? (
-                                <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+                                <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
                                   <CheckCircle2 className="h-3 w-3" /> Valid
                                 </Badge>
                               ) : (
-                                <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                                <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
                                   <AlertCircle className="h-3 w-3" /> {r.errors.length} error
                                   {r.errors.length !== 1 ? "s" : ""}
                                 </Badge>
                               )}
                             </td>
-                            <td className="px-3 py-2 align-top">
+                            <td className="px-4 py-3 align-top">
                               {r.errors.length === 0 ? (
                                 <span className="text-xs text-green-700">All checks passed.</span>
                               ) : (
@@ -1647,7 +1675,7 @@ export function MySKU() {
             <Button
               onClick={handleImportValid}
               disabled={!validationResult || validationResult.validRows === 0}
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
             >
               Import {validationResult?.validRows ?? 0} Valid SKU
               {(validationResult?.validRows ?? 0) !== 1 ? "s" : ""}

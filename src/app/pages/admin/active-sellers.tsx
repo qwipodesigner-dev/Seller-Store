@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import { getSellers, type Seller } from "../../lib/mock-store";
+import { EmptyState } from "../../components/empty-state";
 
 export function AdminActiveSellers() {
   const navigate = useNavigate();
@@ -53,7 +54,7 @@ export function AdminActiveSellers() {
               />
             </div>
             <Button
-              className="gap-2 bg-blue-600 hover:bg-blue-700"
+              className="gap-2"
               onClick={() => navigate("/admin/users/add")}
             >
               <Plus className="h-4 w-4" />
@@ -68,33 +69,50 @@ export function AdminActiveSellers() {
         <Card>
           <CardContent className="p-0">
             {filtered.length === 0 ? (
-              <div className="p-12 text-center">
-                <Store className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-600 font-medium">No sellers found</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {searchQuery
-                    ? "Try a different search term"
-                    : "Click \"Add Seller\" to create the first seller"}
-                </p>
-              </div>
+              <EmptyState
+                icon={Store}
+                title={
+                  sellers.length === 0
+                    ? "No sellers onboarded yet"
+                    : "No sellers found"
+                }
+                description={
+                  sellers.length === 0
+                    ? "Add your first seller to start onboarding distributors onto the Qwipo platform."
+                    : searchQuery
+                      ? "No sellers match that search. Try a different name or business."
+                      : "No sellers match your current filters."
+                }
+                action={
+                  sellers.length === 0 ? (
+                    <Button
+                      className="gap-2"
+                      onClick={() => navigate("/admin/users/add")}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Seller
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Seller
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Business
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Phone
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Actions
                       </th>
                     </tr>
@@ -102,23 +120,23 @@ export function AdminActiveSellers() {
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((s) => (
                       <tr key={s.id} className="hover:bg-gray-50">
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{s.name}</p>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           <p className="text-sm font-medium text-gray-700">
                             {s.businessName}
                           </p>
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {s.phone}
                         </td>
-                        <td className="px-5 py-4">
-                          <Badge className="bg-green-100 text-green-700 border-green-300">
+                        <td className="px-4 py-3">
+                          <Badge className="bg-green-50 text-green-700 border-green-200">
                             Active
                           </Badge>
                         </td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           <div className="flex items-center justify-end">
                             <Button
                               size="sm"

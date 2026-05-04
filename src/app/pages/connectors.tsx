@@ -33,6 +33,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { isEmptyMode } from "../lib/data-mode";
+import { EmptyState } from "../components/empty-state";
 
 // Connector Types
 interface Connector {
@@ -50,7 +52,7 @@ export function Connectors() {
   const navigate = useNavigate();
   
   // State for connectors
-  const [connectors, setConnectors] = useState<Connector[]>([
+  const seedConnectors: Connector[] = [
     {
       id: "bizom-freedom-oil",
       name: "Bizom",
@@ -89,7 +91,10 @@ export function Connectors() {
       description: "Open Network for Digital Commerce",
       icon: "🌐",
     },
-  ]);
+  ];
+  const [connectors, setConnectors] = useState<Connector[]>(() =>
+    isEmptyMode() ? [] : seedConnectors,
+  );
 
   // Add connector dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -117,14 +122,14 @@ export function Connectors() {
   const getTypeBadge = (type: "DMS" | "Marketplace") => {
     if (type === "DMS") {
       return (
-        <Badge className="bg-blue-100 text-blue-700 border-blue-300 gap-1">
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
           <Database className="h-3 w-3" />
           DMS
         </Badge>
       );
     } else {
       return (
-        <Badge className="bg-orange-100 text-orange-700 border-orange-300 gap-1">
+        <Badge className="bg-orange-50 text-orange-700 border-orange-200 gap-1">
           <ShoppingBag className="h-3 w-3" />
           Marketplace
         </Badge>
@@ -136,7 +141,7 @@ export function Connectors() {
   const getStatusBadge = (status: "connected" | "not-connected") => {
     if (status === "connected") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300 gap-1">
+        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
           <CheckCircle className="h-3 w-3" />
           Connected
         </Badge>
@@ -267,7 +272,7 @@ export function Connectors() {
         actions={
           <Button
             onClick={handleAddConnector}
-            className="gap-2 bg-gray-900 hover:bg-gray-800 text-white"
+            className="gap-2"
           >
             <Plus className="h-4 w-4" />
             Add Connector
@@ -296,10 +301,28 @@ export function Connectors() {
 
         {/* Connectors Grid */}
         <div className="space-y-4">
-          <h2 className="text-xl font-bold text-gray-900">
+          <h2 className="text-lg font-semibold text-gray-900">
             Your Connectors ({connectors.length})
           </h2>
 
+          {connectors.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={Database}
+                title="No connectors yet"
+                description="Plug in a DMS like Bizom for each brand and connect ONDC to start syncing your catalog, inventory and orders end-to-end."
+                action={
+                  <Button
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Connector
+                  </Button>
+                }
+              />
+            </Card>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {connectors.map((connector) => (
               <Card
@@ -382,25 +405,24 @@ export function Connectors() {
             ))}
 
             {/* Empty State - Add More */}
-            {(
-              <Card
-                className="border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer hover:bg-blue-50/50 transition-all"
-                onClick={handleAddConnector}
-              >
-                <CardContent className="p-5 flex flex-col items-center justify-center min-h-[200px] text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                    <Plus className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    Add New Connector
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Connect a DMS system or marketplace
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <Card
+              className="border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer hover:bg-blue-50/50 transition-all"
+              onClick={handleAddConnector}
+            >
+              <CardContent className="p-5 flex flex-col items-center justify-center min-h-[200px] text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                  <Plus className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  Add New Connector
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Connect a DMS system or marketplace
+                </p>
+              </CardContent>
+            </Card>
           </div>
+          )}
         </div>
 
         {/* How It Works Section */}
@@ -594,7 +616,7 @@ export function Connectors() {
                             </p>
                           </div>
                           {isMarketplaceAdded("ONDC") && (
-                            <Badge className="bg-green-100 text-green-700 border-green-300">
+                            <Badge className="bg-green-50 text-green-700 border-green-200">
                               Already Added
                             </Badge>
                           )}

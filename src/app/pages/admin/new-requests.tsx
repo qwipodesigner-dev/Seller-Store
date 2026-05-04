@@ -25,6 +25,7 @@ import {
   rejectRequest,
   type SellerRequest,
 } from "../../lib/mock-store";
+import { EmptyState } from "../../components/empty-state";
 
 type Filter = "pending" | "approved" | "rejected" | "all";
 
@@ -62,20 +63,20 @@ export function AdminNewRequests() {
   const getStatusBadge = (status: SellerRequest["status"]) => {
     if (status === "pending") {
       return (
-        <Badge className="bg-yellow-100 text-yellow-700 border-yellow-300">
+        <Badge className="bg-yellow-50 text-yellow-700 border-yellow-200">
           Pending
         </Badge>
       );
     }
     if (status === "approved") {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300">
+        <Badge className="bg-green-50 text-green-700 border-green-200">
           Approved
         </Badge>
       );
     }
     return (
-      <Badge className="bg-red-100 text-red-700 border-red-300">Rejected</Badge>
+      <Badge className="bg-red-50 text-red-700 border-red-200">Rejected</Badge>
     );
   };
 
@@ -129,7 +130,7 @@ export function AdminNewRequests() {
               )}
             </div>
             {pendingCount > 0 && (
-              <Badge className="bg-amber-100 text-amber-700 border-amber-300">
+              <Badge className="bg-amber-50 text-amber-700 border-amber-200">
                 {pendingCount} pending
               </Badge>
             )}
@@ -152,39 +153,45 @@ export function AdminNewRequests() {
         <Card>
           <CardContent className="p-0">
             {filtered.length === 0 ? (
-              <div className="p-12 text-center">
-                <Inbox className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-600 font-medium">No requests found</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {searchQuery
-                    ? "Try a different search term"
-                    : "New seller signup requests will appear here"}
-                </p>
-              </div>
+              <EmptyState
+                icon={Inbox}
+                title={
+                  requests.length === 0
+                    ? "No signup requests yet"
+                    : "No requests found"
+                }
+                description={
+                  requests.length === 0
+                    ? "When a new seller signs up via the onboarding form, their request will appear here for you to approve."
+                    : searchQuery
+                      ? "No requests match your search. Try a different term."
+                      : "Nothing matches the current filter — try the All tab to see everything."
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Name
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Business
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Phone
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         City
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Submitted
                       </th>
-                      <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Status
                       </th>
-                      <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Actions
                       </th>
                     </tr>
@@ -192,24 +199,24 @@ export function AdminNewRequests() {
                   <tbody className="divide-y divide-gray-100">
                     {filtered.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50">
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{r.name}</p>
                           <p className="text-xs text-gray-500">{r.email}</p>
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {r.businessName}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {r.phone}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">
+                        <td className="px-4 py-3 text-sm text-gray-700">
                           {r.city}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600">
                           {new Date(r.submittedAt).toLocaleDateString()}
                         </td>
-                        <td className="px-5 py-4">{getStatusBadge(r.status)}</td>
-                        <td className="px-5 py-4">
+                        <td className="px-4 py-3">{getStatusBadge(r.status)}</td>
+                        <td className="px-4 py-3">
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"

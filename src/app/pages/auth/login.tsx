@@ -58,11 +58,13 @@ export function Login() {
     }, 600);
   };
 
-  const fillDemo = (role: "admin" | "admin-empty" | "seller") => {
+  const fillDemo = (role: "admin" | "admin-empty" | "seller" | "seller-empty") => {
     if (role === "admin") {
       setMobile("9900000001");
     } else if (role === "admin-empty") {
       setMobile("9999999999");
+    } else if (role === "seller-empty") {
+      setMobile("8888888888");
     } else {
       setMobile("9900000002");
     }
@@ -172,7 +174,7 @@ export function Login() {
                 {!otpSent ? (
                   <Button
                     type="button"
-                    className="w-full bg-blue-600 hover:bg-blue-700"
+                    className="w-full"
                     disabled={isLoading}
                     onClick={handleSendOtp}
                   >
@@ -215,7 +217,7 @@ export function Login() {
 
                     <Button
                       type="submit"
-                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      className="w-full"
                       disabled={isLoading}
                     >
                       {isLoading ? "Verifying..." : "Verify & Sign In"}
@@ -229,7 +231,7 @@ export function Login() {
                 <p className="text-xs font-semibold text-blue-900 mb-2">
                   Demo accounts — tap to autofill (OTP: 1234)
                 </p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => fillDemo("admin")}
@@ -254,7 +256,7 @@ export function Login() {
                     <Shield className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
                     <div className="min-w-0">
                       <p className="text-xs font-semibold text-gray-900">
-                        Admin (Empty)
+                        Super Admin (Empty)
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
                         9999999999
@@ -273,6 +275,22 @@ export function Login() {
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
                         9900000002
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillDemo("seller-empty")}
+                    className="flex items-start gap-2 p-2 rounded-md bg-white border border-amber-200 hover:border-amber-400 transition-all text-left"
+                    title="Seller with all empty data — every seller-side page renders its inception-day empty state"
+                  >
+                    <Store className="h-4 w-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900">
+                        Seller (Empty)
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        8888888888
                       </p>
                     </div>
                   </button>

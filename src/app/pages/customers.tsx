@@ -46,7 +46,7 @@ import {
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  customers as allCustomers,
+  customers as customersSeed,
   CLASS_TYPES,
   ClassType,
   Customer,
@@ -54,6 +54,11 @@ import {
   type DeliveryDay,
   DELIVERY_DAY_OPTIONS,
 } from "../lib/customers-data";
+import { isEmptyMode } from "../lib/data-mode";
+import { EmptyState } from "../components/empty-state";
+
+// Empty-mode sellers see no seeded customers — the inception-day empty state.
+const allCustomers: Customer[] = isEmptyMode() ? [] : customersSeed;
 
 type TabKey = "pending" | "approved" | "rejected";
 
@@ -660,7 +665,7 @@ export function Customers() {
                     setExportTo("");
                     setIsExportDialogOpen(true);
                   }}
-                  className="gap-2 flex-1 sm:flex-initial bg-blue-600 hover:bg-blue-700"
+                  className="gap-2 flex-1 sm:flex-initial"
                 >
                   <Download className="h-4 w-4" />
                   Export
@@ -839,47 +844,53 @@ export function Customers() {
                             aria-label="Select all on this page"
                           />
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Customer</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Class</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Business</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Mobile</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Brand / Company</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Area / Pincode</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Registered</th>
-                        <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Customer</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Class</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Business</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Mobile</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Brand / Company</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Area / Pincode</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Registered</th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
                       </tr>
                     );
                   })()
                 ) : (
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Customer</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Class</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Business</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Mobile</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Linked Companies</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Area / Pincode</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Registered</th>
-                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Customer</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Class</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Business</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Mobile</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Linked Companies</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Area / Pincode</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Registered</th>
+                    <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
                   </tr>
                 )}
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="divide-y divide-gray-100">
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={activeTab === "pending" ? 9 : 8} className="px-4 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="h-12 w-12 text-gray-400" />
-                        <p className="text-sm font-medium text-gray-900">
-                          {activeTab === "pending"
-                            ? "No pending requests"
-                            : activeTab === "approved"
-                              ? "No approved customers"
-                              : "No rejected customers"}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Try adjusting your search or filters.
-                        </p>
-                      </div>
+                    <td colSpan={activeTab === "pending" ? 9 : 8} className="px-4 py-3">
+                      <EmptyState
+                        icon={Users}
+                        title={
+                          allCustomers.length === 0
+                            ? "No customers yet"
+                            : activeTab === "pending"
+                              ? "No pending requests"
+                              : activeTab === "approved"
+                                ? "No approved customers"
+                                : "No rejected customers"
+                        }
+                        description={
+                          allCustomers.length === 0
+                            ? "Once retailers register against your brands, their requests will land here for approval."
+                            : activeTab === "pending"
+                              ? "You're all caught up — every customer request has been actioned."
+                              : "Try adjusting your search or filters to widen the results."
+                        }
+                      />
                     </td>
                   </tr>
                 ) : activeTab === "pending" ? (
@@ -898,30 +909,30 @@ export function Customers() {
                           aria-label={`Select ${c.businessName} for ${a.companyName}`}
                         />
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <p className="font-medium text-gray-900 text-sm">{c.customerName}</p>
                       </td>
-                      <td className="px-4 py-4">{getClassTypeBadge(c.classType)}</td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">{getClassTypeBadge(c.classType)}</td>
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-800">{c.businessName}</p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-700 whitespace-nowrap">{c.mobile}</p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
                           <Building2 className="h-3 w-3 mr-1" />
                           {a.companyName}
                         </Badge>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-800">{c.area}</p>
                         <p className="text-xs text-gray-500">{c.pincode} · {c.city}</p>
                       </td>
-                      <td className="px-4 py-4">
+                      <td className="px-4 py-3">
                         <p className="text-sm text-gray-700 whitespace-nowrap">{c.registeredDate}</p>
                       </td>
-                      <td className="px-4 py-4 text-center">
+                      <td className="px-4 py-3 text-center">
                         <div className="flex items-center justify-center gap-1.5">
                           <Button
                             size="sm"
@@ -962,17 +973,17 @@ export function Customers() {
                     const matching = approvals.filter((a) => a.status === matchingStatus);
                     return (
                       <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <p className="font-medium text-gray-900 text-sm">{c.customerName}</p>
                         </td>
-                        <td className="px-4 py-4">{getClassTypeBadge(c.classType)}</td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">{getClassTypeBadge(c.classType)}</td>
+                        <td className="px-4 py-3">
                           <p className="text-sm text-gray-800">{c.businessName}</p>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <p className="text-sm text-gray-700 whitespace-nowrap">{c.mobile}</p>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <Button
                             variant="outline"
                             size="sm"
@@ -988,14 +999,14 @@ export function Customers() {
                             <ChevronRight className="h-3 w-3 opacity-60" />
                           </Button>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <p className="text-sm text-gray-800">{c.area}</p>
                           <p className="text-xs text-gray-500">{c.pincode} · {c.city}</p>
                         </td>
-                        <td className="px-4 py-4">
+                        <td className="px-4 py-3">
                           <p className="text-sm text-gray-700 whitespace-nowrap">{c.registeredDate}</p>
                         </td>
-                        <td className="px-4 py-4 text-center">
+                        <td className="px-4 py-3 text-center">
                           <Button
                             variant="outline"
                             size="sm"
@@ -1099,7 +1110,7 @@ export function Customers() {
                 }
                 handleExport();
               }}
-              className="bg-blue-600 hover:bg-blue-700 gap-2"
+              className="gap-2"
             >
               <Download className="h-4 w-4" />
               Download
@@ -1210,7 +1221,7 @@ export function Customers() {
                 <Button variant="outline" className="flex-1" onClick={handleClearFilters}>
                   Clear
                 </Button>
-                <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleApplyFilters}>
+                <Button className="flex-1" onClick={handleApplyFilters}>
                   Apply
                 </Button>
               </div>
@@ -1520,7 +1531,7 @@ export function Customers() {
             </Button>
             {breakdownCustomer && (
               <Button
-                className="bg-blue-600 hover:bg-blue-700 gap-2"
+                className="gap-2"
                 onClick={() => {
                   navigate(`/customers/${breakdownCustomer.id}`);
                   setBreakdownCustomer(null);

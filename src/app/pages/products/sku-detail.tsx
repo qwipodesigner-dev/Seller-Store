@@ -519,15 +519,15 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
   const getBadgeColor = () => {
     switch (offer.type) {
       case "quantity-slab":
-        return "bg-blue-100 text-blue-700 border-blue-300";
+        return "bg-blue-50 text-blue-700 border-blue-200";
       case "buy-x-get-y":
         return "bg-pink-100 text-pink-700 border-pink-300";
       case "discount":
-        return "bg-green-100 text-green-700 border-green-300";
+        return "bg-green-50 text-green-700 border-green-200";
       case "cart-level":
-        return "bg-purple-100 text-purple-700 border-purple-300";
+        return "bg-purple-50 text-purple-700 border-purple-200";
       case "seller-specific":
-        return "bg-orange-100 text-orange-700 border-orange-300";
+        return "bg-orange-50 text-orange-700 border-orange-200";
       case "bundle":
         return "bg-indigo-100 text-indigo-700 border-indigo-300";
       default:
@@ -547,13 +547,13 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <h3 className="font-semibold text-gray-900">{offer.title}</h3>
                   {offer.isBestOffer && (
-                    <Badge className="bg-amber-100 text-amber-700 border-amber-300 gap-1">
+                    <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
                       <Star className="h-3 w-3 fill-amber-700" />
                       Best Offer
                     </Badge>
                   )}
                   {offer.isMostPopular && (
-                    <Badge className="bg-red-100 text-red-700 border-red-300 gap-1">
+                    <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
                       <Flame className="h-3 w-3" />
                       Most Popular
                     </Badge>
@@ -610,7 +610,7 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
                         <th className="px-3 py-2 text-right font-medium text-gray-700">Savings</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-gray-100">
                       {offer.tiers.map((tier, idx) => {
                         const isActive =
                           currentQty >= tier.minQty &&
@@ -620,17 +620,17 @@ function OfferCard({ offer, currentQty = 1 }: { offer: Offer; currentQty?: numbe
                             key={idx}
                             className={isActive ? "bg-green-50 font-medium" : "bg-white"}
                           >
-                            <td className="px-3 py-2">
+                            <td className="px-4 py-3">
                               {tier.minQty}
                               {tier.maxQty ? `-${tier.maxQty}` : "+"} units
                               {isActive && (
-                                <Badge className="ml-2 bg-green-100 text-green-700 border-green-300 text-xs">
+                                <Badge className="ml-2 bg-green-50 text-green-700 border-green-200 text-xs">
                                   Active
                                 </Badge>
                               )}
                             </td>
-                            <td className="px-3 py-2 text-right">₹{tier.pricePerUnit}</td>
-                            <td className="px-3 py-2 text-right text-green-600">
+                            <td className="px-4 py-3 text-right">₹{tier.pricePerUnit}</td>
+                            <td className="px-4 py-3 text-right text-green-600">
                               {tier.savings ? `₹${tier.savings}/unit` : "-"}
                             </td>
                           </tr>
@@ -968,7 +968,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset
           </Button>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+          <Button size="sm" className="" onClick={handleSave}>
             Save ONDC Values
           </Button>
         </div>
@@ -1331,7 +1331,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           <DialogFooter>
             <Button
               onClick={() => setPendingErrors([])}
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
             >
               Got it — I'll fix these
             </Button>
@@ -1863,9 +1863,9 @@ function FieldStatus({ edited, missing }: { edited?: boolean; missing?: boolean 
 function StatusBadge({ status }: { status: string }) {
   const cls =
     status === "Active"
-      ? "bg-green-100 text-green-700 border-green-300"
+      ? "bg-green-50 text-green-700 border-green-200"
       : status === "Inactive"
-        ? "bg-red-100 text-red-700 border-red-300"
+        ? "bg-red-50 text-red-700 border-red-200"
         : "bg-gray-100 text-gray-700 border-gray-300";
   return <Badge className={cls}>{status}</Badge>;
 }
@@ -1963,7 +1963,7 @@ function OffersTab({ skuId }: { skuId: string }) {
           <div className="flex items-center gap-2">
             <div className="h-8 w-1 bg-green-600 rounded-full"></div>
             <h3 className="text-lg font-semibold text-gray-900">SKU-Level Offers</h3>
-            <Badge className="bg-green-100 text-green-700 border-green-300">
+            <Badge className="bg-green-50 text-green-700 border-green-200">
               {skuLevelOffers.length}
             </Badge>
           </div>
@@ -1982,7 +1982,7 @@ function OffersTab({ skuId }: { skuId: string }) {
           <div className="flex items-center gap-2">
             <div className="h-8 w-1 bg-blue-600 rounded-full"></div>
             <h3 className="text-lg font-semibold text-gray-900">Conditional Offers</h3>
-            <Badge className="bg-blue-100 text-blue-700 border-blue-300">
+            <Badge className="bg-blue-50 text-blue-700 border-blue-200">
               {conditionalOffers.length}
             </Badge>
           </div>
@@ -2116,7 +2116,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset
           </Button>
-          <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+          <Button size="sm" className="" onClick={handleSave}>
             Save Price & Stock
           </Button>
         </div>
@@ -2245,7 +2245,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           <DialogFooter>
             <Button
               onClick={() => setPendingPIErrors([])}
-              className="bg-blue-600 hover:bg-blue-700"
+              className=""
             >
               Got it — I'll fix these
             </Button>
@@ -2267,9 +2267,9 @@ export function SKUDetail() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "Active":
-        return <Badge className="bg-green-100 text-green-700 border-green-300">Active</Badge>;
+        return <Badge className="bg-green-50 text-green-700 border-green-200">Active</Badge>;
       case "Inactive":
-        return <Badge className="bg-red-100 text-red-700 border-red-300">Inactive</Badge>;
+        return <Badge className="bg-red-50 text-red-700 border-red-200">Inactive</Badge>;
       case "Draft":
         return <Badge className="bg-gray-100 text-gray-700 border-gray-300">Draft</Badge>;
       default:

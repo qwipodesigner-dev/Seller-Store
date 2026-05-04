@@ -182,7 +182,7 @@ export function CustomerSettingsDrawer({
               <Button variant="outline" className="flex-1" onClick={onClose}>
                 Cancel
               </Button>
-              <Button className="flex-1 bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+              <Button className="flex-1" onClick={handleSave}>
                 Save Settings
               </Button>
             </div>

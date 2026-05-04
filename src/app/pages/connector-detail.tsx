@@ -302,7 +302,7 @@ export function ConnectorDetail() {
       <div className="p-6">
         <div className="text-center py-12">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-gray-900">Connector Not Found</h2>
+          <h2 className="text-lg font-semibold text-gray-900">Connector Not Found</h2>
           <p className="text-gray-600 mt-2">The connector you're looking for doesn't exist.</p>
           <Button className="mt-4" onClick={() => navigate(backPath)}>
             {backLabel}
@@ -315,11 +315,11 @@ export function ConnectorDetail() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "active":
-        return <Badge className="bg-green-100 text-green-700 border-green-300">Active</Badge>;
+        return <Badge className="bg-green-50 text-green-700 border-green-200">Active</Badge>;
       case "inactive":
         return <Badge variant="outline" className="text-gray-600">Inactive</Badge>;
       case "configuring":
-        return <Badge className="bg-amber-100 text-amber-700 border-amber-300">Configuring</Badge>;
+        return <Badge className="bg-amber-50 text-amber-700 border-amber-200">Configuring</Badge>;
       default:
         return null;
     }
@@ -337,7 +337,7 @@ export function ConnectorDetail() {
           <div className="flex items-center gap-3">
             <div className="text-5xl">{connector.icon}</div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{connector.name}</h1>
+              <h1 className="text-2xl font-semibold text-gray-900">{connector.name}</h1>
               <p className="text-gray-600">{connector.description}</p>
             </div>
           </div>
@@ -675,20 +675,20 @@ export function ConnectorDetail() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Source Field</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Source Field</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         <ArrowRight className="h-4 w-4 mx-auto" />
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Target Field</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Transformation</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Required</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Target Field</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Transformation</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Required</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {fieldMappings.map((mapping: any) => (
                       <tr key={mapping.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3">
                           <code className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded">
                             {mapping.sourceField}
                           </code>
@@ -696,12 +696,12 @@ export function ConnectorDetail() {
                         <td className="text-center">
                           <Link2 className="h-4 w-4 text-gray-400 mx-auto" />
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3">
                           <code className="text-xs bg-green-50 text-green-700 px-2 py-1 rounded">
                             {mapping.targetField}
                           </code>
                         </td>
-                        <td className="py-3 px-4 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-gray-600">
                           {mapping.transformation || "-"}
                         </td>
                         <td className="text-center">
@@ -747,28 +747,28 @@ export function ConnectorDetail() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Field</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Source Value</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Field</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Source Value</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         <ArrowRight className="h-4 w-4 mx-auto" />
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Target Value</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Target Value</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {valueMappings.map((mapping: any) => (
                       <tr key={mapping.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3">
                           <Badge variant="outline" className="text-xs">{mapping.field}</Badge>
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3">
                           <span className="text-sm text-gray-900">{mapping.sourceValue}</span>
                         </td>
                         <td className="text-center">
                           <ArrowRight className="h-4 w-4 text-gray-400 mx-auto" />
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3">
                           <span className="text-sm font-semibold text-gray-900">{mapping.targetValue}</span>
                         </td>
                         <td className="text-center">
@@ -807,27 +807,27 @@ export function ConnectorDetail() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Stage</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Source Status</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Stage</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Source Status</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         <ArrowRight className="h-4 w-4 mx-auto" />
                       </th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Target Status</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Auto Approve</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Target Status</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Auto Approve</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
                     {workflowMappings.map((mapping: any) => (
                       <tr key={mapping.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">{mapping.stage}</td>
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{mapping.stage}</td>
+                        <td className="px-4 py-3">
                           <Badge variant="outline" className="text-xs">{mapping.sourceStatus}</Badge>
                         </td>
                         <td className="text-center">
                           <ArrowRight className="h-4 w-4 text-gray-400 mx-auto" />
                         </td>
-                        <td className="py-3 px-4">
+                        <td className="px-4 py-3">
                           <Badge className="bg-blue-100 text-blue-700 text-xs">{mapping.targetStatus}</Badge>
                         </td>
                         <td className="text-center">
@@ -869,20 +869,20 @@ export function ConnectorDetail() {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Timestamp</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Data Type</th>
-                      <th className="text-center py-3 px-4 text-sm font-semibold text-gray-700">Status</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Processed</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Failed</th>
-                      <th className="text-right py-3 px-4 text-sm font-semibold text-gray-700">Duration</th>
-                      <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Error Details</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Timestamp</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Data Type</th>
+                      <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Status</th>
+                      <th className="text-right px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Processed</th>
+                      <th className="text-right px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Failed</th>
+                      <th className="text-right px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Duration</th>
+                      <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">Error Details</th>
                     </tr>
                   </thead>
                   <tbody>
                     {syncLogs.map((log: any) => (
                       <tr key={log.id} className="border-b border-gray-100 hover:bg-gray-50">
-                        <td className="py-3 px-4 text-xs text-gray-600">{log.timestamp}</td>
-                        <td className="py-3 px-4 text-sm font-medium text-gray-900">{log.dataType}</td>
+                        <td className="px-4 py-3 text-xs text-gray-600">{log.timestamp}</td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900">{log.dataType}</td>
                         <td className="text-center">
                           {log.status === "success" && (
                             <Badge className="bg-green-100 text-green-700 text-xs">Success</Badge>
@@ -894,14 +894,14 @@ export function ConnectorDetail() {
                             <Badge className="bg-amber-100 text-amber-700 text-xs">Partial</Badge>
                           )}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right font-medium text-gray-900">
+                        <td className="px-4 py-3 text-sm text-right font-medium text-gray-900">
                           {log.recordsProcessed}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right font-medium text-red-600">
+                        <td className="px-4 py-3 text-sm text-right font-medium text-red-600">
                           {log.recordsFailed}
                         </td>
-                        <td className="py-3 px-4 text-sm text-right text-gray-600">{log.duration}</td>
-                        <td className="py-3 px-4 text-xs text-red-600">
+                        <td className="px-4 py-3 text-sm text-right text-gray-600">{log.duration}</td>
+                        <td className="px-4 py-3 text-xs text-red-600">
                           {log.error || "-"}
                         </td>
                       </tr>
@@ -1000,7 +1000,7 @@ function ConnectorUsersTab({ connectorName }: { connectorName: string }) {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>{connectorName} Users</CardTitle>
-            <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={openAdd}>
+            <Button className="gap-2" onClick={openAdd}>
               <Plus className="h-4 w-4" />
               Add User
             </Button>
@@ -1011,16 +1011,16 @@ function ConnectorUsersTab({ connectorName }: { connectorName: string }) {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Name
                   </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Mobile Number
                   </th>
-                  <th className="px-5 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
-                  <th className="px-5 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Actions
                   </th>
                 </tr>
@@ -1028,30 +1028,30 @@ function ConnectorUsersTab({ connectorName }: { connectorName: string }) {
               <tbody className="divide-y divide-gray-100">
                 {users.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-5 py-12 text-center text-gray-500 text-sm">
+                    <td colSpan={4} className="px-4 py-3 text-center text-gray-500 text-sm">
                       No users yet. Click "Add User" to create one.
                     </td>
                   </tr>
                 ) : (
                   users.map((u) => (
                     <tr key={u.id} className="hover:bg-gray-50">
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <p className="font-medium text-gray-900">{u.name}</p>
                         <p className="text-xs text-gray-500">{u.email}</p>
                       </td>
-                      <td className="px-5 py-4 text-sm text-gray-700">{u.mobile}</td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3 text-sm text-gray-700">{u.mobile}</td>
+                      <td className="px-4 py-3">
                         <Badge
                           className={
                             u.status === "Active"
-                              ? "bg-green-100 text-green-700 border-green-300"
+                              ? "bg-green-50 text-green-700 border-green-200"
                               : "bg-gray-100 text-gray-700 border-gray-300"
                           }
                         >
                           {u.status}
                         </Badge>
                       </td>
-                      <td className="px-5 py-4">
+                      <td className="px-4 py-3">
                         <div className="flex justify-end">
                           <Button size="sm" variant="outline" onClick={() => openEdit(u)}>
                             <Edit className="h-3.5 w-3.5 mr-1" />
@@ -1113,7 +1113,7 @@ function ConnectorUsersTab({ connectorName }: { connectorName: string }) {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleSave}>
+            <Button className="" onClick={handleSave}>
               {editUser ? "Save Changes" : "Add User"}
             </Button>
           </DialogFooter>
