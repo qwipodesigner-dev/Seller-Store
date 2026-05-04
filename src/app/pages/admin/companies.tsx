@@ -322,16 +322,18 @@ export function AdminCompanies() {
           </DialogHeader>
 
           <div className="space-y-4">
-            {/* Company name + logo */}
-            <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-4 items-start">
+            {/* Company name + logo. Grid column matches the ImageUploader
+                tile width (96px @ size="md") so the logo never spills over
+                onto the Company Name input. */}
+            <div className="grid grid-cols-1 md:grid-cols-[96px_1fr] gap-4 items-start">
               <div className="space-y-1">
                 <Label className="text-xs">Logo</Label>
                 <ImageUploader
                   value={imageUrl}
                   onChange={handleCompanyImage}
-                  size="lg"
+                  size="md"
                   alt="Company logo"
-                  placeholder="Upload logo"
+                  placeholder="Upload"
                   helper={null}
                 />
               </div>
