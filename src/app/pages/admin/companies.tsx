@@ -330,18 +330,23 @@ export function AdminCompanies() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="!max-w-[min(95vw,800px)] w-[min(95vw,800px)] max-h-[92vh] overflow-y-auto">
-          <DialogHeader>
+        {/* Flex column: header stays pinned at the top, body scrolls if it
+            overflows, footer is sticky at the bottom. This stops the Save
+            button from going off-screen as more brand rows are added. */}
+        <DialogContent className="!max-w-[min(95vw,800px)] w-[min(95vw,800px)] max-h-[92vh] flex flex-col p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-3 border-b border-gray-100 shrink-0">
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-blue-600" />
               {editingId ? "Edit Company" : "Add Company"}
             </DialogTitle>
             <DialogDescription>
-              Add the company name, logo, and at least one brand. You can add more brands now or later.
+              {editingId
+                ? "Update the logo, add new brands, refresh brand logos, or change category cover images. Names are read-only."
+                : "Add the company name, logo, and at least one brand. You can add more brands now or later."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 px-6 py-4 overflow-y-auto flex-1 min-h-0">
             {/* Company name + logo */}
             <div className="grid grid-cols-1 md:grid-cols-[120px_1fr] gap-4 items-start">
               <div className="space-y-1">
@@ -391,15 +396,22 @@ export function AdminCompanies() {
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">
-                  Company Name <span className="text-red-500">*</span>
+                  Company Name {!editingId && <span className="text-red-500">*</span>}
                 </Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="e.g. ITC Limited"
+                  // Company name is fixed once created; only the logo, brand
+                  // list (extend) and category covers can be modified on Edit.
+                  readOnly={!!editingId}
+                  disabled={!!editingId}
+                  className={editingId ? "bg-gray-50" : undefined}
                 />
                 <p className="text-[11px] text-gray-500">
-                  This is the legal entity. Brands sit under it.
+                  {editingId
+                    ? "Company name is read-only — it cannot be changed once created."
+                    : "This is the legal entity. Brands sit under it."}
                 </p>
               </div>
             </div>
@@ -532,11 +544,12 @@ export function AdminCompanies() {
             </Tabs>
           </div>
 
-          <DialogFooter>
+          {/* Sticky footer — always visible regardless of brand count. */}
+          <DialogFooter className="px-6 py-4 border-t border-gray-100 bg-white shrink-0">
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} className="">
+            <Button onClick={handleSave}>
               {editingId ? "Save Changes" : "Create Company"}
             </Button>
           </DialogFooter>
@@ -609,6 +622,12 @@ function BrandRow({
         value={brand.name}
         onChange={(e) => onName(e.target.value)}
         placeholder="Brand name (e.g. Aashirvaad)"
+        // Brand name is locked once the brand has been saved on the
+        // company. The brand image can still be replaced.
+        readOnly={!!brand.isExisting}
+        disabled={!!brand.isExisting}
+        className={brand.isExisting ? "bg-gray-50" : undefined}
+        title={brand.isExisting ? "Existing brand names cannot be changed" : undefined}
       />
       <Button
         variant="ghost"
