@@ -221,26 +221,26 @@ export function AdminCompanies() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
+      {/* Toolbar — same shape as the Sellers page so admin pages feel
+          uniform: a count on the left, search + primary CTA on the right.
+          The page title comes from the topbar (RootLayout). */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <Building2 className="h-5 w-5 text-blue-600" />
-              Companies & Brands
-            </h2>
-            <p className="text-sm text-gray-500">
-              Manage company master data — used when creating sellers and SKUs.
-            </p>
-          </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <div className="relative">
+            <Building2 className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {filtered.length} compan{filtered.length === 1 ? "y" : "ies"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="relative w-64 md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search company or brand..."
-                className="pl-9 w-64 h-9"
+                className="pl-10"
               />
             </div>
             <Button onClick={openCreate} className="gap-2">

@@ -18,7 +18,6 @@ import {
   Upload,
   Image as ImageIcon,
   Plus,
-  CheckCircle2,
   Tag,
   X,
 } from "lucide-react";
@@ -94,7 +93,6 @@ export function AdminCategories() {
   const totalCats = flat.length;
   const rootCount = roots.length;
   const subCount = totalCats - rootCount;
-  const withImages = roots.filter((r) => r.imageUrl).length;
 
   // ---- Root add ----
   const openAddRoot = () => {
@@ -158,41 +156,29 @@ export function AdminCategories() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
+      {/* Toolbar — matches the Sellers / Companies pattern: count on the
+          left, search + primary CTA on the right. Page title comes from
+          the topbar. */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between gap-3 flex-wrap">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-              <LayoutGrid className="h-5 w-5 text-pink-600" />
-              Category Master
-            </h2>
-            <p className="text-sm text-gray-500">
-              Two-level taxonomy: a main category (with an image) and any
-              number of subcategories under it. Subcategories don't nest
-              further. Categories cannot be edited or deleted once created.
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <LayoutGrid className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {rootCount} categor{rootCount === 1 ? "y" : "ies"} · {subCount} sub{subCount === 1 ? "" : "s"}
+            </span>
           </div>
-          <div className="flex items-center gap-3 flex-wrap">
-            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              {withImages} / {rootCount} with images
-            </Badge>
-            <Badge className="bg-blue-50 text-blue-700 border-blue-200">
-              {rootCount} categories · {subCount} subs
-            </Badge>
-            <div className="relative">
+
+          <div className="flex items-center gap-3">
+            <div className="relative w-64 md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search category or subcategory..."
-                className="pl-9 w-72 h-9"
+                className="pl-10"
               />
             </div>
-            <Button
-              onClick={openAddRoot}
-              className="gap-2 text-white"
-            >
+            <Button onClick={openAddRoot} className="gap-2">
               <Plus className="h-4 w-4" />
               Add Category
             </Button>

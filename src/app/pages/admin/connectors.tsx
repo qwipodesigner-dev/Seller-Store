@@ -8,6 +8,7 @@ import {
   CheckCircle,
   ChevronRight,
   Settings,
+  Plug,
 } from "lucide-react";
 
 interface ConnectorInfo {
@@ -69,14 +70,17 @@ export function AdminConnectors() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Header */}
+      {/* Toolbar — matches the Sellers / Companies / Categories pattern.
+          Connectors don't have a primary CTA right now (Phase 1 ships
+          ONDC only and it's added by default), so the toolbar just
+          shows the count. */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-semibold text-gray-900">Connectors</h2>
-            <p className="text-sm text-gray-500">
-              Manage integrations with external systems
-            </p>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Plug className="h-5 w-5 text-gray-600" />
+            <span className="text-sm font-medium text-gray-700">
+              {connectors.length} connector{connectors.length === 1 ? "" : "s"}
+            </span>
           </div>
         </div>
       </div>
