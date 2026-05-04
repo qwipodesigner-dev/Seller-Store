@@ -20,8 +20,11 @@ export function Login() {
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSendOtp = () => {
-    const cleaned = mobile.replace(/\D/g, "");
-    if (cleaned.length < 10) {
+    // Belt-and-braces: the input strips non-digits and the button is
+    // disabled until length === 10, so we should never get here with
+    // bad input — but keep the guard so a future caller change can't
+    // sneak through.
+    if (mobile.length !== 10) {
       toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
@@ -151,7 +154,10 @@ export function Login() {
             </CardHeader>
             <CardContent>
               <form onSubmit={handleVerifyOtp} className="space-y-4">
-                {/* Mobile Number */}
+                {/* Mobile Number — strip non-digits and clamp to 10 chars
+                    as the user types so the value is ALWAYS a length-10
+                    digit string when valid. The Send OTP button below
+                    gates on that exact length. */}
                 <div className="space-y-2">
                   <Label htmlFor="mobile">Mobile Number</Label>
                   <div className="relative">
@@ -159,11 +165,15 @@ export function Login() {
                     <Input
                       id="mobile"
                       type="tel"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
                       placeholder="Enter 10-digit mobile number"
                       value={mobile}
-                      onChange={(e) => setMobile(e.target.value)}
+                      onChange={(e) =>
+                        setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+                      }
                       className="pl-10"
-                      maxLength={15}
+                      maxLength={10}
                       disabled={otpSent}
                       required
                     />
@@ -175,7 +185,7 @@ export function Login() {
                   <Button
                     type="button"
                     className="w-full"
-                    disabled={isLoading}
+                    disabled={isLoading || mobile.length !== 10}
                     onClick={handleSendOtp}
                   >
                     {isLoading ? "Sending OTP..." : "Send OTP"}
