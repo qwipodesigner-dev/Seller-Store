@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
+import { addSeller } from "../../lib/mock-store";
 
 interface SellerCompanySelection {
   companyId: string;
@@ -40,6 +41,12 @@ export function AdminAddUser() {
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [businessName, setBusinessName] = useState("");
+  // Phase 1 only allows "distributor". Wholesaler is rendered as disabled
+  // so the operator can see it's coming, but defaults / persists as
+  // distributor.
+  const [sellerType, setSellerType] = useState<"distributor" | "wholesaler">(
+    "distributor",
+  );
   // Structured address — captured during creation so serviceability and other
   // location-aware modules can reuse the seller's coordinates and pin.
   const [pinCode, setPinCode] = useState("");
@@ -256,6 +263,24 @@ export function AdminAddUser() {
 
     setIsSaving(true);
     setTimeout(() => {
+      // Persist to the mock store so Manage Seller picks the new record up.
+      addSeller({
+        name: fullName.trim(),
+        phone: phone.trim(),
+        businessName: businessName.trim(),
+        sellerType,
+        city: city.trim(),
+        state: state.trim(),
+        pinCode: pinCode.trim(),
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        fullAddress: addressLine.trim(),
+        imageUrl,
+        companyBrandSelections: completeRows.map((r) => ({
+          companyId: r.companyId,
+          brandIds: r.brandIds,
+        })),
+      });
       setIsSaving(false);
       toast.success(`Seller "${fullName}" created successfully`);
       navigate("/admin/users");
@@ -379,7 +404,7 @@ export function AdminAddUser() {
                     placeholder="+91 98765 43210"
                   />
                 </div>
-                <div className="md:col-span-2 space-y-2">
+                <div className="space-y-2">
                   <Label>
                     Business Name <span className="text-red-500">*</span>
                   </Label>
@@ -388,6 +413,31 @@ export function AdminAddUser() {
                     onChange={(e) => setBusinessName(e.target.value)}
                     placeholder="Enter business name (e.g. ABC Distributors)"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    Seller Type <span className="text-red-500">*</span>
+                  </Label>
+                  <Select
+                    value={sellerType}
+                    onValueChange={(v) =>
+                      setSellerType(v as "distributor" | "wholesaler")
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="distributor">Distributor</SelectItem>
+                      <SelectItem value="wholesaler" disabled>
+                        Wholesaler (coming in Phase 2)
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-gray-500">
+                    Phase 1 supports distributors only. Wholesaler is reserved
+                    for a later phase.
+                  </p>
                 </div>
                 {/* Structured address — PIN drives city/state lookup so the
                     seller record stays consistent with the actual postcode. */}

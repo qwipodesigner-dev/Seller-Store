@@ -15,6 +15,21 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       email: "admin@qwipo.com",
       role: "admin",
       avatarInitials: "SA",
+      dataMode: "demo",
+    },
+  },
+  // Empty-mode super admin — every master collection is wiped on login so
+  // the UI shows its inception-day empty states (no sellers, companies,
+  // brands, categories, etc.). Useful for screenshots / demos.
+  "9999999999": {
+    otp: "1234",
+    user: {
+      id: "admin-empty",
+      name: "Qwipo Demo (Empty)",
+      email: "admin-empty@qwipo.com",
+      role: "admin",
+      avatarInitials: "QE",
+      dataMode: "empty",
     },
   },
   "9900000002": {
