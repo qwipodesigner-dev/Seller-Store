@@ -44,6 +44,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
+import { isEmptyMode } from "../lib/data-mode";
+import { EmptyState } from "../components/empty-state";
 
 // Simplified Order interface with only 4 statuses
 interface Order {
@@ -223,7 +225,9 @@ type TabType = "all" | "new" | "confirmed" | "delivered" | "rejected";
 
 export function Orders() {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [orders, setOrders] = useState<Order[]>(() =>
+    isEmptyMode() ? [] : mockOrders,
+  );
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -636,29 +640,26 @@ export function Orders() {
   // Render order table
   const renderOrderTable = (ordersToRender: Order[]) => {
     if (ordersToRender.length === 0) {
+      const title =
+        activeTab === "all" ? "No orders yet" : `No ${activeTab} orders`;
+      const description = hasActiveFilters
+        ? "No orders match your current filters. Try clearing them to see everything."
+        : activeTab === "all"
+          ? "Once retailers start placing orders on ONDC, they'll show up here ready for you to confirm and dispatch."
+          : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
       return (
-        <div className="text-center py-16">
-          <div className="flex justify-center mb-4">
-            <div className="bg-gray-100 p-6 rounded-full">
-              <Package className="h-16 w-16 text-gray-400" />
-            </div>
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">
-            {activeTab === "all" ? "No orders" : `No ${activeTab} orders`}
-          </h3>
-          <p className="text-gray-600 mb-4">
-            {hasActiveFilters
-              ? "No orders match your current filters"
-              : activeTab === "all"
-                ? "You don't have any orders yet"
-                : `You don't have any ${activeTab} orders at the moment`}
-          </p>
-          {hasActiveFilters && (
-            <Button variant="outline" onClick={clearFilters}>
-              Clear Filters
-            </Button>
-          )}
-        </div>
+        <EmptyState
+          icon={Package}
+          title={title}
+          description={description}
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" onClick={clearFilters}>
+                Clear Filters
+              </Button>
+            ) : undefined
+          }
+        />
       );
     }
 

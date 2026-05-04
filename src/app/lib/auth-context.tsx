@@ -7,6 +7,7 @@ import {
 } from "react";
 import { applyDataMode as applyAdminCatalogDataMode } from "./admin-catalog";
 import { applyDataMode as applyMockStoreDataMode } from "./mock-store";
+import { setDataMode as setGlobalDataMode } from "./data-mode";
 
 // Phase 1 ships only two roles: super-admin and seller. The previous
 // "admin_seller" role (Qwipo staff acting as a specific seller via the
@@ -70,6 +71,9 @@ function readStoredUser(): AuthUser | null {
  * Called on login and on first boot when a stored user is rehydrated.
  */
 function applyDataMode(mode: "demo" | "empty") {
+  // Persist the global flag first so seller pages picking up `isEmptyMode()`
+  // during their initial render see the correct value.
+  setGlobalDataMode(mode);
   applyAdminCatalogDataMode(mode);
   applyMockStoreDataMode(mode);
 }

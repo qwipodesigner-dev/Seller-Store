@@ -58,6 +58,8 @@ import {
   BizomValidationResult,
   BIZOM_REQUIRED_HEADERS,
 } from "../../lib/bizom-validation";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
 
 interface Product {
   id: string;
@@ -302,7 +304,9 @@ const mockProducts: Product[] = [
 
 export function PriceInventory() {
   const navigate = useNavigate();
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>(() =>
+    isEmptyMode() ? [] : mockProducts,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -767,8 +771,32 @@ export function PriceInventory() {
               <tbody className="divide-y divide-gray-200">
                 {paginatedProducts.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No products found
+                    <td colSpan={8} className="px-0 py-0">
+                      <EmptyState
+                        icon={Package}
+                        title={
+                          products.length === 0
+                            ? "No SKUs in your catalog yet"
+                            : "No matches"
+                        }
+                        description={
+                          products.length === 0
+                            ? "Connect your DMS or run a bulk import to start managing prices and inventory across every SKU."
+                            : "No products match your current search or filters. Try clearing them to see everything."
+                        }
+                        action={
+                          products.length === 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={handleOpenImport}
+                              className="gap-2 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Upload className="h-4 w-4" />
+                              Bulk Import
+                            </Button>
+                          ) : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (

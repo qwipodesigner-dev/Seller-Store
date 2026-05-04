@@ -40,6 +40,7 @@ import {
   setCompanies,
   subscribeToCompanies,
 } from "../../lib/admin-catalog";
+import { EmptyState } from "../../components/empty-state";
 
 interface DraftBrand {
   id: string;
@@ -254,9 +255,30 @@ export function AdminCompanies() {
       <div className="flex-1 overflow-y-auto p-6 space-y-3">
         {filtered.length === 0 && (
           <Card>
-            <CardContent className="p-10 text-center text-sm text-gray-500">
-              No companies found. Click <b>Add Company</b> to create one.
-            </CardContent>
+            <EmptyState
+              icon={Building2}
+              title={
+                companies.length === 0
+                  ? "No companies & brands yet"
+                  : "No companies match your search"
+              }
+              description={
+                companies.length === 0
+                  ? "Add the FMCG companies (and the brands they own) that distributors will sell on Qwipo."
+                  : "Try a different search term to find the company you're looking for."
+              }
+              action={
+                companies.length === 0 ? (
+                  <Button
+                    onClick={openCreate}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Company
+                  </Button>
+                ) : undefined
+              }
+            />
           </Card>
         )}
         {filtered.map((c) => (

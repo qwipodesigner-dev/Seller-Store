@@ -30,6 +30,7 @@ import {
   subscribeToMasterCategories,
   type MasterCategory,
 } from "../../lib/admin-catalog";
+import { EmptyState } from "../../components/empty-state";
 
 // Two-level taxonomy: root → subcategory. Subcategories never carry images
 // and never nest further; the UI enforces both constraints by exposing the
@@ -203,11 +204,30 @@ export function AdminCategories() {
       <div className="flex-1 overflow-y-auto p-6">
         {filteredRoots.length === 0 ? (
           <Card>
-            <CardContent className="p-10 text-center text-sm text-gray-500">
-              {search.trim()
-                ? "No categories match your search."
-                : "No categories defined yet. Click Add Category to create the first one."}
-            </CardContent>
+            <EmptyState
+              icon={LayoutGrid}
+              title={
+                rootCount === 0
+                  ? "No categories yet"
+                  : "No categories match your search"
+              }
+              description={
+                rootCount === 0
+                  ? "Categories organise every SKU on the platform. Add the top-level categories your distributors will choose from."
+                  : "Try a different search term to find what you're looking for."
+              }
+              action={
+                rootCount === 0 ? (
+                  <Button
+                    onClick={openAddRoot}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Category
+                  </Button>
+                ) : undefined
+              }
+            />
           </Card>
         ) : (
           <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -25,6 +25,7 @@ import {
   rejectRequest,
   type SellerRequest,
 } from "../../lib/mock-store";
+import { EmptyState } from "../../components/empty-state";
 
 type Filter = "pending" | "approved" | "rejected" | "all";
 
@@ -152,15 +153,21 @@ export function AdminNewRequests() {
         <Card>
           <CardContent className="p-0">
             {filtered.length === 0 ? (
-              <div className="p-12 text-center">
-                <Inbox className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-600 font-medium">No requests found</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {searchQuery
-                    ? "Try a different search term"
-                    : "New seller signup requests will appear here"}
-                </p>
-              </div>
+              <EmptyState
+                icon={Inbox}
+                title={
+                  requests.length === 0
+                    ? "No signup requests yet"
+                    : "No requests found"
+                }
+                description={
+                  requests.length === 0
+                    ? "When a new seller signs up via the onboarding form, their request will appear here for you to approve."
+                    : searchQuery
+                      ? "No requests match your search. Try a different term."
+                      : "Nothing matches the current filter — try the All tab to see everything."
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">

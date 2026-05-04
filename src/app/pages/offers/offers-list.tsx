@@ -45,6 +45,8 @@ import {
   validateSlabs,
   computeEffectivePrice,
 } from "../../lib/qps-validation";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
 
 // Seed QPS schemes — these populate the list on first load.
 // Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
@@ -130,7 +132,9 @@ const getStatusColor = (status: string) => {
 };
 
 export function OffersList() {
-  const [qpsSchemes, setQpsSchemes] = useState<QpsScheme[]>(seedQpsSchemes);
+  const [qpsSchemes, setQpsSchemes] = useState<QpsScheme[]>(() =>
+    isEmptyMode() ? [] : seedQpsSchemes,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -433,12 +437,35 @@ export function OffersList() {
               <tbody className="divide-y divide-gray-200">
                 {filteredSchemes.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-12 text-center">
-                      <Tag className="h-10 w-10 text-gray-400 mx-auto mb-3" />
-                      <p className="text-sm font-medium text-gray-900">No QPS schemes</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Click <b>Create QPS</b> above to define quantity-based pricing.
-                      </p>
+                    <td colSpan={8} className="px-0 py-0">
+                      <EmptyState
+                        icon={Tag}
+                        title={
+                          qpsSchemes.length === 0
+                            ? "No QPS schemes yet"
+                            : "No matches"
+                        }
+                        description={
+                          qpsSchemes.length === 0
+                            ? "Create a quantity-based pricing scheme to reward bulk buyers and grow your average order value."
+                            : "No schemes match your search or filters. Try clearing them to see everything."
+                        }
+                        action={
+                          qpsSchemes.length === 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                setEditingId(null);
+                                setIsEditorOpen(true);
+                              }}
+                              className="gap-2 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Create QPS
+                            </Button>
+                          ) : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (

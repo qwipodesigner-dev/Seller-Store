@@ -41,6 +41,22 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       role: "seller",
       businessName: "ABC Distributors",
       avatarInitials: "RK",
+      dataMode: "demo",
+    },
+  },
+  // Empty-mode seller — every seller-side page renders its inception-day
+  // empty state instead of the seeded mock data. Mirrors the empty super
+  // admin login. Useful for screenshots and onboarding demos.
+  "8888888888": {
+    otp: "1234",
+    user: {
+      id: "seller-empty",
+      name: "Demo Seller (Empty)",
+      email: "seller-empty@qwipo.com",
+      role: "seller",
+      businessName: "New Distributor",
+      avatarInitials: "NS",
+      dataMode: "empty",
     },
   },
 };

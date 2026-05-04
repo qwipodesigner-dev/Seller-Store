@@ -53,7 +53,9 @@ import {
   BIZOM_REQUIRED_HEADERS,
   AggregatedSKU,
 } from "../../lib/bizom-validation";
-import { Layers } from "lucide-react";
+import { Layers, PackageSearch } from "lucide-react";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
 
 // ONDC Data structure
 interface ONDCData {
@@ -290,7 +292,9 @@ interface ValidationResult {
 
 export function MySKU() {
   const navigate = useNavigate();
-  const [skus, setSkus] = useState<SKUData[]>(sampleSKUs);
+  const [skus, setSkus] = useState<SKUData[]>(() =>
+    isEmptyMode() ? [] : sampleSKUs,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
@@ -892,8 +896,32 @@ export function MySKU() {
               <tbody className="divide-y divide-gray-200">
                 {paginatedSKUs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500">
-                      No SKUs found
+                    <td colSpan={8} className="px-0 py-0">
+                      <EmptyState
+                        icon={PackageSearch}
+                        title={
+                          skus.length === 0
+                            ? "No SKUs in your catalog yet"
+                            : "No matches"
+                        }
+                        description={
+                          skus.length === 0
+                            ? "Bulk-import your DMS catalog or add SKUs one by one to start publishing them on ONDC."
+                            : "No SKUs match your current search or filters. Try clearing them to see everything."
+                        }
+                        action={
+                          skus.length === 0 ? (
+                            <Button
+                              size="sm"
+                              onClick={() => setIsAddSkuOpen(true)}
+                              className="gap-2 bg-blue-600 hover:bg-blue-700"
+                            >
+                              <Plus className="h-4 w-4" />
+                              Add SKUs
+                            </Button>
+                          ) : undefined
+                        }
+                      />
                     </td>
                   </tr>
                 ) : (

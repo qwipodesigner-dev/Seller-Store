@@ -33,6 +33,8 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { isEmptyMode } from "../lib/data-mode";
+import { EmptyState } from "../components/empty-state";
 
 // Connector Types
 interface Connector {
@@ -50,7 +52,7 @@ export function Connectors() {
   const navigate = useNavigate();
   
   // State for connectors
-  const [connectors, setConnectors] = useState<Connector[]>([
+  const seedConnectors: Connector[] = [
     {
       id: "bizom-freedom-oil",
       name: "Bizom",
@@ -89,7 +91,10 @@ export function Connectors() {
       description: "Open Network for Digital Commerce",
       icon: "🌐",
     },
-  ]);
+  ];
+  const [connectors, setConnectors] = useState<Connector[]>(() =>
+    isEmptyMode() ? [] : seedConnectors,
+  );
 
   // Add connector dialog state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
@@ -300,6 +305,24 @@ export function Connectors() {
             Your Connectors ({connectors.length})
           </h2>
 
+          {connectors.length === 0 ? (
+            <Card>
+              <EmptyState
+                icon={Database}
+                title="No connectors yet"
+                description="Plug in a DMS like Bizom for each brand and connect ONDC to start syncing your catalog, inventory and orders end-to-end."
+                action={
+                  <Button
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="gap-2 bg-blue-600 hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Connector
+                  </Button>
+                }
+              />
+            </Card>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {connectors.map((connector) => (
               <Card
@@ -382,25 +405,24 @@ export function Connectors() {
             ))}
 
             {/* Empty State - Add More */}
-            {(
-              <Card
-                className="border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer hover:bg-blue-50/50 transition-all"
-                onClick={handleAddConnector}
-              >
-                <CardContent className="p-5 flex flex-col items-center justify-center min-h-[200px] text-center">
-                  <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
-                    <Plus className="h-8 w-8 text-blue-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-1">
-                    Add New Connector
-                  </h3>
-                  <p className="text-sm text-gray-600">
-                    Connect a DMS system or marketplace
-                  </p>
-                </CardContent>
-              </Card>
-            )}
+            <Card
+              className="border-2 border-dashed border-gray-300 hover:border-blue-400 cursor-pointer hover:bg-blue-50/50 transition-all"
+              onClick={handleAddConnector}
+            >
+              <CardContent className="p-5 flex flex-col items-center justify-center min-h-[200px] text-center">
+                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-3">
+                  <Plus className="h-8 w-8 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-gray-900 mb-1">
+                  Add New Connector
+                </h3>
+                <p className="text-sm text-gray-600">
+                  Connect a DMS system or marketplace
+                </p>
+              </CardContent>
+            </Card>
           </div>
+          )}
         </div>
 
         {/* How It Works Section */}

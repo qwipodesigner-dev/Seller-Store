@@ -39,6 +39,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PriceListFilterDrawer } from "../../components/PriceListFilterDrawer";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
 
 interface Product {
   id: string;
@@ -166,7 +168,9 @@ const mockProducts: Product[] = [
 ];
 
 export function PriceList() {
-  const [products, setProducts] = useState<Product[]>(mockProducts);
+  const [products, setProducts] = useState<Product[]>(() =>
+    isEmptyMode() ? [] : mockProducts,
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [sourceFilter, setSourceFilter] = useState<string>("all");
@@ -409,20 +413,27 @@ export function PriceList() {
               <TableBody>
                 {filteredProducts.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-12">
-                      <div className="flex flex-col items-center gap-2">
-                        <Search className="h-12 w-12 text-gray-400" />
-                        <p className="text-gray-600">
-                          {hasActiveFilters
-                            ? "No products match your filters"
-                            : "No products found"}
-                        </p>
-                        {hasActiveFilters && (
-                          <Button variant="outline" onClick={clearFilters}>
-                            Clear Filters
-                          </Button>
-                        )}
-                      </div>
+                    <TableCell colSpan={8} className="px-0 py-0">
+                      <EmptyState
+                        icon={Database}
+                        title={
+                          products.length === 0
+                            ? "No price list yet"
+                            : "No matches"
+                        }
+                        description={
+                          products.length === 0
+                            ? "Connect your DMS or import a price list to start managing your selling prices in one place."
+                            : "No products match your current filters. Try clearing them to see everything."
+                        }
+                        action={
+                          hasActiveFilters ? (
+                            <Button variant="outline" onClick={clearFilters}>
+                              Clear Filters
+                            </Button>
+                          ) : undefined
+                        }
+                      />
                     </TableCell>
                   </TableRow>
                 ) : (

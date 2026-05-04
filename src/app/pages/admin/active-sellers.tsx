@@ -10,6 +10,7 @@ import {
   Plus,
 } from "lucide-react";
 import { getSellers, type Seller } from "../../lib/mock-store";
+import { EmptyState } from "../../components/empty-state";
 
 export function AdminActiveSellers() {
   const navigate = useNavigate();
@@ -68,15 +69,32 @@ export function AdminActiveSellers() {
         <Card>
           <CardContent className="p-0">
             {filtered.length === 0 ? (
-              <div className="p-12 text-center">
-                <Store className="h-12 w-12 mx-auto text-gray-300 mb-3" />
-                <p className="text-gray-600 font-medium">No sellers found</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  {searchQuery
-                    ? "Try a different search term"
-                    : "Click \"Add Seller\" to create the first seller"}
-                </p>
-              </div>
+              <EmptyState
+                icon={Store}
+                title={
+                  sellers.length === 0
+                    ? "No sellers onboarded yet"
+                    : "No sellers found"
+                }
+                description={
+                  sellers.length === 0
+                    ? "Add your first seller to start onboarding distributors onto the Qwipo platform."
+                    : searchQuery
+                      ? "No sellers match that search. Try a different name or business."
+                      : "No sellers match your current filters."
+                }
+                action={
+                  sellers.length === 0 ? (
+                    <Button
+                      className="gap-2 bg-blue-600 hover:bg-blue-700"
+                      onClick={() => navigate("/admin/users/add")}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Add Seller
+                    </Button>
+                  ) : undefined
+                }
+              />
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">

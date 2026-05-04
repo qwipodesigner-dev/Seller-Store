@@ -46,7 +46,7 @@ import {
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import {
-  customers as allCustomers,
+  customers as customersSeed,
   CLASS_TYPES,
   ClassType,
   Customer,
@@ -54,6 +54,11 @@ import {
   type DeliveryDay,
   DELIVERY_DAY_OPTIONS,
 } from "../lib/customers-data";
+import { isEmptyMode } from "../lib/data-mode";
+import { EmptyState } from "../components/empty-state";
+
+// Empty-mode sellers see no seeded customers — the inception-day empty state.
+const allCustomers: Customer[] = isEmptyMode() ? [] : customersSeed;
 
 type TabKey = "pending" | "approved" | "rejected";
 
@@ -866,20 +871,26 @@ export function Customers() {
               <tbody className="bg-white divide-y divide-gray-200">
                 {paginated.length === 0 ? (
                   <tr>
-                    <td colSpan={activeTab === "pending" ? 9 : 8} className="px-4 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Users className="h-12 w-12 text-gray-400" />
-                        <p className="text-sm font-medium text-gray-900">
-                          {activeTab === "pending"
-                            ? "No pending requests"
-                            : activeTab === "approved"
-                              ? "No approved customers"
-                              : "No rejected customers"}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          Try adjusting your search or filters.
-                        </p>
-                      </div>
+                    <td colSpan={activeTab === "pending" ? 9 : 8} className="px-0 py-0">
+                      <EmptyState
+                        icon={Users}
+                        title={
+                          allCustomers.length === 0
+                            ? "No customers yet"
+                            : activeTab === "pending"
+                              ? "No pending requests"
+                              : activeTab === "approved"
+                                ? "No approved customers"
+                                : "No rejected customers"
+                        }
+                        description={
+                          allCustomers.length === 0
+                            ? "Once retailers register against your brands, their requests will land here for approval."
+                            : activeTab === "pending"
+                              ? "You're all caught up — every customer request has been actioned."
+                              : "Try adjusting your search or filters to widen the results."
+                        }
+                      />
                     </td>
                   </tr>
                 ) : activeTab === "pending" ? (
