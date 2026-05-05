@@ -262,37 +262,39 @@ export function AdminCompanies() {
         </div>
       </div>
 
-      {/* List */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-3">
-        {filtered.length === 0 && (
-          <Card>
-            <EmptyState
-              icon={Building2}
-              title={
-                companies.length === 0
-                  ? "No companies & brands yet"
-                  : "No companies match your search"
-              }
-              description={
-                companies.length === 0
-                  ? "Add the FMCG companies (and the brands they own) that distributors will sell on Qwipo."
-                  : "Try a different search term to find the company you're looking for."
-              }
-              action={
-                companies.length === 0 ? (
-                  <Button
-                    onClick={openCreate}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Company
-                  </Button>
-                ) : undefined
-              }
-            />
+      {/* List — when empty the Card stretches to fill the viewport;
+          when there are companies the inner list scrolls within the
+          page area. Mirrors the Sellers / Error Screens shape. */}
+      <div className="flex-1 overflow-hidden p-6">
+        {filtered.length === 0 ? (
+          <Card className="h-full flex flex-col">
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={Building2}
+                title={
+                  companies.length === 0
+                    ? "No companies & brands yet"
+                    : "No companies match your search"
+                }
+                description={
+                  companies.length === 0
+                    ? "Add the FMCG companies (and the brands they own) that distributors will sell on Qwipo."
+                    : "Try a different search term to find the company you're looking for."
+                }
+                action={
+                  companies.length === 0 ? (
+                    <Button onClick={openCreate} className="gap-2">
+                      <Plus className="h-4 w-4" />
+                      Add Company
+                    </Button>
+                  ) : undefined
+                }
+              />
+            </div>
           </Card>
-        )}
-        {filtered.map((c) => (
+        ) : (
+          <div className="h-full overflow-y-auto space-y-3">
+            {filtered.map((c) => (
           <Card key={c.id}>
             <CardContent className="p-4">
               <div className="flex items-start gap-4">
@@ -337,6 +339,8 @@ export function AdminCompanies() {
             </CardContent>
           </Card>
         ))}
+          </div>
+        )}
       </div>
 
       {/* Create / Edit Dialog */}

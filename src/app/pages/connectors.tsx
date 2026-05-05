@@ -280,7 +280,32 @@ export function Connectors() {
         }
       />
 
-      {/* Main Content - Scrollable */}
+      {/* Main Content. When the seller has zero connectors we replace
+          the entire content area with a full-page empty state — Info
+          Banner + Connectors Grid + How It Works only matter once
+          there's at least one connector to read about. */}
+      {connectors.length === 0 ? (
+        <div className="flex-1 overflow-hidden p-6">
+          <Card className="h-full flex flex-col">
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={Database}
+                title="No connectors yet"
+                description="Plug in a DMS like Bizom for each brand and connect ONDC to start syncing your catalog, inventory and orders end-to-end."
+                action={
+                  <Button
+                    onClick={() => setIsAddDialogOpen(true)}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Connector
+                  </Button>
+                }
+              />
+            </div>
+          </Card>
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto p-6 space-y-6">
         {/* Info Banner */}
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -305,24 +330,6 @@ export function Connectors() {
             Your Connectors ({connectors.length})
           </h2>
 
-          {connectors.length === 0 ? (
-            <Card>
-              <EmptyState
-                icon={Database}
-                title="No connectors yet"
-                description="Plug in a DMS like Bizom for each brand and connect ONDC to start syncing your catalog, inventory and orders end-to-end."
-                action={
-                  <Button
-                    onClick={() => setIsAddDialogOpen(true)}
-                    className="gap-2"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Connector
-                  </Button>
-                }
-              />
-            </Card>
-          ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {connectors.map((connector) => (
               <Card
@@ -422,7 +429,6 @@ export function Connectors() {
               </CardContent>
             </Card>
           </div>
-          )}
         </div>
 
         {/* How It Works Section */}
@@ -478,9 +484,12 @@ export function Connectors() {
             </div>
           </div>
         </div>
+      </div>
+      )}
 
-        {/* Add Connector Dialog */}
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      {/* Add Connector Dialog — lives outside the empty/data branch so
+          the dialog still works when the empty-state CTA opens it. */}
+      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogContent className="max-w-lg">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
@@ -754,7 +763,6 @@ export function Connectors() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
-      </div>
     </div>
   );
 }
