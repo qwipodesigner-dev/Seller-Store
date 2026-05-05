@@ -1286,11 +1286,15 @@ export function SellerCatalogTab({
     closeEdit();
   };
 
-  // Once a company is linked it can't be removed — only extended. We allow
-  // re-selecting an already-linked company so the admin can merge in extra
-  // brands they missed the first time. So "available" is just every active
-  // catalog company.
-  const availableCompanies = companies.filter((c) => c.isActive !== false);
+  // Once a company is linked it can't be removed. Extending brands on
+  // an already-linked company now lives behind the per-card "Add Brands"
+  // CTA, so the Link a Company dropdown should only surface companies
+  // the seller is NOT yet linked to — re-picking the same company here
+  // would just duplicate the Add-Brands flow.
+  const linkedCompanyIds = new Set(selections.map((s) => s.companyId));
+  const availableCompanies = companies.filter(
+    (c) => c.isActive !== false && !linkedCompanyIds.has(c.id),
+  );
   const selectedAddCompany = companies.find((c) => c.id === addCompanyId);
 
   const openAdd = () => {
@@ -1320,40 +1324,20 @@ export function SellerCatalogTab({
       toast.error("Pick at least one brand or choose 'Use all brands'");
       return;
     }
-    const existing = selections.find((s) => s.companyId === addCompanyId);
+    // Picker only surfaces unlinked companies now, so this is always a
+    // fresh link — the merge branch is gone. Adding brands to an already-
+    // linked company happens via the per-card "Add Brands" CTA which
+    // opens the Edit Brand Access dialog.
     const company = companies.find((c) => c.id === addCompanyId);
-    let next: CompanyBrandSelection[];
-    let toastMsg: string;
-    if (existing) {
-      // Already linked — merge brand selection. "All brands" is the most
-      // permissive state and wins on either side.
-      const wasAllBrands = existing.brandIds.length === 0;
-      const isAllBrands = addAllBrands || wasAllBrands;
-      const mergedBrandIds = isAllBrands
-        ? []
-        : Array.from(new Set([...existing.brandIds, ...addBrandIds]));
-      next = selections.map((s) =>
-        s.companyId === addCompanyId
-          ? { companyId: s.companyId, brandIds: mergedBrandIds }
-          : s,
-      );
-      toastMsg = isAllBrands
-        ? `${company?.name ?? "Company"} now has access to all brands`
-        : `${mergedBrandIds.length - existing.brandIds.length} new brand${
-            mergedBrandIds.length - existing.brandIds.length === 1 ? "" : "s"
-          } added to ${company?.name ?? "company"}`;
-    } else {
-      next = [
-        ...selections,
-        {
-          companyId: addCompanyId,
-          brandIds: addAllBrands ? [] : addBrandIds,
-        },
-      ];
-      toastMsg = `Linked "${company?.name ?? "company"}" to seller`;
-    }
+    const next: CompanyBrandSelection[] = [
+      ...selections,
+      {
+        companyId: addCompanyId,
+        brandIds: addAllBrands ? [] : addBrandIds,
+      },
+    ];
     persistSelections(next);
-    toast.success(toastMsg);
+    toast.success(`Linked "${company?.name ?? "company"}" to seller`);
     setAddOpen(false);
   };
 
@@ -1530,9 +1514,9 @@ export function SellerCatalogTab({
             </DialogTitle>
             <DialogDescription>
               Pick a company from the master catalog and choose the brands
-              this seller should have access to. Re-selecting an already-linked
-              company will merge new brands with the existing ones — companies
-              cannot be unlinked once added.
+              this seller should have access to. Companies cannot be unlinked
+              once added; to add more brands later, use the <b>Add Brands</b>
+              button on the linked company below.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -1548,38 +1532,18 @@ export function SellerCatalogTab({
                 className="w-full h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
               >
                 <option value="">Choose a company…</option>
-                {availableCompanies.map((c) => {
-                  const linked = selections.find((s) => s.companyId === c.id);
-                  return (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                      {linked ? " (already linked — extend brands)" : ""}
-                    </option>
-                  );
-                })}
+                {availableCompanies.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
               </select>
               {availableCompanies.length === 0 && (
                 <p className="text-[11px] text-amber-700">
-                  No active catalog companies available.
+                  No more catalog companies to link. Use <b>Add Brands</b>{" "}
+                  on an existing company below to extend its brand list.
                 </p>
               )}
-              {(() => {
-                const existing = selections.find((s) => s.companyId === addCompanyId);
-                if (!existing) return null;
-                const company = companies.find((c) => c.id === addCompanyId);
-                if (!company) return null;
-                const wasAllBrands = existing.brandIds.length === 0;
-                return (
-                  <p className="text-[11px] text-blue-700 bg-blue-50 border border-blue-200 rounded px-2 py-1.5 mt-1">
-                    <b>{company.name}</b> is already linked
-                    {wasAllBrands
-                      ? " with access to all brands. Adding more here is a no-op (all brands are already enabled)."
-                      : ` with ${existing.brandIds.length} brand${
-                          existing.brandIds.length === 1 ? "" : "s"
-                        }. New brands you pick below will be added on top of the existing list.`}
-                  </p>
-                );
-              })()}
             </div>
 
             {selectedAddCompany && (
