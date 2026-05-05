@@ -145,10 +145,9 @@ export function Customers() {
   const handleReject = () => {
     if (!rejectTarget) return;
     const reason = rejectReason === "Other" ? rejectOtherReason : rejectReason;
-    if (!reason) {
-      toast.error("Please provide a reason for rejection.");
-      return;
-    }
+    // Belt-and-braces: the Reject button is disabled until a reason is
+    // chosen (and an "Other" reason is typed). Inline gating is enough.
+    if (!reason) return;
     const { customer, companyId } = rejectTarget;
     const next = getApprovalsFor(customer).map((a) =>
       a.companyId === companyId
@@ -190,11 +189,9 @@ export function Customers() {
   const [bulkRejectOtherReason, setBulkRejectOtherReason] = useState("");
 
   const handleBulkApprove = () => {
-    if (!bulkApproveDeliveryDay) {
-      toast.error("Please select a delivery day to apply to all.");
-      return;
-    }
-    if (selectedRows.size === 0) return;
+    // Both guards are belt-and-braces — the Approve action is disabled
+    // unless there's a delivery day AND at least one selected row.
+    if (!bulkApproveDeliveryDay || selectedRows.size === 0) return;
     // Group selections by customerId so we apply patches in one update per customer.
     const byCustomer = new Map<string, Set<string>>();
     selectedRows.forEach((k) => {
@@ -232,11 +229,9 @@ export function Customers() {
 
   const handleBulkReject = () => {
     const reason = bulkRejectReason === "Other" ? bulkRejectOtherReason : bulkRejectReason;
-    if (!reason) {
-      toast.error("Please provide a reason for rejection.");
-      return;
-    }
-    if (selectedRows.size === 0) return;
+    // Both guards are belt-and-braces — the Reject action is disabled
+    // unless there's a reason AND at least one selected row.
+    if (!reason || selectedRows.size === 0) return;
     const byCustomer = new Map<string, Set<string>>();
     selectedRows.forEach((k) => {
       const [cid, coid] = k.split("__");

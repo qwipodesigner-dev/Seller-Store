@@ -170,8 +170,10 @@ export function AdminSellerDetail() {
   };
 
   const saveConnectorConfig = () => {
-    if (!configSellerId.trim()) { toast.error("Seller ID is required"); return; }
-    if (!configApiKey.trim()) { toast.error("API Key is required"); return; }
+    // Belt-and-braces: the Connect button is disabled until both fields are
+    // populated, so this guard should never trip — but keep it so a future
+    // caller change can't sneak through with empty values.
+    if (!configSellerId.trim() || !configApiKey.trim()) return;
     // Phase 1: only ONDC is supported.
     const updated = updateSellerOndcConfig(seller.id, {
       subscriberId: configSellerId, uniqueKeyId: "", privateKey: configApiKey, apiEndpoint: "", webhookUrl: "",
@@ -194,8 +196,9 @@ export function AdminSellerDetail() {
   };
 
   const saveEditOndc = () => {
-    if (!editOndcSellerId.trim()) { toast.error("Seller ID is required"); return; }
-    if (!editOndcApiKey.trim()) { toast.error("API Key is required"); return; }
+    // Same belt-and-braces story: the Save Changes button is disabled
+    // until both fields are populated.
+    if (!editOndcSellerId.trim() || !editOndcApiKey.trim()) return;
     const updated = updateSellerOndcConfig(seller.id, {
       ...seller.connectors.ondc.config,
       subscriberId: editOndcSellerId.trim(),
@@ -812,8 +815,8 @@ export function AdminSellerDetail() {
               Cancel
             </Button>
             <Button
-              className=""
               onClick={saveConnectorConfig}
+              disabled={!configSellerId.trim() || !configApiKey.trim()}
             >
               Connect
             </Button>
@@ -867,8 +870,8 @@ export function AdminSellerDetail() {
               Cancel
             </Button>
             <Button
-              className=""
               onClick={saveEditOndc}
+              disabled={!editOndcSellerId.trim() || !editOndcApiKey.trim()}
             >
               Save Changes
             </Button>

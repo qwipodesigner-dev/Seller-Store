@@ -116,6 +116,44 @@ export function AdminAddUser() {
   // Optional avatar — not mandatory at creation
   const [imageUrl, setImageUrl] = useState<string | null>(null);
 
+  // ---- Inline field-level errors ----
+  // Replaces the popup-toast validation pattern: every required field has
+  // a dedicated red helper line under the input, and the Save Seller button
+  // stays disabled until all mandatory fields look valid up-front.
+  type FieldErrors = Partial<Record<
+    | "fullName"
+    | "phone"
+    | "businessName"
+    | "pinCode"
+    | "latitude"
+    | "longitude"
+    | "addressLine"
+    | "companies",
+    string
+  >>;
+  const [errors, setErrors] = useState<FieldErrors>({});
+  const clearError = (k: keyof FieldErrors) =>
+    setErrors((prev) => (prev[k] ? { ...prev, [k]: undefined } : prev));
+
+  // Used to gate the Create Seller button. Mirrors the cheap-and-fast
+  // checks in handleSave — the handler still runs full validation.
+  const isFormShapeValid = () => {
+    if (!fullName.trim()) return false;
+    if (!phone.trim()) return false;
+    if (!businessName.trim()) return false;
+    if (!/^\d{6}$/.test(pinCode.trim())) return false;
+    if (!city.trim() || !state.trim()) return false;
+    const lat = parseFloat(latitude);
+    if (!latitude.trim() || isNaN(lat) || lat < -90 || lat > 90) return false;
+    const lng = parseFloat(longitude);
+    if (!longitude.trim() || isNaN(lng) || lng < -180 || lng > 180) return false;
+    if (!addressLine.trim()) return false;
+    // At least one company picked + that company has brands available.
+    const completeRows = selections.filter((s) => s.companyId !== "");
+    if (completeRows.length === 0) return false;
+    return true;
+  };
+
   const handleImageChange = (file: File | null) => {
     revokeImage(imageUrl);
     setImageUrl(file ? URL.createObjectURL(file) : null);
@@ -146,6 +184,7 @@ export function AdminAddUser() {
     setSelections((prev) =>
       prev.map((s, i) => (i === idx ? { companyId, brandIds: [] } : s)),
     );
+    clearError("companies");
   };
 
   const toggleBrandForRow = (idx: number, brandId: string) => {
@@ -181,70 +220,59 @@ export function AdminAddUser() {
   };
 
   const handleSave = () => {
-    if (!fullName.trim()) {
-      toast.error("Full Name is required");
-      return;
-    }
-    if (!phone.trim()) {
-      toast.error("Mobile Number is required");
-      return;
-    }
-    if (!businessName.trim()) {
-      toast.error("Company / Business Name is required");
-      return;
-    }
-    // PIN code is mandatory — used by serviceability + downstream modules.
+    // Validate everything up-front and surface the issues inline. The Save
+    // button is also disabled until the basic shape of the form looks
+    // valid, but we keep this run-through as the source of truth for the
+    // exact error messages.
+    const next: FieldErrors = {};
+    if (!fullName.trim()) next.fullName = "Full Name is required";
+    if (!phone.trim()) next.phone = "Mobile Number is required";
+    if (!businessName.trim()) next.businessName = "Business Name is required";
+
     if (!pinCode.trim()) {
-      toast.error("PIN Code is required");
-      return;
+      next.pinCode = "PIN Code is required";
+    } else if (!/^\d{6}$/.test(pinCode.trim())) {
+      next.pinCode = "PIN Code must be a 6-digit number";
+    } else if (!city.trim() || !state.trim()) {
+      next.pinCode = "Couldn't resolve city / state — please use a valid PIN";
     }
-    if (!/^\d{6}$/.test(pinCode.trim())) {
-      toast.error("PIN Code must be a 6-digit number");
-      return;
-    }
-    if (!city.trim() || !state.trim()) {
-      toast.error("City / State could not be resolved from PIN — please use a valid PIN code");
-      return;
-    }
-    // Latitude is mandatory.
+
     if (!latitude.trim()) {
-      toast.error("Latitude is required");
-      return;
+      next.latitude = "Latitude is required";
+    } else {
+      const lat = parseFloat(latitude);
+      if (isNaN(lat) || lat < -90 || lat > 90)
+        next.latitude = "Latitude must be a number between -90 and 90";
     }
-    const lat = parseFloat(latitude);
-    if (isNaN(lat) || lat < -90 || lat > 90) {
-      toast.error("Latitude must be a number between -90 and 90");
-      return;
-    }
-    // Longitude is mandatory.
+
     if (!longitude.trim()) {
-      toast.error("Longitude is required");
-      return;
+      next.longitude = "Longitude is required";
+    } else {
+      const lng = parseFloat(longitude);
+      if (isNaN(lng) || lng < -180 || lng > 180)
+        next.longitude = "Longitude must be a number between -180 and 180";
     }
-    const lng = parseFloat(longitude);
-    if (isNaN(lng) || lng < -180 || lng > 180) {
-      toast.error("Longitude must be a number between -180 and 180");
-      return;
-    }
-    if (!addressLine.trim()) {
-      toast.error("Full Address is required");
-      return;
-    }
+
+    if (!addressLine.trim()) next.addressLine = "Full Address is required";
+
     const completeRows = selections.filter((s) => s.companyId !== "");
     if (completeRows.length === 0) {
-      toast.error("Please select at least one company the seller works with");
+      next.companies = "Select at least one company the seller works with";
+    } else {
+      // Each completed row must either pick brands explicitly or use
+      // "all brands" (empty-brandIds shortcut). Both valid as long as
+      // the company has at least one brand.
+      const empty = completeRows
+        .map((r) => companies.find((c) => c.id === r.companyId)!)
+        .find((c) => c && c.brands.length === 0);
+      if (empty) next.companies = `"${empty.name}" has no brands. Add brands first.`;
+    }
+
+    if (Object.keys(next).length > 0) {
+      setErrors(next);
       return;
     }
-    // Each completed row must either pick brands explicitly or use "all brands"
-    // (which is the empty-brandIds shortcut). Both are valid as long as the
-    // company has at least one brand.
-    for (const r of completeRows) {
-      const company = companies.find((c) => c.id === r.companyId)!;
-      if (company.brands.length === 0) {
-        toast.error(`"${company.name}" has no brands. Add brands first.`);
-        return;
-      }
-    }
+    setErrors({});
 
     setIsSaving(true);
     setTimeout(() => {
@@ -333,9 +361,16 @@ export function AdminAddUser() {
                   </Label>
                   <Input
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
+                    onChange={(e) => {
+                      setFullName(e.target.value);
+                      clearError("fullName");
+                    }}
                     placeholder="Enter full name"
+                    aria-invalid={!!errors.fullName}
                   />
+                  {errors.fullName && (
+                    <p className="text-[11px] text-red-600">{errors.fullName}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>
@@ -343,9 +378,16 @@ export function AdminAddUser() {
                   </Label>
                   <Input
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      clearError("phone");
+                    }}
                     placeholder="+91 98765 43210"
+                    aria-invalid={!!errors.phone}
                   />
+                  {errors.phone && (
+                    <p className="text-[11px] text-red-600">{errors.phone}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>
@@ -353,9 +395,16 @@ export function AdminAddUser() {
                   </Label>
                   <Input
                     value={businessName}
-                    onChange={(e) => setBusinessName(e.target.value)}
+                    onChange={(e) => {
+                      setBusinessName(e.target.value);
+                      clearError("businessName");
+                    }}
                     placeholder="Enter business name (e.g. ABC Distributors)"
+                    aria-invalid={!!errors.businessName}
                   />
+                  {errors.businessName && (
+                    <p className="text-[11px] text-red-600">{errors.businessName}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>
@@ -394,30 +443,36 @@ export function AdminAddUser() {
                       const next = e.target.value.replace(/\D/g, "").slice(0, 6);
                       setPinCode(next);
                       lookupPin(next);
+                      clearError("pinCode");
                     }}
                     placeholder="6-digit PIN"
                     inputMode="numeric"
+                    aria-invalid={!!errors.pinCode}
                   />
-                  <p className="text-[11px]">
-                    {pinLookupStatus === "loading" && (
-                      <span className="text-gray-500">Looking up city / state…</span>
-                    )}
-                    {pinLookupStatus === "found" && (
-                      <span className="text-emerald-700">
-                        ✓ Resolved to {city}, {state}
-                      </span>
-                    )}
-                    {pinLookupStatus === "not-found" && (
-                      <span className="text-amber-700">
-                        Couldn't resolve this PIN — please double-check.
-                      </span>
-                    )}
-                    {pinLookupStatus === "idle" && (
-                      <span className="text-gray-500">
-                        City and state are auto-filled from PIN.
-                      </span>
-                    )}
-                  </p>
+                  {errors.pinCode ? (
+                    <p className="text-[11px] text-red-600">{errors.pinCode}</p>
+                  ) : (
+                    <p className="text-[11px]">
+                      {pinLookupStatus === "loading" && (
+                        <span className="text-gray-500">Looking up city / state…</span>
+                      )}
+                      {pinLookupStatus === "found" && (
+                        <span className="text-emerald-700">
+                          ✓ Resolved to {city}, {state}
+                        </span>
+                      )}
+                      {pinLookupStatus === "not-found" && (
+                        <span className="text-amber-700">
+                          Couldn't resolve this PIN — please double-check.
+                        </span>
+                      )}
+                      {pinLookupStatus === "idle" && (
+                        <span className="text-gray-500">
+                          City and state are auto-filled from PIN.
+                        </span>
+                      )}
+                    </p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label>City</Label>
@@ -445,10 +500,17 @@ export function AdminAddUser() {
                   </Label>
                   <Input
                     value={latitude}
-                    onChange={(e) => setLatitude(e.target.value)}
+                    onChange={(e) => {
+                      setLatitude(e.target.value);
+                      clearError("latitude");
+                    }}
                     placeholder="e.g. 12.9716"
                     inputMode="decimal"
+                    aria-invalid={!!errors.latitude}
                   />
+                  {errors.latitude && (
+                    <p className="text-[11px] text-red-600">{errors.latitude}</p>
+                  )}
                 </div>
                 <div className="space-y-2 md:col-span-1">
                   <Label>
@@ -456,10 +518,17 @@ export function AdminAddUser() {
                   </Label>
                   <Input
                     value={longitude}
-                    onChange={(e) => setLongitude(e.target.value)}
+                    onChange={(e) => {
+                      setLongitude(e.target.value);
+                      clearError("longitude");
+                    }}
                     placeholder="e.g. 77.5946"
                     inputMode="decimal"
+                    aria-invalid={!!errors.longitude}
                   />
+                  {errors.longitude && (
+                    <p className="text-[11px] text-red-600">{errors.longitude}</p>
+                  )}
                 </div>
                 <div className="md:col-span-2 space-y-2">
                   <Label>
@@ -467,14 +536,22 @@ export function AdminAddUser() {
                   </Label>
                   <Textarea
                     value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
+                    onChange={(e) => {
+                      setAddressLine(e.target.value);
+                      clearError("addressLine");
+                    }}
                     placeholder="Shop No., Street, Area, Landmark…"
                     rows={3}
+                    aria-invalid={!!errors.addressLine}
                   />
-                  <p className="text-[11px] text-gray-500">
-                    Free-form description for invoices and dispatch — kept
-                    alongside the PIN / lat-long / city / state above.
-                  </p>
+                  {errors.addressLine ? (
+                    <p className="text-[11px] text-red-600">{errors.addressLine}</p>
+                  ) : (
+                    <p className="text-[11px] text-gray-500">
+                      Free-form description for invoices and dispatch — kept
+                      alongside the PIN / lat-long / city / state above.
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -624,6 +701,13 @@ export function AdminAddUser() {
                 Add another company
               </Button>
 
+              {errors.companies && (
+                <p className="text-xs text-red-600 flex items-center gap-1.5">
+                  <AlertCircle className="h-3.5 w-3.5" />
+                  {errors.companies}
+                </p>
+              )}
+
               {companies.length === 0 && (
                 <div className="text-xs bg-amber-50 border border-amber-200 text-amber-900 rounded-lg p-2 flex items-start gap-1.5">
                   <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
@@ -649,7 +733,7 @@ export function AdminAddUser() {
             <Button
               className="gap-2"
               onClick={handleSave}
-              disabled={isSaving}
+              disabled={isSaving || !isFormShapeValid()}
             >
               <UserPlus className="h-4 w-4" />
               {isSaving ? "Creating..." : "Create Seller"}
