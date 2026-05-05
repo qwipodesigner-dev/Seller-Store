@@ -188,37 +188,43 @@ export function AdminCategories() {
         </div>
       </div>
 
-      {/* Grid of category cards */}
-      <div className="flex-1 overflow-y-auto p-6">
+      {/* Grid of category cards — when empty the Card stretches to fill
+          the viewport; when there's data the inner grid scrolls within
+          the page area. Mirrors the Sellers / Error Screens shape. */}
+      <div className="flex-1 overflow-hidden p-6">
         {filteredRoots.length === 0 ? (
-          <Card>
-            <EmptyState
-              icon={LayoutGrid}
-              title={
-                rootCount === 0
-                  ? "No categories yet"
-                  : "No categories match your search"
-              }
-              description={
-                rootCount === 0
-                  ? "The 37 ONDC categories will appear here on the next data refresh."
-                  : "Try a different search term to find what you're looking for."
-              }
-            />
+          <Card className="h-full flex flex-col">
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={LayoutGrid}
+                title={
+                  rootCount === 0
+                    ? "No categories yet"
+                    : "No categories match your search"
+                }
+                description={
+                  rootCount === 0
+                    ? "The 37 ONDC categories will appear here on the next data refresh."
+                    : "Try a different search term to find what you're looking for."
+                }
+              />
+            </div>
           </Card>
         ) : (
-          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredRoots.map(({ root, subs }) => (
-              <CategoryCard
-                key={root.id}
-                root={root}
-                subs={subs}
-                draft={subDrafts[root.id] ?? ""}
-                onDraftChange={(v) => setSubDraft(root.id, v)}
-                onAddSub={() => handleAddSub(root.id)}
-                onEditImage={() => openImageDialog(root)}
-              />
-            ))}
+          <div className="h-full overflow-y-auto">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredRoots.map(({ root, subs }) => (
+                <CategoryCard
+                  key={root.id}
+                  root={root}
+                  subs={subs}
+                  draft={subDrafts[root.id] ?? ""}
+                  onDraftChange={(v) => setSubDraft(root.id, v)}
+                  onAddSub={() => handleAddSub(root.id)}
+                  onEditImage={() => openImageDialog(root)}
+                />
+              ))}
+            </div>
           </div>
         )}
       </div>
