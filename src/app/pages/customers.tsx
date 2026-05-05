@@ -56,6 +56,7 @@ import {
 } from "../lib/customers-data";
 import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
+import { ListPagination } from "../components/ui/list-pagination";
 
 // Empty-mode sellers see no seeded customers — the inception-day empty state.
 const allCustomers: Customer[] = isEmptyMode() ? [] : customersSeed;
@@ -1088,39 +1089,18 @@ export function Customers() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {activeRows.length > 0 && (
-            <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {startIdx + 1} to {Math.min(startIdx + itemsPerPage, activeRows.length)}{" "}
-                of {activeRows.length}{" "}
-                {activeTab === "pending" ? "pending requests" : "customers"}
-              </div>
-              <div className="flex gap-2 items-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <span className="text-sm text-gray-700">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <ListPagination
+            page={currentPage}
+            total={activeRows.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel={
+              activeTab === "pending" ? "pending request" : "customer"
+            }
+            itemLabelPlural={
+              activeTab === "pending" ? "pending requests" : "customers"
+            }
+          />
         </Card>
       </div>
 

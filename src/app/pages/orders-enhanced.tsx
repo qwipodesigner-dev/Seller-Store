@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
+import { ListPagination } from "../components/ui/list-pagination";
 
 // Simplified Order interface with only 4 statuses
 interface Order {
@@ -913,39 +914,13 @@ export function Orders() {
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
-
-              {/* Pagination */}
-              {currentTabOrders.length > 0 && (
-                <div className="px-6 py-4 border-t flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, currentTabOrders.length)} of{" "}
-                    {currentTabOrders.length} orders
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-700">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <ListPagination
+                page={currentPage}
+                total={currentTabOrders.length}
+                pageSize={itemsPerPage}
+                onPageChange={setCurrentPage}
+                itemLabel="order"
+              />
             </TabsContent>
 
             <TabsContent value="new" className="mt-0">
@@ -998,39 +973,13 @@ export function Orders() {
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
-
-              {/* Pagination */}
-              {currentTabOrders.length > 0 && (
-                <div className="px-6 py-4 border-t flex items-center justify-between">
-                  <div className="text-sm text-gray-500">
-                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, currentTabOrders.length)} of{" "}
-                    {currentTabOrders.length} orders
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage - 1)}
-                      disabled={currentPage === 1}
-                    >
-                      Previous
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-700">
-                        Page {currentPage} of {totalPages}
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentPage(currentPage + 1)}
-                      disabled={currentPage === totalPages}
-                    >
-                      Next
-                    </Button>
-                  </div>
-                </div>
-              )}
+              <ListPagination
+                page={currentPage}
+                total={currentTabOrders.length}
+                pageSize={itemsPerPage}
+                onPageChange={setCurrentPage}
+                itemLabel="order"
+              />
             </TabsContent>
 
             <TabsContent value="confirmed" className="mt-0">

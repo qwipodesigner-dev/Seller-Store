@@ -56,6 +56,7 @@ import {
 import { Layers, PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
+import { ListPagination } from "../../components/ui/list-pagination";
 
 // ONDC Data structure
 interface ONDCData {
@@ -748,9 +749,11 @@ export function MySKU() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <Card>
+      {/* Page area — Card fills the available height; only the table
+          rows scroll, the search/filter header and pagination stay
+          pinned to the top and bottom of the Card. */}
+      <div className="flex-1 overflow-hidden p-6">
+        <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
           {/* Header with Search and Actions */}
           <div className="border-b border-gray-200 p-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -862,10 +865,11 @@ export function MySKU() {
             )}
           </div>
 
-          {/* SKU Table */}
-          <div className="overflow-x-auto">
+          {/* SKU Table — flex-1 so it claims all the remaining height
+              inside the Card; only this region scrolls. */}
+          <div className="flex-1 overflow-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b sticky top-0">
+              <thead className="bg-gray-50 border-b sticky top-0 z-10">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     SKU Code <span className="text-red-500">*</span>
@@ -997,38 +1001,13 @@ export function MySKU() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {filteredSKUs.length > 0 && (
-            <div className="border-t border-gray-200 px-4 py-4 flex items-center justify-between">
-              <div className="text-sm text-gray-500">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredSKUs.length)} of{" "}
-                {filteredSKUs.length} SKUs
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <ListPagination
+            page={currentPage}
+            total={filteredSKUs.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="SKU"
+          />
         </Card>
       </div>
 

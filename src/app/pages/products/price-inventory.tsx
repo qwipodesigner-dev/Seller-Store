@@ -60,6 +60,7 @@ import {
 } from "../../lib/bizom-validation";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
+import { ListPagination } from "../../components/ui/list-pagination";
 
 interface Product {
   id: string;
@@ -874,38 +875,13 @@ export function PriceInventory() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {filteredProducts.length > 0 && (
-            <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {startIndex + 1} to {Math.min(endIndex, filteredProducts.length)} of{" "}
-                {filteredProducts.length} products
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-700">
-                    Page {currentPage} of {totalPages}
-                  </span>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage === totalPages}
-                >
-                  Next
-                </Button>
-              </div>
-            </div>
-          )}
+          <ListPagination
+            page={currentPage}
+            total={filteredProducts.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="product"
+          />
         </Card>
       </div>
 
