@@ -8,10 +8,15 @@ import {
   Search,
   Store,
   Plus,
+  Filter,
 } from "lucide-react";
 import { getSellers, type Seller } from "../../lib/mock-store";
 import { EmptyState } from "../../components/empty-state";
 import { ListPagination, paginate } from "../../components/ui/list-pagination";
+import {
+  SellersFilterDrawer,
+  type SellerStatusFilter,
+} from "../../components/SellersFilterDrawer";
 
 const PAGE_SIZE = 10;
 
@@ -19,9 +24,14 @@ export function AdminActiveSellers() {
   const navigate = useNavigate();
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
-  // 1-indexed page. Reset to 1 every time the search query changes so
-  // the visible window doesn't fall off the end of a shorter result set.
+  // 1-indexed page. Reset to 1 every time the search query OR a filter
+  // changes so the visible window doesn't fall off the end of a shorter
+  // result set.
   const [page, setPage] = useState(1);
+  // Right-hand filter drawer state. The status filter mirrors the
+  // pattern used by the seller-module drawers (My SKU, Orders, etc.).
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<SellerStatusFilter>("all");
 
   useEffect(() => {
     setSellers(getSellers());
@@ -29,15 +39,24 @@ export function AdminActiveSellers() {
 
   const filtered = useMemo(() => {
     return sellers.filter((s) => {
-      if (!searchQuery.trim()) return true;
-      const q = searchQuery.toLowerCase();
-      // Search restricted to seller name + business name only.
-      return (
-        s.name.toLowerCase().includes(q) ||
-        s.businessName.toLowerCase().includes(q)
-      );
+      // Status — `isActive` defaults to true for legacy records that
+      // don't carry the field. "all" disables the gate entirely.
+      const active = s.isActive !== false;
+      if (statusFilter === "active" && !active) return false;
+      if (statusFilter === "inactive" && active) return false;
+      // Search — restricted to seller name + business name only.
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          s.name.toLowerCase().includes(q) ||
+          s.businessName.toLowerCase().includes(q)
+        );
+      }
+      return true;
     });
-  }, [sellers, searchQuery]);
+  }, [sellers, searchQuery, statusFilter]);
+
+  const activeFilterCount = statusFilter !== "all" ? 1 : 0;
 
   const pageRows = paginate(filtered, page, PAGE_SIZE);
 
@@ -66,6 +85,22 @@ export function AdminActiveSellers() {
                 className="pl-10"
               />
             </div>
+            {/* Filters CTA — slides in the right-hand drawer. The pill
+                next to the icon shows the active filter count so the
+                admin always knows whether the list is gated. */}
+            <Button
+              variant="outline"
+              className="gap-2"
+              onClick={() => setIsFilterDrawerOpen(true)}
+            >
+              <Filter className="h-4 w-4" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="ml-1 inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 text-[11px] font-semibold w-5 h-5">
+                  {activeFilterCount}
+                </span>
+              )}
+            </Button>
             <Button
               className="gap-2"
               onClick={() => navigate("/admin/users/add")}
@@ -151,9 +186,15 @@ export function AdminActiveSellers() {
                           {s.phone}
                         </td>
                         <td className="px-4 py-3">
-                          <Badge className="bg-green-50 text-green-700 border-green-200">
-                            Active
-                          </Badge>
+                          {s.isActive !== false ? (
+                            <Badge className="bg-green-50 text-green-700 border-green-200">
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-700 border-gray-200">
+                              Inactive
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-end">
@@ -185,6 +226,22 @@ export function AdminActiveSellers() {
           )}
         </Card>
       </div>
+
+      {/* Right-hand filter drawer — same pattern as the seller-module
+          drawers (My SKU, Orders, Offers, …). */}
+      <SellersFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        status={statusFilter}
+        onStatusChange={(v) => {
+          setStatusFilter(v);
+          setPage(1);
+        }}
+        onClearFilters={() => {
+          setStatusFilter("all");
+          setPage(1);
+        }}
+      />
     </div>
   );
 }
