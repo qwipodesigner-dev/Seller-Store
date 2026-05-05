@@ -386,6 +386,40 @@ export function AdminSellerDetail() {
                 long Full Address field spans the row. */}
             <TabsContent value="profile" className="p-6 mt-0">
               <div className="space-y-6">
+                {/* Status — pinned at the top so the admin can flip
+                    Active / Inactive without scrolling. Opens a confirmation
+                    prompt before the change is saved. */}
+                <section className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <div className="flex-1 min-w-[260px]">
+                      <Label className="text-sm font-medium">Status</Label>
+                      <p className="text-xs text-gray-500 mt-0.5">
+                        Toggle to activate or deactivate this seller. A
+                        confirmation will appear before the change is saved.
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`text-sm font-medium ${
+                          (seller.isActive ?? true)
+                            ? "text-green-700"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {(seller.isActive ?? true) ? "Active" : "Inactive"}
+                      </span>
+                      <Switch
+                        checked={seller.isActive ?? true}
+                        onCheckedChange={(next) => {
+                          // Open the confirm dialog instead of flipping
+                          // immediately. The dialog persists on confirm.
+                          setPendingActiveValue(next);
+                        }}
+                      />
+                    </div>
+                  </div>
+                </section>
+
                 {/* Identity */}
                 <section>
                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4">
@@ -447,37 +481,6 @@ export function AdminSellerDetail() {
                   </div>
                 </section>
 
-                {/* Status — opens a confirmation prompt before flipping */}
-                <section className="pt-6 border-t border-gray-100">
-                  <div className="flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex-1 min-w-[260px]">
-                      <Label className="text-sm font-medium">Status</Label>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        Toggle to activate or deactivate this seller. A
-                        confirmation will appear before the change is saved.
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`text-sm font-medium ${
-                          (seller.isActive ?? true)
-                            ? "text-green-700"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {(seller.isActive ?? true) ? "Active" : "Inactive"}
-                      </span>
-                      <Switch
-                        checked={seller.isActive ?? true}
-                        onCheckedChange={(next) => {
-                          // Open the confirm dialog instead of flipping
-                          // immediately. The dialog persists on confirm.
-                          setPendingActiveValue(next);
-                        }}
-                      />
-                    </div>
-                  </div>
-                </section>
               </div>
             </TabsContent>
 
@@ -880,7 +883,7 @@ export function AdminSellerDetail() {
         open={pendingActiveValue !== null}
         onOpenChange={(o) => !o && setPendingActiveValue(null)}
       >
-        <DialogContent>
+        <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {pendingActiveValue ? (
