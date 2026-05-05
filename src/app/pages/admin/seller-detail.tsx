@@ -1494,43 +1494,25 @@ export function SellerCatalogTab({
                       ))}
                     </div>
                   </div>
-                  {/* Per-card actions. "Add Brands" is the primary CTA
-                      because that's what admins do most often after the
-                      first link — extending an existing company with
-                      more brands. "Edit" stays as the secondary path for
-                      pruning or toggling Use-all-brands. Both open the
-                      same Edit Brand Access dialog. */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Button
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => openEdit(sel.companyId)}
-                      disabled={isInactiveSeller}
-                      title={
-                        isInactiveSeller
-                          ? "Activate this seller before adding brands"
-                          : `Add more brands for ${company.name}`
-                      }
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                      Add Brands
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5"
-                      onClick={() => openEdit(sel.companyId)}
-                      disabled={isInactiveSeller}
-                      title={
-                        isInactiveSeller
-                          ? "Activate this seller before editing brand access"
-                          : `Edit brand access for ${company.name}`
-                      }
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                      Edit
-                    </Button>
-                  </div>
+                  {/* Per-card action — single "Add Brands" CTA. The
+                      Edit Brand Access dialog it opens still supports
+                      pruning and the Use-all-brands toggle, so power
+                      users keep their full kit; we just don't expose
+                      a second button for it. */}
+                  <Button
+                    size="sm"
+                    className="gap-1.5 shrink-0"
+                    onClick={() => openEdit(sel.companyId)}
+                    disabled={isInactiveSeller}
+                    title={
+                      isInactiveSeller
+                        ? "Activate this seller before adding brands"
+                        : `Add more brands for ${company.name}`
+                    }
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Brands
+                  </Button>
                 </div>
               </div>
             );
