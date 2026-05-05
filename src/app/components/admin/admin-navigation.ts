@@ -4,6 +4,7 @@ import {
   Plug,
   Building2,
   LayoutGrid,
+  AlertOctagon,
   type LucideIcon,
 } from "lucide-react";
 
@@ -24,6 +25,17 @@ export const adminNavigation: NavItem[] = [
   { name: "Connectors", href: "/admin/connectors", icon: Plug },
 ];
 
+/**
+ * Empty-mode-only nav item — appended to the standard admin sidebar
+ * when the super admin signs in via the demo "Empty" account. Surfaces
+ * the Error Screens gallery so reviewers can audit every error state.
+ */
+export const adminErrorScreensNav: NavItem = {
+  name: "Error Screens",
+  href: "/admin/error-screens",
+  icon: AlertOctagon,
+};
+
 export function getAdminPageTitle(pathname: string): string {
   if (pathname === "/admin") return "Admin Dashboard";
   if (pathname.startsWith("/admin/users/add")) return "Add Seller";
@@ -34,5 +46,6 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/connectors/")) return "Connector Details";
   if (pathname.startsWith("/admin/connectors")) return "Connectors";
   if (pathname.startsWith("/admin/sellers/")) return "Seller Details";
+  if (pathname.startsWith("/admin/error-screens")) return "Error Screens";
   return "Admin Portal";
 }

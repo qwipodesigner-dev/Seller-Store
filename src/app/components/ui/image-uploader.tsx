@@ -59,7 +59,7 @@ const SIZE_CLASSES: Record<Exclude<ImageUploaderSize, "fill">, string> = {
  *   - Add / Edit Company dialog (company logo)
  *   - Brand row (per-brand logo) — `size="sm"` for the dense layout
  *   - Per-company Categories tab (each tile)
- *   - Add Seller (profile photo) — `aspect="circle"`
+ *   - Add Seller (business photo) — `aspect="circle"`
  */
 export function ImageUploader({
   value,
