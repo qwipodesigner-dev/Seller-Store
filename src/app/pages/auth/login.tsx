@@ -18,16 +18,17 @@ export function Login() {
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  // Inline field-level errors. We keep popup toasts only for "successful
+  // outcomes" (OTP sent, welcome) — anything the user can fix on the form
+  // itself shows in red text below the relevant field.
+  const [otpError, setOtpError] = useState<string | null>(null);
 
   const handleSendOtp = () => {
     // Belt-and-braces: the input strips non-digits and the button is
     // disabled until length === 10, so we should never get here with
     // bad input — but keep the guard so a future caller change can't
     // sneak through.
-    if (mobile.length !== 10) {
-      toast.error("Please enter a valid 10-digit mobile number");
-      return;
-    }
+    if (mobile.length !== 10) return;
     setIsLoading(true);
     setTimeout(() => {
       setIsLoading(false);
@@ -39,7 +40,7 @@ export function Login() {
   const handleVerifyOtp = (e: React.FormEvent) => {
     e.preventDefault();
     if (!otp || otp.length < 4) {
-      toast.error("Please enter the 4-digit OTP");
+      setOtpError("Please enter the 4-digit OTP");
       return;
     }
 
@@ -48,9 +49,10 @@ export function Login() {
       const user = validateCredentials(mobile, otp);
       setIsLoading(false);
       if (!user) {
-        toast.error("Invalid OTP. Use 1234 for demo accounts.");
+        setOtpError("Invalid OTP. Use 1234 for demo accounts.");
         return;
       }
+      setOtpError(null);
       login(user);
       toast.success(`Welcome, ${user.name}!`);
       if (user.role === "admin") {
@@ -201,13 +203,20 @@ export function Login() {
                           type="text"
                           placeholder="Enter 4-digit OTP"
                           value={otp}
-                          onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
+                          onChange={(e) => {
+                            setOtp(e.target.value.replace(/\D/g, ""));
+                            if (otpError) setOtpError(null);
+                          }}
                           className="pl-10"
                           maxLength={4}
                           autoFocus
                           required
+                          aria-invalid={!!otpError}
                         />
                       </div>
+                      {otpError && (
+                        <p className="text-xs text-red-600">{otpError}</p>
+                      )}
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-gray-500">
                           OTP sent to {mobile}
@@ -228,7 +237,7 @@ export function Login() {
                     <Button
                       type="submit"
                       className="w-full"
-                      disabled={isLoading}
+                      disabled={isLoading || otp.length !== 4}
                     >
                       {isLoading ? "Verifying..." : "Verify & Sign In"}
                     </Button>

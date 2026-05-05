@@ -75,6 +75,15 @@ export function AdminCompanies() {
   );
   const [categorySearch, setCategorySearch] = useState("");
   const [activeTab, setActiveTab] = useState("brands");
+  // Inline form errors. Surfaces in red text under the relevant field
+  // instead of a popup, so users see what to fix without losing context.
+  const [errors, setErrors] = useState<{ name?: string; brands?: string }>({});
+
+  // Derived: form is submittable only when there is a name AND at least one
+  // non-empty brand. Used to gate the Save button.
+  const trimmedName = name.trim();
+  const hasValidBrand = drafts.some((b) => b.name.trim() !== "");
+  const canSubmit = trimmedName !== "" && hasValidBrand;
 
   const openCreate = () => {
     setEditingId(null);
@@ -85,6 +94,7 @@ export function AdminCompanies() {
     setDraftCategories(makeCompanyCategorySeed());
     setCategorySearch("");
     setActiveTab("brands");
+    setErrors({});
     setIsOpen(true);
   };
 
@@ -110,6 +120,7 @@ export function AdminCompanies() {
     );
     setCategorySearch("");
     setActiveTab("brands");
+    setErrors({});
     setIsOpen(true);
   };
 
@@ -160,15 +171,16 @@ export function AdminCompanies() {
   };
 
   const handleSave = () => {
-    if (!name.trim()) {
-      toast.error("Company name is required");
-      return;
-    }
+    const nextErrors: { name?: string; brands?: string } = {};
+    if (!name.trim()) nextErrors.name = "Company name is required";
     const validBrands = drafts.filter((b) => b.name.trim() !== "");
-    if (validBrands.length === 0) {
-      toast.error("At least one brand is required");
+    if (validBrands.length === 0)
+      nextErrors.brands = "At least one brand is required";
+    if (Object.keys(nextErrors).length > 0) {
+      setErrors(nextErrors);
       return;
     }
+    setErrors({});
     const existing = editingId ? companies.find((c) => c.id === editingId) : undefined;
     const company: Company = {
       id: editingId ?? makeId("co"),
@@ -348,19 +360,27 @@ export function AdminCompanies() {
                 </Label>
                 <Input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    if (errors.name) setErrors((p) => ({ ...p, name: undefined }));
+                  }}
                   placeholder="e.g. ITC Limited"
                   // Company name is fixed once created; only the logo, brand
                   // list (extend) and category covers can be modified on Edit.
                   readOnly={!!editingId}
                   disabled={!!editingId}
                   className={editingId ? "bg-gray-50" : undefined}
+                  aria-invalid={!!errors.name}
                 />
-                <p className="text-[11px] text-gray-500">
-                  {editingId
-                    ? "Company name is read-only — it cannot be changed once created."
-                    : "This is the legal entity. Brands sit under it."}
-                </p>
+                {errors.name ? (
+                  <p className="text-[11px] text-red-600">{errors.name}</p>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    {editingId
+                      ? "Company name is read-only — it cannot be changed once created."
+                      : "This is the legal entity. Brands sit under it."}
+                  </p>
+                )}
               </div>
             </div>
 
@@ -430,6 +450,12 @@ export function AdminCompanies() {
                     Add new brands as needed. Existing brands cannot be removed.
                   </div>
                 </div>
+                {errors.brands && (
+                  <p className="text-xs text-red-600 mt-2 flex items-center gap-1.5">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {errors.brands}
+                  </p>
+                )}
               </TabsContent>
 
               {/* Categories tab — per-company ONDC category images */}
@@ -496,7 +522,7 @@ export function AdminCompanies() {
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>
+            <Button onClick={handleSave} disabled={!canSubmit}>
               {editingId ? "Save Changes" : "Create Company"}
             </Button>
           </DialogFooter>

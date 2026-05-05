@@ -148,15 +148,12 @@ export function AdminCategories() {
 
   const handleAddSub = (rootId: string) => {
     const name = (subDrafts[rootId] ?? "").trim();
-    if (!name) {
-      toast.error("Subcategory name is required");
-      return;
-    }
+    // Belt-and-braces: the Add button is disabled when the draft is empty
+    // or matches an existing sibling (case-insensitive). Inline red text
+    // explains the collision on the card itself.
+    if (!name) return;
     const siblings = subsByParent[rootId] ?? [];
-    if (siblings.some((s) => s.name.toLowerCase() === name.toLowerCase())) {
-      toast.error("A subcategory with this name already exists here");
-      return;
-    }
+    if (siblings.some((s) => s.name.toLowerCase() === name.toLowerCase())) return;
     addMasterCategory({ name, imageUrl: null, parentId: rootId });
     setSubDraft(rootId, "");
     toast.success(`Subcategory "${name}" added`);
@@ -296,6 +293,14 @@ function CategoryCard({
   onAddSub: () => void;
   onEditImage: () => void;
 }) {
+  // Inline duplicate detection: surface the "already exists" warning in
+  // red text right under the input as soon as the typed name collides
+  // with an existing sibling, instead of waiting for a click + popup.
+  const trimmed = draft.trim();
+  const isDuplicate =
+    trimmed !== "" &&
+    subs.some((s) => s.name.toLowerCase() === trimmed.toLowerCase());
+
   return (
     <Card className="overflow-hidden hover:shadow-md transition-shadow border border-gray-200 flex flex-col">
       {/* Image header — clicking anywhere on it opens the upload dialog. */}
@@ -386,20 +391,26 @@ function CategoryCard({
               placeholder="Add subcategory…"
               className="h-8 text-xs pr-7"
               onKeyDown={(e) => {
-                if (e.key === "Enter") onAddSub();
+                if (e.key === "Enter" && !isDuplicate) onAddSub();
               }}
+              aria-invalid={isDuplicate}
             />
           </div>
           <Button
             size="sm"
             onClick={onAddSub}
-            disabled={!draft.trim()}
+            disabled={!draft.trim() || isDuplicate}
             className="h-8 gap-1 text-white px-2.5"
           >
             <Plus className="h-3.5 w-3.5" />
             Add
           </Button>
         </div>
+        {isDuplicate && (
+          <p className="text-[11px] text-red-600">
+            A subcategory with this name already exists here.
+          </p>
+        )}
       </CardContent>
     </Card>
   );
