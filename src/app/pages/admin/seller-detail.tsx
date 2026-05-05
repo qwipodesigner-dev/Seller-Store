@@ -1223,6 +1223,69 @@ export function SellerCatalogTab({
   const [addAllBrands, setAddAllBrands] = useState(true);
   const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
 
+  // ---- Edit Company dialog ----
+  // Editing a linked company lets the admin REPLACE (not merge) the
+  // brand selection — so they can both add new brands AND remove
+  // existing ones. The company itself is locked — to swap which
+  // company is linked, the admin would unlink (Phase 2) or add a new
+  // company.
+  const [editTarget, setEditTarget] = useState<string | null>(null);
+  const [editAllBrands, setEditAllBrands] = useState(true);
+  const [editBrandIds, setEditBrandIds] = useState<string[]>([]);
+
+  const editingCompany = editTarget
+    ? companies.find((c) => c.id === editTarget)
+    : null;
+  const editingSelection = editTarget
+    ? selections.find((s) => s.companyId === editTarget)
+    : null;
+
+  const openEdit = (companyId: string) => {
+    const sel = selections.find((s) => s.companyId === companyId);
+    if (!sel) return;
+    setEditTarget(companyId);
+    const isAll = sel.brandIds.length === 0;
+    setEditAllBrands(isAll);
+    setEditBrandIds(isAll ? [] : [...sel.brandIds]);
+  };
+
+  const closeEdit = () => {
+    setEditTarget(null);
+    setEditAllBrands(true);
+    setEditBrandIds([]);
+  };
+
+  const toggleEditBrand = (brandId: string) => {
+    setEditBrandIds((prev) =>
+      prev.includes(brandId)
+        ? prev.filter((b) => b !== brandId)
+        : [...prev, brandId],
+    );
+  };
+
+  const handleEditSubmit = () => {
+    if (!editTarget) return;
+    if (!editAllBrands && editBrandIds.length === 0) {
+      toast.error("Pick at least one brand or choose 'Use all brands'");
+      return;
+    }
+    const next: CompanyBrandSelection[] = selections.map((s) =>
+      s.companyId === editTarget
+        ? {
+            companyId: editTarget,
+            brandIds: editAllBrands ? [] : editBrandIds,
+          }
+        : s,
+    );
+    persistSelections(next);
+    toast.success(
+      editingCompany
+        ? `Updated brand access for ${editingCompany.name}`
+        : "Updated brand access",
+    );
+    closeEdit();
+  };
+
   // Once a company is linked it can't be removed — only extended. We allow
   // re-selecting an already-linked company so the admin can merge in extra
   // brands they missed the first time. So "available" is just every active
@@ -1369,7 +1432,10 @@ export function SellerCatalogTab({
             const visibleBrands = allBrands
               ? company.brands
               : company.brands.filter((b) => sel.brandIds.includes(b.id));
-            const isInactive = company.isActive === false;
+            // The OUTER `isInactive` covers the seller; this inner one
+            // covers the catalog company status.
+            const isCompanyInactive = company.isActive === false;
+            const isInactiveSeller = isInactive;
             return (
               <div
                 key={sel.companyId}
@@ -1392,7 +1458,7 @@ export function SellerCatalogTab({
                       <p className="text-sm font-semibold text-gray-900">
                         {company.name}
                       </p>
-                      {isInactive && (
+                      {isCompanyInactive && (
                         <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-[10px]">
                           Inactive in catalog
                         </Badge>
@@ -1428,6 +1494,23 @@ export function SellerCatalogTab({
                       ))}
                     </div>
                   </div>
+                  {/* Per-card Edit button — opens the dialog pre-filled
+                      with this company's current brand selection. */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 shrink-0"
+                    onClick={() => openEdit(sel.companyId)}
+                    disabled={isInactiveSeller}
+                    title={
+                      isInactiveSeller
+                        ? "Activate this seller before editing brand access"
+                        : `Edit brand access for ${company.name}`
+                    }
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
                 </div>
               </div>
             );
@@ -1559,6 +1642,114 @@ export function SellerCatalogTab({
             >
               Link Company
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Company dialog — pre-fills from the existing brand
+          selection and REPLACES (not merges) on save, so the admin can
+          both add new brands and remove existing ones. The company
+          itself is shown as read-only context. */}
+      <Dialog
+        open={editTarget !== null}
+        onOpenChange={(o) => (o ? null : closeEdit())}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Pencil className="h-5 w-5 text-blue-600" />
+              Edit Brand Access
+            </DialogTitle>
+            <DialogDescription>
+              Update which brands this seller can list under{" "}
+              <b>{editingCompany?.name ?? "this company"}</b>. Saved changes
+              replace the previous selection.
+            </DialogDescription>
+          </DialogHeader>
+
+          {editingCompany && editingSelection && (
+            <div className="space-y-4">
+              {/* Read-only company strip — gives the admin context but
+                  prevents accidentally swapping the linked company. */}
+              <div className="flex items-center gap-3 border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+                <div className="w-10 h-10 rounded-md border border-gray-200 bg-white flex items-center justify-center overflow-hidden shrink-0">
+                  {editingCompany.imageUrl ? (
+                    <img
+                      src={editingCompany.imageUrl}
+                      alt={editingCompany.name}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Building2 className="h-4 w-4 text-gray-400" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {editingCompany.name}
+                  </p>
+                  <p className="text-[11px] text-gray-500">
+                    {editingCompany.brands.length} brand
+                    {editingCompany.brands.length === 1 ? "" : "s"} available
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs">Brands</Label>
+                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                    <Switch
+                      checked={editAllBrands}
+                      onCheckedChange={(v) => {
+                        setEditAllBrands(v);
+                        if (v) setEditBrandIds([]);
+                      }}
+                    />
+                    <span className="text-gray-700">Use all brands</span>
+                  </label>
+                </div>
+                {!editAllBrands && (
+                  <div className="flex flex-wrap gap-2">
+                    {editingCompany.brands.map((b) => {
+                      const checked = editBrandIds.includes(b.id);
+                      return (
+                        <button
+                          key={b.id}
+                          type="button"
+                          onClick={() => toggleEditBrand(b.id)}
+                          className={`inline-flex items-center gap-1.5 border rounded-full pl-1 pr-2 py-0.5 text-xs transition-colors ${
+                            checked
+                              ? "bg-blue-50 border-blue-300 text-blue-800"
+                              : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                          }`}
+                        >
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={() => toggleEditBrand(b.id)}
+                            className="h-3.5 w-3.5"
+                          />
+                          {b.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                {editAllBrands && (
+                  <p className="text-[11px] text-gray-600">
+                    All {editingCompany.brands.length} brands will be
+                    available. Future brands added to this company will also be
+                    accessible automatically.
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={closeEdit}>
+              Cancel
+            </Button>
+            <Button onClick={handleEditSubmit}>Save Changes</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
