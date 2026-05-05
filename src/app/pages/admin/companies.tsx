@@ -541,7 +541,11 @@ export function AdminCompanies() {
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave} disabled={!canSubmit}>
+            {/* CTA stays enabled — clicking with missing data triggers
+                inline field-level errors via handleSave. The dirty
+                tracking is no longer used as a gate; saving without
+                changes in Edit mode simply persists the same record. */}
+            <Button onClick={handleSave}>
               {editingId ? "Save Changes" : "Create Company"}
             </Button>
           </DialogFooter>

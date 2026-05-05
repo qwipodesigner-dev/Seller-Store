@@ -730,10 +730,14 @@ export function AdminAddUser() {
             <Button variant="outline" onClick={() => navigate("/admin/users")}>
               Cancel
             </Button>
+            {/* CTA stays enabled when the form has missing data —
+                clicking runs handleSave which surfaces every problem as
+                an inline field-level error. `isSaving` keeps the
+                in-flight guard so the user can't double-submit. */}
             <Button
               className="gap-2"
               onClick={handleSave}
-              disabled={isSaving || !isFormShapeValid()}
+              disabled={isSaving}
             >
               <UserPlus className="h-4 w-4" />
               {isSaving ? "Creating..." : "Create Seller"}
