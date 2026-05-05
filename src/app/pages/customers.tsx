@@ -619,11 +619,13 @@ export function Customers() {
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <Card>
+      {/* Page area — Card stretches; only the table rows scroll. Tabs,
+          search/filters, and pagination stay pinned to the Card top
+          and bottom. Mirrors the My SKU page pattern. */}
+      <div className="flex-1 overflow-hidden p-6">
+        <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
           {/* Tabs — Pending / Approved / Rejected */}
-          <div className="border-b border-gray-200 px-4 pt-3">
+          <div className="border-b border-gray-200 px-4 py-3 flex-shrink-0">
             <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
               {(
                 [
@@ -678,7 +680,7 @@ export function Customers() {
           </div>
 
           {/* Header with Search + Actions */}
-          <div className="border-b border-gray-200 p-4">
+          <div className="border-b border-gray-200 p-4 flex-shrink-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="relative flex-1 w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -871,10 +873,11 @@ export function Customers() {
             </div>
           )}
 
-          {/* Tab-aware Customer Table */}
-          <div className="overflow-x-auto">
+          {/* Tab-aware Customer Table — flex-1 so it claims the rest
+              of the Card height; only this region scrolls. */}
+          <div className="flex-1 overflow-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b sticky top-0">
+              <thead className="bg-gray-50 border-b sticky top-0 z-10">
                 {activeTab === "pending" ? (
                   (() => {
                     const visibleKeys = (paginated as PendingRow[]).map((r) =>

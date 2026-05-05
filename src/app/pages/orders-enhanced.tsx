@@ -649,27 +649,29 @@ export function Orders() {
           ? "Once retailers start placing orders on ONDC, they'll show up here ready for you to confirm and dispatch."
           : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
       return (
-        <EmptyState
-          icon={Package}
-          title={title}
-          description={description}
-          action={
-            hasActiveFilters ? (
-              <Button variant="outline" onClick={clearFilters}>
-                Clear Filters
-              </Button>
-            ) : undefined
-          }
-        />
+        <div className="flex-1 flex items-center justify-center min-h-0">
+          <EmptyState
+            icon={Package}
+            title={title}
+            description={description}
+            action={
+              hasActiveFilters ? (
+                <Button variant="outline" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              ) : undefined
+            }
+          />
+        </div>
       );
     }
 
     const isActionable = activeTab === "new" || activeTab === "confirmed";
 
     return (
-      <div className="overflow-x-auto">
+      <div className="flex-1 overflow-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
             <tr>
               {isActionable && (
                 <th className="text-left py-4 px-6 w-12">
@@ -777,15 +779,22 @@ export function Orders() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="space-y-6">
+      {/* Page area — Card stretches; only the rows inside each tab
+          scroll. Tab strip + search bar stay pinned at the top, the
+          pagination stays pinned at the bottom. Mirrors the My SKU
+          layout pattern. */}
+      <div className="flex-1 overflow-hidden p-6">
+        <div className="h-full">
           {/* Orders Card with Tabs */}
-          <Card>
-            <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
+          <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
+            <Tabs
+              value={activeTab}
+              onValueChange={handleTabChange}
+              className="w-full h-full flex flex-col overflow-hidden"
+            >
               {/* Tab Headers with Filters */}
-              <div className="border-b border-gray-200 p-[12px]">
-                <div className="flex items-center justify-between gap-4 overflow-x-auto p-[0px]">
+              <div className="border-b border-gray-200 p-3 flex-shrink-0">
+                <div className="flex items-center justify-between gap-4 overflow-x-auto">
                   {/* Tab Toggle */}
                   <TabsList className="bg-gray-100 p-1 rounded-lg inline-flex gap-1 h-auto flex-shrink-0">
                     <TabsTrigger
@@ -856,7 +865,7 @@ export function Orders() {
 
               {/* Applied Filter Tags */}
               {(selectedBrandFilters.length > 0 || selectedStatusFilters.length > 0 || marketplaceFilter !== "all") && (
-                <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2">
+                <div className="px-6 py-2 border-b flex flex-wrap items-center gap-2 flex-shrink-0">
                   {selectedBrandFilters.map((brand) => (
                     <Badge key={brand} variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-purple-50 text-purple-700 border-purple-200">
                       {brand}
@@ -888,9 +897,9 @@ export function Orders() {
               )}
 
             {/* Tab Contents */}
-            <TabsContent value="all" className="mt-0">
+            <TabsContent value="all" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {/* Search Bar */}
-              <div className="px-6 py-4 border-b">
+              <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative max-w-md flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -923,9 +932,9 @@ export function Orders() {
               />
             </TabsContent>
 
-            <TabsContent value="new" className="mt-0">
+            <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {/* Search Bar */}
-              <div className="px-6 py-4 border-b">
+              <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative max-w-md flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -982,9 +991,9 @@ export function Orders() {
               />
             </TabsContent>
 
-            <TabsContent value="confirmed" className="mt-0">
+            <TabsContent value="confirmed" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {/* Search Bar */}
-              <div className="px-6 py-4 border-b">
+              <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative max-w-md flex-1">
                     <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1034,9 +1043,9 @@ export function Orders() {
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
 
-            <TabsContent value="delivered" className="mt-0">
+            <TabsContent value="delivered" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {/* Search Bar */}
-              <div className="px-6 py-4 border-b">
+              <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
@@ -1060,9 +1069,9 @@ export function Orders() {
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
 
-            <TabsContent value="rejected" className="mt-0">
+            <TabsContent value="rejected" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {/* Search Bar */}
-              <div className="px-6 py-4 border-b">
+              <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                   <Input
