@@ -543,16 +543,23 @@ function BrandRow({
         className={brand.isExisting ? "bg-gray-50" : undefined}
         title={brand.isExisting ? "Existing brand names cannot be changed" : undefined}
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-8 w-8"
-        onClick={onRemove}
-        disabled={!canRemove}
-        title={canRemove ? "Remove brand" : (removeBlockedReason ?? "At least one brand is required")}
-      >
-        <X className="h-4 w-4 text-red-600" />
-      </Button>
+      {/* Existing brands are immutable — once a company is saved with a brand
+          we never let it be removed, so we don't render the × at all. The
+          empty span keeps the 36 px grid column so all rows still align. */}
+      {brand.isExisting ? (
+        <span aria-hidden className="h-8 w-8" />
+      ) : (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onRemove}
+          disabled={!canRemove}
+          title={canRemove ? "Remove brand" : (removeBlockedReason ?? "At least one brand is required")}
+        >
+          <X className="h-4 w-4 text-red-600" />
+        </Button>
+      )}
     </div>
   );
 }

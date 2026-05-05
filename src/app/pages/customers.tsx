@@ -505,6 +505,25 @@ export function Customers() {
     setIsExportDialogOpen(false);
   };
 
+  // When there are no customers at all (empty-mode demo or fresh seller),
+  // render a clean full-page empty state instead of the chrome (KPIs, tabs,
+  // filters) wrapped around an empty table — same pattern as other modules.
+  if (allCustomers.length === 0) {
+    return (
+      <div className="h-full flex flex-col bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-6">
+          <Card>
+            <EmptyState
+              icon={Users}
+              title="No customers yet"
+              description="Once retailers register against your brands from the buyer app, their requests will land here for approval. Approved customers will then be listed for ongoing management."
+            />
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* KPI Summary */}
