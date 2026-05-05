@@ -30,6 +30,14 @@ interface ErrorStateProps {
   action?: ReactNode;
   /** Tighter padding for use inside a Card. */
   compact?: boolean;
+  /**
+   * Visual size. `"default"` is sized for inline use inside cards and
+   * page bodies. `"lg"` bumps the illustration + typography for hero /
+   * full-page error pages and the Error Screens demo gallery, where the
+   * primitive sits inside a tall, wide container and would look cramped
+   * at default size.
+   */
+  size?: "default" | "lg";
   className?: string;
 }
 
@@ -83,39 +91,47 @@ export function ErrorState({
   tone = "danger",
   action,
   compact = false,
+  size = "default",
   className,
 }: ErrorStateProps) {
   const tones = TONE_CLASSES[tone];
+  const isLg = size === "lg";
   return (
     <div
       role="alert"
       className={cn(
-        "flex flex-col items-center justify-center text-center",
-        compact ? "py-10 px-6" : "py-16 px-6",
+        "flex flex-col items-center justify-center text-center w-full h-full",
+        compact ? "py-10 px-6" : isLg ? "py-12 px-6" : "py-16 px-6",
         className,
       )}
     >
-      <div className="relative mb-5">
+      <div className={cn("relative", isLg ? "mb-7" : "mb-5")}>
         <div
           className={cn(
-            "absolute inset-0 -z-10 bg-gradient-to-br rounded-3xl blur-2xl opacity-60",
+            "absolute inset-0 -z-10 bg-gradient-to-br rounded-3xl opacity-60",
+            isLg ? "blur-3xl" : "blur-2xl",
             tones.blur,
           )}
         />
         <div
           className={cn(
-            "w-20 h-20 rounded-2xl bg-gradient-to-br ring-1 shadow-sm flex items-center justify-center",
+            "rounded-2xl bg-gradient-to-br ring-1 shadow-sm flex items-center justify-center",
+            isLg ? "w-28 h-28" : "w-20 h-20",
             tones.tile,
           )}
         >
-          <Icon className={cn("h-10 w-10", tones.icon)} strokeWidth={1.5} />
+          <Icon
+            className={cn(isLg ? "h-14 w-14" : "h-10 w-10", tones.icon)}
+            strokeWidth={1.5}
+          />
         </div>
       </div>
 
       {code && (
         <span
           className={cn(
-            "inline-flex items-center rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ring-inset uppercase tracking-wider mb-2",
+            "inline-flex items-center rounded-full ring-1 ring-inset uppercase tracking-wider font-semibold mb-3",
+            isLg ? "px-3 py-1 text-xs" : "px-2.5 py-0.5 text-[11px]",
             tones.code,
           )}
         >
@@ -123,12 +139,24 @@ export function ErrorState({
         </span>
       )}
 
-      <h3 className="text-xl font-semibold text-gray-900 mb-1">{title}</h3>
-      <p className="text-sm text-gray-500 max-w-md leading-relaxed">
+      <h3
+        className={cn(
+          "font-semibold text-gray-900 mb-2",
+          isLg ? "text-3xl" : "text-xl",
+        )}
+      >
+        {title}
+      </h3>
+      <p
+        className={cn(
+          "text-gray-500 leading-relaxed",
+          isLg ? "text-base max-w-xl" : "text-sm max-w-md",
+        )}
+      >
         {description}
       </p>
 
-      {action && <div className="mt-5">{action}</div>}
+      {action && <div className={cn(isLg ? "mt-7" : "mt-5")}>{action}</div>}
     </div>
   );
 }

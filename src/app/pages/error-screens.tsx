@@ -184,32 +184,49 @@ export function ErrorScreensDemo() {
         </div>
       </div>
 
-      {/* Active error preview */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <Card className="max-w-3xl mx-auto">
-          <ErrorState
-            icon={active.icon}
-            code={active.code}
-            title={active.title}
-            description={active.description}
-            tone={active.tone}
-            action={
-              active.cta ? (
-                <Button className="gap-2">
-                  {CtaIcon && <CtaIcon className="h-4 w-4" />}
-                  {active.cta.label}
-                </Button>
-              ) : undefined
-            }
-          />
+      {/* Active error preview — Card fills the available width AND
+          height of the content area so the screenshot represents what
+          the user would actually see in production at this viewport.
+          Footer metadata stays at the bottom of the Card so the page
+          itself doesn't scroll. */}
+      <div className="flex-1 overflow-hidden p-4 md:p-6">
+        <Card className="w-full h-full flex flex-col">
+          <div className="flex-1 flex items-center justify-center min-h-0">
+            <ErrorState
+              icon={active.icon}
+              code={active.code}
+              title={active.title}
+              description={active.description}
+              tone={active.tone}
+              size="lg"
+              action={
+                active.cta ? (
+                  <Button className="gap-2">
+                    {CtaIcon && <CtaIcon className="h-4 w-4" />}
+                    {active.cta.label}
+                  </Button>
+                ) : undefined
+              }
+            />
+          </div>
+          <div className="border-t border-gray-100 px-5 py-2.5 text-[11px] text-gray-500 font-mono flex items-center gap-3 flex-wrap">
+            <span>
+              tone=<span className="text-gray-700">{active.tone}</span>
+            </span>
+            <span>·</span>
+            <span>
+              id=<span className="text-gray-700">{active.id}</span>
+            </span>
+            {active.code && (
+              <>
+                <span>·</span>
+                <span>
+                  code=<span className="text-gray-700">{active.code}</span>
+                </span>
+              </>
+            )}
+          </div>
         </Card>
-
-        {/* Inline metadata so the design reviewer can see how to use
-            the variant in code. */}
-        <div className="max-w-3xl mx-auto mt-4 text-[11px] text-gray-500 font-mono">
-          tone=<span className="text-gray-700">{active.tone}</span> · id=
-          <span className="text-gray-700">{active.id}</span>
-        </div>
       </div>
     </div>
   );
