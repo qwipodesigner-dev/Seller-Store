@@ -868,10 +868,10 @@ export function MySKU() {
               <thead className="bg-gray-50 border-b sticky top-0">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    SKU Code
+                    SKU Code <span className="text-red-500">*</span>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Product Name
+                    SKU Name <span className="text-red-500">*</span>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Brand
@@ -1321,8 +1321,8 @@ export function MySKU() {
                         <table className="w-full text-sm">
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr className="text-left">
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Name</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code <span className="text-red-500">*</span></th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name <span className="text-red-500">*</span></th>
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">Batches</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP (max)</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Selling Price (max)</th>
@@ -1383,7 +1383,7 @@ export function MySKU() {
                           <thead className="bg-gray-50 sticky top-0 z-10">
                             <tr className="text-left">
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-14">Row</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
+                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code <span className="text-red-500">*</span></th>
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Batch</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP</th>
                               <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Price</th>

@@ -459,7 +459,7 @@ export function BulkImport() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
-                      <th className="text-left p-3 font-medium text-gray-900">SKU</th>
+                      <th className="text-left p-3 font-medium text-gray-900">SKU Code <span className="text-red-500">*</span> / SKU Name <span className="text-red-500">*</span></th>
                       <th className="text-left p-3 font-medium text-gray-900">Field</th>
                       <th className="text-left p-3 font-medium text-gray-900">Before</th>
                       <th className="text-left p-3 font-medium text-gray-900">After</th>
