@@ -47,6 +47,7 @@ import {
 } from "../../lib/qps-validation";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
+import { ListPagination } from "../../components/ui/list-pagination";
 
 // Seed QPS schemes — these populate the list on first load.
 // Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
@@ -138,6 +139,10 @@ export function OffersList() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Pagination — reset to page 1 on any filter / search change so the
+  // visible window doesn't fall off the end of a shorter result set.
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Create / Edit QPS dialog (shared — editingId=null means create)
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -175,6 +180,12 @@ export function OffersList() {
     const matchesStatus = statusFilter === "all" || s.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+  // Slice the filtered list down to the current page's window.
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedSchemes = filteredSchemes.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   // ---- KPIs ----
   const totalSchemes = qpsSchemes.length;
@@ -386,11 +397,20 @@ export function OffersList() {
                 <Input
                   placeholder="Search by SKU code or name..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-10 pr-3 h-9"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => {
+                  setStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-36 h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -469,7 +489,7 @@ export function OffersList() {
                     </td>
                   </tr>
                 ) : (
-                  filteredSchemes.map((s) => {
+                  paginatedSchemes.map((s) => {
                     const bestPrice = Math.min(...s.slabs.map((x) => x.effectivePrice));
                     const maxSaving = (((s.sellingPrice - bestPrice) / s.sellingPrice) * 100).toFixed(1);
                     return (
@@ -535,6 +555,13 @@ export function OffersList() {
               </tbody>
             </table>
           </div>
+          <ListPagination
+            page={currentPage}
+            total={filteredSchemes.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="scheme"
+          />
         </Card>
       </div>
 

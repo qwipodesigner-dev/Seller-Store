@@ -19,22 +19,26 @@ interface ListPaginationProps {
   /** Plural override for `itemLabel`. Default = `${itemLabel}s`. */
   itemLabelPlural?: string;
   /**
-   * Always render the bar even when there's only one page. Default
-   * `false` so single-result lists stay clean.
+   * Hide the bar when there's only one page worth of data. Default
+   * `false` — pagination is ALWAYS rendered so every list page feels
+   * the same shape, even when the data fits in one page (the Previous
+   * / Next buttons just disable themselves).
    */
-  alwaysShow?: boolean;
+  hideOnSinglePage?: boolean;
   className?: string;
 }
 
 /**
  * Standard pagination footer used inside the sticky bottom strip on
- * every list page (Sellers, New Requests, My SKU, Customers, …) so
- * the paging UX is identical everywhere: a "Showing N–M of T <items>"
- * caption on the left, a Prev / Next pair with a "Page X of Y" pill
- * on the right.
+ * every list page (Sellers, New Requests, My SKU, Customers, Offers,
+ * Orders, …) so the paging UX is identical everywhere: a
+ * "Showing N–M of T <items>" caption on the left, a Prev / Next pair
+ * with a "Page X of Y" pill on the right.
  *
- * Renders nothing when there's only one page worth of data unless
- * `alwaysShow` is set.
+ * Renders even when there's only one page so every list page has the
+ * same visual shape — the Previous / Next buttons just disable
+ * themselves. Pass `hideOnSinglePage` to opt out for genuinely tight
+ * surfaces.
  */
 export function ListPagination({
   page,
@@ -43,13 +47,12 @@ export function ListPagination({
   onPageChange,
   itemLabel = "item",
   itemLabelPlural,
-  alwaysShow = false,
+  hideOnSinglePage = false,
   className,
 }: ListPaginationProps) {
-  if (total <= 0) return null;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  if (totalPages <= 1 && !alwaysShow) return null;
-  const startIndex = (page - 1) * pageSize;
+  if (hideOnSinglePage && totalPages <= 1) return null;
+  const startIndex = total === 0 ? 0 : (page - 1) * pageSize;
   const endIndex = Math.min(startIndex + pageSize, total);
   const plural = itemLabelPlural ?? `${itemLabel}s`;
 
@@ -62,9 +65,15 @@ export function ListPagination({
     >
       <span className="text-xs text-gray-500">
         Showing{" "}
-        <span className="font-medium text-gray-700">{startIndex + 1}</span>
-        {"–"}
-        <span className="font-medium text-gray-700">{endIndex}</span>
+        {total === 0 ? (
+          <span className="font-medium text-gray-700">0</span>
+        ) : (
+          <>
+            <span className="font-medium text-gray-700">{startIndex + 1}</span>
+            {"–"}
+            <span className="font-medium text-gray-700">{endIndex}</span>
+          </>
+        )}
         {" of "}
         <span className="font-medium text-gray-700">{total}</span>{" "}
         {total === 1 ? itemLabel : plural}
