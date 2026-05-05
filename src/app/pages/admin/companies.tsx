@@ -79,11 +79,21 @@ export function AdminCompanies() {
   // instead of a popup, so users see what to fix without losing context.
   const [errors, setErrors] = useState<{ name?: string; brands?: string }>({});
 
+  // Edit-mode dirty tracking. In Edit, the Save button starts disabled —
+  // pre-filled fields satisfy the validity check, but until the admin
+  // actually changes something there's nothing to save. Any logo swap,
+  // new brand row, brand-name edit, brand-logo upload, or category cover
+  // change flips this to true. Reset every time the dialog re-opens.
+  const [isDirty, setIsDirty] = useState(false);
+  const markDirty = () => setIsDirty(true);
+
   // Derived: form is submittable only when there is a name AND at least one
-  // non-empty brand. Used to gate the Save button.
+  // non-empty brand. In Edit mode we additionally require something has
+  // changed; in Create mode every keystroke counts as progress.
   const trimmedName = name.trim();
   const hasValidBrand = drafts.some((b) => b.name.trim() !== "");
-  const canSubmit = trimmedName !== "" && hasValidBrand;
+  const canSubmit =
+    trimmedName !== "" && hasValidBrand && (!editingId || isDirty);
 
   const openCreate = () => {
     setEditingId(null);
@@ -95,6 +105,7 @@ export function AdminCompanies() {
     setCategorySearch("");
     setActiveTab("brands");
     setErrors({});
+    setIsDirty(false);
     setIsOpen(true);
   };
 
@@ -121,6 +132,7 @@ export function AdminCompanies() {
     setCategorySearch("");
     setActiveTab("brands");
     setErrors({});
+    setIsDirty(false);
     setIsOpen(true);
   };
 
@@ -137,11 +149,13 @@ export function AdminCompanies() {
         };
       }),
     );
+    markDirty();
   };
 
   const handleCompanyImage = (file: File | null) => {
     revokeImage(imageUrl);
     setImageUrl(file ? URL.createObjectURL(file) : null);
+    markDirty();
   };
 
   const handleBrandImage = (idx: number, file: File | null) => {
@@ -154,20 +168,25 @@ export function AdminCompanies() {
       };
       return next;
     });
+    markDirty();
   };
 
   const updateBrandName = (idx: number, value: string) => {
     setDrafts((prev) => prev.map((b, i) => (i === idx ? { ...b, name: value } : b)));
+    markDirty();
   };
 
-  const addBrandRow = () =>
+  const addBrandRow = () => {
     setDrafts((prev) => [...prev, { id: makeId("br"), name: "", imageUrl: null }]);
+    markDirty();
+  };
 
   const removeBrandRow = (idx: number) => {
     setDrafts((prev) => {
       revokeImage(prev[idx].imageUrl);
       return prev.filter((_, i) => i !== idx);
     });
+    markDirty();
   };
 
   const handleSave = () => {
