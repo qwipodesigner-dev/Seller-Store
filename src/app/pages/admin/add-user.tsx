@@ -327,29 +327,29 @@ export function AdminAddUser() {
               <CardTitle className="text-base">Seller Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Profile photo — optional. Uses the shared ImageUploader so
-                  it looks identical to every other image upload in the
-                  admin module. */}
+              {/* Business photo — optional. Uses the shared ImageUploader
+                  so it looks identical to every other image upload in
+                  the admin module. */}
               <div className="flex items-start gap-4 pb-4 border-b border-gray-100">
                 <ImageUploader
                   value={imageUrl}
                   onChange={handleImageChange}
                   aspect="circle"
                   size="md"
-                  alt="Seller photo"
+                  alt="Business photo"
                   placeholder="Upload photo"
                   helper={null}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">
-                    Profile Photo{" "}
+                    Business Photo{" "}
                     <span className="text-xs font-normal text-gray-500">
                       (optional)
                     </span>
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    A photo helps the seller show up correctly in the seller
-                    picker. PNG, JPG, JPEG, or WEBP — under 2 MB.
+                    A photo helps the seller's business show up correctly in
+                    the seller picker. PNG, JPG, JPEG, or WEBP — under 2 MB.
                   </p>
                 </div>
               </div>
