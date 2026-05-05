@@ -49,6 +49,7 @@ import { AdminAddUser } from "./pages/admin/add-user";
 import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
+import { ErrorScreensDemo } from "./pages/error-screens";
 
 export const router = createBrowserRouter([
   {
@@ -81,6 +82,9 @@ export const router = createBrowserRouter([
       { path: "companies", Component: AdminCompanies },
       // Category Master — hierarchical taxonomy (37 ONDC roots + add/sub)
       { path: "categories", Component: AdminCategories },
+      // Error Screens demo gallery — only surfaced in the empty-mode
+      // sidebar but routable for both admin paths.
+      { path: "error-screens", Component: ErrorScreensDemo },
       // Legacy aliases (keep old URLs working)
       { path: "requests", Component: AdminNewRequests },
       { path: "sellers", Component: AdminActiveSellers },
@@ -135,6 +139,9 @@ export const router = createBrowserRouter([
       { path: "reports/customer-insights", Component: CustomerInsightsReport },
       { path: "reports/schemes-offers", Component: SchemesOffersReport },
       { path: "reports/operations", Component: OperationsDeliveryReport },
+      // Error Screens demo gallery — surfaced in the empty-mode sidebar
+      // for both seller-empty and (via /admin/error-screens) admin-empty.
+      { path: "error-screens", Component: ErrorScreensDemo },
     ],
   },
 ]);

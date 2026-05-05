@@ -33,7 +33,13 @@ import {
 import logoImage from "../../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
 import iconLogo from "../../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
 import { useAuth } from "../../lib/auth-context";
-import { adminNavigation, getAdminPageTitle } from "../admin/admin-navigation";
+import {
+  adminErrorScreensNav,
+  adminNavigation,
+  getAdminPageTitle,
+} from "../admin/admin-navigation";
+import { AlertOctagon } from "lucide-react";
+import { RouteProgress } from "../ui/page-loader";
 
 const sellerNavigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -44,6 +50,12 @@ const sellerNavigation = [
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Support", href: "/support", icon: HelpCircle },
 ];
+
+const sellerErrorScreensNav = {
+  name: "Error Screens",
+  href: "/error-screens",
+  icon: AlertOctagon,
+};
 
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
@@ -58,6 +70,7 @@ const getSellerPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/settings")) return "Settings";
   if (pathname.startsWith("/profile")) return "Profile";
   if (pathname.startsWith("/support")) return "Support";
+  if (pathname.startsWith("/error-screens")) return "Error Screens";
   return "SMP Platform";
 };
 
@@ -66,7 +79,17 @@ export function RootLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
-  const navigation = isAdmin ? adminNavigation : sellerNavigation;
+  // Empty-mode demo personas (Super Admin Empty / Seller Empty) get an
+  // extra "Error Screens" item appended to their sidebar so reviewers
+  // can browse the error gallery without leaving the app.
+  const isEmptyMode = user?.dataMode === "empty";
+  const navigation = isAdmin
+    ? isEmptyMode
+      ? [...adminNavigation, adminErrorScreensNav]
+      : adminNavigation
+    : isEmptyMode
+      ? [...sellerNavigation, sellerErrorScreensNav]
+      : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
     isAdmin ? "User Management" : "Products",
@@ -335,6 +358,10 @@ export function RootLayout() {
 
         {/* Page Content - Scrollable */}
         <main className="flex-1 overflow-y-auto">
+          {/* Top-of-viewport progress bar — animates briefly on every
+              route change so the user gets visual feedback that the
+              navigation registered. */}
+          <RouteProgress />
           <Outlet />
         </main>
       </div>
