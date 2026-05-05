@@ -977,7 +977,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       {/* Descriptor */}
       <DualSection title="Descriptor (Product Identity)" icon={<FileText className="h-5 w-5 text-blue-600" />}>
         <DualRow
-          label="Product Name"
+          label="SKU Name"
           required
           ondcRequired
           help="Display name: brand + variant + pack size (3–100 chars)"
