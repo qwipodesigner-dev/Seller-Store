@@ -3,7 +3,6 @@ import { useNavigate } from "react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
-import { Textarea } from "../../components/ui/textarea";
 import { Label } from "../../components/ui/label";
 import { Badge } from "../../components/ui/badge";
 import {
@@ -52,9 +51,13 @@ export function AdminAddUser() {
   const [state, setState] = useState("");
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
-  // Free-text full address (street, area, landmarks). Not used for routing
-  // logic — purely informational.
-  const [addressLine, setAddressLine] = useState("");
+  // Address details — "Locality" covers the area / neighbourhood and
+  // "Street Address" covers the door-level info (shop no., street name,
+  // landmarks). Both are mandatory; they're concatenated into the
+  // existing `fullAddress` field on save so downstream readers don't
+  // need to change.
+  const [locality, setLocality] = useState("");
+  const [streetAddress, setStreetAddress] = useState("");
   const [pinLookupStatus, setPinLookupStatus] = useState<
     "idle" | "loading" | "found" | "not-found"
   >("idle");
@@ -127,7 +130,8 @@ export function AdminAddUser() {
     | "pinCode"
     | "latitude"
     | "longitude"
-    | "addressLine"
+    | "locality"
+    | "streetAddress"
     | "companies",
     string
   >>;
@@ -147,7 +151,8 @@ export function AdminAddUser() {
     if (!latitude.trim() || isNaN(lat) || lat < -90 || lat > 90) return false;
     const lng = parseFloat(longitude);
     if (!longitude.trim() || isNaN(lng) || lng < -180 || lng > 180) return false;
-    if (!addressLine.trim()) return false;
+    if (!locality.trim()) return false;
+    if (!streetAddress.trim()) return false;
     // At least one company picked + that company has brands available.
     const completeRows = selections.filter((s) => s.companyId !== "");
     if (completeRows.length === 0) return false;
@@ -253,7 +258,10 @@ export function AdminAddUser() {
         next.longitude = "Longitude must be a number between -180 and 180";
     }
 
-    if (!addressLine.trim()) next.addressLine = "Full Address is required";
+    if (!locality.trim()) next.locality = "Locality is required";
+    if (!streetAddress.trim()) {
+      next.streetAddress = "Street Address is required";
+    }
 
     const completeRows = selections.filter((s) => s.companyId !== "");
     if (completeRows.length === 0) {
@@ -287,7 +295,10 @@ export function AdminAddUser() {
         pinCode: pinCode.trim(),
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
-        fullAddress: addressLine.trim(),
+        // Combine the locality + street into the legacy fullAddress
+        // field so downstream readers (Seller Detail, exports, etc.)
+        // don't need to change.
+        fullAddress: `${locality.trim()}, ${streetAddress.trim()}`,
         imageUrl,
         companyBrandSelections: completeRows.map((r) => ({
           companyId: r.companyId,
@@ -318,38 +329,40 @@ export function AdminAddUser() {
         </div>
       </div>
 
-      {/* Form */}
+      {/* Form — fills the full width inside Cards (matching the rest of
+          the admin module); the inner `grid md:grid-cols-2` keeps each
+          input from becoming uncomfortably wide on big screens. */}
       <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-3xl mx-auto space-y-6">
+        <div className="space-y-6">
           {/* Seller Information */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Seller Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Profile photo — optional. Uses the shared ImageUploader so
-                  it looks identical to every other image upload in the
-                  admin module. */}
+              {/* Business photo — optional. Uses the shared ImageUploader
+                  so it looks identical to every other image upload in
+                  the admin module. */}
               <div className="flex items-start gap-4 pb-4 border-b border-gray-100">
                 <ImageUploader
                   value={imageUrl}
                   onChange={handleImageChange}
                   aspect="circle"
                   size="md"
-                  alt="Seller photo"
+                  alt="Business photo"
                   placeholder="Upload photo"
                   helper={null}
                 />
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-900">
-                    Profile Photo{" "}
+                    Business Photo{" "}
                     <span className="text-xs font-normal text-gray-500">
                       (optional)
                     </span>
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    A photo helps the seller show up correctly in the seller
-                    picker. PNG, JPG, JPEG, or WEBP — under 2 MB.
+                    A photo helps the seller's business show up correctly in
+                    the seller picker. PNG, JPG, JPEG, or WEBP — under 2 MB.
                   </p>
                 </div>
               </div>
@@ -530,26 +543,47 @@ export function AdminAddUser() {
                     <p className="text-[11px] text-red-600">{errors.longitude}</p>
                   )}
                 </div>
-                <div className="md:col-span-2 space-y-2">
+                <div className="space-y-2">
                   <Label>
-                    Full Address <span className="text-red-500">*</span>
+                    Locality <span className="text-red-500">*</span>
                   </Label>
-                  <Textarea
-                    value={addressLine}
+                  <Input
+                    value={locality}
                     onChange={(e) => {
-                      setAddressLine(e.target.value);
-                      clearError("addressLine");
+                      setLocality(e.target.value);
+                      clearError("locality");
                     }}
-                    placeholder="Shop No., Street, Area, Landmark…"
-                    rows={3}
-                    aria-invalid={!!errors.addressLine}
+                    placeholder="e.g. Banjara Hills, Kothrud, Indiranagar"
+                    aria-invalid={!!errors.locality}
                   />
-                  {errors.addressLine ? (
-                    <p className="text-[11px] text-red-600">{errors.addressLine}</p>
+                  {errors.locality ? (
+                    <p className="text-[11px] text-red-600">{errors.locality}</p>
                   ) : (
                     <p className="text-[11px] text-gray-500">
-                      Free-form description for invoices and dispatch — kept
-                      alongside the PIN / lat-long / city / state above.
+                      The neighbourhood or area within {city || "the city"}.
+                    </p>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <Label>
+                    Street Address <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    value={streetAddress}
+                    onChange={(e) => {
+                      setStreetAddress(e.target.value);
+                      clearError("streetAddress");
+                    }}
+                    placeholder="Shop / door no., street, landmark"
+                    aria-invalid={!!errors.streetAddress}
+                  />
+                  {errors.streetAddress ? (
+                    <p className="text-[11px] text-red-600">
+                      {errors.streetAddress}
+                    </p>
+                  ) : (
+                    <p className="text-[11px] text-gray-500">
+                      Door-level address used on invoices and dispatch labels.
                     </p>
                   )}
                 </div>
@@ -730,10 +764,14 @@ export function AdminAddUser() {
             <Button variant="outline" onClick={() => navigate("/admin/users")}>
               Cancel
             </Button>
+            {/* CTA stays enabled when the form has missing data —
+                clicking runs handleSave which surfaces every problem as
+                an inline field-level error. `isSaving` keeps the
+                in-flight guard so the user can't double-submit. */}
             <Button
               className="gap-2"
               onClick={handleSave}
-              disabled={isSaving || !isFormShapeValid()}
+              disabled={isSaving}
             >
               <UserPlus className="h-4 w-4" />
               {isSaving ? "Creating..." : "Create Seller"}

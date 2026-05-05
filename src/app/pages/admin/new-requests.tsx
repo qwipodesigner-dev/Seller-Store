@@ -1,8 +1,11 @@
-import { useEffect, useState } from "react";
-import { Card, CardContent } from "../../components/ui/card";
+import { useEffect, useMemo, useState } from "react";
+import { Card } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
+import { ListPagination, paginate } from "../../components/ui/list-pagination";
+
+const PAGE_SIZE = 10;
 import {
   Dialog,
   DialogContent,
@@ -38,6 +41,9 @@ export function AdminNewRequests() {
     type: "approve" | "reject";
     request: SellerRequest;
   } | null>(null);
+  // Pagination — reset to 1 on any filter / search change so the
+  // visible window doesn't fall off the end of a shorter result set.
+  const [page, setPage] = useState(1);
 
   const refresh = () => setRequests(getRequests());
 
@@ -45,20 +51,24 @@ export function AdminNewRequests() {
     refresh();
   }, []);
 
-  const filtered = requests.filter((r) => {
-    if (filter !== "all" && r.status !== filter) return false;
-    if (searchQuery.trim()) {
-      const q = searchQuery.toLowerCase();
-      return (
-        r.name.toLowerCase().includes(q) ||
-        r.businessName.toLowerCase().includes(q) ||
-        r.email.toLowerCase().includes(q) ||
-        r.phone.toLowerCase().includes(q) ||
-        r.city.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const filtered = useMemo(() => {
+    return requests.filter((r) => {
+      if (filter !== "all" && r.status !== filter) return false;
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        return (
+          r.name.toLowerCase().includes(q) ||
+          r.businessName.toLowerCase().includes(q) ||
+          r.email.toLowerCase().includes(q) ||
+          r.phone.toLowerCase().includes(q) ||
+          r.city.toLowerCase().includes(q)
+        );
+      }
+      return true;
+    });
+  }, [requests, filter, searchQuery]);
+
+  const pageRows = paginate(filtered, page, PAGE_SIZE);
 
   const getStatusBadge = (status: SellerRequest["status"]) => {
     if (status === "pending") {
@@ -108,7 +118,7 @@ export function AdminNewRequests() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Filter / Search Bar */}
+      {/* Filter / Search Bar — sticky toolbar. */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
@@ -117,7 +127,10 @@ export function AdminNewRequests() {
                 (f) => (
                   <button
                     key={f}
-                    onClick={() => setFilter(f)}
+                    onClick={() => {
+                      setFilter(f);
+                      setPage(1);
+                    }}
                     className={`px-4 py-2 rounded-md text-sm font-medium capitalize transition-all ${
                       filter === f
                         ? "bg-white shadow-sm text-gray-900"
@@ -141,18 +154,23 @@ export function AdminNewRequests() {
             <Input
               placeholder="Search by name, business, email, city..."
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(1);
+              }}
               className="pl-10"
             />
           </div>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-6">
-        <Card>
-          <CardContent className="p-0">
-            {filtered.length === 0 ? (
+      {/* Content — Card stretches to fill the available height; only
+          the row body scrolls, the toolbar above and pagination below
+          stay pinned. */}
+      <div className="flex-1 overflow-hidden p-6">
+        <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
+          {filtered.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center">
               <EmptyState
                 icon={Inbox}
                 title={
@@ -168,10 +186,12 @@ export function AdminNewRequests() {
                       : "Nothing matches the current filter — try the All tab to see everything."
                 }
               />
-            ) : (
-              <div className="overflow-x-auto">
+            </div>
+          ) : (
+            <>
+              <div className="flex-1 overflow-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Name
@@ -197,7 +217,7 @@ export function AdminNewRequests() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
-                    {filtered.map((r) => (
+                    {pageRows.map((r) => (
                       <tr key={r.id} className="hover:bg-gray-50">
                         <td className="px-4 py-3">
                           <p className="font-medium text-gray-900">{r.name}</p>
@@ -258,8 +278,15 @@ export function AdminNewRequests() {
                   </tbody>
                 </table>
               </div>
-            )}
-          </CardContent>
+              <ListPagination
+                page={page}
+                total={filtered.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setPage}
+                itemLabel="request"
+              />
+            </>
+          )}
         </Card>
       </div>
 

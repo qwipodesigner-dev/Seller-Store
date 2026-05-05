@@ -56,6 +56,7 @@ import {
 } from "../lib/customers-data";
 import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
+import { ListPagination } from "../components/ui/list-pagination";
 
 // Empty-mode sellers see no seeded customers — the inception-day empty state.
 const allCustomers: Customer[] = isEmptyMode() ? [] : customersSeed;
@@ -96,22 +97,39 @@ export function Customers() {
   // ---- Inline Approve / Reject dialogs ----
   const [approveTarget, setApproveTarget] = useState<{ customer: Customer; companyId: string } | null>(null);
   const [approveDeliveryDay, setApproveDeliveryDay] = useState<DeliveryDay | "">("");
+  // Inline error for the Approve dialog. CTA stays enabled — clicking
+  // without a delivery day populates this and renders the red helper
+  // line under the picker.
+  const [approveError, setApproveError] = useState<string | null>(null);
   const [rejectTarget, setRejectTarget] = useState<{ customer: Customer; companyId: string } | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [rejectOtherReason, setRejectOtherReason] = useState("");
+  // Inline errors for the Reject dialog — `reason` covers the radio
+  // group (no choice yet), `other` covers the free-text "Other" field.
+  const [rejectErrors, setRejectErrors] = useState<{
+    reason?: string;
+    other?: string;
+  }>({});
 
   const todayIso = () => new Date().toISOString().slice(0, 10);
 
   const openApprove = (customer: Customer, companyId: string) => {
     setApproveTarget({ customer, companyId });
     setApproveDeliveryDay("");
+    setApproveError(null);
   };
   const closeApprove = () => {
     setApproveTarget(null);
     setApproveDeliveryDay("");
+    setApproveError(null);
   };
   const handleApprove = () => {
-    if (!approveTarget || !approveDeliveryDay) return;
+    if (!approveTarget) return;
+    if (!approveDeliveryDay) {
+      setApproveError("Pick a delivery day to continue");
+      return;
+    }
+    setApproveError(null);
     const { customer, companyId } = approveTarget;
     const next = getApprovalsFor(customer).map((a) =>
       a.companyId === companyId
@@ -136,20 +154,30 @@ export function Customers() {
     setRejectTarget({ customer, companyId });
     setRejectReason("");
     setRejectOtherReason("");
+    setRejectErrors({});
   };
   const closeReject = () => {
     setRejectTarget(null);
     setRejectReason("");
     setRejectOtherReason("");
+    setRejectErrors({});
   };
   const handleReject = () => {
     if (!rejectTarget) return;
-    const reason = rejectReason === "Other" ? rejectOtherReason : rejectReason;
-    // Belt-and-braces: the Reject button is disabled until a reason is
-    // chosen (and an "Other" reason is typed). Inline gating is enough.
-    if (!reason) return;
+    const next: { reason?: string; other?: string } = {};
+    if (!rejectReason) {
+      next.reason = "Pick a reason for rejection";
+    } else if (rejectReason === "Other" && !rejectOtherReason.trim()) {
+      next.other = "Please type the reason";
+    }
+    if (Object.keys(next).length > 0) {
+      setRejectErrors(next);
+      return;
+    }
+    setRejectErrors({});
+    const reason = rejectReason === "Other" ? rejectOtherReason.trim() : rejectReason;
     const { customer, companyId } = rejectTarget;
-    const next = getApprovalsFor(customer).map((a) =>
+    const updated = getApprovalsFor(customer).map((a) =>
       a.companyId === companyId
         ? {
             ...a,
@@ -160,8 +188,8 @@ export function Customers() {
           }
         : a,
     );
-    setApprovalsFor(customer.id, next);
-    const co = next.find((a) => a.companyId === companyId);
+    setApprovalsFor(customer.id, updated);
+    const co = updated.find((a) => a.companyId === companyId);
     toast.error(`Rejected ${customer.businessName} for ${co?.companyName}`);
     closeReject();
   };
@@ -184,14 +212,25 @@ export function Customers() {
   // Bulk dialogs
   const [bulkApproveOpen, setBulkApproveOpen] = useState(false);
   const [bulkApproveDeliveryDay, setBulkApproveDeliveryDay] = useState<DeliveryDay | "">("");
+  const [bulkApproveError, setBulkApproveError] = useState<string | null>(null);
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
   const [bulkRejectReason, setBulkRejectReason] = useState("");
   const [bulkRejectOtherReason, setBulkRejectOtherReason] = useState("");
+  const [bulkRejectErrors, setBulkRejectErrors] = useState<{
+    reason?: string;
+    other?: string;
+  }>({});
 
   const handleBulkApprove = () => {
-    // Both guards are belt-and-braces — the Approve action is disabled
-    // unless there's a delivery day AND at least one selected row.
-    if (!bulkApproveDeliveryDay || selectedRows.size === 0) return;
+    // Selection size is enforced by the toolbar (the Approve button only
+    // appears when rows are selected); the only failure mode here is a
+    // missing delivery day.
+    if (selectedRows.size === 0) return;
+    if (!bulkApproveDeliveryDay) {
+      setBulkApproveError("Pick a delivery day to apply to all");
+      return;
+    }
+    setBulkApproveError(null);
     // Group selections by customerId so we apply patches in one update per customer.
     const byCustomer = new Map<string, Set<string>>();
     selectedRows.forEach((k) => {
@@ -228,10 +267,19 @@ export function Customers() {
   };
 
   const handleBulkReject = () => {
-    const reason = bulkRejectReason === "Other" ? bulkRejectOtherReason : bulkRejectReason;
-    // Both guards are belt-and-braces — the Reject action is disabled
-    // unless there's a reason AND at least one selected row.
-    if (!reason || selectedRows.size === 0) return;
+    if (selectedRows.size === 0) return;
+    const next: { reason?: string; other?: string } = {};
+    if (!bulkRejectReason) {
+      next.reason = "Pick a reason to apply to all";
+    } else if (bulkRejectReason === "Other" && !bulkRejectOtherReason.trim()) {
+      next.other = "Please type the reason";
+    }
+    if (Object.keys(next).length > 0) {
+      setBulkRejectErrors(next);
+      return;
+    }
+    setBulkRejectErrors({});
+    const reason = bulkRejectReason === "Other" ? bulkRejectOtherReason.trim() : bulkRejectReason;
     const byCustomer = new Map<string, Set<string>>();
     selectedRows.forEach((k) => {
       const [cid, coid] = k.split("__");
@@ -571,11 +619,13 @@ export function Customers() {
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <Card>
+      {/* Page area — Card stretches; only the table rows scroll. Tabs,
+          search/filters, and pagination stay pinned to the Card top
+          and bottom. Mirrors the My SKU page pattern. */}
+      <div className="flex-1 overflow-hidden p-6">
+        <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
           {/* Tabs — Pending / Approved / Rejected */}
-          <div className="border-b border-gray-200 px-4 pt-3">
+          <div className="border-b border-gray-200 px-4 py-3 flex-shrink-0">
             <div className="inline-flex items-center gap-1 bg-gray-100 rounded-lg p-1">
               {(
                 [
@@ -630,7 +680,7 @@ export function Customers() {
           </div>
 
           {/* Header with Search + Actions */}
-          <div className="border-b border-gray-200 p-4">
+          <div className="border-b border-gray-200 p-4 flex-shrink-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="relative flex-1 w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -800,6 +850,7 @@ export function Customers() {
                   onClick={() => {
                     setBulkRejectReason("");
                     setBulkRejectOtherReason("");
+                    setBulkRejectErrors({});
                     setBulkRejectOpen(true);
                   }}
                 >
@@ -811,6 +862,7 @@ export function Customers() {
                   className="h-8 bg-green-600 hover:bg-green-700"
                   onClick={() => {
                     setBulkApproveDeliveryDay("");
+                    setBulkApproveError(null);
                     setBulkApproveOpen(true);
                   }}
                 >
@@ -821,10 +873,11 @@ export function Customers() {
             </div>
           )}
 
-          {/* Tab-aware Customer Table */}
-          <div className="overflow-x-auto">
+          {/* Tab-aware Customer Table — flex-1 so it claims the rest
+              of the Card height; only this region scrolls. */}
+          <div className="flex-1 overflow-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b sticky top-0">
+              <thead className="bg-gray-50 border-b sticky top-0 z-10">
                 {activeTab === "pending" ? (
                   (() => {
                     const visibleKeys = (paginated as PendingRow[]).map((r) =>
@@ -1039,39 +1092,18 @@ export function Customers() {
             </table>
           </div>
 
-          {/* Pagination */}
-          {activeRows.length > 0 && (
-            <div className="border-t border-gray-200 px-4 py-3 flex items-center justify-between">
-              <div className="text-sm text-gray-700">
-                Showing {startIdx + 1} to {Math.min(startIdx + itemsPerPage, activeRows.length)}{" "}
-                of {activeRows.length}{" "}
-                {activeTab === "pending" ? "pending requests" : "customers"}
-              </div>
-              <div className="flex gap-2 items-center">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage - 1)}
-                  disabled={currentPage === 1}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  Previous
-                </Button>
-                <span className="text-sm text-gray-700">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(currentPage + 1)}
-                  disabled={currentPage >= totalPages}
-                >
-                  Next
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
+          <ListPagination
+            page={currentPage}
+            total={activeRows.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel={
+              activeTab === "pending" ? "pending request" : "customer"
+            }
+            itemLabelPlural={
+              activeTab === "pending" ? "pending requests" : "customers"
+            }
+          />
         </Card>
       </div>
 
@@ -1257,15 +1289,20 @@ export function Customers() {
               customer × company request.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2 space-y-2">
-            <Label className="text-xs">
+          <div className="py-2 space-y-1.5">
+            <Label
+              className={`text-xs ${bulkApproveError ? "text-red-700" : ""}`}
+            >
               Delivery Day <span className="text-red-500">*</span>
             </Label>
             <Select
               value={bulkApproveDeliveryDay}
-              onValueChange={(v) => setBulkApproveDeliveryDay(v as DeliveryDay)}
+              onValueChange={(v) => {
+                setBulkApproveDeliveryDay(v as DeliveryDay);
+                setBulkApproveError(null);
+              }}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-invalid={!!bulkApproveError}>
                 <SelectValue placeholder="Choose a delivery day…" />
               </SelectTrigger>
               <SelectContent>
@@ -1276,18 +1313,26 @@ export function Customers() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-gray-500">
-              All selected requests will be approved with this same day.
-            </p>
+            {bulkApproveError ? (
+              <p className="flex items-start gap-1 text-xs text-red-600">
+                <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{bulkApproveError}</span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-500">
+                All selected requests will be approved with this same day.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkApproveOpen(false)}>
               Cancel
             </Button>
+            {/* CTA always enabled — clicking with no day picked surfaces
+                the inline error above. */}
             <Button
               onClick={handleBulkApprove}
               className="bg-green-600 hover:bg-green-700"
-              disabled={!bulkApproveDeliveryDay}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Approve {selectedRows.size}
@@ -1309,7 +1354,14 @@ export function Customers() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <RadioGroup value={bulkRejectReason} onValueChange={setBulkRejectReason}>
+            <RadioGroup
+              value={bulkRejectReason}
+              onValueChange={(v) => {
+                setBulkRejectReason(v);
+                if (bulkRejectErrors.reason)
+                  setBulkRejectErrors((p) => ({ ...p, reason: undefined }));
+              }}
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="Outside Service Area" id="br1" />
                 <Label htmlFor="br1">Outside Service Area</Label>
@@ -1331,25 +1383,43 @@ export function Customers() {
                 <Label htmlFor="br5">Other</Label>
               </div>
             </RadioGroup>
+            {bulkRejectErrors.reason && (
+              <p className="flex items-start gap-1 text-xs text-red-600">
+                <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{bulkRejectErrors.reason}</span>
+              </p>
+            )}
             {bulkRejectReason === "Other" && (
-              <Textarea
-                placeholder="Please specify the reason..."
-                value={bulkRejectOtherReason}
-                onChange={(e) => setBulkRejectOtherReason(e.target.value)}
-                rows={3}
-              />
+              <div className="space-y-1">
+                <Textarea
+                  placeholder="Please specify the reason..."
+                  value={bulkRejectOtherReason}
+                  onChange={(e) => {
+                    setBulkRejectOtherReason(e.target.value);
+                    if (bulkRejectErrors.other)
+                      setBulkRejectErrors((p) => ({ ...p, other: undefined }));
+                  }}
+                  rows={3}
+                  aria-invalid={!!bulkRejectErrors.other}
+                />
+                {bulkRejectErrors.other && (
+                  <p className="flex items-start gap-1 text-xs text-red-600">
+                    <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>{bulkRejectErrors.other}</span>
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setBulkRejectOpen(false)}>
               Cancel
             </Button>
+            {/* CTA always enabled — clicking with no reason picked
+                surfaces inline errors above. */}
             <Button
               onClick={handleBulkReject}
               className="bg-red-600 hover:bg-red-700 text-white"
-              disabled={
-                !bulkRejectReason || (bulkRejectReason === "Other" && !bulkRejectOtherReason)
-              }
             >
               <XCircle className="h-4 w-4 mr-2" />
               Reject {selectedRows.size}
@@ -1379,15 +1449,20 @@ export function Customers() {
               and pin a delivery day for this customer's beat.
             </DialogDescription>
           </DialogHeader>
-          <div className="py-2 space-y-2">
-            <Label className="text-xs">
+          <div className="py-2 space-y-1.5">
+            <Label
+              className={`text-xs ${approveError ? "text-red-700" : ""}`}
+            >
               Delivery Day <span className="text-red-500">*</span>
             </Label>
             <Select
               value={approveDeliveryDay}
-              onValueChange={(v) => setApproveDeliveryDay(v as DeliveryDay)}
+              onValueChange={(v) => {
+                setApproveDeliveryDay(v as DeliveryDay);
+                setApproveError(null);
+              }}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-invalid={!!approveError}>
                 <SelectValue placeholder="Choose a delivery day…" />
               </SelectTrigger>
               <SelectContent>
@@ -1398,18 +1473,26 @@ export function Customers() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[11px] text-gray-500">
-              Pin a fixed weekday or commit to next-day delivery.
-            </p>
+            {approveError ? (
+              <p className="flex items-start gap-1 text-xs text-red-600">
+                <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{approveError}</span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-gray-500">
+                Pin a fixed weekday or commit to next-day delivery.
+              </p>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeApprove}>
               Cancel
             </Button>
+            {/* CTA always enabled — clicking with no day picked surfaces
+                the inline error above. */}
             <Button
               onClick={handleApprove}
               className="bg-green-600 hover:bg-green-700"
-              disabled={!approveDeliveryDay}
             >
               <CheckCircle2 className="h-4 w-4 mr-2" />
               Approve
@@ -1439,7 +1522,14 @@ export function Customers() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 py-2">
-            <RadioGroup value={rejectReason} onValueChange={setRejectReason}>
+            <RadioGroup
+              value={rejectReason}
+              onValueChange={(v) => {
+                setRejectReason(v);
+                if (rejectErrors.reason)
+                  setRejectErrors((p) => ({ ...p, reason: undefined }));
+              }}
+            >
               <div className="flex items-center space-x-2">
                 <RadioGroupItem value="Outside Service Area" id="r1" />
                 <Label htmlFor="r1">Outside Service Area</Label>
@@ -1461,23 +1551,43 @@ export function Customers() {
                 <Label htmlFor="r5">Other</Label>
               </div>
             </RadioGroup>
+            {rejectErrors.reason && (
+              <p className="flex items-start gap-1 text-xs text-red-600">
+                <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                <span>{rejectErrors.reason}</span>
+              </p>
+            )}
             {rejectReason === "Other" && (
-              <Textarea
-                placeholder="Please specify the reason..."
-                value={rejectOtherReason}
-                onChange={(e) => setRejectOtherReason(e.target.value)}
-                rows={3}
-              />
+              <div className="space-y-1">
+                <Textarea
+                  placeholder="Please specify the reason..."
+                  value={rejectOtherReason}
+                  onChange={(e) => {
+                    setRejectOtherReason(e.target.value);
+                    if (rejectErrors.other)
+                      setRejectErrors((p) => ({ ...p, other: undefined }));
+                  }}
+                  rows={3}
+                  aria-invalid={!!rejectErrors.other}
+                />
+                {rejectErrors.other && (
+                  <p className="flex items-start gap-1 text-xs text-red-600">
+                    <XCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                    <span>{rejectErrors.other}</span>
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={closeReject}>
               Cancel
             </Button>
+            {/* CTA always enabled — clicking with no reason surfaces
+                inline errors above. */}
             <Button
               onClick={handleReject}
               className="bg-red-600 hover:bg-red-700 text-white"
-              disabled={!rejectReason || (rejectReason === "Other" && !rejectOtherReason)}
             >
               <XCircle className="h-4 w-4 mr-2" />
               Reject

@@ -47,6 +47,7 @@ import {
 } from "../../lib/qps-validation";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
+import { ListPagination } from "../../components/ui/list-pagination";
 
 // Seed QPS schemes — these populate the list on first load.
 // Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
@@ -138,6 +139,10 @@ export function OffersList() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  // Pagination — reset to page 1 on any filter / search change so the
+  // visible window doesn't fall off the end of a shorter result set.
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Create / Edit QPS dialog (shared — editingId=null means create)
   const [isEditorOpen, setIsEditorOpen] = useState(false);
@@ -175,6 +180,12 @@ export function OffersList() {
     const matchesStatus = statusFilter === "all" || s.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
+  // Slice the filtered list down to the current page's window.
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedSchemes = filteredSchemes.slice(
+    startIndex,
+    startIndex + itemsPerPage,
+  );
 
   // ---- KPIs ----
   const totalSchemes = qpsSchemes.length;
@@ -375,22 +386,32 @@ export function OffersList() {
         </div>
       </div>
 
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        <Card>
+      {/* Page area — Card stretches; only the rows scroll. Mirrors the
+          My SKU page pattern. */}
+      <div className="flex-1 overflow-hidden p-6">
+        <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
           {/* Header with search + filters + actions */}
-          <div className="border-b border-gray-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap">
+          <div className="border-b border-gray-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 w-full sm:w-auto flex-wrap">
               <div className="relative flex-1 sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by SKU code or name..."
                   value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setCurrentPage(1);
+                  }}
                   className="pl-10 pr-3 h-9"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select
+                value={statusFilter}
+                onValueChange={(v) => {
+                  setStatusFilter(v);
+                  setCurrentPage(1);
+                }}
+              >
                 <SelectTrigger className="w-36 h-9">
                   <SelectValue />
                 </SelectTrigger>
@@ -411,10 +432,11 @@ export function OffersList() {
             </div>
           </div>
 
-          {/* Table */}
-          <div className="overflow-x-auto">
+          {/* Table — flex-1 so it fills the remaining Card height; only
+              this region scrolls. */}
+          <div className="flex-1 overflow-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 border-b border-gray-200">
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr className="text-left">
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name</th>
@@ -469,7 +491,7 @@ export function OffersList() {
                     </td>
                   </tr>
                 ) : (
-                  filteredSchemes.map((s) => {
+                  paginatedSchemes.map((s) => {
                     const bestPrice = Math.min(...s.slabs.map((x) => x.effectivePrice));
                     const maxSaving = (((s.sellingPrice - bestPrice) / s.sellingPrice) * 100).toFixed(1);
                     return (
@@ -535,6 +557,13 @@ export function OffersList() {
               </tbody>
             </table>
           </div>
+          <ListPagination
+            page={currentPage}
+            total={filteredSchemes.length}
+            pageSize={itemsPerPage}
+            onPageChange={setCurrentPage}
+            itemLabel="scheme"
+          />
         </Card>
       </div>
 
