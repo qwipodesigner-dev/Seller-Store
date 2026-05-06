@@ -2,6 +2,13 @@
 
 :root {
   --font-size: 16px;
+  /* Canonical UI font for the whole application. Inter is loaded once
+     in index.html and exposed as a CSS variable here so every component
+     picks it up. The system-font fallback chain keeps the UI legible
+     during the brief window before Inter finishes downloading. */
+  --font-sans:
+    "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
   --background: #ffffff;
   --foreground: oklch(0.145 0 0);
   --card: #ffffff;
@@ -83,6 +90,9 @@
 }
 
 @theme inline {
+  /* Map Inter to Tailwind's default `font-sans` utility so every
+     `font-sans` (and the implicit body default) renders in Inter. */
+  --font-sans: var(--font-sans);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -130,6 +140,12 @@
 
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    /* Inter renders best with the OpenType `cv11` stylistic set
+       (single-storey 'a' for digits) and standard kerning enabled. */
+    font-feature-settings: "cv11", "ss01", "ss03";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   /**
@@ -139,6 +155,16 @@
 
   html {
     font-size: var(--font-size);
+  }
+
+  /* Browsers reset form-control fonts to the OS default — force them
+     back to Inter so buttons, inputs, textareas and selects match the
+     surrounding text. */
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
   }
 
   h1 {
