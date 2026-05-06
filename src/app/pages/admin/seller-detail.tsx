@@ -1223,15 +1223,20 @@ export function SellerCatalogTab({
   const [addAllBrands, setAddAllBrands] = useState(true);
   const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
 
-  // ---- Edit Company dialog ----
-  // Editing a linked company lets the admin REPLACE (not merge) the
-  // brand selection — so they can both add new brands AND remove
-  // existing ones. The company itself is locked — to swap which
-  // company is linked, the admin would unlink (Phase 2) or add a new
-  // company.
+  // ---- Add Brands dialog (per-card "+ Add Brands" CTA) ----
+  // Behaves as "extend only" — existing brand access is preserved and
+  // cannot be revoked from this surface. The admin can:
+  //   • tick additional brands on top of the locked existing ones, or
+  //   • flip on "Use all brands" to grant everything.
+  // They cannot untick an already-linked brand, nor switch from
+  // all-brands back to specific (that would shrink access).
   const [editTarget, setEditTarget] = useState<string | null>(null);
   const [editAllBrands, setEditAllBrands] = useState(true);
   const [editBrandIds, setEditBrandIds] = useState<string[]>([]);
+  // Captured at open-time so we can lock the existing brands and the
+  // "all brands" mode flag against being downgraded.
+  const [existingBrandIds, setExistingBrandIds] = useState<string[]>([]);
+  const [existingWasAllBrands, setExistingWasAllBrands] = useState(false);
 
   const editingCompany = editTarget
     ? companies.find((c) => c.id === editTarget)
@@ -1247,15 +1252,22 @@ export function SellerCatalogTab({
     const isAll = sel.brandIds.length === 0;
     setEditAllBrands(isAll);
     setEditBrandIds(isAll ? [] : [...sel.brandIds]);
+    setExistingBrandIds(isAll ? [] : [...sel.brandIds]);
+    setExistingWasAllBrands(isAll);
   };
 
   const closeEdit = () => {
     setEditTarget(null);
     setEditAllBrands(true);
     setEditBrandIds([]);
+    setExistingBrandIds([]);
+    setExistingWasAllBrands(false);
   };
 
   const toggleEditBrand = (brandId: string) => {
+    // Existing brand access is sticky — admins can only ADD on top of it
+    // from this dialog. Removal is intentionally not surfaced here.
+    if (existingBrandIds.includes(brandId)) return;
     setEditBrandIds((prev) =>
       prev.includes(brandId)
         ? prev.filter((b) => b !== brandId)
@@ -1623,13 +1635,14 @@ export function SellerCatalogTab({
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Pencil className="h-5 w-5 text-blue-600" />
-              Edit Brand Access
+              <Plus className="h-5 w-5 text-blue-600" />
+              Add Brands
             </DialogTitle>
             <DialogDescription>
-              Update which brands this seller can list under{" "}
-              <b>{editingCompany?.name ?? "this company"}</b>. Saved changes
-              replace the previous selection.
+              Add more brands for this seller under{" "}
+              <b>{editingCompany?.name ?? "this company"}</b>.
+              Already-linked brands are locked — they can't be removed
+              from this dialog.
             </DialogDescription>
           </DialogHeader>
 
@@ -1663,10 +1676,27 @@ export function SellerCatalogTab({
               <div className="space-y-2 border border-gray-200 rounded-lg p-3 bg-gray-50">
                 <div className="flex items-center justify-between">
                   <Label className="text-xs">Brands</Label>
-                  <label className="flex items-center gap-2 text-xs cursor-pointer">
+                  {/* The "Use all brands" switch is one-way here:
+                        • If existing was all-brands, it's locked ON
+                          (downgrading to specific would shrink access).
+                        • Otherwise, the admin can flip it ON to grant
+                          everything, but can't flip it back OFF without
+                          re-opening the dialog (saving locks the new
+                          state in too).
+                      The disabled rule below covers both cases. */}
+                  <label
+                    className={`flex items-center gap-2 text-xs ${existingWasAllBrands ? "cursor-not-allowed opacity-70" : "cursor-pointer"}`}
+                    title={existingWasAllBrands ? "All brands are already enabled — cannot be turned off" : undefined}
+                  >
                     <Switch
                       checked={editAllBrands}
+                      disabled={existingWasAllBrands}
                       onCheckedChange={(v) => {
+                        // Block turning off if existing was all-brands.
+                        // Block turning off if it's currently on but only
+                        // because the admin just enabled it — same UX,
+                        // they can cancel and reopen if they made a mistake.
+                        if (existingWasAllBrands && !v) return;
                         setEditAllBrands(v);
                         if (v) setEditBrandIds([]);
                       }}
@@ -1678,23 +1708,34 @@ export function SellerCatalogTab({
                   <div className="flex flex-wrap gap-2">
                     {editingCompany.brands.map((b) => {
                       const checked = editBrandIds.includes(b.id);
+                      const isExisting = existingBrandIds.includes(b.id);
                       return (
                         <button
                           key={b.id}
                           type="button"
                           onClick={() => toggleEditBrand(b.id)}
+                          disabled={isExisting}
+                          title={isExisting ? "Already linked — cannot be removed here" : undefined}
                           className={`inline-flex items-center gap-1.5 border rounded-full pl-1 pr-2 py-0.5 text-xs transition-colors ${
-                            checked
-                              ? "bg-blue-50 border-blue-300 text-blue-800"
-                              : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                            isExisting
+                              ? "bg-gray-100 border-gray-300 text-gray-700 cursor-not-allowed"
+                              : checked
+                                ? "bg-blue-50 border-blue-300 text-blue-800"
+                                : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
                           }`}
                         >
                           <Checkbox
                             checked={checked}
+                            disabled={isExisting}
                             onCheckedChange={() => toggleEditBrand(b.id)}
                             className="h-3.5 w-3.5"
                           />
                           {b.name}
+                          {isExisting && (
+                            <span className="text-[9px] uppercase tracking-wide font-semibold text-gray-500 ml-0.5">
+                              linked
+                            </span>
+                          )}
                         </button>
                       );
                     })}
@@ -1702,9 +1743,9 @@ export function SellerCatalogTab({
                 )}
                 {editAllBrands && (
                   <p className="text-[11px] text-gray-600">
-                    All {editingCompany.brands.length} brands will be
-                    available. Future brands added to this company will also be
-                    accessible automatically.
+                    {existingWasAllBrands
+                      ? `All ${editingCompany.brands.length} brands are already enabled. Future brands added to this company will be accessible automatically — there is nothing to add here.`
+                      : `All ${editingCompany.brands.length} brands will be granted. Future brands added to this company will also be accessible automatically.`}
                   </p>
                 )}
               </div>
@@ -1715,7 +1756,22 @@ export function SellerCatalogTab({
             <Button variant="outline" onClick={closeEdit}>
               Cancel
             </Button>
-            <Button onClick={handleEditSubmit}>Save Changes</Button>
+            <Button
+              onClick={handleEditSubmit}
+              // Disable Save unless the admin has actually added
+              // something on top of what was already linked.
+              disabled={(() => {
+                if (existingWasAllBrands) return true; // already at max
+                if (editAllBrands && !existingWasAllBrands) return false; // upgrading to all
+                // specific → specific: must include at least one NEW id.
+                const hasNew = editBrandIds.some(
+                  (id) => !existingBrandIds.includes(id),
+                );
+                return !hasNew;
+              })()}
+            >
+              Add Brands
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
