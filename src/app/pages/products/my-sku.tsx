@@ -963,22 +963,15 @@ export function MySKU() {
                             title="All ONDC fields are filled in correctly."
                           >
                             <CheckCircle2 className="h-3 w-3" />
-                            ONDC Compliant
+                            Compliant
                           </Badge>
                         ) : (
-                          <div
-                            className="inline-flex flex-col items-center gap-0.5"
+                          <Badge
+                            className="bg-red-100 text-red-700 border-red-300"
                             title={`Missing / invalid fields: ${sku.ondcCompliance.missingFields.join(", ") || "—"}`}
                           >
-                            <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
-                              <AlertCircle className="h-3 w-3" />
-                              {sku.ondcCompliance.missingFields.length} field
-                              {sku.ondcCompliance.missingFields.length === 1 ? "" : "s"} pending
-                            </Badge>
-                            <span className="text-[10px] text-gray-500">
-                              Needs attention
-                            </span>
-                          </div>
+                            Non-compliant
+                          </Badge>
                         )}
                       </td>
                       <td className="px-4 py-3">
