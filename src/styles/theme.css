@@ -167,6 +167,22 @@
     font-family: inherit;
   }
 
+  /* Canonical data-table cell typography — every list page in the app
+     (My SKU, Orders, Customers, Offers, Sellers, etc.) renders cell
+     content at the same size and weight so a column of text in one
+     table reads identically to a column in another. Inner <p> tags
+     used as wrappers inherit; explicit utility classes on the inner
+     element (e.g. `text-gray-500` on a subtitle) still win.
+     `text-sm` = 14px · `font-weight-medium` = 500 · `text-gray-900`. */
+  td {
+    font-size: 0.875rem;
+    font-weight: var(--font-weight-medium);
+    color: oklch(0.145 0 0);
+  }
+  td p {
+    font-weight: inherit;
+  }
+
   h1 {
     font-size: var(--text-2xl);
     font-weight: var(--font-weight-medium);

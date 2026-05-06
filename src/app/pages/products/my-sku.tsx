@@ -1321,9 +1321,9 @@ export function MySKU() {
                                 <td className="px-4 py-3 text-center">
                                   <Badge className="bg-blue-50 text-blue-700 border-blue-200">{agg.batchCount}</Badge>
                                 </td>
-                                <td className="px-4 py-3 text-right font-semibold text-gray-900">₹{agg.mrp.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right font-semibold text-green-700">₹{agg.sellingPrice.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right font-semibold text-gray-900">{agg.totalStock}</td>
+                                <td className="px-4 py-3 text-right font-medium text-gray-900">₹{agg.mrp.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-medium text-green-700">₹{agg.sellingPrice.toFixed(2)}</td>
+                                <td className="px-4 py-3 text-right font-medium text-gray-900">{agg.totalStock}</td>
                                 <td className="px-4 py-3">
                                   <div className="flex flex-wrap gap-1">
                                     {agg.hasPriceDivergence && (
@@ -1400,7 +1400,7 @@ export function MySKU() {
                                     <ul className="space-y-1 text-xs text-red-700">
                                       {b.errors.map((err, i) => (
                                         <li key={i} className="flex gap-2">
-                                          <span className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start">
+                                          <span className="font-mono font-medium text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start">
                                             {err.code}
                                           </span>
                                           <span>{err.message}</span>
@@ -1612,7 +1612,7 @@ export function MySKU() {
                                   {r.errors.map((err, i) => (
                                     <li key={i} className="flex gap-2">
                                       <span
-                                        className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start"
+                                        className="font-mono font-medium text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start"
                                         title={`Rule ${err.ruleId} — field: ${err.field}`}
                                       >
                                         {err.code}

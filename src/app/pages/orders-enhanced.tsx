@@ -742,7 +742,7 @@ export function Orders() {
                   </p>
                 </td>
                 <td className="px-4 py-3">
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-medium text-gray-900">
                     ₹{order.orderValue.toLocaleString()}
                   </p>
                 </td>

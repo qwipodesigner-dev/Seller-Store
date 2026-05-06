@@ -507,7 +507,7 @@ export function OffersList() {
                         </td>
                         <td className="px-4 py-3 text-center">
                           <div className="inline-flex flex-col items-center">
-                            <span className="text-lg font-bold text-gray-900">{s.slabs.length}</span>
+                            <span className="text-lg font-medium text-gray-900">{s.slabs.length}</span>
                             <span className="text-[10px] text-gray-500 uppercase tracking-wider">
                               slab{s.slabs.length !== 1 ? "s" : ""}
                             </span>
@@ -515,7 +515,7 @@ export function OffersList() {
                         </td>
                         <td className="px-4 py-3 text-right">
                           <p className="text-xs text-gray-500">MRP ₹{s.mrp}</p>
-                          <p className="text-sm font-semibold text-green-700">SP ₹{s.sellingPrice}</p>
+                          <p className="text-sm font-medium text-green-700">SP ₹{s.sellingPrice}</p>
                           <p className="text-[10px] text-purple-700">Best: ₹{bestPrice.toFixed(2)} ({maxSaving}% off)</p>
                         </td>
                         <td className="px-4 py-3">
@@ -651,7 +651,7 @@ export function OffersList() {
                               )}
                             </td>
                             <td className="px-4 py-3 text-right">
-                              <p className="text-base font-bold text-green-700">
+                              <p className="text-base font-medium text-green-700">
                                 ₹{slab.effectivePrice.toFixed(2)}
                               </p>
                               <p className="text-[10px] text-gray-500">per unit</p>
@@ -659,7 +659,7 @@ export function OffersList() {
                             <td className="px-4 py-3 text-right">
                               {saving > 0 ? (
                                 <>
-                                  <p className="text-sm font-semibold text-purple-700">
+                                  <p className="text-sm font-medium text-purple-700">
                                     ₹{saving.toFixed(2)}
                                   </p>
                                   <p className="text-[10px] text-gray-500">
@@ -917,13 +917,13 @@ export function OffersList() {
                             )}
                           </td>
                           <td className="px-4 py-3 text-right">
-                            <p className="text-base font-bold text-green-700">₹{eff.toFixed(2)}</p>
+                            <p className="text-base font-medium text-green-700">₹{eff.toFixed(2)}</p>
                             <p className="text-[10px] text-gray-500">per unit</p>
                           </td>
                           <td className="px-4 py-3 text-right">
                             {saving > 0.01 ? (
                               <>
-                                <p className="text-sm font-semibold text-purple-700">
+                                <p className="text-sm font-medium text-purple-700">
                                   ₹{saving.toFixed(2)}
                                 </p>
                                 <p className="text-[10px] text-gray-500">{savingPct.toFixed(1)}% off</p>
