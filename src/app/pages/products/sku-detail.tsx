@@ -38,6 +38,7 @@ import {
   ChevronUp,
   Clock,
   AlertCircle,
+  CheckCircle2,
   ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
