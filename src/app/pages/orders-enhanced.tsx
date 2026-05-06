@@ -777,6 +777,14 @@ export function Orders() {
     );
   };
 
+  // Inception-day: when the seller has no orders at all, hide the
+  // Filters / Export CTAs and the pagination footer. Tabs remain
+  // visible so the seller can switch between status views and the
+  // same full-height Card container is preserved so the layout reads
+  // identically to the populated state. The per-tab EmptyState
+  // already handles rendering the illustration in each tab body.
+  const isEmpty = orders.length === 0;
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Page area — Card stretches; only the rows inside each tab
@@ -834,26 +842,28 @@ export function Orders() {
                   </TabsList>
 
                   {/* Action Buttons */}
+                  {!isEmpty && (
                   <div className="flex gap-2 flex-shrink-0">
                     {/* Filters Button */}
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       className="gap-2"
                       onClick={() => setIsFilterDialogOpen(true)}
                     >
                       <Filter className="h-4 w-4" />
                       Filters
                     </Button>
-                    
+
                     {/* Export Button */}
-                    <Button 
-                      className="gap-2" 
+                    <Button
+                      className="gap-2"
                       onClick={() => setIsExportDialogOpen(true)}
                     >
                       <Download className="h-4 w-4" />
                       Export
                     </Button>
                   </div>
+                  )}
                 </div>
 
                 {/* Bulk Action Buttons for New Tab */}
@@ -898,7 +908,7 @@ export function Orders() {
 
             {/* Tab Contents */}
             <TabsContent value="all" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {/* Search Bar */}
+              {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative max-w-md flex-1">
@@ -920,9 +930,11 @@ export function Orders() {
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
+              {!isEmpty && (
               <ListPagination
                 page={currentPage}
                 total={currentTabOrders.length}
@@ -930,10 +942,11 @@ export function Orders() {
                 onPageChange={setCurrentPage}
                 itemLabel="order"
               />
+              )}
             </TabsContent>
 
             <TabsContent value="new" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {/* Search Bar */}
+              {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative max-w-md flex-1">
@@ -979,9 +992,11 @@ export function Orders() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
+              {!isEmpty && (
               <ListPagination
                 page={currentPage}
                 total={currentTabOrders.length}
@@ -989,10 +1004,11 @@ export function Orders() {
                 onPageChange={setCurrentPage}
                 itemLabel="order"
               />
+              )}
             </TabsContent>
 
             <TabsContent value="confirmed" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {/* Search Bar */}
+              {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="flex items-center justify-between gap-4">
                   <div className="relative max-w-md flex-1">
@@ -1038,13 +1054,14 @@ export function Orders() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
 
             <TabsContent value="delivered" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {/* Search Bar */}
+              {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1064,13 +1081,14 @@ export function Orders() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
 
             <TabsContent value="rejected" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
-              {/* Search Bar */}
+              {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -1090,6 +1108,7 @@ export function Orders() {
                   )}
                 </div>
               </div>
+              )}
 
               {/* Table */}
               {renderOrderTable(paginatedOrders)}

@@ -5,6 +5,7 @@ import {
   Building2,
   LayoutGrid,
   AlertOctagon,
+  Loader2,
   type LucideIcon,
 } from "lucide-react";
 
@@ -36,6 +37,16 @@ export const adminErrorScreensNav: NavItem = {
   icon: AlertOctagon,
 };
 
+/**
+ * Empty-mode-only nav item — companion to adminErrorScreensNav. Surfaces
+ * the Loading Screens gallery (Skeleton + Center loader variants).
+ */
+export const adminLoadingScreensNav: NavItem = {
+  name: "Loading",
+  href: "/admin/loading-screens",
+  icon: Loader2,
+};
+
 export function getAdminPageTitle(pathname: string): string {
   if (pathname === "/admin") return "Admin Dashboard";
   if (pathname.startsWith("/admin/users/add")) return "Add Seller";
@@ -47,5 +58,6 @@ export function getAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/admin/connectors")) return "Connectors";
   if (pathname.startsWith("/admin/sellers/")) return "Seller Details";
   if (pathname.startsWith("/admin/error-screens")) return "Error Screens";
+  if (pathname.startsWith("/admin/loading-screens")) return "Loading";
   return "Admin Portal";
 }

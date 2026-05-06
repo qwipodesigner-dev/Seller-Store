@@ -35,10 +35,11 @@ import iconLogo from "../../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
 import { useAuth } from "../../lib/auth-context";
 import {
   adminErrorScreensNav,
+  adminLoadingScreensNav,
   adminNavigation,
   getAdminPageTitle,
 } from "../admin/admin-navigation";
-import { AlertOctagon } from "lucide-react";
+import { AlertOctagon, Loader2 } from "lucide-react";
 import { RouteProgress } from "../ui/page-loader";
 
 const sellerNavigation = [
@@ -57,6 +58,12 @@ const sellerErrorScreensNav = {
   icon: AlertOctagon,
 };
 
+const sellerLoadingScreensNav = {
+  name: "Loading",
+  href: "/loading-screens",
+  icon: Loader2,
+};
+
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
@@ -71,6 +78,7 @@ const getSellerPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/profile")) return "Profile";
   if (pathname.startsWith("/support")) return "Support";
   if (pathname.startsWith("/error-screens")) return "Error Screens";
+  if (pathname.startsWith("/loading-screens")) return "Loading";
   return "SMP Platform";
 };
 
@@ -79,16 +87,17 @@ export function RootLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
-  // Empty-mode demo personas (Super Admin Empty / Seller Empty) get an
-  // extra "Error Screens" item appended to their sidebar so reviewers
-  // can browse the error gallery without leaving the app.
+  // Empty-mode demo personas (Super Admin Empty / Seller Empty) get
+  // extra "Error Screens" + "Loading" items appended to their sidebar
+  // so reviewers can browse the error and loading galleries without
+  // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
   const navigation = isAdmin
     ? isEmptyMode
-      ? [...adminNavigation, adminErrorScreensNav]
+      ? [...adminNavigation, adminErrorScreensNav, adminLoadingScreensNav]
       : adminNavigation
     : isEmptyMode
-      ? [...sellerNavigation, sellerErrorScreensNav]
+      ? [...sellerNavigation, sellerErrorScreensNav, sellerLoadingScreensNav]
       : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(

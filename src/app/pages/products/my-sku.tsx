@@ -747,6 +747,13 @@ export function MySKU() {
     );
   };
 
+  // Inception-day: when the seller has no SKUs at all, hide the
+  // toolbar chrome (search, filters, bulk-import) and the pagination
+  // footer so the table area surfaces only the EmptyState illustration
+  // — but keep the same full-height Card container so the layout reads
+  // identically to the populated state.
+  const isEmpty = skus.length === 0;
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* Page area — Card fills the available height; only the table
@@ -754,7 +761,10 @@ export function MySKU() {
           pinned to the top and bottom of the Card. */}
       <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
-          {/* Header with Search and Actions */}
+          {/* Header with Search and Actions — search + Bulk Import stay
+              visible on the empty state so the seller can immediately
+              start adding SKUs; only the Filters button (which has
+              nothing to filter) is hidden. */}
           <div className="border-b border-gray-200 p-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               {/* Search */}
@@ -770,6 +780,7 @@ export function MySKU() {
 
               {/* Action Buttons */}
               <div className="flex gap-2 w-full sm:w-auto">
+                {!isEmpty && (
                 <Button
                   variant="outline"
                   size="sm"
@@ -779,6 +790,7 @@ export function MySKU() {
                   <Filter className="h-4 w-4" />
                   Filters
                 </Button>
+                )}
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -866,8 +878,18 @@ export function MySKU() {
           </div>
 
           {/* SKU Table — flex-1 so it claims all the remaining height
-              inside the Card; only this region scrolls. */}
+              inside the Card; only this region scrolls. When the
+              catalog is empty, the EmptyState fills the entire region
+              (no table headers) so the illustration sits centered in
+              the Card. */}
           <div className="flex-1 overflow-auto">
+            {isEmpty ? (
+              <EmptyState
+                icon={PackageSearch}
+                title="No SKUs in your catalog yet"
+                description="Bulk-import your DMS catalog or add SKUs one by one to start publishing them on ONDC."
+              />
+            ) : (
             <table className="w-full">
               <thead className="bg-gray-50 border-b sticky top-0 z-10">
                 <tr>
@@ -903,28 +925,8 @@ export function MySKU() {
                     <td colSpan={8} className="px-4 py-3">
                       <EmptyState
                         icon={PackageSearch}
-                        title={
-                          skus.length === 0
-                            ? "No SKUs in your catalog yet"
-                            : "No matches"
-                        }
-                        description={
-                          skus.length === 0
-                            ? "Bulk-import your DMS catalog or add SKUs one by one to start publishing them on ONDC."
-                            : "No SKUs match your current search or filters. Try clearing them to see everything."
-                        }
-                        action={
-                          skus.length === 0 ? (
-                            <Button
-                              size="sm"
-                              onClick={() => setIsAddSkuOpen(true)}
-                              className="gap-2"
-                            >
-                              <Plus className="h-4 w-4" />
-                              Add SKUs
-                            </Button>
-                          ) : undefined
-                        }
+                        title="No matches"
+                        description="No SKUs match your current search or filters. Try clearing them to see everything."
                       />
                     </td>
                   </tr>
@@ -992,8 +994,10 @@ export function MySKU() {
                 )}
               </tbody>
             </table>
+            )}
           </div>
 
+          {!isEmpty && (
           <ListPagination
             page={currentPage}
             total={filteredSKUs.length}
@@ -1001,6 +1005,7 @@ export function MySKU() {
             onPageChange={setCurrentPage}
             itemLabel="SKU"
           />
+          )}
         </Card>
       </div>
 

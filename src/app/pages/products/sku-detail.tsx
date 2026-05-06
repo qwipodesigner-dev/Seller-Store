@@ -5,6 +5,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Separator } from "../../components/ui/separator";
 import { Progress } from "../../components/ui/progress";
+import { Switch } from "../../components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -1274,42 +1275,48 @@ function ProductDetailsTab({ sku }: { sku: any }) {
 
       {/* ONDC Commerce Attributes */}
       <DualSection title="ONDC Commerce Attributes" icon={<ShieldCheck className="h-5 w-5 text-teal-600" />}>
-        {/* Spec: Returnable / Cancellable / COD are fixed for Phase 1.
-            Display the value but lock it from editing. */}
+        {/* Returnable / Cancellable / COD are now editable Yes/No toggles
+            so the seller can configure their commerce policy per SKU. */}
         <DualRow
           label="Returnable"
           required
           ondcRequired
-          help="Phase 1 default — not editable."
+          help="Whether buyers can return this SKU after delivery."
           dms={""}
           ondc={
-            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-200">
-              No
-            </span>
+            <YesNoToggle
+              checked={ondc.returnable}
+              onChange={(v) => update("returnable", v)}
+              edited={isEdited("returnable")}
+            />
           }
         />
         <DualRow
           label="Cancellable"
           required
           ondcRequired
-          help="Phase 1 default — not editable."
+          help="Whether buyers can cancel before dispatch."
           dms={""}
           ondc={
-            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-200">
-              No
-            </span>
+            <YesNoToggle
+              checked={ondc.cancellable}
+              onChange={(v) => update("cancellable", v)}
+              edited={isEdited("cancellable")}
+            />
           }
         />
         <DualRow
           label="Available on COD"
           required
           ondcRequired
-          help="Phase 1 default — not editable."
+          help="Whether cash-on-delivery is offered for this SKU."
           dms={""}
           ondc={
-            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
-              Yes
-            </span>
+            <YesNoToggle
+              checked={ondc.availableOnCod}
+              onChange={(v) => update("availableOnCod", v)}
+              edited={isEdited("availableOnCod")}
+            />
           }
         />
         <DualRow
@@ -2043,6 +2050,42 @@ function SelectInput({
           ))}
         </SelectContent>
       </Select>
+      <FieldStatus edited={edited} />
+    </div>
+  );
+}
+
+/**
+ * Editable Yes/No toggle for ONDC boolean attributes (Returnable,
+ * Cancellable, Available on COD). Renders the Switch alongside its
+ * current state label so the value reads at a glance — Yes pills green,
+ * No pills grey — and shows the standard "Edited" status under the
+ * row when the seller flips it from the DMS default.
+ */
+function YesNoToggle({
+  checked,
+  onChange,
+  edited,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  edited?: boolean;
+}) {
+  return (
+    <div>
+      <div className="inline-flex items-center gap-2">
+        <Switch checked={checked} onCheckedChange={onChange} />
+        <span
+          className={
+            "inline-flex items-center px-2 py-0.5 text-xs font-medium rounded border " +
+            (checked
+              ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+              : "bg-gray-100 text-gray-700 border-gray-200")
+          }
+        >
+          {checked ? "Yes" : "No"}
+        </span>
+      </div>
       <FieldStatus edited={edited} />
     </div>
   );

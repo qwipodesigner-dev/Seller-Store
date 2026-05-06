@@ -50,6 +50,7 @@ import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
 import { ErrorScreensDemo } from "./pages/error-screens";
+import { LoadingScreensDemo } from "./pages/loading-screens";
 
 export const router = createBrowserRouter([
   {
@@ -85,6 +86,8 @@ export const router = createBrowserRouter([
       // Error Screens demo gallery — only surfaced in the empty-mode
       // sidebar but routable for both admin paths.
       { path: "error-screens", Component: ErrorScreensDemo },
+      // Loading Screens demo gallery — same empty-mode-only treatment.
+      { path: "loading-screens", Component: LoadingScreensDemo },
       // Legacy aliases (keep old URLs working)
       { path: "requests", Component: AdminNewRequests },
       { path: "sellers", Component: AdminActiveSellers },
@@ -142,6 +145,8 @@ export const router = createBrowserRouter([
       // Error Screens demo gallery — surfaced in the empty-mode sidebar
       // for both seller-empty and (via /admin/error-screens) admin-empty.
       { path: "error-screens", Component: ErrorScreensDemo },
+      // Loading Screens demo gallery — same empty-mode-only treatment.
+      { path: "loading-screens", Component: LoadingScreensDemo },
     ],
   },
 ]);

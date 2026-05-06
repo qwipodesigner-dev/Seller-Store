@@ -342,6 +342,13 @@ export function OffersList() {
 
   const viewScheme = viewSchemeId ? qpsSchemes.find((s) => s.id === viewSchemeId) : null;
 
+  // Inception-day: when the seller has no QPS schemes at all, hide
+  // only the toolbar chrome (search, status filter, Create CTA) and
+  // the pagination footer. KPI summary stays visible (showing 0s) and
+  // the same full-height Card container is preserved so the layout
+  // reads identically to the populated state.
+  const isEmpty = qpsSchemes.length === 0;
+
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* KPI Summary */}
@@ -390,7 +397,10 @@ export function OffersList() {
           My SKU page pattern. */}
       <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
-          {/* Header with search + filters + actions */}
+          {/* Header with search + filters + actions — search + Create
+              QPS stay visible on the empty state so the seller can
+              immediately start authoring schemes; only the status
+              filter (which has nothing to filter) is hidden. */}
           <div className="border-b border-gray-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 w-full sm:w-auto flex-wrap">
               <div className="relative flex-1 sm:max-w-xs">
@@ -405,6 +415,7 @@ export function OffersList() {
                   className="pl-10 pr-3 h-9"
                 />
               </div>
+              {!isEmpty && (
               <Select
                 value={statusFilter}
                 onValueChange={(v) => {
@@ -423,6 +434,7 @@ export function OffersList() {
                   <SelectItem value="Expired">Expired</SelectItem>
                 </SelectContent>
               </Select>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <Button size="sm" onClick={handleOpenCreate} className="gap-2">
@@ -433,8 +445,17 @@ export function OffersList() {
           </div>
 
           {/* Table — flex-1 so it fills the remaining Card height; only
-              this region scrolls. */}
+              this region scrolls. When the catalog is empty, the
+              EmptyState fills the entire region (no headers) so the
+              illustration sits centered. */}
           <div className="flex-1 overflow-auto">
+            {isEmpty ? (
+              <EmptyState
+                icon={Tag}
+                title="No QPS schemes yet"
+                description="Once you create a quantity-based pricing scheme to reward bulk buyers, they'll appear here for ongoing management."
+              />
+            ) : (
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr className="text-left">
@@ -462,31 +483,8 @@ export function OffersList() {
                     <td colSpan={8} className="px-4 py-3">
                       <EmptyState
                         icon={Tag}
-                        title={
-                          qpsSchemes.length === 0
-                            ? "No QPS schemes yet"
-                            : "No matches"
-                        }
-                        description={
-                          qpsSchemes.length === 0
-                            ? "Create a quantity-based pricing scheme to reward bulk buyers and grow your average order value."
-                            : "No schemes match your search or filters. Try clearing them to see everything."
-                        }
-                        action={
-                          qpsSchemes.length === 0 ? (
-                            <Button
-                              size="sm"
-                              onClick={() => {
-                                setEditingId(null);
-                                setIsEditorOpen(true);
-                              }}
-                              className="gap-2"
-                            >
-                              <Plus className="h-4 w-4" />
-                              Create QPS
-                            </Button>
-                          ) : undefined
-                        }
+                        title="No matches"
+                        description="No schemes match your search or filters. Try clearing them to see everything."
                       />
                     </td>
                   </tr>
@@ -556,7 +554,9 @@ export function OffersList() {
                 )}
               </tbody>
             </table>
+            )}
           </div>
+          {!isEmpty && (
           <ListPagination
             page={currentPage}
             total={filteredSchemes.length}
@@ -564,6 +564,7 @@ export function OffersList() {
             onPageChange={setCurrentPage}
             itemLabel="scheme"
           />
+          )}
         </Card>
       </div>
 
