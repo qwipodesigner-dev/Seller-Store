@@ -829,12 +829,12 @@ export function PriceInventory() {
                         <span className="text-sm text-gray-700">{product.brand}</span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-gray-900">
+                        <span className="font-medium text-gray-900">
                           ₹{Math.round(product.mrp)}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <span className="font-semibold text-green-700">
+                        <span className="font-medium text-green-700">
                           ₹{Math.round(product.sellingPrice)}
                         </span>
                       </td>
@@ -842,7 +842,7 @@ export function PriceInventory() {
                         {product.isInfiniteStock ? (
                           <Infinity className="h-4 w-4 text-purple-600 mx-auto" />
                         ) : (
-                          <span className="font-semibold text-gray-900">
+                          <span className="font-medium text-gray-900">
                             {product.availableStock}
                           </span>
                         )}
@@ -1467,14 +1467,14 @@ export function PriceInventory() {
                                     {agg.batchCount}
                                   </Badge>
                                 </td>
-                                <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                                <td className="px-4 py-3 text-right font-medium text-gray-900">
                                   ₹{agg.mrp.toFixed(2)}
                                 </td>
-                                <td className="px-4 py-3 text-right font-semibold text-green-700">
+                                <td className="px-4 py-3 text-right font-medium text-green-700">
                                   ₹{agg.sellingPrice.toFixed(2)}
                                 </td>
                                 <td className="px-4 py-3 text-right text-gray-700">{agg.gst}%</td>
-                                <td className="px-4 py-3 text-right font-semibold text-gray-900">
+                                <td className="px-4 py-3 text-right font-medium text-gray-900">
                                   {agg.totalStock}
                                 </td>
                                 <td className="px-4 py-3">
@@ -1564,7 +1564,7 @@ export function PriceInventory() {
                                       {b.errors.map((err, i) => (
                                         <li key={i} className="flex gap-2">
                                           <span
-                                            className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start"
+                                            className="font-mono font-medium text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start"
                                             title={`Rule ${err.ruleId} — field: ${err.field}`}
                                           >
                                             {err.code}

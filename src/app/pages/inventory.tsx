@@ -448,7 +448,7 @@ export function Inventory() {
                         <span className="text-sm text-gray-700">{item.category}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
-                        <span className="font-semibold text-gray-900">{item.availableStock}</span>
+                        <span className="font-medium text-gray-900">{item.availableStock}</span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <span className="text-gray-600">{item.reservedStock}</span>

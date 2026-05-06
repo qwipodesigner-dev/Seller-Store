@@ -548,24 +548,12 @@ export function Customers() {
     setIsExportDialogOpen(false);
   };
 
-  // When there are no customers at all (empty-mode demo or fresh seller),
-  // render a clean full-page empty state instead of the chrome (KPIs, tabs,
-  // filters) wrapped around an empty table — same pattern as other modules.
-  if (allCustomers.length === 0) {
-    return (
-      <div className="h-full flex flex-col bg-gray-50">
-        <div className="flex-1 overflow-y-auto p-6">
-          <Card>
-            <EmptyState
-              icon={Users}
-              title="No customers yet"
-              description="Once retailers register against your brands from the buyer app, their requests will land here for approval. Approved customers will then be listed for ongoing management."
-            />
-          </Card>
-        </div>
-      </div>
-    );
-  }
+  // Inception-day: when the seller has no customers at all, hide the
+  // search / Filters / Export toolbar and the pagination footer. KPIs
+  // and tabs stay visible (with their 0 counts), and the same
+  // full-height Card container is preserved so the layout reads
+  // identically to the populated state.
+  const isEmpty = allCustomers.length === 0;
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -680,6 +668,7 @@ export function Customers() {
           </div>
 
           {/* Header with Search + Actions */}
+          {!isEmpty && (
           <div className="border-b border-gray-200 p-4 flex-shrink-0">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="relative flex-1 w-full sm:max-w-md">
@@ -824,6 +813,7 @@ export function Customers() {
               </div>
             )}
           </div>
+          )}
 
           {/* Bulk-action bar — shown only on Pending tab when at least one
               row is selected. Lets the seller approve / reject multiple
@@ -874,8 +864,18 @@ export function Customers() {
           )}
 
           {/* Tab-aware Customer Table — flex-1 so it claims the rest
-              of the Card height; only this region scrolls. */}
+              of the Card height; only this region scrolls. When the
+              seller has no customers at all, the EmptyState fills the
+              entire region (no table headers) so the illustration sits
+              centered in the Card. */}
           <div className="flex-1 overflow-auto">
+            {isEmpty ? (
+              <EmptyState
+                icon={Users}
+                title="No customers yet"
+                description="Once retailers register against your brands from the buyer app, their requests will land here for approval. Approved customers will then be listed for ongoing management."
+              />
+            ) : (
             <table className="w-full">
               <thead className="bg-gray-50 border-b sticky top-0 z-10">
                 {activeTab === "pending" ? (
@@ -1090,8 +1090,10 @@ export function Customers() {
                 )}
               </tbody>
             </table>
+            )}
           </div>
 
+          {!isEmpty && (
           <ListPagination
             page={currentPage}
             total={activeRows.length}
@@ -1104,6 +1106,7 @@ export function Customers() {
               activeTab === "pending" ? "pending requests" : "customers"
             }
           />
+          )}
         </Card>
       </div>
 
