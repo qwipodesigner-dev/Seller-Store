@@ -1061,7 +1061,11 @@ export function MySKU() {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Status</SelectItem>
+                        {/* "All" rather than "All Status" so the option
+                            isn't mistaken for the field label and the
+                            phrasing matches the ONDC Compliance picker
+                            below. */}
+                        <SelectItem value="all">All</SelectItem>
                         <SelectItem value="Active">Active</SelectItem>
                         <SelectItem value="Inactive">Inactive</SelectItem>
                       </SelectContent>
