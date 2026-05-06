@@ -100,6 +100,47 @@ const CATEGORY_OPTIONS = [
   "Snacks & Branded Foods",
 ];
 
+// validateSKU returns errors keyed by ONDC JSON-paths (e.g.
+// "items[].descriptor.name"). The seller doesn't think in those
+// terms, so map the most common paths to the field's display label.
+// Anything we don't recognise falls back to the last segment of the
+// path (e.g. "country_of_origin" → "country of origin").
+const FIELD_LABELS: Record<string, string> = {
+  "items[].time.label": "Item Status",
+  "items[].descriptor.name": "SKU Name",
+  "items[].descriptor.code": "SKU Code",
+  "items[].descriptor.short_desc": "Short Description",
+  "items[].descriptor.long_desc": "Long Description",
+  "items[].descriptor.images": "Product Images",
+  "items[].descriptor.symbol": "Primary Image",
+  "items[].quantity.unitized.measure.unit": "Measure Unit",
+  "items[].quantity.unitized.measure.value": "Unit Value",
+  "items[].quantity.unitized.count": "Pack Size",
+  "items[].quantity.maximum.count": "Max Order Quantity",
+  "items[].quantity.minimum.count": "Min Order Quantity",
+  "items[].quantity.available.count": "Available Stock",
+  "items[].tags.upc": "UPC",
+  "items[].tags.sku_weight": "SKU Weight",
+  "items[].category_id": "Category",
+  "items[].fulfillment_id": "Fulfillment",
+  "items[].location_id": "Location",
+  "items[].@ondc/org/returnable": "Returnable",
+  "items[].@ondc/org/cancellable": "Cancellable",
+  "items[].@ondc/org/time_to_ship": "Time to Ship",
+  "items[].@ondc/org/available_on_cod": "Available on COD",
+  "items[].@ondc/org/contact_details_consumer_care": "Customer Care",
+  "items[].tags.manufacturer_or_packer_name": "Manufacturer",
+  "items[].tags.manufacturer_or_packer_address": "Manufacturer Address",
+  "items[].tags.country_of_origin": "Country of Origin",
+  "items[].tags.brand": "Brand",
+};
+const humaniseFieldPath = (path: string): string => {
+  if (FIELD_LABELS[path]) return FIELD_LABELS[path];
+  // Fallback: take the last segment, strip dots/brackets, prettify.
+  const tail = path.split(/[.\]]/).filter(Boolean).pop() ?? path;
+  return tail.replace(/[_-]+/g, " ").replace(/\bng\b/i, "");
+};
+
 // Types
 interface OfferTier {
   minQty: number;
@@ -1440,15 +1481,19 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         open={postSavePrompt !== null}
         onOpenChange={(o) => !o && setPostSavePrompt(null)}
       >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
+        <DialogContent
+          showCloseButton={false}
+          className="max-w-2xl max-h-[85vh] flex flex-col"
+        >
+          <DialogHeader className="shrink-0">
             <DialogTitle className="flex items-center gap-2 text-amber-700">
               <AlertCircle className="h-5 w-5" />
               {postSavePrompt?.title}
             </DialogTitle>
             <DialogDescription>{postSavePrompt?.body}</DialogDescription>
           </DialogHeader>
-          <div className="flex items-center gap-3 mt-1 text-sm">
+
+          <div className="flex items-center gap-3 text-sm shrink-0">
             {postSavePrompt && postSavePrompt.savedCount > 0 && (
               <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
                 <CheckCircle2 className="h-3.5 w-3.5" />
@@ -1462,7 +1507,39 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               </span>
             )}
           </div>
-          <DialogFooter>
+
+          {/* What specifically needs fixing — driven by the same
+              pendingErrors array that paints the inline red text on
+              each field. Showing the list here gives the seller a
+              one-glance summary so they don't have to scan the whole
+              page to find the red. */}
+          {pendingErrors.length > 0 && (
+            <div className="flex-1 min-h-0 overflow-y-auto -mx-1 px-1">
+              <p className="text-xs font-semibold text-gray-700 mb-2">
+                Fields that need fixing:
+              </p>
+              <ul className="space-y-2">
+                {pendingErrors.map((err, i) => (
+                  <li
+                    key={`${err.ruleId}-${i}`}
+                    className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5 text-sm"
+                  >
+                    <AlertCircle className="h-4 w-4 text-red-600 shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-red-800 font-medium leading-snug">
+                        {err.message}
+                      </p>
+                      <p className="text-[11px] text-red-600 font-mono mt-0.5 truncate">
+                        {humaniseFieldPath(err.field)}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <DialogFooter className="shrink-0">
             <Button onClick={() => setPostSavePrompt(null)}>
               Got it, will fix
             </Button>
