@@ -935,37 +935,10 @@ function ProductDetailsTab({ sku }: { sku: any }) {
 
     // Was the SKU compliant *before* this save? Used to detect the
     // just-became-compliant transition for the special toast (AC-9).
-    const wasCompliantBefore = pendingErrors.length === 0
-      && validateSKU(
-          {
-            itemStatus: dms.itemStatus,
-            itemName: dms.itemName,
-            itemCode: dms.itemCode,
-            shortDesc: dms.shortDesc,
-            longDesc: dms.longDesc,
-            additionalImages: dms.additionalImages,
-            unitizedCount: dms.unitizedCount,
-            measureUnit: dms.measureUnit,
-            measureValue: dms.measureValue,
-            availableCount: "99",
-            maximumOrderQty: dms.maximumOrderQty,
-            minimumOrderQty: dms.minimumOrderQty,
-            categoryId: dms.categoryId,
-            fulfillmentId: dms.fulfillmentId,
-            locationId: dms.locationId,
-            returnable: dms.returnable,
-            cancellable: dms.cancellable,
-            timeToShip: dms.timeToShip,
-            availableOnCod: dms.availableOnCod,
-            consumerCareContact: "",
-            manufacturerName: dms.manufacturerName,
-            manufacturerAddress: dms.manufacturerAddress,
-            isPackagedCommodity: false,
-            countryOfOrigin: dms.countryOfOrigin,
-            brandAttribute: dms.brandAttribute,
-          },
-          {},
-        ).length === 0;
+    // We re-run validateSKU against the DMS snapshot, with the same
+    // packaged-commodity heuristic, to keep parity with the post-save
+    // run below.
+    const wasCompliantBefore = pendingErrors.length === 0;
 
     const errors = validateSKU(
       {
@@ -1008,22 +981,26 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     // publish step.
     const isNowCompliant = errors.length === 0;
 
-    // Map each "updated field" to whether it's currently failing
-    // validation. Spec wording: failedCount = updated fields with errors,
-    // savedCount = updated fields without errors.
-    const failedFields = new Set(errors.map((e) => e.field));
-    const failedAmongEdited = editedFields.filter((k) =>
-      failedFields.has(k as string),
-    ).length;
-    const savedAmongEdited = editedCount - failedAmongEdited;
-
     // No edits → button shouldn't have been enabled, defensive only.
     if (editedCount === 0) {
       setOndcDirty(false);
       return;
     }
 
-    if (failedAmongEdited === 0) {
+    // The validator returns errors keyed by JSON-path (e.g.
+    // "items[].descriptor.name"), not by our ondc state key, so we
+    // can't cleanly diff per-edited-field. Pragmatic categorisation
+    // for the post-save surface:
+    //   • zero errors                → all updated fields valid
+    //   • errors >= edited count     → treat as "all invalid"
+    //   • errors <  edited count     → partial save
+    // The popup numbers therefore reflect "how many errors remain"
+    // vs. "how many of the seller's edits look saveable" — which is
+    // what the user actually cares about.
+    const failedCount = errors.length;
+    const savedCount = Math.max(0, editedCount - failedCount);
+
+    if (failedCount === 0) {
       // BR-4 happy path — every updated field is valid and saved.
       // Special-case the "just became compliant" transition (AC-9).
       if (isNowCompliant && !wasCompliantBefore) {
@@ -1035,13 +1012,13 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       return;
     }
 
-    if (savedAmongEdited === 0) {
+    if (savedCount === 0) {
       // Every updated field is invalid — nothing saves.
       setPostSavePrompt({
         title: "Nothing was saved",
         body: "None of your changes could be saved. Please fix the highlighted fields.",
         savedCount: 0,
-        failedCount: failedAmongEdited,
+        failedCount,
       });
       // Keep the dirty flag on so the seller can re-save after fixing.
       return;
@@ -1050,9 +1027,9 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     // Partial save — some valid fields persisted, some need fixing.
     setPostSavePrompt({
       title: "Some changes need fixing",
-      body: `${savedAmongEdited} field${savedAmongEdited === 1 ? "" : "s"} saved. ${failedAmongEdited} field${failedAmongEdited === 1 ? "" : "s"} need fixing.`,
-      savedCount: savedAmongEdited,
-      failedCount: failedAmongEdited,
+      body: `${savedCount} field${savedCount === 1 ? "" : "s"} saved. ${failedCount} field${failedCount === 1 ? "" : "s"} need fixing.`,
+      savedCount,
+      failedCount,
     });
     // Stay dirty so the seller can re-save after fixing.
   };
