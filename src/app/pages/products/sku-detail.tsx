@@ -2254,18 +2254,11 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     const errs: { code: string; field: string; message: string }[] = [];
     const mrp = parseFloat(ondcPI.mrp);
     const sp = parseFloat(ondcPI.sellingPrice);
-    const upc = parseInt(ondcPI.unitsPerCase, 10);
-    const packSize = parseInt(ondcPI.packSize, 10);
-    // Pack Size (Inner Pack): optional, but if present must be 1–10,000.
-    if (ondcPI.packSize !== "" && (isNaN(packSize) || packSize < 1 || packSize > 10000)) {
-      errs.push({ code: "ERR_PI_009", field: "Pack Size (Inner Pack)", message: "Pack Size (Inner Pack) must be a whole number between 1 and 10,000." });
-    }
-    // UPC (Unit Per Case): required & ≥ 1
-    if (ondcPI.unitsPerCase === "" || isNaN(upc)) {
-      errs.push({ code: "ERR_PI_010", field: "UPC (Unit Per Case)", message: "UPC (Unit Per Case) is required." });
-    } else if (upc < 1) {
-      errs.push({ code: "ERR_PI_010", field: "UPC (Unit Per Case)", message: "UPC (Unit Per Case) must be at least 1." });
-    }
+    // Pack Size and UPC are read-only on this tab — they are owned by
+    // the Product Details tab and validated there. Don't re-check
+    // them here, otherwise an empty UPC on a fresh SKU would block
+    // Save Price & Stock with an error the seller can't fix from this
+    // tab.
     // MRP: required, numeric, > 0
     if (ondcPI.mrp === "" || isNaN(mrp)) {
       errs.push({ code: "ERR_PI_003", field: "MRP", message: "MRP is required and must be a valid number." });
@@ -2330,34 +2323,48 @@ function PriceInventoryTab({ sku }: { sku: any }) {
         </div>
       </div>
 
-      {/* Inventory — compact, single Stock Available toggle */}
+      {/* Inventory — compact, single Stock Available toggle.
+          Pack Size and UPC are read-only on this tab per spec — they
+          are owned by the Product Details tab and shown here only for
+          reference, with a hint about where to edit them. */}
       <DualSection title="Inventory" icon={<Archive className="h-5 w-5 text-emerald-600" />} dense>
         <DualRow
           dense
           label="Pack Size (Inner Pack)"
+          help="Read-only here. Edit on the Product Details tab."
           dms={dmsPI.packSize}
           ondc={
-            <TextInput
-              value={ondcPI.packSize}
-              onChange={(v) => updatePI("packSize", v)}
-              edited={isEditedPI("packSize")}
-              type="number"
-            />
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">
+                {ondcPI.packSize || "—"}
+              </p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="Pack Size is owned by the Product Details tab and cannot be changed here."
+              >
+                Read-only
+              </span>
+            </div>
           }
         />
         <DualRow
           dense
           label="UPC (Unit Per Case)"
           required
+          help="Read-only here. Edit on the Product Details tab."
           dms={dmsPI.unitsPerCase}
           ondc={
-            <TextInput
-              value={ondcPI.unitsPerCase}
-              onChange={(v) => updatePI("unitsPerCase", v)}
-              edited={isEditedPI("unitsPerCase")}
-              required
-              type="number"
-            />
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">
+                {ondcPI.unitsPerCase || "—"}
+              </p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="UPC is owned by the Product Details tab and cannot be changed here."
+              >
+                Read-only
+              </span>
+            </div>
           }
         />
         <DualRow
