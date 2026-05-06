@@ -820,18 +820,22 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     upc: "",
     skuWeight: "",
     categoryId: "",
-    fulfillmentId: "",
-    locationId: "",
+    // Phase 1 spec defaults — fulfillment is Store Delivery, location
+    // defaults to Warehouse 1, Returnable / Cancellable are locked to
+    // "No", COD is locked to "Yes", Time to Ship defaults to 24 hours,
+    // and Country of Origin defaults to India.
+    fulfillmentId: "Store Delivery",
+    locationId: "Warehouse 1",
     returnable: false,
     cancellable: false,
-    timeToShip: "",
-    availableOnCod: false,
+    timeToShip: "24 hours",
+    availableOnCod: true,
     consumerCareContactName: "",
     consumerCareContactEmail: "",
     consumerCareContactPhone: "",
     manufacturerName: "",
     manufacturerAddress: "",
-    countryOfOrigin: "",
+    countryOfOrigin: "India",
     brandAttribute: "",
     statutoryImages: [],
     productImages: [],
@@ -1022,7 +1026,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       </DualSection>
 
       {/* Quantity */}
-      <DualSection title="Quantity (Net Quantity & Inventory)" icon={<Package className="h-5 w-5 text-indigo-600" />}>
+      <DualSection title="Quantity & Inventory" icon={<Package className="h-5 w-5 text-indigo-600" />}>
         <DualRow
           label="Measure Unit"
           required
@@ -1033,7 +1037,8 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               value={ondc.measureUnit}
               onChange={(v) => update("measureUnit", v)}
               edited={isEdited("measureUnit")}
-              options={["unit", "dozen", "gram", "kilogram", "tonne", "litre", "millilitre"]}
+              // Spec list — exact six options, in business-friendly casing.
+              options={["Dozen", "Gram", "Kilogram", "Ton", "Liter", "Milliliter"]}
             />
           }
         />
@@ -1100,14 +1105,15 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="Fulfillment ID"
           required
           ondcRequired
-          help="e.g., Store Pick Up, Store Delivery"
+          help="Store Delivery only — Store Pickup is reserved for a later phase."
           dms={""}
           ondc={
             <SelectInput
               value={ondc.fulfillmentId}
               onChange={(v) => update("fulfillmentId", v)}
               edited={isEdited("fulfillmentId")}
-              options={["Store Pick Up", "Store Delivery"]}
+              // Phase 1: Store Pickup is intentionally NOT exposed.
+              options={["Store Delivery"]}
             />
           }
         />
@@ -1115,42 +1121,76 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="Location ID"
           required
           ondcRequired
-          help="Warehouse/store"
+          help="Warehouse / store this SKU is fulfilled from."
           dms={""}
-          ondc={<TextInput value={ondc.locationId} onChange={(v) => update("locationId", v)} edited={isEdited("locationId")} required />}
+          ondc={
+            <SelectInput
+              value={ondc.locationId}
+              onChange={(v) => update("locationId", v)}
+              edited={isEdited("locationId")}
+              // Spec: dropdown, default Warehouse 1. Future warehouses
+              // would be added here (or pulled from the seller record).
+              options={["Warehouse 1", "Warehouse 2", "Warehouse 3"]}
+            />
+          }
         />
       </DualSection>
 
       {/* ONDC Commerce Attributes */}
       <DualSection title="ONDC Commerce Attributes" icon={<ShieldCheck className="h-5 w-5 text-teal-600" />}>
+        {/* Spec: Returnable / Cancellable / COD are fixed for Phase 1.
+            Display the value but lock it from editing. */}
         <DualRow
           label="Returnable"
           required
           ondcRequired
+          help="Phase 1 default — not editable."
           dms={""}
-          ondc={<BooleanToggle value={ondc.returnable} onChange={(v) => update("returnable", v)} />}
+          ondc={
+            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-200">
+              No
+            </span>
+          }
         />
         <DualRow
           label="Cancellable"
           required
           ondcRequired
+          help="Phase 1 default — not editable."
           dms={""}
-          ondc={<BooleanToggle value={ondc.cancellable} onChange={(v) => update("cancellable", v)} />}
+          ondc={
+            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-700 border border-gray-200">
+              No
+            </span>
+          }
         />
         <DualRow
           label="Available on COD"
           required
           ondcRequired
+          help="Phase 1 default — not editable."
           dms={""}
-          ondc={<BooleanToggle value={ondc.availableOnCod} onChange={(v) => update("availableOnCod", v)} />}
+          ondc={
+            <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+              Yes
+            </span>
+          }
         />
         <DualRow
           label="Time to Ship"
           required
           ondcRequired
-          help="ISO-8601 duration (e.g. PT4H = 4 hours)"
+          help="Pick the dispatch window."
           dms={""}
-          ondc={<TextInput value={ondc.timeToShip} onChange={(v) => update("timeToShip", v)} edited={isEdited("timeToShip")} required />}
+          ondc={
+            <SelectInput
+              value={ondc.timeToShip}
+              onChange={(v) => update("timeToShip", v)}
+              edited={isEdited("timeToShip")}
+              // Spec: dropdown 24/36/48 hours, default 24.
+              options={["24 hours", "36 hours", "48 hours"]}
+            />
+          }
         />
         <DualRow
           label="Consumer Care — Name"
@@ -1275,9 +1315,18 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="Country of Origin"
           required
           ondcRequired
-          help="ISO 3166-1 alpha-3 uppercase (e.g. IND)"
+          help="Where the SKU is manufactured / packed."
           dms={""}
-          ondc={<TextInput value={ondc.countryOfOrigin} onChange={(v) => update("countryOfOrigin", v)} edited={isEdited("countryOfOrigin")} required />}
+          ondc={
+            <SelectInput
+              value={ondc.countryOfOrigin}
+              onChange={(v) => update("countryOfOrigin", v)}
+              edited={isEdited("countryOfOrigin")}
+              // Spec: dropdown, default India. Add neighbouring sources
+              // commonly seen in distributor catalogs.
+              options={["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"]}
+            />
+          }
         />
       </DualSection>
 
