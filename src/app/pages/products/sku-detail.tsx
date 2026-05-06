@@ -847,8 +847,18 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     ? { ...blankOndc, ...sku.ondcPrefilled }
     : blankOndc;
   const [ondc, setOndc] = useState({ ...seededOndc });
-  const update = (key: keyof typeof dms, value: any) =>
+  // ONDC-fields-dirty tracking. The Save ONDC Value button starts
+  // disabled (BR-1) and only enables once the seller has actually
+  // changed any ONDC field on the Product Details tab (BR-2). After a
+  // successful save round-trip we reset the flag so the button locks
+  // again until the next change.
+  const [ondcDirty, setOndcDirty] = useState(false);
+  // Saving state for the brief loading flicker on the button.
+  const [isSavingOndc, setIsSavingOndc] = useState(false);
+  const update = (key: keyof typeof dms, value: any) => {
     setOndc((prev) => ({ ...prev, [key]: value }));
+    setOndcDirty(true);
+  };
   const isEdited = (key: keyof typeof dms) =>
     JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
 
@@ -867,19 +877,43 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     }
   };
 
-  // Incremental-save error summary — displayed as a non-blocking warning card
-  // below the action bar after a save that had validation issues. Save always
-  // succeeds; correctly-entered values are stored, fields with issues are listed
-  // here so the seller can come back and complete them later.
+  // Inline error catalog — keyed by ondc field name. Populated by the
+  // last Save ONDC Value click; cleared per-field as the seller edits.
+  // Drives the red helper-text under each affected DualRow input.
   const [pendingErrors, setPendingErrors] = useState<ValidationError[]>([]);
+
+  // "Got it, will fix" confirmation surface (BR-7). null → not shown.
+  // Captured at save-time so the modal text is stable while open.
+  const [postSavePrompt, setPostSavePrompt] = useState<
+    | {
+        title: string;
+        body: string;
+        savedCount: number;
+        failedCount: number;
+      }
+    | null
+  >(null);
 
   const handleReset = () => {
     setOndc({ ...blankOndc });
     setPendingErrors([]);
+    setOndcDirty(false);
     toast.success("ONDC values reset");
   };
 
   const handleSave = () => {
+    setIsSavingOndc(true);
+    // Brief loading state so the seller sees the system reacted, then
+    // run validation + the incremental-save categorisation. The actual
+    // save is in-memory (no server round-trip in Phase 1) — the
+    // setTimeout exists purely to surface the "Saving" state.
+    window.setTimeout(() => {
+      doSaveOndc();
+      setIsSavingOndc(false);
+    }, 250);
+  };
+
+  const doSaveOndc = () => {
     // Consumer Care combined into the "name,email,contact_no" format expected by validateSKU
     const ccc =
       ondc.consumerCareContactName || ondc.consumerCareContactEmail || ondc.consumerCareContactPhone
@@ -891,6 +925,47 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     const isPackagedCommodity =
       !!(ondc.manufacturerName || ondc.manufacturerAddress) ||
       /atta|flour|biscuit|salt|oil|food|packaged/.test(catLower);
+
+    // Track which fields the seller actually edited this session — only
+    // those count as "updated" for incremental save (BR-12).
+    const editedFields = (Object.keys(dms) as Array<keyof typeof dms>).filter(
+      (k) => isEdited(k),
+    );
+    const editedCount = editedFields.length;
+
+    // Was the SKU compliant *before* this save? Used to detect the
+    // just-became-compliant transition for the special toast (AC-9).
+    const wasCompliantBefore = pendingErrors.length === 0
+      && validateSKU(
+          {
+            itemStatus: dms.itemStatus,
+            itemName: dms.itemName,
+            itemCode: dms.itemCode,
+            shortDesc: dms.shortDesc,
+            longDesc: dms.longDesc,
+            additionalImages: dms.additionalImages,
+            unitizedCount: dms.unitizedCount,
+            measureUnit: dms.measureUnit,
+            measureValue: dms.measureValue,
+            availableCount: "99",
+            maximumOrderQty: dms.maximumOrderQty,
+            minimumOrderQty: dms.minimumOrderQty,
+            categoryId: dms.categoryId,
+            fulfillmentId: dms.fulfillmentId,
+            locationId: dms.locationId,
+            returnable: dms.returnable,
+            cancellable: dms.cancellable,
+            timeToShip: dms.timeToShip,
+            availableOnCod: dms.availableOnCod,
+            consumerCareContact: "",
+            manufacturerName: dms.manufacturerName,
+            manufacturerAddress: dms.manufacturerAddress,
+            isPackagedCommodity: false,
+            countryOfOrigin: dms.countryOfOrigin,
+            brandAttribute: dms.brandAttribute,
+          },
+          {},
+        ).length === 0;
 
     const errors = validateSKU(
       {
@@ -923,29 +998,63 @@ function ProductDetailsTab({ sku }: { sku: any }) {
       {},
     );
 
-    // Incremental save — always persist the values the seller has entered.
-    // Split errors into:
-    //   - "invalid" — values the seller TYPED but got wrong (bad format/range).
-    //     These are surfaced as errors so the seller fixes them.
-    //   - "missing" — required fields not yet entered.
-    //     These are silent here (no error shown). They simply count against
-    //     ONDC compliance and are shown on the SKU list page until the
-    //     seller completes them.
-    const invalidErrors = errors.filter(
-      (e) => !/is required\.?|Please specify/i.test(e.message),
-    );
-    setPendingErrors(invalidErrors);
-    if (invalidErrors.length > 0) {
-      toast.warning(
-        `Saved. ${invalidErrors.length} field${invalidErrors.length === 1 ? "" : "s"} ${invalidErrors.length === 1 ? "has" : "have"} invalid values — see the summary below.`,
-      );
-    } else if (errors.length > 0) {
-      toast.success(
-        `Saved. ${errors.length} required field${errors.length === 1 ? "" : "s"} still pending for full ONDC compliance.`,
-      );
-    } else {
-      toast.success("Saved — SKU is ONDC compliant.");
+    // Inline errors are always the "value-typed-wrong" ones; missing
+    // mandatory fields show as red below the empty input too (because
+    // VAL-4: blank mandatory = validation failure).
+    setPendingErrors(errors);
+
+    // Compliance is "no errors at all" — the moment the last gap closes
+    // (BR-11), the SKU's badge flips automatically. There's no separate
+    // publish step.
+    const isNowCompliant = errors.length === 0;
+
+    // Map each "updated field" to whether it's currently failing
+    // validation. Spec wording: failedCount = updated fields with errors,
+    // savedCount = updated fields without errors.
+    const failedFields = new Set(errors.map((e) => e.field));
+    const failedAmongEdited = editedFields.filter((k) =>
+      failedFields.has(k as string),
+    ).length;
+    const savedAmongEdited = editedCount - failedAmongEdited;
+
+    // No edits → button shouldn't have been enabled, defensive only.
+    if (editedCount === 0) {
+      setOndcDirty(false);
+      return;
     }
+
+    if (failedAmongEdited === 0) {
+      // BR-4 happy path — every updated field is valid and saved.
+      // Special-case the "just became compliant" transition (AC-9).
+      if (isNowCompliant && !wasCompliantBefore) {
+        toast.success("This SKU is now ONDC Compliant.");
+      } else {
+        toast.success("Changes saved.");
+      }
+      setOndcDirty(false);
+      return;
+    }
+
+    if (savedAmongEdited === 0) {
+      // Every updated field is invalid — nothing saves.
+      setPostSavePrompt({
+        title: "Nothing was saved",
+        body: "None of your changes could be saved. Please fix the highlighted fields.",
+        savedCount: 0,
+        failedCount: failedAmongEdited,
+      });
+      // Keep the dirty flag on so the seller can re-save after fixing.
+      return;
+    }
+
+    // Partial save — some valid fields persisted, some need fixing.
+    setPostSavePrompt({
+      title: "Some changes need fixing",
+      body: `${savedAmongEdited} field${savedAmongEdited === 1 ? "" : "s"} saved. ${failedAmongEdited} field${failedAmongEdited === 1 ? "" : "s"} need fixing.`,
+      savedCount: savedAmongEdited,
+      failedCount: failedAmongEdited,
+    });
+    // Stay dirty so the seller can re-save after fixing.
   };
 
   const isActive = ondc.itemStatus === "enable";
@@ -972,8 +1081,16 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset
           </Button>
-          <Button size="sm" className="" onClick={handleSave}>
-            Save ONDC Values
+          {/* Save ONDC Value — disabled by default (BR-1), enables on
+              first ONDC field change (BR-2), shows a brief loading
+              state during the round-trip, returns to disabled after a
+              successful save with no further changes. */}
+          <Button
+            size="sm"
+            onClick={handleSave}
+            disabled={!ondcDirty || isSavingOndc}
+          >
+            {isSavingOndc ? "Saving..." : "Save ONDC Value"}
           </Button>
         </div>
       </div>
@@ -1336,53 +1453,40 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         onChange={(imgs) => update("productImages", imgs)}
       />
 
-      {/* Save-time error popup — shown when the user clicks Save and there are
-          invalid values. Valid values have already been saved; this popup
-          explains which fields cannot be saved and why. */}
+      {/* Post-save confirmation — "Got it, will fix" surface (BR-7).
+          Shown when a Save round-trip produced any errors. Closing it
+          leaves valid fields saved and invalid fields with their inline
+          errors. The full per-field error catalog is rendered inline
+          beneath each input, so we don't list them here again. */}
       <Dialog
-        open={pendingErrors.length > 0}
-        onOpenChange={(o) => !o && setPendingErrors([])}
+        open={postSavePrompt !== null}
+        onOpenChange={(o) => !o && setPostSavePrompt(null)}
       >
-        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
+            <DialogTitle className="flex items-center gap-2 text-amber-700">
               <AlertCircle className="h-5 w-5" />
-              {pendingErrors.length} field
-              {pendingErrors.length === 1 ? "" : "s"} cannot be saved
+              {postSavePrompt?.title}
             </DialogTitle>
-            <DialogDescription>
-              The values below have errors and were not saved. Other fields that
-              were filled in correctly have been saved. Please fix these and
-              click <b>Save ONDC Values</b> again.
-            </DialogDescription>
+            <DialogDescription>{postSavePrompt?.body}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 mt-2">
-            {pendingErrors.map((err, i) => (
-              <div
-                key={i}
-                className="flex items-start gap-2 bg-red-50 border border-red-200 rounded-lg p-2.5 text-sm"
-              >
-                <span
-                  className="font-mono font-semibold text-[10px] bg-red-100 text-red-800 border border-red-200 px-1.5 py-0.5 rounded shrink-0 mt-0.5"
-                  title={`Rule ${err.ruleId}`}
-                >
-                  {err.code}
-                </span>
-                <div className="flex-1">
-                  <p className="text-red-800 font-medium">{err.message}</p>
-                  <p className="text-[11px] text-red-600 font-mono mt-0.5">
-                    {err.field}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-center gap-3 mt-1 text-sm">
+            {postSavePrompt && postSavePrompt.savedCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 className="h-3.5 w-3.5" />
+                {postSavePrompt.savedCount} saved
+              </span>
+            )}
+            {postSavePrompt && postSavePrompt.failedCount > 0 && (
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded bg-red-50 text-red-700 border border-red-200">
+                <AlertCircle className="h-3.5 w-3.5" />
+                {postSavePrompt.failedCount} need fixing
+              </span>
+            )}
           </div>
           <DialogFooter>
-            <Button
-              onClick={() => setPendingErrors([])}
-              className=""
-            >
-              Got it — I'll fix these
+            <Button onClick={() => setPostSavePrompt(null)}>
+              Got it, will fix
             </Button>
           </DialogFooter>
         </DialogContent>
