@@ -456,8 +456,9 @@ export function StoreSettings() {
                   />
                 </div>
                 <p className="text-[11px] text-gray-500 pb-1.5">
-                  Shown to buyers as your working hours — orders can still
-                  be placed outside this window.
+                  Buyers will see the store based on the configured working
+                  days. However, customers can still place orders outside
+                  the working hours.
                 </p>
               </div>
 
