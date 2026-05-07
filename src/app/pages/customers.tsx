@@ -331,7 +331,6 @@ export function Customers() {
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     return allCustomers.filter((c) => new Date(c.registeredDate) >= monthStart).length;
   }, []);
-  const repeatBuyers = allCustomers.filter((c) => c.totalOrders >= 10).length;
 
   // Master list of every (Company name, Company id) pair we know about across
   // all customers — drives the multi-select Brand/Company filter.
@@ -557,9 +556,11 @@ export function Customers() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* KPI Summary */}
+      {/* KPI Summary — three cards now stretch to fill the row.
+          Single column on mobile so each tile stays legible; three
+          equal columns from sm/640px upward. */}
       <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="grid gap-4 grid-cols-2 md:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">
           <Card className="border-0 shadow-sm">
             <CardContent className="p-4">
               <div className="flex items-center gap-3">
@@ -589,17 +590,6 @@ export function Customers() {
                 <div>
                   <div className="text-xl font-bold text-blue-600">{newThisMonth}</div>
                   <p className="text-xs text-gray-600">New this month</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <CardContent className="p-4">
-              <div className="flex items-center gap-3">
-                <Store className="h-7 w-7 text-purple-600" />
-                <div>
-                  <div className="text-xl font-bold text-purple-600">{repeatBuyers}</div>
-                  <p className="text-xs text-gray-600">Repeat buyers (10+)</p>
                 </div>
               </div>
             </CardContent>

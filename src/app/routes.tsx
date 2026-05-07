@@ -1,10 +1,9 @@
 import { createBrowserRouter } from "react-router";
-import { RootLayout } from "./components/layouts/root-layout";
+import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
-import { ProductCatalog } from "./pages/product-catalog";
 import { Inventory } from "./pages/inventory";
-import { Orders } from "./pages/orders-enhanced";
+import { Orders } from "./pages/orders";
 import { OrderDetail } from "./pages/order-detail";
 import { Customers } from "./pages/customers";
 import { CustomerDetail } from "./pages/customer-detail";
@@ -19,10 +18,9 @@ import { Onboarding } from "./pages/auth/onboarding";
 import { AddSKU } from "./pages/products/add-sku";
 import { MySKU } from "./pages/products/my-sku";
 import { SKUDetail } from "./pages/products/sku-detail";
-import { AddManually } from "./pages/products/add-manually";
-import { BulkImport } from "./pages/products/bulk-import";
-import { BrandSync } from "./pages/products/brand-sync";
-import { CentralCatalogSync } from "./pages/products/central-catalog-sync";
+import { AddManually } from "./pages/products/add-sku/manual";
+import { BrandSync } from "./pages/products/add-sku/brand-sync";
+import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-sync";
 import { PriceList } from "./pages/products/price-list";
 import { PriceInventory } from "./pages/products/price-inventory";
 import { OffersList } from "./pages/offers/offers-list";
@@ -111,7 +109,6 @@ export const router = createBrowserRouter([
       { path: "products/add-sku", Component: AddSKU },
       { path: "products/add-sku/central-catalog", Component: CentralCatalogSync },
       { path: "products/add-sku/manual", Component: AddManually },
-      { path: "products/add-sku/import", Component: BulkImport },
       { path: "products/add-sku/brand-sync", Component: BrandSync },
       { path: "products/price-list", Component: PriceList },
       { path: "products/price-inventory", Component: PriceInventory },

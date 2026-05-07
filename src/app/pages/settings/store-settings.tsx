@@ -364,40 +364,57 @@ export function StoreSettings() {
           </CardContent>
         </Card>
 
-        {/* Store Information */}
+        {/* Store Information — these four fields are sourced from the
+            seller's onboarding profile and cannot be edited from
+            Settings. To change them the seller must raise an update
+            request through Support. The Read-only pill in the header
+            and the matching input styling make this constraint
+            obvious at a glance. */}
         <Card>
           <CardHeader>
-            <CardTitle>Store Information</CardTitle>
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle>Store Information</CardTitle>
+              <span
+                className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="Store Information comes from the seller's onboarding profile and cannot be edited here."
+              >
+                Read-only
+              </span>
+            </div>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <Label>Store Name</Label>
               <Input
-                placeholder="Enter store name"
-                defaultValue="ABC Distributors"
+                readOnly
+                value="ABC Distributors"
+                className="bg-gray-100 cursor-not-allowed focus-visible:ring-0 focus-visible:border-input"
               />
             </div>
             <div className="space-y-2">
               <Label>Store Description</Label>
               <Input
-                placeholder="Brief description of your store"
-                defaultValue="Premium FMCG distributor serving Maharashtra"
+                readOnly
+                value="Premium FMCG distributor serving Maharashtra"
+                className="bg-gray-100 cursor-not-allowed focus-visible:ring-0 focus-visible:border-input"
               />
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>Contact Number</Label>
                 <Input
-                  placeholder="+91 98765 43210"
-                  defaultValue="+91 98765 43210"
+                  readOnly
+                  value="+91 98765 43210"
+                  className="bg-gray-100 cursor-not-allowed focus-visible:ring-0 focus-visible:border-input"
                 />
               </div>
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input
                   type="email"
-                  placeholder="store@example.com"
-                  defaultValue="abc@distributors.com"
+                  readOnly
+                  value="abc@distributors.com"
+                  className="bg-gray-100 cursor-not-allowed focus-visible:ring-0 focus-visible:border-input"
                 />
               </div>
             </div>

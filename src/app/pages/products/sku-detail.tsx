@@ -41,6 +41,7 @@ import {
   AlertCircle,
   CheckCircle2,
   ShieldCheck,
+  Ruler,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -311,6 +312,10 @@ const skuData: Record<string, any> = {
       minimumOrderQty: "1",
       upc: "8901725100015",
       skuWeight: "10",
+      // Physical dimensions in cm — drives the volumetric weight read-out.
+      productLength: "30",
+      productWidth: "22",
+      productHeight: "14",
       categoryId: "Cooking and Baking Needs",
       fulfillmentId: "Store Delivery",
       locationId: "WH-001",
@@ -830,6 +835,13 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     minimumOrderQty: "1",
     upc: "12",
     skuWeight: "1.05",
+    // Physical dimensions in cm. Optional on DMS — left blank by default
+    // and surfaced as editable fields under the Dimensions section so
+    // the seller can populate them and have volumetric weight derive
+    // automatically.
+    productLength: "",
+    productWidth: "",
+    productHeight: "",
     categoryId: sku.category || "",
     fulfillmentId: "F1",
     locationId: "L1",
@@ -862,6 +874,9 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     minimumOrderQty: "",
     upc: "",
     skuWeight: "",
+    productLength: "",
+    productWidth: "",
+    productHeight: "",
     categoryId: "",
     // Phase 1 spec defaults — fulfillment is Store Delivery, location
     // defaults to Warehouse 1, Returnable / Cancellable are locked to
@@ -1221,6 +1236,53 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         />
       </DualSection>
 
+      {/* Dimensions — Length / Width / Height in cm. Volumetric Weight
+          is derived from the three (L × W × H ÷ 5000, the standard
+          courier formula) and surfaced as a read-only field, mirroring
+          how SKU Code is rendered. None of the inputs are mandatory. */}
+      <DualSection title="Dimensions" icon={<Ruler className="h-5 w-5 text-amber-600" />}>
+        <DualRow
+          label="Length"
+          help="Optional · in centimetres"
+          dms={""}
+          ondc={<TextInput value={ondc.productLength} onChange={(v) => update("productLength", v)} edited={isEdited("productLength")} type="number" />}
+        />
+        <DualRow
+          label="Width"
+          help="Optional · in centimetres"
+          dms={""}
+          ondc={<TextInput value={ondc.productWidth} onChange={(v) => update("productWidth", v)} edited={isEdited("productWidth")} type="number" />}
+        />
+        <DualRow
+          label="Height"
+          help="Optional · in centimetres"
+          dms={""}
+          ondc={<TextInput value={ondc.productHeight} onChange={(v) => update("productHeight", v)} edited={isEdited("productHeight")} type="number" />}
+        />
+        <DualRow
+          label="Volumetric Weight"
+          help="Auto-calculated from L × W × H ÷ 5000 — cannot be edited"
+          dms={""}
+          ondc={
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">
+                {formatVolumetricWeight(
+                  ondc.productLength,
+                  ondc.productWidth,
+                  ondc.productHeight,
+                )}
+              </p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="Volumetric Weight is derived from Length × Width × Height and cannot be edited directly"
+              >
+                Read-only
+              </span>
+            </div>
+          }
+        />
+      </DualSection>
+
       {/* Category / Fulfillment / Location */}
       <DualSection title="Category, Fulfillment & Location" icon={<PackageOpen className="h-5 w-5 text-orange-600" />}>
         <DualRow
@@ -1574,10 +1636,27 @@ function DualSection({
   /** Tighter vertical paddings — useful for short tabs like Price & Inventory */
   dense?: boolean;
 }) {
+  // gap-0 kills the Card's built-in `gap-6` so the section title bar
+  // sits directly against the column-header row (no white strip in
+  // between). `!pb-` overrides CardHeader's built-in `[.border-b]:pb-6`
+  // so the bottom padding matches the top padding, and `m-0` on
+  // CardTitle zeroes the user-agent <h4> margins so the icon + title
+  // sit symmetrically between the top and bottom of the header bar.
   return (
-    <Card>
-      <CardHeader className={`${dense ? "py-1.5 px-3" : "py-2.5 px-4"} border-b border-gray-100`}>
-        <CardTitle className="text-sm font-semibold flex items-center gap-2">
+    <Card className="gap-0 overflow-hidden">
+      <CardHeader
+        className={
+          (dense
+            ? "py-1.5 px-3 !pb-1.5"
+            : "py-2.5 px-4 !pb-2.5") +
+          // gap-0 kills CardHeader's built-in `gap-1.5` between its two
+          // grid rows (title row + an always-reserved empty
+          // CardDescription row). Without this the empty second row's
+          // 6px gap pushes the bottom padding asymmetry back.
+          " gap-0 border-b border-gray-100"
+        }
+      >
+        <CardTitle className="text-sm font-semibold flex items-center gap-2 m-0">
           {icon}
           {title}
         </CardTitle>
@@ -2053,6 +2132,29 @@ function SelectInput({
       <FieldStatus edited={edited} />
     </div>
   );
+}
+
+/**
+ * Volumetric weight = (L × W × H in cm) ÷ 5000. The standard courier
+ * formula used across Indian logistics (Delhivery, Blue Dart, etc.) so
+ * the seller sees the same number their carrier will use. Returns
+ * "—" when any of the three measurements is missing or non-numeric so
+ * the read-only field reads cleanly until enough data is entered.
+ */
+function formatVolumetricWeight(
+  length: string,
+  width: string,
+  height: string,
+): string {
+  const l = parseFloat(length);
+  const w = parseFloat(width);
+  const h = parseFloat(height);
+  if (!Number.isFinite(l) || !Number.isFinite(w) || !Number.isFinite(h)) {
+    return "—";
+  }
+  if (l <= 0 || w <= 0 || h <= 0) return "—";
+  const kg = (l * w * h) / 5000;
+  return `${kg.toFixed(2)} kg`;
 }
 
 /**

@@ -38,7 +38,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
-import { PriceListFilterDrawer } from "../../components/PriceListFilterDrawer";
+import { PriceListFilterDrawer } from "../../components/filter-drawers/price-list-filter-drawer";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 

@@ -1,0 +1,525 @@
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Button } from "./ui/button";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Download,
+  FileSpreadsheet,
+  Loader2,
+  RefreshCw,
+  Upload,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
+
+/**
+ * Single error row in a validated bulk-import file. The standardized
+ * shape is enforced across every importer (Add SKU, Price & Stock,
+ * future modules) so the results table reads identically everywhere.
+ */
+export interface BulkImportError {
+  row: number;
+  field: string;
+  error: string;
+}
+
+export interface BulkImportValidationResult {
+  totalRows: number;
+  validRows: number;
+  invalidRows: number;
+  errors: BulkImportError[];
+  /**
+   * Opaque payload of valid rows that gets handed back to onImport.
+   * Each module shapes this differently — the dialog never reads it.
+   */
+  validData: unknown[];
+}
+
+export interface BulkImportConfig {
+  /** Dialog title — module-specific copy. */
+  title: string;
+  /** One-line description shown under the title. */
+  description?: string;
+  /** Module-specific instructions shown in the upload step body. */
+  instructions?: ReactNode;
+  /** Optional sample template the user can download before uploading. */
+  sample?: {
+    /** Click handler — module owns whether this triggers a download or shows a sheet. */
+    onDownload: () => void;
+    fileName: string;
+  };
+  /** File `accept` attribute — defaults to ".csv,.xlsx,.xls". */
+  accept?: string;
+  /**
+   * Run validation on the uploaded file. The dialog wraps this in a
+   * spinner (with optional simulated delay for demo purposes).
+   * Throw to surface a fatal parse failure as a toast.
+   */
+  validate: (file: File) => Promise<BulkImportValidationResult>;
+  /**
+   * Final import — receives the `validData` payload from the
+   * validation result. Called when the user clicks Import Valid Records.
+   * Throw to surface a save failure as a toast.
+   */
+  onImport: (validData: unknown[]) => Promise<void> | void;
+  /**
+   * Toast shown after a successful import. Receives the validation
+   * result so the message can include counts.
+   */
+  successToast?: (result: BulkImportValidationResult) => string;
+  /**
+   * Demo-mode simulated processing delay (ms). Defaults to 30 000 — the
+   * spec's prototype value — so reviewers see the loader experience.
+   * Set to 0 in real builds where validate() takes its own time.
+   */
+  simulateValidationDelayMs?: number;
+}
+
+type Step = "upload" | "validating" | "results" | "importing";
+
+export function BulkImportDialog({
+  open,
+  onOpenChange,
+  config,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  config: BulkImportConfig;
+}) {
+  const [step, setStep] = useState<Step>("upload");
+  const [file, setFile] = useState<File | null>(null);
+  const [result, setResult] = useState<BulkImportValidationResult | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Reset everything whenever the dialog closes so a fresh open never
+  // shows leftover state from a previous flow.
+  useEffect(() => {
+    if (!open) {
+      setStep("upload");
+      setFile(null);
+      setResult(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }, [open]);
+
+  // Block close interaction while validation or import is running so a
+  // mis-click can't abort an in-flight action.
+  const isBusy = step === "validating" || step === "importing";
+  const handleOpenChange = (v: boolean) => {
+    if (isBusy && !v) return;
+    onOpenChange(v);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0] ?? null;
+    setFile(f);
+  };
+
+  const handleSubmit = async () => {
+    if (!file) return;
+    setStep("validating");
+    try {
+      const delay = config.simulateValidationDelayMs ?? 30_000;
+      const [validation] = await Promise.all([
+        config.validate(file),
+        delay > 0
+          ? new Promise<void>((r) => setTimeout(r, delay))
+          : Promise.resolve(),
+      ]);
+      setResult(validation);
+      setStep("results");
+    } catch (err) {
+      console.error("[BulkImportDialog] validate failed", err);
+      toast.error("Couldn't read the file — please check the format and try again.");
+      setStep("upload");
+    }
+  };
+
+  const handleReupload = () => {
+    setFile(null);
+    setResult(null);
+    setStep("upload");
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleDownloadErrors = () => {
+    if (!result || result.errors.length === 0) return;
+    const header = ["Row", "Field", "Error"];
+    const lines = [header.join(",")];
+    for (const e of result.errors) {
+      lines.push(
+        [e.row, escapeCsv(e.field), escapeCsv(e.error)].join(","),
+      );
+    }
+    const csv = lines.join("\r\n");
+    const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.download = `bulk-import-errors-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Downloaded ${result.errors.length} error rows.`);
+  };
+
+  const handleImport = async () => {
+    if (!result || result.validRows === 0) return;
+    setStep("importing");
+    try {
+      await config.onImport(result.validData);
+      const message =
+        config.successToast?.(result) ??
+        `${result.validRows} record${result.validRows === 1 ? "" : "s"} imported successfully.${
+          result.invalidRows > 0
+            ? ` ${result.invalidRows} record${result.invalidRows === 1 ? "" : "s"} failed validation and ${result.invalidRows === 1 ? "was" : "were"} skipped.`
+            : ""
+        }`;
+      toast.success(message);
+      onOpenChange(false);
+    } catch (err) {
+      console.error("[BulkImportDialog] import failed", err);
+      toast.error("Import failed — please retry.");
+      setStep("results");
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className="!max-w-[min(95vw,900px)] w-[min(95vw,900px)] max-h-[92vh] overflow-hidden p-0 flex flex-col gap-0"
+        // Block the default close button + Esc when a step is busy. The
+        // Radix Dialog doesn't expose a clean prop for this, so we
+        // intercept the events.
+        onEscapeKeyDown={(e) => {
+          if (isBusy) e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          if (isBusy) e.preventDefault();
+        }}
+        onInteractOutside={(e) => {
+          if (isBusy) e.preventDefault();
+        }}
+      >
+        <DialogHeader className="px-6 pt-5 pb-3 border-b border-gray-100">
+          <DialogTitle className="text-base font-semibold m-0">{config.title}</DialogTitle>
+          {config.description && (
+            <DialogDescription className="text-xs text-gray-500">
+              {config.description}
+            </DialogDescription>
+          )}
+        </DialogHeader>
+
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          {step === "upload" && (
+            <UploadStep
+              file={file}
+              fileInputRef={fileInputRef}
+              accept={config.accept ?? ".csv,.xlsx,.xls"}
+              onFileChange={handleFileChange}
+              onClearFile={() => {
+                setFile(null);
+                if (fileInputRef.current) fileInputRef.current.value = "";
+              }}
+              instructions={config.instructions}
+              sample={config.sample}
+            />
+          )}
+          {step === "validating" && <ValidatingStep />}
+          {step === "importing" && <ImportingStep />}
+          {step === "results" && result && <ResultsStep result={result} />}
+        </div>
+
+        <DialogFooter className="px-6 py-3 border-t border-gray-100 gap-2 sm:gap-2 flex-row sm:flex-row justify-end">
+          {step === "upload" && (
+            <>
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSubmit} disabled={!file} className="gap-2">
+                <Upload className="h-4 w-4" />
+                Submit
+              </Button>
+            </>
+          )}
+          {(step === "validating" || step === "importing") && (
+            <Button variant="outline" disabled className="gap-2">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              {step === "validating" ? "Validating…" : "Importing…"}
+            </Button>
+          )}
+          {step === "results" && result && (
+            <>
+              <Button variant="outline" onClick={handleReupload} className="gap-2">
+                <RefreshCw className="h-4 w-4" />
+                Re-upload File
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleDownloadErrors}
+                disabled={result.errors.length === 0}
+                className="gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Download Error Report
+              </Button>
+              <Button
+                onClick={handleImport}
+                disabled={result.validRows === 0}
+                className="gap-2"
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Import {result.validRows} Valid Record
+                {result.validRows === 1 ? "" : "s"}
+              </Button>
+            </>
+          )}
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ---------- Step bodies ----------
+
+function UploadStep({
+  file,
+  fileInputRef,
+  accept,
+  onFileChange,
+  onClearFile,
+  instructions,
+  sample,
+}: {
+  file: File | null;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  accept: string;
+  onFileChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearFile: () => void;
+  instructions?: ReactNode;
+  sample?: BulkImportConfig["sample"];
+}) {
+  return (
+    <div className="px-6 py-5 space-y-4">
+      {instructions && (
+        <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-xs text-blue-900 leading-relaxed">
+          {instructions}
+        </div>
+      )}
+
+      {sample && (
+        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+            <div>
+              <p className="text-sm font-medium text-gray-900">Sample template</p>
+              <p className="text-[11px] text-gray-500">{sample.fileName}</p>
+            </div>
+          </div>
+          <Button variant="outline" size="sm" onClick={sample.onDownload} className="gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+        </div>
+      )}
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={accept}
+        onChange={onFileChange}
+        className="hidden"
+      />
+
+      {!file ? (
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full rounded-lg border-2 border-dashed border-gray-300 hover:border-blue-400 hover:bg-blue-50/50 transition-colors px-6 py-10 flex flex-col items-center gap-2 text-gray-600"
+        >
+          <Upload className="h-8 w-8 text-blue-500" />
+          <p className="text-sm font-medium text-gray-900">
+            Click to upload your file
+          </p>
+          <p className="text-[11px] text-gray-500">
+            CSV, XLSX or XLS — up to 10 MB
+          </p>
+        </button>
+      ) : (
+        <div className="rounded-lg border border-gray-200 bg-white px-4 py-3 flex items-center gap-3">
+          <FileSpreadsheet className="h-6 w-6 text-blue-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-900 truncate">{file.name}</p>
+            <p className="text-[11px] text-gray-500">
+              {(file.size / 1024).toFixed(1)} KB
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClearFile}
+            className="rounded-md p-1.5 text-gray-500 hover:text-gray-900 hover:bg-gray-100 transition-colors"
+            aria-label="Remove file"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ValidatingStep() {
+  return (
+    <div className="px-6 py-16 flex flex-col items-center justify-center text-center gap-4 min-h-[300px]">
+      <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+      <div>
+        <p className="text-base font-semibold text-gray-900">
+          Validating uploaded records…
+        </p>
+        <p className="text-sm text-gray-500 mt-1">
+          Please wait while we process your file.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ImportingStep() {
+  return (
+    <div className="px-6 py-16 flex flex-col items-center justify-center text-center gap-4 min-h-[300px]">
+      <Loader2 className="h-10 w-10 text-blue-600 animate-spin" />
+      <div>
+        <p className="text-base font-semibold text-gray-900">Importing records…</p>
+        <p className="text-sm text-gray-500 mt-1">
+          Saving your validated records to the catalog.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ResultsStep({ result }: { result: BulkImportValidationResult }) {
+  return (
+    <div className="px-6 py-5 space-y-4">
+      {/* Summary header */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-900 m-0">
+          Import Validation Completed
+        </h3>
+        <p className="text-xs text-gray-500 mt-0.5">
+          Review the results below, then import only the valid records.
+        </p>
+      </div>
+
+      {/* Summary cards — Total / Valid / Invalid */}
+      <div className="grid grid-cols-3 gap-3">
+        <SummaryCard
+          label="Total Records"
+          value={result.totalRows}
+          tone="neutral"
+        />
+        <SummaryCard
+          label="Valid Records"
+          value={result.validRows}
+          tone="success"
+        />
+        <SummaryCard
+          label="Invalid Records"
+          value={result.invalidRows}
+          tone={result.invalidRows > 0 ? "danger" : "neutral"}
+        />
+      </div>
+
+      {/* Error table */}
+      {result.errors.length > 0 ? (
+        <div className="rounded-lg border border-red-200 overflow-hidden">
+          <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 text-red-600" />
+            <p className="text-sm font-semibold text-red-900">
+              {result.errors.length} validation error
+              {result.errors.length === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div className="max-h-[280px] overflow-y-auto">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <tr>
+                  <th className="text-left px-4 py-2 font-semibold text-gray-700 w-20">
+                    Row
+                  </th>
+                  <th className="text-left px-4 py-2 font-semibold text-gray-700 w-40">
+                    Field
+                  </th>
+                  <th className="text-left px-4 py-2 font-semibold text-gray-700">
+                    Error
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {result.errors.map((e, i) => (
+                  <tr key={i} className="hover:bg-gray-50">
+                    <td className="px-4 py-2 font-mono text-gray-600">{e.row}</td>
+                    <td className="px-4 py-2 text-gray-700">{e.field}</td>
+                    <td className="px-4 py-2 text-red-700">{e.error}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-center gap-2">
+          <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+          <p className="text-sm text-emerald-900">
+            All records passed validation — ready to import.
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "neutral" | "success" | "danger";
+}) {
+  const palette =
+    tone === "success"
+      ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+      : tone === "danger"
+        ? "bg-red-50 border-red-200 text-red-700"
+        : "bg-gray-50 border-gray-200 text-gray-700";
+  return (
+    <div className={`rounded-lg border px-4 py-3 ${palette}`}>
+      <p className="text-2xl font-semibold leading-none">{value}</p>
+      <p className="text-[11px] mt-1.5 uppercase tracking-wider opacity-80">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+// ---------- helpers ----------
+
+function escapeCsv(value: string | number): string {
+  const s = String(value);
+  if (/[",\n]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
