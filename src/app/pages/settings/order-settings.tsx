@@ -45,6 +45,12 @@ export function OrderSettings() {
   const isOrderValueDirty =
     minOrderAmount !== savedOrderValue.min ||
     maxOrderAmount !== savedOrderValue.max;
+  // Inline errors keyed by field — surfaces under the relevant input
+  // instead of a toast.
+  const [orderValueErrors, setOrderValueErrors] = useState<{
+    min?: string;
+    max?: string;
+  }>({});
 
   // ---- Order Processing ----
   const [processingTime, setProcessingTime] = useState("24");
@@ -58,32 +64,40 @@ export function OrderSettings() {
     cancellationWindow !== savedProcessing.cancellationWindow;
 
   // ---- Order Return ----
-  // Allow Returns flips through a confirmation dialog (both directions
-  // get a popup). Return Window is required when returns are enabled.
+  // No section Save button — the toggle pop-up commits the change
+  // directly. When the seller enables returns, the pop-up makes them
+  // pick the Return Window inside the dialog (mandatory). Disabling
+  // is a simple acknowledgement.
   const [returnsEnabled, setReturnsEnabled] = useState(true);
   const [returnWindow, setReturnWindow] = useState("24");
+  // Pending toggle direction for the confirm dialog. null = closed.
   const [pendingReturnsToggle, setPendingReturnsToggle] = useState<boolean | null>(null);
-  const [savedReturns, setSavedReturns] = useState({
-    enabled: true,
-    window: "24",
-  });
-  const [returnWindowError, setReturnWindowError] = useState<string | null>(null);
-  const isReturnsDirty =
-    returnsEnabled !== savedReturns.enabled ||
-    returnWindow !== savedReturns.window;
+  // In-dialog state for the return window picker (only used when
+  // enabling). Pre-seeded with the current value so re-enabling
+  // remembers the last setting.
+  const [draftReturnWindow, setDraftReturnWindow] = useState("24");
+  const [draftReturnWindowError, setDraftReturnWindowError] = useState<string | null>(null);
 
   // ---- Section save handlers ----
   const handleSaveOrderValue = () => {
+    const errs: { min?: string; max?: string } = {};
     const min = parseFloat(minOrderAmount);
     const max = parseFloat(maxOrderAmount);
-    if (isNaN(min) || min < 0) {
-      toast.error("Minimum order amount must be a non-negative number");
+    if (minOrderAmount.trim() === "" || isNaN(min) || min < 0) {
+      errs.min = "Enter a non-negative number";
+    }
+    if (maxOrderAmount.trim() !== "") {
+      if (isNaN(max)) {
+        errs.max = "Enter a valid number";
+      } else if (!isNaN(min) && max <= min) {
+        errs.max = "Max order should be greater than Min order";
+      }
+    }
+    if (Object.keys(errs).length > 0) {
+      setOrderValueErrors(errs);
       return;
     }
-    if (maxOrderAmount.trim() !== "" && (isNaN(max) || max <= min)) {
-      toast.error("Maximum order amount must be greater than the minimum");
-      return;
-    }
+    setOrderValueErrors({});
     setSavedOrderValue({ min: minOrderAmount, max: maxOrderAmount });
     toast.success("Order value saved.");
   };
@@ -93,14 +107,37 @@ export function OrderSettings() {
     toast.success("Order processing saved.");
   };
 
-  const handleSaveReturns = () => {
-    if (returnsEnabled && !returnWindow) {
-      setReturnWindowError("Please select a return window");
-      return;
+  const openReturnsToggle = (next: boolean) => {
+    setPendingReturnsToggle(next);
+    if (next) {
+      // Seed the picker with the last chosen window so the seller
+      // doesn't have to re-pick if they're toggling on/off/on.
+      setDraftReturnWindow(returnWindow || "24");
+      setDraftReturnWindowError(null);
     }
-    setReturnWindowError(null);
-    setSavedReturns({ enabled: returnsEnabled, window: returnWindow });
-    toast.success("Order return saved.");
+  };
+
+  const handleConfirmReturnsToggle = () => {
+    if (pendingReturnsToggle === null) return;
+    if (pendingReturnsToggle) {
+      // Enabling — must pick a window.
+      if (!draftReturnWindow) {
+        setDraftReturnWindowError("Please select a return window");
+        return;
+      }
+      setDraftReturnWindowError(null);
+      setReturnsEnabled(true);
+      setReturnWindow(draftReturnWindow);
+      toast.success(
+        `Returns enabled. Buyers can request a return within ${draftReturnWindow} hours of delivery.`,
+      );
+    } else {
+      setReturnsEnabled(false);
+      toast.success(
+        "Returns disabled. Buyers won't see the return option on delivered orders.",
+      );
+    }
+    setPendingReturnsToggle(null);
   };
 
   return (
@@ -151,12 +188,21 @@ export function OrderSettings() {
                   type="number"
                   placeholder="1000"
                   value={minOrderAmount}
-                  onChange={(e) => setMinOrderAmount(e.target.value)}
+                  onChange={(e) => {
+                    setMinOrderAmount(e.target.value);
+                    if (orderValueErrors.min || orderValueErrors.max)
+                      setOrderValueErrors({});
+                  }}
                   className="h-8 text-sm"
+                  aria-invalid={!!orderValueErrors.min}
                 />
-                <p className="text-[11px] text-gray-500">
-                  Orders below this aren't accepted.
-                </p>
+                {orderValueErrors.min ? (
+                  <p className="text-[11px] text-red-600">{orderValueErrors.min}</p>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Orders below this aren't accepted.
+                  </p>
+                )}
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Maximum (₹)</Label>
@@ -164,12 +210,21 @@ export function OrderSettings() {
                   type="number"
                   placeholder="500000"
                   value={maxOrderAmount}
-                  onChange={(e) => setMaxOrderAmount(e.target.value)}
+                  onChange={(e) => {
+                    setMaxOrderAmount(e.target.value);
+                    if (orderValueErrors.max || orderValueErrors.min)
+                      setOrderValueErrors({});
+                  }}
                   className="h-8 text-sm"
+                  aria-invalid={!!orderValueErrors.max}
                 />
-                <p className="text-[11px] text-gray-500">
-                  Optional cap per order.
-                </p>
+                {orderValueErrors.max ? (
+                  <p className="text-[11px] text-red-600">{orderValueErrors.max}</p>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Optional cap per order.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -235,94 +290,55 @@ export function OrderSettings() {
           </Card>
         </div>
 
-        {/* Order Return — Allow toggle (with popup) + Return Type (RO) +
-            Return Window (required) */}
+        {/* Order Return — toggle commits via the popup; no card-level
+            Save button. The popup carries the Return Window picker,
+            which is mandatory when enabling. */}
         <Card>
           <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <RotateCcw className="h-4 w-4 text-purple-600" />
-                Order Return
-              </CardTitle>
-              <Button
-                size="sm"
-                className="h-7 gap-1 text-xs"
-                onClick={handleSaveReturns}
-                disabled={!isReturnsDirty}
-              >
-                <Save className="h-3.5 w-3.5" />
-                Save
-              </Button>
-            </div>
+            <CardTitle className="text-sm flex items-center gap-2">
+              <RotateCcw className="h-4 w-4 text-purple-600" />
+              Order Return
+            </CardTitle>
           </CardHeader>
           <CardContent className="pt-0 space-y-3">
             <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-2.5 bg-gray-50/50">
               <div>
                 <Label className="text-sm">Allow Returns</Label>
                 <p className="text-[11px] text-gray-500 mt-0.5">
-                  Let buyers raise return requests on delivered orders.
+                  {returnsEnabled
+                    ? `Enabled · Return window: ${returnWindow} hours from delivery.`
+                    : "Disabled · buyers don't see a return option on delivered orders."}
                 </p>
               </div>
               <Switch
                 checked={returnsEnabled}
-                // Confirm-on-flip in both directions so the seller is
-                // aware before changing the buyer-facing return policy.
-                onCheckedChange={(v) => setPendingReturnsToggle(v)}
+                // Don't flip immediately — the popup commits the change
+                // (and asks for the Return Window when enabling).
+                onCheckedChange={(v) => openReturnsToggle(v)}
               />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Return Type</Label>
-                <Select value="full-order" disabled>
-                  <SelectTrigger className="h-8 text-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full-order">Full Order Return Only</SelectItem>
-                  </SelectContent>
-                </Select>
-                <p className="text-[11px] text-gray-500">
-                  Phase 1: full-order returns only.
-                </p>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">
-                  Return Window <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  value={returnWindow}
-                  onValueChange={(v) => {
-                    setReturnWindow(v);
-                    if (returnWindowError) setReturnWindowError(null);
-                  }}
-                  disabled={!returnsEnabled}
-                >
-                  <SelectTrigger
-                    className="h-8 text-sm"
-                    aria-invalid={!!returnWindowError}
-                  >
-                    <SelectValue placeholder="Choose a window" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="24">24 hours</SelectItem>
-                    <SelectItem value="48">48 hours</SelectItem>
-                  </SelectContent>
-                </Select>
-                {returnWindowError ? (
-                  <p className="text-[11px] text-red-600">{returnWindowError}</p>
-                ) : (
-                  <p className="text-[11px] text-gray-500">
-                    Time from delivery to raise a return.
-                  </p>
-                )}
-              </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Return Type</Label>
+              <Select value="full-order" disabled>
+                <SelectTrigger className="h-8 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="full-order">Full Order Return Only</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-gray-500">
+                Phase 1: full-order returns only.
+              </p>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Allow Returns confirmation — both directions */}
+      {/* Allow Returns dialog — when enabling, asks the seller to pick
+          the Return Window inline (mandatory). When disabling, just
+          confirms. Closing without confirming reverts the toggle. */}
       <Dialog
         open={pendingReturnsToggle !== null}
         onOpenChange={(o) => !o && setPendingReturnsToggle(null)}
@@ -341,30 +357,52 @@ export function OrderSettings() {
             </DialogTitle>
             <DialogDescription>
               {pendingReturnsToggle
-                ? "Buyers will be able to raise full-order return requests within the configured Return Window. Existing approved returns are unaffected."
+                ? "Pick how long buyers have after delivery to request a full-order return."
                 : "Buyers will no longer see a Return option on delivered orders. In-flight return requests already submitted continue through their normal flow."}
             </DialogDescription>
           </DialogHeader>
-          <div
-            className={
-              pendingReturnsToggle
-                ? "bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900"
-                : "bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900"
-            }
-          >
-            {pendingReturnsToggle ? (
-              <>
-                Make sure your Return Window is set before saving — it's
-                mandatory for returns to work end-to-end.
-              </>
-            ) : (
-              <>
-                <b>Heads up:</b> the change takes effect after you click
-                Save on this section. Buyers will see returns disabled
-                across all delivered orders.
-              </>
-            )}
-          </div>
+
+          {/* Inline return-window picker — only when enabling. */}
+          {pendingReturnsToggle && (
+            <div className="space-y-1">
+              <Label className="text-xs">
+                Return Window <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={draftReturnWindow}
+                onValueChange={(v) => {
+                  setDraftReturnWindow(v);
+                  if (draftReturnWindowError) setDraftReturnWindowError(null);
+                }}
+              >
+                <SelectTrigger
+                  className="h-9 text-sm"
+                  aria-invalid={!!draftReturnWindowError}
+                >
+                  <SelectValue placeholder="Choose a window" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="24">24 hours</SelectItem>
+                  <SelectItem value="48">48 hours</SelectItem>
+                </SelectContent>
+              </Select>
+              {draftReturnWindowError ? (
+                <p className="text-[11px] text-red-600">{draftReturnWindowError}</p>
+              ) : (
+                <p className="text-[11px] text-gray-500">
+                  Time from delivery to raise a return.
+                </p>
+              )}
+            </div>
+          )}
+
+          {!pendingReturnsToggle && (
+            <div className="bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900">
+              <b>Heads up:</b> buyers will see returns disabled across all
+              delivered orders the moment you confirm.
+            </div>
+          )}
+
           <DialogFooter>
             <Button
               variant="outline"
@@ -373,14 +411,7 @@ export function OrderSettings() {
               Cancel
             </Button>
             <Button
-              onClick={() => {
-                if (pendingReturnsToggle === null) return;
-                setReturnsEnabled(pendingReturnsToggle);
-                if (!pendingReturnsToggle) {
-                  setReturnWindowError(null);
-                }
-                setPendingReturnsToggle(null);
-              }}
+              onClick={handleConfirmReturnsToggle}
               className={
                 pendingReturnsToggle
                   ? ""
