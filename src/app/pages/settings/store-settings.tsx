@@ -19,7 +19,6 @@ import {
   Save,
   Store,
   Calendar,
-  Clock,
   Trash2,
   Plus,
   Warehouse as WarehouseIcon,
@@ -81,10 +80,6 @@ export function StoreSettings() {
   // new orders stop until they manually flip it back on.
   const [acceptOrders, setAcceptOrders] = useState(true);
   const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
-
-  // ---- Working Hours (single window) ----
-  const [openTime, setOpenTime] = useState("09:00");
-  const [closeTime, setCloseTime] = useState("21:00");
 
   // ---- Weekly Off ----
   const [weekOff, setWeekOff] = useState<Set<WeekDay>>(new Set(["sun"]));
@@ -152,14 +147,6 @@ export function StoreSettings() {
         ? "Store is accepting orders."
         : "Store is paused. New orders won't arrive until you turn it back on.",
     );
-  };
-
-  const handleSaveWorkingHours = () => {
-    if (openTime >= closeTime) {
-      toast.error("Closing time must be after opening time");
-      return;
-    }
-    toast.success("Working hours saved.");
   };
 
   const handleSaveWeekOff = () => {
@@ -405,55 +392,10 @@ export function StoreSettings() {
           </Card>
         </div>
 
-        {/* Working Hours — single open/close window, day-of-week not required */}
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="text-sm flex items-center gap-2">
-                <Clock className="h-4 w-4 text-blue-600" />
-                Working Hours
-              </CardTitle>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 gap-1 text-xs"
-                onClick={handleSaveWorkingHours}
-              >
-                <Save className="h-3.5 w-3.5" />
-                Save
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="space-y-1">
-                <Label className="text-xs">Open</Label>
-                <Input
-                  type="time"
-                  value={openTime}
-                  onChange={(e) => setOpenTime(e.target.value)}
-                  className="w-32 h-8 text-sm"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Close</Label>
-                <Input
-                  type="time"
-                  value={closeTime}
-                  onChange={(e) => setCloseTime(e.target.value)}
-                  className="w-32 h-8 text-sm"
-                />
-              </div>
-              <p className="text-[11px] text-gray-500 self-end pb-1.5">
-                One window applies to every working day. Buyers see the store as
-                closed outside these hours.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Weekly Off + Fixed Holidays — recurring days off and one-off
-            holidays, kept side-by-side. */}
+            holidays, kept side-by-side. Open/close working hours moved
+            out — sellers told us the per-day window was overkill, so
+            the only schedule control left is which weekdays are closed. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {/* Weekly Off — pick the days that are always closed */}
           <Card>
