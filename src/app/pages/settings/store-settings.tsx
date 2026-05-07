@@ -81,8 +81,6 @@ export function StoreSettings() {
   // new orders stop until they manually flip it back on.
   const [acceptOrders, setAcceptOrders] = useState(true);
   const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
-  // Last-saved snapshot. Save is enabled only when current ≠ saved.
-  const [savedAcceptOrders, setSavedAcceptOrders] = useState(true);
 
   // ---- Working Hours (single window) ----
   // One open/close pair applies to every working day. Per-day splits
@@ -162,15 +160,6 @@ export function StoreSettings() {
   // Each card has its own Save button; there's no longer a global
   // "Save Changes" at the page level. Sellers can change one section
   // and persist it without touching the others.
-  const handleSaveStoreStatus = () => {
-    setSavedAcceptOrders(acceptOrders);
-    toast.success(
-      acceptOrders
-        ? "Store is accepting orders."
-        : "Store is paused. New orders won't arrive until you turn it back on.",
-    );
-  };
-
   const handleSaveWorkingHours = () => {
     if (openTime >= closeTime) {
       toast.error("Closing time must be after opening time");
@@ -326,21 +315,13 @@ export function StoreSettings() {
       <div className="max-w-5xl space-y-3">
         {/* Row 1: Store Status + Warehouses side-by-side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Store Status — Accept Orders with confirm-on-flip */}
+          {/* Store Status — Accept Orders with confirm-on-flip.
+              No Save button: the confirmation dialog already commits
+              the change on Confirm, so a separate Save would be a
+              duplicate ask. */}
           <Card>
             <CardHeader className="pb-2">
-              <div className="flex items-center justify-between gap-2">
-                <CardTitle className="text-sm">Store Status</CardTitle>
-                <Button
-                  size="sm"
-                  className="h-7 gap-1 text-xs"
-                  onClick={handleSaveStoreStatus}
-                  disabled={acceptOrders === savedAcceptOrders}
-                >
-                  <Save className="h-3.5 w-3.5" />
-                  Save
-                </Button>
-              </div>
+              <CardTitle className="text-sm">Store Status</CardTitle>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex items-start justify-between gap-3">
