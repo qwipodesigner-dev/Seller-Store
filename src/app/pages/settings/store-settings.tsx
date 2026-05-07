@@ -25,12 +25,28 @@ import {
   Warehouse as WarehouseIcon,
   CheckCircle2,
   Star,
+  AlertCircle,
+  Lock,
+  CalendarOff,
 } from "lucide-react";
 import { toast } from "sonner";
 
 // ---------- Working Hours ----------
-type DayKey = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
-const DAYS: { key: DayKey; label: string; short: string }[] = [
+// Phase 1: a single open/close window applies to every working day.
+// Day-of-week splits move to a later phase if a seller actually
+// needs them — most distributors keep one schedule.
+
+interface FixedHoliday {
+  id: string;
+  name: string;
+  date: string; // YYYY-MM-DD
+}
+
+// ---------- Weekly Off ----------
+// Recurring weekly closures. The seller picks one or more weekdays
+// that are always closed, regardless of working hours.
+type WeekDay = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
+const WEEK_DAYS: { key: WeekDay; label: string; short: string }[] = [
   { key: "mon", label: "Monday", short: "Mon" },
   { key: "tue", label: "Tuesday", short: "Tue" },
   { key: "wed", label: "Wednesday", short: "Wed" },
@@ -39,22 +55,11 @@ const DAYS: { key: DayKey; label: string; short: string }[] = [
   { key: "sat", label: "Saturday", short: "Sat" },
   { key: "sun", label: "Sunday", short: "Sun" },
 ];
-interface DayHours {
-  open: string; // HH:mm
-  close: string; // HH:mm
-  closed: boolean;
-}
-
-interface FixedHoliday {
-  id: string;
-  name: string;
-  date: string; // YYYY-MM-DD
-}
 
 // ---------- Warehouses ----------
-// Each SKU maps to a warehouse via Location ID; the default warehouse
-// is what new SKUs and bulk imports auto-pick. Sellers usually have
-// 1–3 warehouses, so a small inline list (no pagination) is enough.
+// Phase 1 rule: warehouses are append-only. Once created they can't
+// be edited or deleted; the first warehouse is permanently the
+// default. This keeps Location-ID references on existing SKUs stable.
 interface Warehouse {
   id: string;
   name: string;
@@ -62,27 +67,36 @@ interface Warehouse {
   city: string;
   state: string;
   pinCode: string;
+  latitude: string;
+  longitude: string;
   isDefault: boolean;
 }
 
 export function StoreSettings() {
   const navigate = useNavigate();
-  // Store Status — only Accept Orders now (Store Active removed)
+
+  // ---- Accept Orders ----
+  // The toggle never flips immediately — both pause and resume open a
+  // confirmation dialog so the seller knows that turning it off means
+  // new orders stop until they manually flip it back on.
   const [acceptOrders, setAcceptOrders] = useState(true);
+  const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
 
-  // Working Hours — sane defaults; Sunday closed
-  const [workingHours, setWorkingHours] = useState<Record<DayKey, DayHours>>({
-    mon: { open: "09:00", close: "21:00", closed: false },
-    tue: { open: "09:00", close: "21:00", closed: false },
-    wed: { open: "09:00", close: "21:00", closed: false },
-    thu: { open: "09:00", close: "21:00", closed: false },
-    fri: { open: "09:00", close: "21:00", closed: false },
-    sat: { open: "09:00", close: "21:00", closed: false },
-    sun: { open: "10:00", close: "18:00", closed: true },
-  });
-  const [applyToAll, setApplyToAll] = useState({ open: "09:00", close: "21:00" });
+  // ---- Working Hours (single window) ----
+  const [openTime, setOpenTime] = useState("09:00");
+  const [closeTime, setCloseTime] = useState("21:00");
 
-  // Fixed Holidays — recurring or one-off
+  // ---- Weekly Off ----
+  const [weekOff, setWeekOff] = useState<Set<WeekDay>>(new Set(["sun"]));
+  const toggleWeekOff = (key: WeekDay) =>
+    setWeekOff((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+
+  // ---- Fixed Holidays ----
   const [holidays, setHolidays] = useState<FixedHoliday[]>([
     { id: "h-1", name: "Republic Day", date: "2026-01-26" },
     { id: "h-2", name: "Holi", date: "2026-03-25" },
@@ -94,9 +108,7 @@ export function StoreSettings() {
   const [newHolidayName, setNewHolidayName] = useState("");
   const [newHolidayDate, setNewHolidayDate] = useState("");
 
-  // Warehouses — seeded with one default so the page never shows an
-  // empty list. Phase 1 sellers ship from a single warehouse most of
-  // the time, so the seed mirrors that.
+  // ---- Warehouses ----
   const [warehouses, setWarehouses] = useState<Warehouse[]>([
     {
       id: "wh-1",
@@ -105,17 +117,20 @@ export function StoreSettings() {
       city: "Mumbai",
       state: "Maharashtra",
       pinCode: "400072",
+      latitude: "19.1100",
+      longitude: "72.8800",
       isDefault: true,
     },
   ]);
   const [warehouseDialogOpen, setWarehouseDialogOpen] = useState(false);
-  const [warehouseDraft, setWarehouseDraft] = useState<Omit<Warehouse, "id" | "isDefault"> & { isDefault: boolean }>({
+  const [warehouseDraft, setWarehouseDraft] = useState({
     name: "",
     address: "",
     city: "",
     state: "",
     pinCode: "",
-    isDefault: false,
+    latitude: "",
+    longitude: "",
   });
   const [warehouseErrors, setWarehouseErrors] = useState<{
     name?: string;
@@ -123,23 +138,36 @@ export function StoreSettings() {
     city?: string;
     state?: string;
     pinCode?: string;
+    latitude?: string;
+    longitude?: string;
   }>({});
 
-  // ---- Handlers ----
-  const updateDay = (key: DayKey, patch: Partial<DayHours>) =>
-    setWorkingHours((prev) => ({ ...prev, [key]: { ...prev[key], ...patch } }));
+  // ---- Section save handlers ----
+  // Each card has its own Save button; there's no longer a global
+  // "Save Changes" at the page level. Sellers can change one section
+  // and persist it without touching the others.
+  const handleSaveStoreStatus = () => {
+    toast.success(
+      acceptOrders
+        ? "Store is accepting orders."
+        : "Store is paused. New orders won't arrive until you turn it back on.",
+    );
+  };
 
-  const handleApplyToAll = () => {
-    setWorkingHours((prev) => {
-      const next = { ...prev };
-      for (const d of DAYS) {
-        if (!prev[d.key].closed) {
-          next[d.key] = { ...prev[d.key], open: applyToAll.open, close: applyToAll.close };
-        }
-      }
-      return next;
-    });
-    toast.success("Working hours applied to all open days");
+  const handleSaveWorkingHours = () => {
+    if (openTime >= closeTime) {
+      toast.error("Closing time must be after opening time");
+      return;
+    }
+    toast.success("Working hours saved.");
+  };
+
+  const handleSaveWeekOff = () => {
+    if (weekOff.size === 7) {
+      toast.error("At least one working day is required");
+      return;
+    }
+    toast.success("Weekly off days saved.");
   };
 
   const handleAddHoliday = () => {
@@ -159,7 +187,7 @@ export function StoreSettings() {
     );
     setNewHolidayName("");
     setNewHolidayDate("");
-    toast.success("Holiday added");
+    toast.success("Holiday added.");
   };
 
   const handleRemoveHoliday = (id: string) => {
@@ -176,8 +204,8 @@ export function StoreSettings() {
       city: "",
       state: "",
       pinCode: "",
-      // First warehouse must be default; auto-check the box and lock it.
-      isDefault: warehouses.length === 0,
+      latitude: "",
+      longitude: "",
     });
     setWarehouseErrors({});
     setWarehouseDialogOpen(true);
@@ -194,6 +222,18 @@ export function StoreSettings() {
     } else if (!/^\d{6}$/.test(warehouseDraft.pinCode.trim())) {
       errs.pinCode = "PIN must be a 6-digit number";
     }
+    const lat = parseFloat(warehouseDraft.latitude);
+    if (!warehouseDraft.latitude.trim()) {
+      errs.latitude = "Latitude is required";
+    } else if (isNaN(lat) || lat < -90 || lat > 90) {
+      errs.latitude = "Latitude must be a number between -90 and 90";
+    }
+    const lng = parseFloat(warehouseDraft.longitude);
+    if (!warehouseDraft.longitude.trim()) {
+      errs.longitude = "Longitude is required";
+    } else if (isNaN(lng) || lng < -180 || lng > 180) {
+      errs.longitude = "Longitude must be a number between -180 and 180";
+    }
     setWarehouseErrors(errs);
     return Object.keys(errs).length === 0;
   };
@@ -201,47 +241,29 @@ export function StoreSettings() {
   const handleSaveWarehouse = () => {
     if (!validateWarehouseDraft()) return;
     const id = `wh-${Date.now()}`;
-    const makeDefault = warehouseDraft.isDefault || warehouses.length === 0;
-    setWarehouses((prev) => {
-      const next: Warehouse[] = prev.map((w) =>
-        makeDefault ? { ...w, isDefault: false } : w,
-      );
-      next.push({
+    // First warehouse is permanently the default. Subsequent ones are
+    // never the default — the rule is fixed, no override.
+    const isFirst = warehouses.length === 0;
+    setWarehouses((prev) => [
+      ...prev,
+      {
         id,
         name: warehouseDraft.name.trim(),
         address: warehouseDraft.address.trim(),
         city: warehouseDraft.city.trim(),
         state: warehouseDraft.state.trim(),
         pinCode: warehouseDraft.pinCode.trim(),
-        isDefault: makeDefault,
-      });
-      return next;
-    });
+        latitude: warehouseDraft.latitude.trim(),
+        longitude: warehouseDraft.longitude.trim(),
+        isDefault: isFirst,
+      },
+    ]);
     setWarehouseDialogOpen(false);
     toast.success(
-      makeDefault
-        ? `Created "${warehouseDraft.name.trim()}" and set as default`
-        : `Created "${warehouseDraft.name.trim()}"`,
+      isFirst
+        ? `Created "${warehouseDraft.name.trim()}" — set as default warehouse.`
+        : `Created "${warehouseDraft.name.trim()}".`,
     );
-  };
-
-  const handleSetDefaultWarehouse = (id: string) => {
-    setWarehouses((prev) =>
-      prev.map((w) => ({ ...w, isDefault: w.id === id })),
-    );
-    const w = warehouses.find((x) => x.id === id);
-    if (w) toast.success(`"${w.name}" is now the default warehouse`);
-  };
-
-  const handleRemoveWarehouse = (id: string) => {
-    const w = warehouses.find((x) => x.id === id);
-    if (!w) return;
-    if (w.isDefault) {
-      toast.error("Set another warehouse as default before removing this one");
-      return;
-    }
-    setWarehouses((prev) => prev.filter((x) => x.id !== id));
-    toast.success(`Removed "${w.name}"`);
   };
 
   const isDraftValid =
@@ -249,23 +271,13 @@ export function StoreSettings() {
     warehouseDraft.address.trim() !== "" &&
     warehouseDraft.city.trim() !== "" &&
     warehouseDraft.state.trim() !== "" &&
-    /^\d{6}$/.test(warehouseDraft.pinCode.trim());
-
-  const handleSave = () => {
-    // Quick validation: ensure open < close on every working day
-    const bad: string[] = [];
-    for (const d of DAYS) {
-      const h = workingHours[d.key];
-      if (!h.closed && h.open >= h.close) bad.push(d.label);
-    }
-    if (bad.length > 0) {
-      toast.error(
-        `Closing time must be after opening time for: ${bad.join(", ")}`,
-      );
-      return;
-    }
-    toast.success("Store settings saved successfully!");
-  };
+    /^\d{6}$/.test(warehouseDraft.pinCode.trim()) &&
+    warehouseDraft.latitude.trim() !== "" &&
+    !isNaN(parseFloat(warehouseDraft.latitude)) &&
+    Math.abs(parseFloat(warehouseDraft.latitude)) <= 90 &&
+    warehouseDraft.longitude.trim() !== "" &&
+    !isNaN(parseFloat(warehouseDraft.longitude)) &&
+    Math.abs(parseFloat(warehouseDraft.longitude)) <= 180;
 
   const formatHolidayDate = (iso: string) => {
     const d = new Date(iso + "T00:00:00");
@@ -277,57 +289,63 @@ export function StoreSettings() {
 
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
-      {/* Compact header — single line, icon left, action buttons right.
-          Saves a full row vs. the old two-line subtitle layout. */}
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate("/settings")}
-            className="h-8 w-8 hover:bg-gray-100"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
-            <Store className="h-5 w-5 text-blue-600" />
-            Store Settings
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => navigate("/settings")}>
-            Cancel
-          </Button>
-          <Button size="sm" onClick={handleSave} className="gap-1.5">
-            <Save className="h-4 w-4" />
-            Save Changes
-          </Button>
-        </div>
+      {/* Compact header — no page-level save; each section saves on its own */}
+      <div className="flex items-center gap-3">
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => navigate("/settings")}
+          className="h-8 w-8 hover:bg-gray-100"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <Store className="h-5 w-5 text-blue-600" />
+          Store Settings
+        </h1>
       </div>
 
       <div className="max-w-5xl space-y-3">
-        {/* Row 1: Store Status + Warehouses side-by-side. Two short
-            cards in one row instead of two stacked rows. */}
+        {/* Row 1: Store Status + Warehouses side-by-side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Store Status — only Accept Orders */}
+          {/* Store Status — Accept Orders with confirm-on-flip */}
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm">Store Status</CardTitle>
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm">Store Status</CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  onClick={handleSaveStoreStatus}
+                >
+                  <Save className="h-3.5 w-3.5" />
+                  Save
+                </Button>
+              </div>
             </CardHeader>
             <CardContent className="pt-0">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <Label className="text-sm">Accept Orders</Label>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Pause new orders without closing the store.
+                    {acceptOrders
+                      ? "New orders are arriving normally."
+                      : "Paused. New orders won't arrive until you manually turn this back on."}
                   </p>
                 </div>
-                <Switch checked={acceptOrders} onCheckedChange={setAcceptOrders} />
+                <Switch
+                  checked={acceptOrders}
+                  // Don't flip immediately — open the confirm dialog
+                  // (covers both pause and resume) so the seller has to
+                  // acknowledge what happens next.
+                  onCheckedChange={(v) => setPendingAcceptOrders(v)}
+                />
               </div>
             </CardContent>
           </Card>
 
-          {/* Warehouses card — list + Add Warehouse CTA in the header */}
+          {/* Warehouses — append-only, first = permanent default */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
@@ -353,10 +371,11 @@ export function StoreSettings() {
                 warehouses.map((w) => (
                   <div
                     key={w.id}
-                    className="flex items-center justify-between gap-2 border border-gray-200 rounded-md p-2 hover:bg-gray-50"
+                    className="flex items-center justify-between gap-2 border border-gray-200 rounded-md p-2 bg-gray-50/50"
+                    title="Warehouses can't be edited or deleted once created."
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 flex-wrap">
                         <p className="text-sm font-medium text-gray-900 truncate">
                           {w.name}
                         </p>
@@ -368,194 +387,190 @@ export function StoreSettings() {
                         )}
                       </div>
                       <p className="text-[11px] text-gray-500 truncate">
-                        {w.city}, {w.state} · {w.pinCode}
+                        {w.city}, {w.state} · {w.pinCode} · {w.latitude}, {w.longitude}
                       </p>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {!w.isDefault && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 px-2 text-xs"
-                          onClick={() => handleSetDefaultWarehouse(w.id)}
-                          title="Make this the default warehouse"
-                        >
-                          Set default
-                        </Button>
-                      )}
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        onClick={() => handleRemoveWarehouse(w.id)}
-                        title={
-                          w.isDefault
-                            ? "Pick another default first"
-                            : `Remove ${w.name}`
-                        }
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                    {/* No edit / delete — Phase 1 rule: warehouses are
+                        permanent once created. The lock icon makes the
+                        constraint visible. */}
+                    <Lock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
                   </div>
                 ))
               )}
+              <p className="text-[11px] text-gray-500 pt-1">
+                Once added, a warehouse can't be edited or deleted. The first
+                warehouse is permanently the default.
+              </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Working Hours — compact rows, one line each. Quick-set bar
-            and per-day editor share the same card so the section
-            stays inside one viewport. */}
+        {/* Working Hours — single open/close window, day-of-week not required */}
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Clock className="h-4 w-4 text-blue-600" />
-              Working Hours
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-2">
-            {/* Apply-to-all helper — single compact row */}
-            <div className="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-200 rounded-md px-2 py-1.5">
-              <span className="text-xs font-medium text-blue-900">
-                Quick set all open days:
-              </span>
-              <Input
-                type="time"
-                value={applyToAll.open}
-                onChange={(e) =>
-                  setApplyToAll((prev) => ({ ...prev, open: e.target.value }))
-                }
-                className="w-24 h-7 text-xs"
-              />
-              <span className="text-xs text-gray-600">to</span>
-              <Input
-                type="time"
-                value={applyToAll.close}
-                onChange={(e) =>
-                  setApplyToAll((prev) => ({ ...prev, close: e.target.value }))
-                }
-                className="w-24 h-7 text-xs"
-              />
-              <Button size="sm" variant="outline" onClick={handleApplyToAll} className="h-7 text-xs">
-                Apply
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Clock className="h-4 w-4 text-blue-600" />
+                Working Hours
+              </CardTitle>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 gap-1 text-xs"
+                onClick={handleSaveWorkingHours}
+              >
+                <Save className="h-3.5 w-3.5" />
+                Save
               </Button>
             </div>
-
-            {/* Per-day editor — denser grid, no inset row backgrounds */}
-            <div className="border border-gray-200 rounded-md divide-y divide-gray-100">
-              {DAYS.map((d) => {
-                const h = workingHours[d.key];
-                return (
-                  <div
-                    key={d.key}
-                    className="grid grid-cols-[80px_1fr_auto] items-center gap-2 px-2 py-1.5"
-                  >
-                    <span className="text-xs font-medium text-gray-800">
-                      {d.short}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        type="time"
-                        value={h.open}
-                        onChange={(e) => updateDay(d.key, { open: e.target.value })}
-                        disabled={h.closed}
-                        className="w-24 h-7 text-xs"
-                      />
-                      <span className="text-xs text-gray-500">to</span>
-                      <Input
-                        type="time"
-                        value={h.close}
-                        onChange={(e) => updateDay(d.key, { close: e.target.value })}
-                        disabled={h.closed}
-                        className="w-24 h-7 text-xs"
-                      />
-                      {h.closed && (
-                        <span className="text-[9px] font-semibold uppercase tracking-wider text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">
-                          Closed
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 justify-end">
-                      <Label className="text-[11px] text-gray-600">Closed</Label>
-                      <Switch
-                        checked={h.closed}
-                        onCheckedChange={(v) => updateDay(d.key, { closed: v })}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">Open</Label>
+                <Input
+                  type="time"
+                  value={openTime}
+                  onChange={(e) => setOpenTime(e.target.value)}
+                  className="w-32 h-8 text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Close</Label>
+                <Input
+                  type="time"
+                  value={closeTime}
+                  onChange={(e) => setCloseTime(e.target.value)}
+                  className="w-32 h-8 text-sm"
+                />
+              </div>
+              <p className="text-[11px] text-gray-500 self-end pb-1.5">
+                One window applies to every working day. Buyers see the store as
+                closed outside these hours.
+              </p>
             </div>
           </CardContent>
         </Card>
 
-        {/* Fixed Holidays — flat list with smaller date pills, add-row
-            inline at the bottom. */}
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-rose-600" />
-              Fixed Holidays
-              <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
-                {holidays.length}
-              </Badge>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="pt-0 space-y-2">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-              {holidays.length === 0 && (
-                <div className="md:col-span-2 p-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md">
-                  No fixed holidays configured.
-                </div>
-              )}
-              {holidays.map((h) => (
-                <div
-                  key={h.id}
-                  className="flex items-center justify-between gap-2 border border-gray-200 rounded-md px-2 py-1.5 hover:bg-gray-50"
+        {/* Weekly Off + Fixed Holidays — recurring days off and one-off
+            holidays, kept side-by-side. */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Weekly Off — pick the days that are always closed */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <CalendarOff className="h-4 w-4 text-amber-600" />
+                  Weekly Off
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
+                    {weekOff.size}
+                  </Badge>
+                </CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 gap-1 text-xs"
+                  onClick={handleSaveWeekOff}
                 >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
-                      {formatHolidayDate(h.date)}
-                    </span>
-                    <p className="text-sm text-gray-900 truncate">{h.name}</p>
+                  <Save className="h-3.5 w-3.5" />
+                  Save
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-2">
+              <p className="text-[11px] text-gray-500">
+                Days the store is always closed. Buyers see these as recurring
+                weekly off-days.
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {WEEK_DAYS.map((d) => {
+                  const on = weekOff.has(d.key);
+                  return (
+                    <button
+                      key={d.key}
+                      type="button"
+                      onClick={() => toggleWeekOff(d.key)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                        on
+                          ? "bg-amber-50 border-amber-300 text-amber-800"
+                          : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                      }`}
+                    >
+                      {d.short}
+                    </button>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Fixed Holidays — one-off date list */}
+          <Card>
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-rose-600" />
+                  Fixed Holidays
+                  <Badge className="bg-rose-50 text-rose-700 border-rose-200 text-[10px]">
+                    {holidays.length}
+                  </Badge>
+                </CardTitle>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0 space-y-2">
+              <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto">
+                {holidays.length === 0 && (
+                  <div className="p-2 text-center text-xs text-gray-500 border border-gray-200 rounded-md">
+                    No fixed holidays configured.
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
-                    onClick={() => handleRemoveHoliday(h.id)}
-                    title={`Remove ${h.name}`}
+                )}
+                {holidays.map((h) => (
+                  <div
+                    key={h.id}
+                    className="flex items-center justify-between gap-2 border border-gray-200 rounded-md px-2 py-1.5 hover:bg-gray-50"
                   >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              ))}
-            </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded shrink-0">
+                        {formatHolidayDate(h.date)}
+                      </span>
+                      <p className="text-sm text-gray-900 truncate">{h.name}</p>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      onClick={() => handleRemoveHoliday(h.id)}
+                      title={`Remove ${h.name}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
 
-            {/* Add new holiday — single compact row */}
-            <div className="border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-1 md:grid-cols-[1fr_160px_auto] gap-2 items-end">
-              <Input
-                placeholder="Holiday name (e.g. Ganesh Chaturthi)"
-                value={newHolidayName}
-                onChange={(e) => setNewHolidayName(e.target.value)}
-                className="h-8 text-sm"
-              />
-              <Input
-                type="date"
-                value={newHolidayDate}
-                onChange={(e) => setNewHolidayDate(e.target.value)}
-                className="h-8 text-sm"
-              />
-              <Button onClick={handleAddHoliday} size="sm" className="h-8 gap-1">
-                <Plus className="h-3.5 w-3.5" />
-                Add
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+              <div className="border border-dashed border-gray-300 rounded-md p-2 grid grid-cols-[1fr_140px_auto] gap-1.5 items-end">
+                <Input
+                  placeholder="Holiday name"
+                  value={newHolidayName}
+                  onChange={(e) => setNewHolidayName(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <Input
+                  type="date"
+                  value={newHolidayDate}
+                  onChange={(e) => setNewHolidayDate(e.target.value)}
+                  className="h-8 text-sm"
+                />
+                <Button onClick={handleAddHoliday} size="sm" className="h-8 gap-1">
+                  <Plus className="h-3.5 w-3.5" />
+                  Add
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
 
-        {/* Store Information — read-only, two-column compact grid */}
+        {/* Store Information — read-only */}
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between gap-3">
@@ -605,11 +620,82 @@ export function StoreSettings() {
         </Card>
       </div>
 
-      {/* Create Warehouse dialog — kept short: name, full address,
-          city/state, PIN, default toggle. The first warehouse is
-          forced as default; subsequent ones can opt in via the
-          checkbox. Inline red helper text on each field replaces
-          popup toasts (matches the rest of Phase 1). */}
+      {/* ---- Accept Orders confirmation ---- */}
+      {/* Both directions get a dialog. Pausing surfaces the consequence
+          ("orders won't come until you turn this back on"); resuming
+          gets a lighter "are you sure?" so the flip is intentional. */}
+      <Dialog
+        open={pendingAcceptOrders !== null}
+        onOpenChange={(o) => !o && setPendingAcceptOrders(null)}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {pendingAcceptOrders ? (
+                <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              ) : (
+                <AlertCircle className="h-5 w-5 text-amber-600" />
+              )}
+              {pendingAcceptOrders
+                ? "Start accepting orders again?"
+                : "Pause new orders?"}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingAcceptOrders
+                ? "Your store will start accepting new orders immediately. Buyers will see your catalog as available."
+                : "Once paused, no new orders will arrive until you manually turn Accept Orders back on. Existing orders are not affected."}
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            className={
+              pendingAcceptOrders
+                ? "bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900"
+                : "bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900"
+            }
+          >
+            {pendingAcceptOrders ? (
+              <>
+                Confirm to resume order intake. You can pause again at any time
+                from this page.
+              </>
+            ) : (
+              <>
+                <b>Heads up:</b> orders won't come in again until you flip this
+                back on yourself. There is no auto-resume.
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingAcceptOrders(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingAcceptOrders === null) return;
+                setAcceptOrders(pendingAcceptOrders);
+                toast.success(
+                  pendingAcceptOrders
+                    ? "Store is now accepting orders."
+                    : "Store paused. New orders won't arrive until you turn it back on.",
+                );
+                setPendingAcceptOrders(null);
+              }}
+              className={
+                pendingAcceptOrders
+                  ? ""
+                  : "bg-amber-600 hover:bg-amber-700 text-white"
+              }
+            >
+              {pendingAcceptOrders ? "Yes, accept orders" : "Yes, pause orders"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ---- Add Warehouse dialog ---- */}
       <Dialog open={warehouseDialogOpen} onOpenChange={setWarehouseDialogOpen}>
         <DialogContent>
           <DialogHeader>
@@ -618,8 +704,10 @@ export function StoreSettings() {
               Add Warehouse
             </DialogTitle>
             <DialogDescription>
-              Sellers can ship from one or more warehouses. The default
-              warehouse is auto-selected for new SKUs and bulk imports.
+              Once created, a warehouse can't be edited or deleted.
+              {warehouses.length === 0
+                ? " The first warehouse you add becomes the permanent default."
+                : ""}
             </DialogDescription>
           </DialogHeader>
 
@@ -725,28 +813,56 @@ export function StoreSettings() {
               )}
             </div>
 
-            {/* Default toggle — locked on for the first warehouse so
-                the seller can't end up with zero defaults. */}
-            <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-2.5 bg-gray-50">
-              <div>
-                <Label className="text-sm flex items-center gap-1.5">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                  Set as default warehouse
+            {/* Lat / Long — required so the warehouse can be plotted on
+                a map and used for serviceability calculations. */}
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Latitude <span className="text-red-500">*</span>
                 </Label>
-                <p className="text-[11px] text-gray-500 mt-0.5">
-                  {warehouses.length === 0
-                    ? "First warehouse must be the default."
-                    : "New SKUs and bulk imports will auto-pick this warehouse."}
-                </p>
+                <Input
+                  inputMode="decimal"
+                  value={warehouseDraft.latitude}
+                  onChange={(e) => {
+                    setWarehouseDraft((p) => ({ ...p, latitude: e.target.value }));
+                    if (warehouseErrors.latitude)
+                      setWarehouseErrors((p) => ({ ...p, latitude: undefined }));
+                  }}
+                  placeholder="e.g. 19.0760"
+                  aria-invalid={!!warehouseErrors.latitude}
+                />
+                {warehouseErrors.latitude && (
+                  <p className="text-[11px] text-red-600">{warehouseErrors.latitude}</p>
+                )}
               </div>
-              <Switch
-                checked={warehouseDraft.isDefault}
-                onCheckedChange={(v) =>
-                  setWarehouseDraft((p) => ({ ...p, isDefault: v }))
-                }
-                disabled={warehouses.length === 0}
-              />
+              <div className="space-y-1">
+                <Label className="text-xs">
+                  Longitude <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  inputMode="decimal"
+                  value={warehouseDraft.longitude}
+                  onChange={(e) => {
+                    setWarehouseDraft((p) => ({ ...p, longitude: e.target.value }));
+                    if (warehouseErrors.longitude)
+                      setWarehouseErrors((p) => ({ ...p, longitude: undefined }));
+                  }}
+                  placeholder="e.g. 72.8777"
+                  aria-invalid={!!warehouseErrors.longitude}
+                />
+                {warehouseErrors.longitude && (
+                  <p className="text-[11px] text-red-600">{warehouseErrors.longitude}</p>
+                )}
+              </div>
             </div>
+
+            {warehouses.length === 0 && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-md p-2.5 text-[11px] text-emerald-900 flex items-start gap-1.5">
+                <Star className="h-3.5 w-3.5 shrink-0 mt-0.5 fill-emerald-700 text-emerald-700" />
+                This is your first warehouse — it'll be permanently set as
+                the default.
+              </div>
+            )}
           </div>
 
           <DialogFooter>
