@@ -141,217 +141,182 @@ export function CommunicationSettings() {
     toast.info("WhatsApp disconnected");
   };
 
-  const handleSave = () => {
-    toast.success("Communication settings saved successfully!");
-  };
-
   return (
-    <div className="p-6 md:p-8 lg:p-10 space-y-6 bg-gradient-to-br from-gray-50 to-white min-h-full">
-      {/* Header */}
-      <div className="max-w-5xl mx-auto">
+    <div className="p-4 space-y-3 bg-gray-50 min-h-full">
+      {/* Compact header — single row, no subtitle, no page-level save */}
+      <div className="flex items-center gap-3">
         <Button
           variant="outline"
           size="icon"
           onClick={() => navigate("/settings")}
-          className="hover:bg-gray-100"
+          className="h-8 w-8 hover:bg-gray-100"
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-
-        <div className="mt-6 space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-            <MessageCircle className="h-8 w-8 text-cyan-600" />
-            Communication Settings
-          </h1>
-          <p className="text-gray-600 mt-1">
-            Configure WhatsApp notifications to stay updated on key events
-          </p>
-        </div>
+        <h1 className="text-xl font-semibold text-gray-900 flex items-center gap-2">
+          <MessageCircle className="h-5 w-5 text-cyan-600" />
+          Communication Settings
+        </h1>
       </div>
 
-      {/* Settings Content */}
-      <div className="max-w-5xl mx-auto space-y-6">
-        {/* WhatsApp Connection Section */}
-        <Card className="border-2 shadow-sm">
-          <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 border-b">
-            <div className="flex items-center gap-3">
-              <div className="bg-green-100 p-2 rounded-lg">
-                <MessageCircle className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  WhatsApp Configuration
-                  {whatsappConnected && (
-                    <Badge className="bg-green-600">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Connected
-                    </Badge>
-                  )}
-                </CardTitle>
-                <p className="text-sm text-gray-600 mt-1">
-                  Connect your WhatsApp number to receive instant notifications
-                </p>
-              </div>
-            </div>
+      <div className="max-w-5xl space-y-3">
+        {/* WhatsApp Configuration — compact card. The big "How it works"
+            ordered list was dropped; the three steps are obvious from
+            the input + button + verification flow itself. */}
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-green-600" />
+              WhatsApp Configuration
+              {whatsappConnected && (
+                <Badge className="bg-green-600 text-[10px] gap-1 h-5">
+                  <CheckCircle2 className="h-2.5 w-2.5" />
+                  Connected
+                </Badge>
+              )}
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-6 space-y-6">
+          <CardContent className="pt-0 space-y-2">
             {!whatsappConnected ? (
               <>
-                {/* Connection Setup */}
-                <div className="space-y-4">
-                  <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                    <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                    <div className="text-sm text-blue-900">
-                      <p className="font-medium">How it works:</p>
-                      <ol className="list-decimal list-inside mt-1 space-y-1 text-blue-800">
-                        <li>Enter your WhatsApp-enabled mobile number</li>
-                        <li>Receive a 6-digit verification code on WhatsApp</li>
-                        <li>Enter the code to verify and connect</li>
-                      </ol>
+                {/* Phone number row — country prefix + input + Send Code */}
+                <div className="space-y-1">
+                  <Label htmlFor="whatsapp-number" className="text-xs">
+                    WhatsApp Number
+                  </Label>
+                  <div className="flex gap-2">
+                    <div className="flex items-center gap-1.5 px-2.5 h-8 bg-gray-100 border rounded-md text-sm font-medium shrink-0">
+                      <Smartphone className="h-3.5 w-3.5 text-gray-600" />
+                      +91
                     </div>
-                  </div>
-
-                  {/* Phone Number Input */}
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp-number" className="text-sm font-medium">
-                      WhatsApp Number
-                    </Label>
-                    <div className="flex gap-3">
-                      <div className="flex-1 flex gap-2">
-                        <div className="flex items-center gap-2 px-3 py-2 bg-gray-100 border rounded-md">
-                          <Smartphone className="h-4 w-4 text-gray-600" />
-                          <span className="text-sm font-medium">+91</span>
-                        </div>
-                        <Input
-                          id="whatsapp-number"
-                          type="tel"
-                          value={whatsappNumber}
-                          onChange={(e) => setWhatsappNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                          placeholder="Enter 10-digit mobile number"
-                          maxLength={10}
-                          className="flex-1"
-                        />
-                      </div>
-                      <Button
-                        onClick={handleConnectWhatsApp}
-                        disabled={isVerifying || whatsappNumber.length !== 10}
-                        className="bg-green-600 hover:bg-green-700"
-                      >
-                        {isVerifying ? (
-                          <>
-                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                            Sending...
-                          </>
-                        ) : (
-                          <>
-                            <MessageCircle className="h-4 w-4 mr-2" />
-                            Send Code
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <p className="text-xs text-gray-600">
-                      Enter the mobile number registered with WhatsApp Business or WhatsApp
-                    </p>
-                  </div>
-
-                  {/* Verification Code Input */}
-                  {isVerifying === false && whatsappNumber.length === 10 && (
-                    <div className="space-y-2 p-4 bg-green-50 rounded-lg border border-green-200">
-                      <Label htmlFor="verification-code" className="text-sm font-medium">
-                        Verification Code
-                      </Label>
-                      <div className="flex gap-3">
-                        <Input
-                          id="verification-code"
-                          type="text"
-                          value={verificationCode}
-                          onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                          placeholder="Enter 6-digit code"
-                          maxLength={6}
-                          className="flex-1"
-                        />
-                        <Button
-                          onClick={handleVerify}
-                          disabled={verificationCode.length !== 6}
-                          className="bg-green-600 hover:bg-green-700"
-                        >
-                          <CheckCircle2 className="h-4 w-4 mr-2" />
-                          Verify
-                        </Button>
-                      </div>
-                      <p className="text-xs text-green-700">
-                        Check your WhatsApp for the verification code
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                {/* Connected Status */}
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between p-4 bg-green-50 rounded-lg border-2 border-green-200">
-                    <div className="flex items-center gap-3">
-                      <div className="bg-green-100 p-3 rounded-full">
-                        <CheckCircle2 className="h-6 w-6 text-green-600" />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-green-900">WhatsApp Connected</p>
-                        <p className="text-sm text-green-700">
-                          +91 {whatsappNumber.slice(0, 5)}***{whatsappNumber.slice(-2)}
-                        </p>
-                      </div>
-                    </div>
+                    <Input
+                      id="whatsapp-number"
+                      type="tel"
+                      value={whatsappNumber}
+                      onChange={(e) =>
+                        setWhatsappNumber(
+                          e.target.value.replace(/\D/g, "").slice(0, 10),
+                        )
+                      }
+                      placeholder="10-digit mobile number"
+                      maxLength={10}
+                      className="flex-1 h-8 text-sm"
+                    />
                     <Button
-                      variant="outline"
                       size="sm"
-                      onClick={handleDisconnect}
-                      className="border-red-300 text-red-600 hover:bg-red-50"
+                      onClick={handleConnectWhatsApp}
+                      disabled={isVerifying || whatsappNumber.length !== 10}
+                      className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
                     >
-                      <XCircle className="h-4 w-4 mr-2" />
-                      Disconnect
+                      {isVerifying ? (
+                        <>
+                          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                          Sending…
+                        </>
+                      ) : (
+                        <>
+                          <MessageCircle className="h-3.5 w-3.5" />
+                          Send Code
+                        </>
+                      )}
                     </Button>
                   </div>
+                  <p className="text-[11px] text-gray-500">
+                    Use a number registered with WhatsApp or WhatsApp Business.
+                  </p>
                 </div>
+
+                {/* Verification — only shows once a 10-digit number is
+                    typed. Tightened to a single inline row. */}
+                {isVerifying === false && whatsappNumber.length === 10 && (
+                  <div className="space-y-1 p-2.5 bg-green-50 border border-green-200 rounded-md">
+                    <Label htmlFor="verification-code" className="text-xs">
+                      Verification Code
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="verification-code"
+                        type="text"
+                        value={verificationCode}
+                        onChange={(e) =>
+                          setVerificationCode(
+                            e.target.value.replace(/\D/g, "").slice(0, 6),
+                          )
+                        }
+                        placeholder="6-digit code"
+                        maxLength={6}
+                        className="flex-1 h-8 text-sm"
+                      />
+                      <Button
+                        size="sm"
+                        onClick={handleVerify}
+                        disabled={verificationCode.length !== 6}
+                        className="h-8 gap-1.5 bg-green-600 hover:bg-green-700"
+                      >
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        Verify
+                      </Button>
+                    </div>
+                    <p className="text-[11px] text-green-700">
+                      Check your WhatsApp for the code.
+                    </p>
+                  </div>
+                )}
               </>
+            ) : (
+              <div className="flex items-center justify-between gap-2 bg-green-50 border border-green-200 rounded-md p-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-green-900">
+                      WhatsApp Connected
+                    </p>
+                    <p className="text-[11px] text-green-700">
+                      +91 {whatsappNumber.slice(0, 5)}***{whatsappNumber.slice(-2)}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  className="h-7 gap-1 text-xs border-red-300 text-red-600 hover:bg-red-50"
+                >
+                  <XCircle className="h-3.5 w-3.5" />
+                  Disconnect
+                </Button>
+              </div>
             )}
           </CardContent>
         </Card>
 
         {/* Notification Preferences — list view. Each row is one
-            notification preference with its own on/off toggle and its
-            own approved template. Templates are immutable once added,
-            mirroring WhatsApp's approval flow. */}
+            notification with its toggle and its approved template. */}
         {whatsappConnected && (
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 border-b">
-              <div className="flex items-center gap-3">
-                <div className="bg-cyan-100 p-2 rounded-lg">
-                  <ShoppingCart className="h-5 w-5 text-cyan-600" />
-                </div>
-                <div>
-                  <CardTitle className="text-lg">Notification Preferences</CardTitle>
-                  <p className="text-sm text-gray-600 mt-1">
-                    Pick which events trigger WhatsApp messages and add the
-                    approved template body for each.
-                  </p>
-                </div>
-              </div>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <ShoppingCart className="h-4 w-4 text-cyan-600" />
+                Notification Preferences
+                <Badge className="bg-cyan-50 text-cyan-700 border-cyan-200 text-[10px]">
+                  {notifications.filter((n) => n.enabled && n.template).length} /{" "}
+                  {notifications.length} active
+                </Badge>
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6 space-y-3">
+            <CardContent className="pt-0 space-y-2">
               {notifications.map((n) => (
                 <div
                   key={n.key}
-                  className="border border-gray-200 rounded-lg p-4 space-y-3"
+                  className="border border-gray-200 rounded-md p-2.5 space-y-2"
                 >
-                  {/* Top row: name + description + on/off toggle */}
+                  {/* Name + description + on/off toggle */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <Label className="text-sm font-semibold text-gray-900">
+                      <Label className="text-sm font-medium text-gray-900">
                         {n.label}
                       </Label>
-                      <p className="text-xs text-gray-600 mt-0.5">
+                      <p className="text-[11px] text-gray-500 mt-0.5">
                         {n.description}
                       </p>
                     </div>
@@ -361,45 +326,43 @@ export function CommunicationSettings() {
                     />
                   </div>
 
-                  {/* Template row — Add Template CTA when blank, locked
-                      message body once added. The template is scoped
-                      to this notification only. */}
+                  {/* Template — locked panel when set, dashed Add CTA
+                      otherwise. */}
                   {n.template ? (
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <div className="flex items-center justify-between gap-2">
-                        <Label className="text-[11px] uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                        <Label className="text-[10px] uppercase tracking-wider text-gray-500 flex items-center gap-1">
                           <FileText className="h-3 w-3" />
                           Approved Template
                         </Label>
-                        <Badge className="bg-violet-600 gap-1 text-[10px]">
+                        <Badge className="bg-violet-600 gap-1 text-[10px] h-5">
                           <Lock className="h-2.5 w-2.5" />
                           Locked
                         </Badge>
                       </div>
-                      <div className="border border-violet-200 bg-violet-50/40 rounded-md p-3">
-                        <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                      <div className="border border-violet-200 bg-violet-50/40 rounded-md px-2.5 py-2">
+                        <p className="text-[13px] text-gray-900 whitespace-pre-wrap leading-snug">
                           {n.template}
                         </p>
                       </div>
-                      <p className="text-[11px] text-gray-500 flex items-start gap-1.5">
+                      <p className="text-[10px] text-gray-500 flex items-start gap-1">
                         <AlertCircle className="h-3 w-3 text-amber-600 shrink-0 mt-0.5" />
                         Templates can't be edited or deleted. Contact support
                         to register a different one.
                       </p>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-dashed border-gray-300 rounded-md px-3 py-2">
-                      <div className="flex items-center gap-2 text-xs text-gray-600">
-                        <Info className="h-3.5 w-3.5 text-gray-500" />
-                        No template yet — add the WhatsApp-approved message
-                        body for this notification.
-                      </div>
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-dashed border-gray-300 rounded-md px-2.5 py-1.5">
+                      <span className="text-[11px] text-gray-600 flex items-center gap-1.5">
+                        <Info className="h-3 w-3 text-gray-500" />
+                        No template yet for this notification.
+                      </span>
                       <Button
                         size="sm"
                         onClick={() => openCreateTemplate(n.key)}
-                        className="bg-violet-600 hover:bg-violet-700 gap-1.5 h-8"
+                        className="h-7 gap-1 text-xs bg-violet-600 hover:bg-violet-700"
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <Plus className="h-3 w-3" />
                         Add Template
                       </Button>
                     </div>
@@ -407,37 +370,14 @@ export function CommunicationSettings() {
                 </div>
               ))}
 
-              {/* Active Notifications Summary */}
-              <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200 mt-2">
-                <div className="flex items-start gap-3">
-                  <Info className="h-5 w-5 text-cyan-600 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <p className="text-sm font-medium text-gray-900">
-                      Active Notifications: {notifications.filter((n) => n.enabled).length} of {notifications.length}
-                      {" · "}
-                      Templates added: {notifications.filter((n) => n.template).length} of {notifications.length}
-                    </p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      Notifications fire only when both the toggle is on AND a
-                      template has been added.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              <p className="text-[11px] text-gray-500 pt-1 flex items-start gap-1.5">
+                <Info className="h-3 w-3 text-gray-400 shrink-0 mt-0.5" />
+                Notifications fire only when both the toggle is on AND a
+                template has been added.
+              </p>
             </CardContent>
           </Card>
         )}
-
-        {/* Save Button */}
-        <div className="flex justify-end gap-3 pt-4">
-          <Button variant="outline" onClick={() => navigate("/settings")}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave} className="bg-cyan-600 hover:bg-cyan-700">
-            <CheckCircle2 className="h-4 w-4 mr-2" />
-            Save Settings
-          </Button>
-        </div>
       </div>
 
       {/* Add Approved Template — scoped to the notification preference
