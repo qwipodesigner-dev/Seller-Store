@@ -5,8 +5,16 @@ import { Button } from "../../components/ui/button";
 import { Switch } from "../../components/ui/switch";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
+import { Textarea } from "../../components/ui/textarea";
 import { Badge } from "../../components/ui/badge";
-import { Separator } from "../../components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import {
   ArrowLeft,
   MessageCircle,
@@ -14,11 +22,12 @@ import {
   AlertCircle,
   Smartphone,
   ShoppingCart,
-  UserPlus,
-  PackageCheck,
   XCircle,
   RefreshCw,
   Info,
+  FileText,
+  Plus,
+  Lock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -31,6 +40,41 @@ export function CommunicationSettings() {
 
   // Notification toggle - Keep ONLY New Order
   const [notifyNewOrder, setNotifyNewOrder] = useState(true);
+
+  // ---- Approved Template ----
+  // Phase 1 rule: a seller can register exactly ONE WhatsApp template
+  // (the approved message body that goes out for New Order alerts).
+  // Once added, the template is locked — no edit, no delete. The
+  // textarea pop-up is the only way to create it.
+  const [approvedTemplate, setApprovedTemplate] = useState<string | null>(null);
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const [templateDraft, setTemplateDraft] = useState("");
+  const [templateError, setTemplateError] = useState<string | null>(null);
+
+  const openCreateTemplate = () => {
+    setTemplateDraft("");
+    setTemplateError(null);
+    setTemplateDialogOpen(true);
+  };
+
+  const handleSaveTemplate = () => {
+    const trimmed = templateDraft.trim();
+    if (!trimmed) {
+      setTemplateError("Template message is required");
+      return;
+    }
+    if (trimmed.length < 10) {
+      setTemplateError("Template must be at least 10 characters");
+      return;
+    }
+    if (trimmed.length > 1024) {
+      setTemplateError("Template can't exceed 1024 characters");
+      return;
+    }
+    setApprovedTemplate(trimmed);
+    setTemplateDialogOpen(false);
+    toast.success("Template added. It can't be edited or deleted later.");
+  };
 
   const handleConnectWhatsApp = () => {
     if (!whatsappNumber || whatsappNumber.length !== 10) {
@@ -242,6 +286,76 @@ export function CommunicationSettings() {
           </CardContent>
         </Card>
 
+        {/* Approved Template — appears once WhatsApp is connected.
+            Phase 1: exactly one template per seller. Once created the
+            block flips to a locked, read-only display with a "Locked"
+            pill — no edit, no delete. */}
+        {whatsappConnected && (
+          <Card className="border-2 shadow-sm">
+            <CardHeader className="bg-gradient-to-r from-violet-50 to-purple-50 border-b">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="bg-violet-100 p-2 rounded-lg">
+                    <FileText className="h-5 w-5 text-violet-600" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      Approved Template
+                      {approvedTemplate && (
+                        <Badge className="bg-violet-600 gap-1">
+                          <Lock className="h-3 w-3" />
+                          Locked
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    <p className="text-sm text-gray-600 mt-1">
+                      WhatsApp notifications are sent using this approved
+                      template. Only one template per account.
+                    </p>
+                  </div>
+                </div>
+                {!approvedTemplate && (
+                  <Button
+                    onClick={openCreateTemplate}
+                    className="bg-violet-600 hover:bg-violet-700 gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Template
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent className="p-6">
+              {approvedTemplate ? (
+                <div className="space-y-3">
+                  <div className="border border-violet-200 bg-violet-50/40 rounded-lg p-4">
+                    <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                      {approvedTemplate}
+                    </p>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-md p-2.5">
+                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
+                    <span>
+                      Once added, an approved template <b>cannot be edited or
+                      deleted</b>. To use a different template, contact
+                      support.
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
+                  <Info className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                  <span>
+                    No template added yet. Click <b>Add Template</b> to register
+                    your approved WhatsApp message body. After it's added, it
+                    can't be edited or deleted.
+                  </span>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Notification Preferences */}
         {whatsappConnected && (
           <Card className="border-2 shadow-sm">
@@ -313,6 +427,77 @@ export function CommunicationSettings() {
           </Button>
         </div>
       </div>
+
+      {/* Add Approved Template — single textarea pop-up. Once
+          submitted, the template is locked permanently. */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-violet-600" />
+              Add Approved Template
+            </DialogTitle>
+            <DialogDescription>
+              Paste the exact body of your WhatsApp-approved template. Once
+              added, it can't be edited or deleted.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-2">
+            <Label htmlFor="template-body" className="text-xs">
+              Template Message <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="template-body"
+              value={templateDraft}
+              onChange={(e) => {
+                setTemplateDraft(e.target.value);
+                if (templateError) setTemplateError(null);
+              }}
+              placeholder="e.g. Hi {{1}}, your order #{{2}} of ₹{{3}} has been placed successfully. — ABC Distributors"
+              rows={6}
+              maxLength={1024}
+              aria-invalid={!!templateError}
+            />
+            <div className="flex items-center justify-between text-[11px]">
+              {templateError ? (
+                <p className="text-red-600">{templateError}</p>
+              ) : (
+                <p className="text-gray-500">
+                  Use placeholders like {"{{1}}"}, {"{{2}}"} for dynamic values.
+                </p>
+              )}
+              <span className="text-gray-400 shrink-0 ml-2">
+                {templateDraft.length} / 1024
+              </span>
+            </div>
+          </div>
+
+          <div className="bg-amber-50 border border-amber-200 rounded-md p-2.5 text-xs text-amber-900 flex items-start gap-1.5">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+            <span>
+              <b>Heads up:</b> after you click <b>Add Template</b>, this
+              message becomes permanent — there's no edit or delete.
+            </span>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTemplateDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTemplate}
+              disabled={templateDraft.trim().length < 10}
+              className="bg-violet-600 hover:bg-violet-700"
+            >
+              Add Template
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
