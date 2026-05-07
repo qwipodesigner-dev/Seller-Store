@@ -810,9 +810,24 @@ export function MySKU() {
                         <p className="text-[11px] text-gray-500">Create SKU stubs (SKU Code + Name)</p>
                       </div>
                     </DropdownMenuItem>
+                    {/* "Update Price & Stock" needs an existing catalog
+                        to update — when the seller has no SKUs yet
+                        (empty inception state) the option is disabled
+                        and visually greyed out so it's clear they need
+                        to add SKUs first via the row above. */}
                     <DropdownMenuItem
-                      onClick={() => navigate("/products/add-sku/import")}
-                      className="gap-2 cursor-pointer"
+                      disabled={isEmpty}
+                      onClick={
+                        isEmpty
+                          ? undefined
+                          : () => navigate("/products/add-sku/import")
+                      }
+                      className="gap-2 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed cursor-pointer"
+                      title={
+                        isEmpty
+                          ? "Add SKUs first — there's no catalog to update yet"
+                          : undefined
+                      }
                     >
                       <Database className="h-4 w-4 text-purple-600" />
                       <div className="flex-1">
