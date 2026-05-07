@@ -38,26 +38,56 @@ export function CommunicationSettings() {
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
 
-  // Notification toggle - Keep ONLY New Order
-  const [notifyNewOrder, setNotifyNewOrder] = useState(true);
+  // ---- Notifications & Templates (combined view) ----
+  // Phase 1 ships only one notification preference (New Order) but the
+  // shape is a list-of-rows so we can add more later without restructure.
+  // Each row carries:
+  //   • enabled — on/off toggle controlling whether the message goes out
+  //   • template — the WhatsApp-approved body. Once added, immutable.
+  type NotificationKey = "new-order";
+  interface NotificationPref {
+    key: NotificationKey;
+    label: string;
+    description: string;
+    enabled: boolean;
+    template: string | null;
+  }
+  const [notifications, setNotifications] = useState<NotificationPref[]>([
+    {
+      key: "new-order",
+      label: "New Order Received",
+      description: "Get notified instantly when a new order is placed.",
+      enabled: true,
+      template: null,
+    },
+  ]);
 
-  // ---- Approved Template ----
-  // Phase 1 rule: a seller can register exactly ONE WhatsApp template
-  // (the approved message body that goes out for New Order alerts).
-  // Once added, the template is locked — no edit, no delete. The
-  // textarea pop-up is the only way to create it.
-  const [approvedTemplate, setApprovedTemplate] = useState<string | null>(null);
-  const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
+  const setNotificationEnabled = (key: NotificationKey, enabled: boolean) =>
+    setNotifications((prev) =>
+      prev.map((n) => (n.key === key ? { ...n, enabled } : n)),
+    );
+
+  // Add-template dialog — bound to a specific notification preference
+  // so the seller knows what they're adding the message FOR.
+  const [templateDialogFor, setTemplateDialogFor] = useState<NotificationKey | null>(null);
   const [templateDraft, setTemplateDraft] = useState("");
   const [templateError, setTemplateError] = useState<string | null>(null);
+  const dialogTarget = notifications.find((n) => n.key === templateDialogFor);
 
-  const openCreateTemplate = () => {
+  const openCreateTemplate = (key: NotificationKey) => {
+    setTemplateDialogFor(key);
     setTemplateDraft("");
     setTemplateError(null);
-    setTemplateDialogOpen(true);
+  };
+
+  const closeTemplateDialog = () => {
+    setTemplateDialogFor(null);
+    setTemplateDraft("");
+    setTemplateError(null);
   };
 
   const handleSaveTemplate = () => {
+    if (!templateDialogFor) return;
     const trimmed = templateDraft.trim();
     if (!trimmed) {
       setTemplateError("Template message is required");
@@ -71,8 +101,11 @@ export function CommunicationSettings() {
       setTemplateError("Template can't exceed 1024 characters");
       return;
     }
-    setApprovedTemplate(trimmed);
-    setTemplateDialogOpen(false);
+    const target = templateDialogFor;
+    setNotifications((prev) =>
+      prev.map((n) => (n.key === target ? { ...n, template: trimmed } : n)),
+    );
+    closeTemplateDialog();
     toast.success("Template added. It can't be edited or deleted later.");
   };
 
@@ -286,128 +319,107 @@ export function CommunicationSettings() {
           </CardContent>
         </Card>
 
-        {/* Approved Template — appears once WhatsApp is connected.
-            Phase 1: exactly one template per seller. Once created the
-            block flips to a locked, read-only display with a "Locked"
-            pill — no edit, no delete. */}
-        {whatsappConnected && (
-          <Card className="border-2 shadow-sm">
-            <CardHeader className="bg-gradient-to-r from-violet-50 to-purple-50 border-b">
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  <div className="bg-violet-100 p-2 rounded-lg">
-                    <FileText className="h-5 w-5 text-violet-600" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-lg flex items-center gap-2">
-                      Approved Template
-                      {approvedTemplate && (
-                        <Badge className="bg-violet-600 gap-1">
-                          <Lock className="h-3 w-3" />
-                          Locked
-                        </Badge>
-                      )}
-                    </CardTitle>
-                    <p className="text-sm text-gray-600 mt-1">
-                      WhatsApp notifications are sent using this approved
-                      template. Only one template per account.
-                    </p>
-                  </div>
-                </div>
-                {!approvedTemplate && (
-                  <Button
-                    onClick={openCreateTemplate}
-                    className="bg-violet-600 hover:bg-violet-700 gap-1.5"
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Template
-                  </Button>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              {approvedTemplate ? (
-                <div className="space-y-3">
-                  <div className="border border-violet-200 bg-violet-50/40 rounded-lg p-4">
-                    <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
-                      {approvedTemplate}
-                    </p>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-600 bg-amber-50 border border-amber-200 rounded-md p-2.5">
-                    <AlertCircle className="h-3.5 w-3.5 text-amber-600 shrink-0 mt-0.5" />
-                    <span>
-                      Once added, an approved template <b>cannot be edited or
-                      deleted</b>. To use a different template, contact
-                      support.
-                    </span>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-start gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 text-sm text-gray-700">
-                  <Info className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
-                  <span>
-                    No template added yet. Click <b>Add Template</b> to register
-                    your approved WhatsApp message body. After it's added, it
-                    can't be edited or deleted.
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Notification Preferences */}
+        {/* Notification Preferences — list view. Each row is one
+            notification preference with its own on/off toggle and its
+            own approved template. Templates are immutable once added,
+            mirroring WhatsApp's approval flow. */}
         {whatsappConnected && (
           <Card className="border-2 shadow-sm">
             <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50 border-b">
               <div className="flex items-center gap-3">
                 <div className="bg-cyan-100 p-2 rounded-lg">
-                  <AlertCircle className="h-5 w-5 text-cyan-600" />
+                  <ShoppingCart className="h-5 w-5 text-cyan-600" />
                 </div>
                 <div>
                   <CardTitle className="text-lg">Notification Preferences</CardTitle>
                   <p className="text-sm text-gray-600 mt-1">
-                    Choose which events trigger WhatsApp notifications
+                    Pick which events trigger WhatsApp messages and add the
+                    approved template body for each.
                   </p>
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              {/* Order Notifications */}
-              <div className="space-y-3">
-                <div className="flex items-center gap-2 mb-3">
-                  <ShoppingCart className="h-5 w-5 text-purple-600" />
-                  <h3 className="font-semibold text-gray-900">Order Notifications</h3>
-                </div>
-
-                {/* New Order */}
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex-1">
-                    <Label htmlFor="notify-new-order" className="text-sm font-medium">
-                      New Order Received
-                    </Label>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Get notified instantly when a new order is placed
-                    </p>
+            <CardContent className="p-6 space-y-3">
+              {notifications.map((n) => (
+                <div
+                  key={n.key}
+                  className="border border-gray-200 rounded-lg p-4 space-y-3"
+                >
+                  {/* Top row: name + description + on/off toggle */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <Label className="text-sm font-semibold text-gray-900">
+                        {n.label}
+                      </Label>
+                      <p className="text-xs text-gray-600 mt-0.5">
+                        {n.description}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={n.enabled}
+                      onCheckedChange={(v) => setNotificationEnabled(n.key, v)}
+                    />
                   </div>
-                  <Switch
-                    id="notify-new-order"
-                    checked={notifyNewOrder}
-                    onCheckedChange={setNotifyNewOrder}
-                  />
+
+                  {/* Template row — Add Template CTA when blank, locked
+                      message body once added. The template is scoped
+                      to this notification only. */}
+                  {n.template ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-[11px] uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+                          <FileText className="h-3 w-3" />
+                          Approved Template
+                        </Label>
+                        <Badge className="bg-violet-600 gap-1 text-[10px]">
+                          <Lock className="h-2.5 w-2.5" />
+                          Locked
+                        </Badge>
+                      </div>
+                      <div className="border border-violet-200 bg-violet-50/40 rounded-md p-3">
+                        <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                          {n.template}
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-gray-500 flex items-start gap-1.5">
+                        <AlertCircle className="h-3 w-3 text-amber-600 shrink-0 mt-0.5" />
+                        Templates can't be edited or deleted. Contact support
+                        to register a different one.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 border border-dashed border-gray-300 rounded-md px-3 py-2">
+                      <div className="flex items-center gap-2 text-xs text-gray-600">
+                        <Info className="h-3.5 w-3.5 text-gray-500" />
+                        No template yet — add the WhatsApp-approved message
+                        body for this notification.
+                      </div>
+                      <Button
+                        size="sm"
+                        onClick={() => openCreateTemplate(n.key)}
+                        className="bg-violet-600 hover:bg-violet-700 gap-1.5 h-8"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Add Template
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              ))}
 
               {/* Active Notifications Summary */}
-              <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200 mt-6">
+              <div className="p-4 bg-gradient-to-r from-cyan-50 to-blue-50 rounded-lg border border-cyan-200 mt-2">
                 <div className="flex items-start gap-3">
                   <Info className="h-5 w-5 text-cyan-600 mt-0.5 flex-shrink-0" />
                   <div>
                     <p className="text-sm font-medium text-gray-900">
-                      Active Notifications: {[notifyNewOrder].filter(Boolean).length} of 1
+                      Active Notifications: {notifications.filter((n) => n.enabled).length} of {notifications.length}
+                      {" · "}
+                      Templates added: {notifications.filter((n) => n.template).length} of {notifications.length}
                     </p>
                     <p className="text-xs text-gray-600 mt-1">
-                      You will receive WhatsApp notifications for the selected events
+                      Notifications fire only when both the toggle is on AND a
+                      template has been added.
                     </p>
                   </div>
                 </div>
@@ -428,18 +440,23 @@ export function CommunicationSettings() {
         </div>
       </div>
 
-      {/* Add Approved Template — single textarea pop-up. Once
-          submitted, the template is locked permanently. */}
-      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+      {/* Add Approved Template — scoped to the notification preference
+          the seller clicked Add Template on. Once submitted, the
+          template is locked permanently for that notification. */}
+      <Dialog
+        open={templateDialogFor !== null}
+        onOpenChange={(o) => !o && closeTemplateDialog()}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-violet-600" />
-              Add Approved Template
+              Add Template — {dialogTarget?.label ?? ""}
             </DialogTitle>
             <DialogDescription>
-              Paste the exact body of your WhatsApp-approved template. Once
-              added, it can't be edited or deleted.
+              Paste the WhatsApp-approved message body for{" "}
+              <b>{dialogTarget?.label}</b>. Once added, this template is
+              locked to this notification — it can't be edited or deleted.
             </DialogDescription>
           </DialogHeader>
 
@@ -482,10 +499,7 @@ export function CommunicationSettings() {
           </div>
 
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setTemplateDialogOpen(false)}
-            >
+            <Button variant="outline" onClick={closeTemplateDialog}>
               Cancel
             </Button>
             <Button
