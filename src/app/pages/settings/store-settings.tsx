@@ -456,7 +456,8 @@ export function StoreSettings() {
                   />
                 </div>
                 <p className="text-[11px] text-gray-500 pb-1.5">
-                  Buyers see the store as closed outside these hours.
+                  Shown to buyers as your working hours — orders can still
+                  be placed outside this window.
                 </p>
               </div>
 
