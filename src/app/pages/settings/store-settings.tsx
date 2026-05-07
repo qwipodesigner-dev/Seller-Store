@@ -82,6 +82,12 @@ export function StoreSettings() {
   const [acceptOrders, setAcceptOrders] = useState(true);
   const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
 
+  // ---- Working Hours (single window) ----
+  // One open/close pair applies to every working day. Per-day splits
+  // were removed — sellers told us they keep one schedule.
+  const [openTime, setOpenTime] = useState("09:00");
+  const [closeTime, setCloseTime] = useState("21:00");
+
   // ---- Weekly Off ----
   const [weekOff, setWeekOff] = useState<Set<WeekDay>>(new Set(["sun"]));
   const toggleWeekOff = (key: WeekDay) =>
@@ -150,12 +156,16 @@ export function StoreSettings() {
     );
   };
 
-  const handleSaveWeekOff = () => {
+  const handleSaveWorkingHours = () => {
+    if (openTime >= closeTime) {
+      toast.error("Closing time must be after opening time");
+      return;
+    }
     if (weekOff.size === 7) {
       toast.error("At least one working day is required");
       return;
     }
-    toast.success("Weekly off days saved.");
+    toast.success("Working hours saved.");
   };
 
   const handleAddHoliday = () => {
@@ -416,40 +426,67 @@ export function StoreSettings() {
                   size="sm"
                   variant="outline"
                   className="h-7 gap-1 text-xs"
-                  onClick={handleSaveWeekOff}
+                  onClick={handleSaveWorkingHours}
                 >
                   <Save className="h-3.5 w-3.5" />
                   Save
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-2">
-              <Label className="text-xs flex items-center gap-1.5 text-gray-700">
-                <CalendarOff className="h-3.5 w-3.5 text-amber-600" />
-                Weekly Off
-              </Label>
-              <p className="text-[11px] text-gray-500">
-                Tap the days the store is always closed. Buyers see these as
-                recurring weekly off-days.
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {WEEK_DAYS.map((d) => {
-                  const on = weekOff.has(d.key);
-                  return (
-                    <button
-                      key={d.key}
-                      type="button"
-                      onClick={() => toggleWeekOff(d.key)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
-                        on
-                          ? "bg-amber-50 border-amber-300 text-amber-800"
-                          : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
-                      }`}
-                    >
-                      {d.short}
-                    </button>
-                  );
-                })}
+            <CardContent className="pt-0 space-y-3">
+              {/* Open / Close — single window applies to every working day */}
+              <div className="flex items-end gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">Open</Label>
+                  <Input
+                    type="time"
+                    value={openTime}
+                    onChange={(e) => setOpenTime(e.target.value)}
+                    className="w-28 h-8 text-sm"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">Close</Label>
+                  <Input
+                    type="time"
+                    value={closeTime}
+                    onChange={(e) => setCloseTime(e.target.value)}
+                    className="w-28 h-8 text-sm"
+                  />
+                </div>
+                <p className="text-[11px] text-gray-500 pb-1.5">
+                  Buyers see the store as closed outside these hours.
+                </p>
+              </div>
+
+              {/* Weekly Off — pick the recurring closed weekdays */}
+              <div className="space-y-1.5 pt-1 border-t border-gray-100">
+                <Label className="text-xs flex items-center gap-1.5 text-gray-700 pt-2">
+                  <CalendarOff className="h-3.5 w-3.5 text-amber-600" />
+                  Weekly Off
+                </Label>
+                <p className="text-[11px] text-gray-500">
+                  Tap the days the store is always closed.
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {WEEK_DAYS.map((d) => {
+                    const on = weekOff.has(d.key);
+                    return (
+                      <button
+                        key={d.key}
+                        type="button"
+                        onClick={() => toggleWeekOff(d.key)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-medium border transition-colors ${
+                          on
+                            ? "bg-amber-50 border-amber-300 text-amber-800"
+                            : "bg-white border-gray-200 text-gray-700 hover:border-gray-300"
+                        }`}
+                      >
+                        {d.short}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             </CardContent>
           </Card>
