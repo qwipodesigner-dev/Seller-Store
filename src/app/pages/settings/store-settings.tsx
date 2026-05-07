@@ -81,6 +81,8 @@ export function StoreSettings() {
   // new orders stop until they manually flip it back on.
   const [acceptOrders, setAcceptOrders] = useState(true);
   const [pendingAcceptOrders, setPendingAcceptOrders] = useState<boolean | null>(null);
+  // Last-saved snapshot. Save is enabled only when current ≠ saved.
+  const [savedAcceptOrders, setSavedAcceptOrders] = useState(true);
 
   // ---- Working Hours (single window) ----
   // One open/close pair applies to every working day. Per-day splits
@@ -90,6 +92,18 @@ export function StoreSettings() {
 
   // ---- Weekly Off ----
   const [weekOff, setWeekOff] = useState<Set<WeekDay>>(new Set(["sun"]));
+  // Last-saved snapshot for the whole Working Hours section
+  // (open + close + weekly off). Save is gated on dirty.
+  const [savedWorkingHours, setSavedWorkingHours] = useState({
+    openTime: "09:00",
+    closeTime: "21:00",
+    weekOff: ["sun"] as WeekDay[],
+  });
+  const isWorkingHoursDirty =
+    openTime !== savedWorkingHours.openTime ||
+    closeTime !== savedWorkingHours.closeTime ||
+    savedWorkingHours.weekOff.length !== weekOff.size ||
+    savedWorkingHours.weekOff.some((d) => !weekOff.has(d));
   const toggleWeekOff = (key: WeekDay) =>
     setWeekOff((prev) => {
       const next = new Set(prev);
@@ -149,6 +163,7 @@ export function StoreSettings() {
   // "Save Changes" at the page level. Sellers can change one section
   // and persist it without touching the others.
   const handleSaveStoreStatus = () => {
+    setSavedAcceptOrders(acceptOrders);
     toast.success(
       acceptOrders
         ? "Store is accepting orders."
@@ -165,6 +180,11 @@ export function StoreSettings() {
       toast.error("At least one working day is required");
       return;
     }
+    setSavedWorkingHours({
+      openTime,
+      closeTime,
+      weekOff: Array.from(weekOff),
+    });
     toast.success("Working hours saved.");
   };
 
@@ -313,9 +333,9 @@ export function StoreSettings() {
                 <CardTitle className="text-sm">Store Status</CardTitle>
                 <Button
                   size="sm"
-                  variant="outline"
                   className="h-7 gap-1 text-xs"
                   onClick={handleSaveStoreStatus}
+                  disabled={acceptOrders === savedAcceptOrders}
                 >
                   <Save className="h-3.5 w-3.5" />
                   Save
@@ -424,9 +444,9 @@ export function StoreSettings() {
                 </CardTitle>
                 <Button
                   size="sm"
-                  variant="outline"
                   className="h-7 gap-1 text-xs"
                   onClick={handleSaveWorkingHours}
+                  disabled={!isWorkingHoursDirty}
                 >
                   <Save className="h-3.5 w-3.5" />
                   Save
