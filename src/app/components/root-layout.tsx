@@ -19,9 +19,9 @@ import {
   Search,
   X,
 } from "lucide-react";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { Input } from "../ui/input";
+import { Button } from "./ui/button";
+import { Badge } from "./ui/badge";
+import { Input } from "./ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,18 +29,18 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "../ui/dropdown-menu";
-import logoImage from "../../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
-import iconLogo from "../../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
-import { useAuth } from "../../lib/auth-context";
+} from "./ui/dropdown-menu";
+import logoImage from "../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
+import iconLogo from "../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
+import { useAuth } from "../lib/auth-context";
 import {
   adminErrorScreensNav,
   adminLoadingScreensNav,
   adminNavigation,
   getAdminPageTitle,
-} from "../admin/admin-navigation";
+} from "../lib/admin-navigation";
 import { AlertOctagon, Loader2 } from "lucide-react";
-import { RouteProgress } from "../ui/page-loader";
+import { RouteProgress } from "./ui/page-loader";
 
 const sellerNavigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },

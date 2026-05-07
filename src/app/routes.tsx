@@ -1,10 +1,10 @@
 import { createBrowserRouter } from "react-router";
-import { RootLayout } from "./components/layouts/root-layout";
+import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
 import { ProductCatalog } from "./pages/product-catalog";
 import { Inventory } from "./pages/inventory";
-import { Orders } from "./pages/orders-enhanced";
+import { Orders } from "./pages/orders";
 import { OrderDetail } from "./pages/order-detail";
 import { Customers } from "./pages/customers";
 import { CustomerDetail } from "./pages/customer-detail";
