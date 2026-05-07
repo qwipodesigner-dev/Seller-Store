@@ -57,10 +57,16 @@ import {
   importBizomCsv,
   BizomValidationResult,
   BIZOM_REQUIRED_HEADERS,
+  type AggregatedSKU,
 } from "../../lib/bizom-validation";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { ListPagination } from "../../components/ui/list-pagination";
+import {
+  BulkImportDialog,
+  type BulkImportValidationResult,
+  type BulkImportError as BulkImportErrorRow,
+} from "../../components/bulk-import-dialog";
 
 interface Product {
   id: string;
@@ -471,11 +477,95 @@ export function PriceInventory() {
     toast.success("Exporting price & inventory data...");
   };
 
-  // ---- Bulk import: routes to the standalone Stock & Price update page
-  // (download existing → edit offline → re-upload). The legacy Bizom-DMS
-  // dialog below is kept for reference but no longer opened. ----
+  // ---- Bulk import: opens the standardized <BulkImportDialog>
+  // (upload → 30s validate → results → import). The legacy inline
+  // Bizom-DMS dialog further down is kept for reference but no
+  // longer triggered — see the orphan setIsImportOpen state. ----
+  const [isBulkImportOpen, setIsBulkImportOpen] = useState(false);
   const handleOpenImport = () => {
-    navigate("/products/add-sku/import");
+    setIsBulkImportOpen(true);
+  };
+
+  const readFileText = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(String(ev.target?.result || ""));
+      reader.onerror = () => reject(new Error("Could not read file."));
+      reader.readAsText(file);
+    });
+
+  // Adapt the Bizom validator into the standardized
+  // BulkImportValidationResult shape consumed by BulkImportDialog.
+  const validateBizomFile = async (
+    file: File,
+  ): Promise<BulkImportValidationResult> => {
+    const text = await readFileText(file);
+    const result = importBizomCsv(text);
+    const errors: BulkImportErrorRow[] = [];
+
+    for (const fe of result.fileLevelErrors) {
+      errors.push({ row: 1, field: fe.field || "File", error: fe.message });
+    }
+    for (const br of result.batchRows) {
+      for (const e of br.errors) {
+        errors.push({ row: br.raw.rowNumber, field: e.field, error: e.message });
+      }
+    }
+
+    return {
+      totalRows: result.totalRows,
+      validRows: result.aggregated.length,
+      invalidRows: result.totalRows - result.aggregated.length,
+      errors,
+      validData: result.aggregated,
+    };
+  };
+
+  // Apply validated rows: merge into existing products by SKU Code,
+  // append a new row when no match (keeps the legacy add-or-update
+  // behavior).
+  const importBizomRows = (rows: unknown[]) => {
+    const aggregated = rows as AggregatedSKU[];
+    if (aggregated.length === 0) return;
+    const today = new Date().toISOString().split("T")[0];
+    const byCode = new Map(products.map((p) => [p.skuCode.toLowerCase(), p]));
+    const updated: Product[] = [...products];
+    let added = 0;
+    for (const agg of aggregated) {
+      const existing = byCode.get(agg.skuCode.toLowerCase());
+      if (existing) {
+        const idx = updated.indexOf(existing);
+        updated[idx] = {
+          ...existing,
+          mrp: agg.mrp,
+          sellingPrice: agg.sellingPrice,
+          availableStock: agg.totalStock,
+          source: "DMS Sync",
+          lastUpdated: today,
+        };
+      } else {
+        updated.push({
+          id: String(Date.now() + added),
+          skuName: agg.skuName,
+          skuCode: agg.skuCode,
+          brand: "—",
+          category: "Imported",
+          source: "DMS Sync",
+          mrp: agg.mrp,
+          sellingPrice: agg.sellingPrice,
+          availableStock: agg.totalStock,
+          reservedStock: 0,
+          thresholdLevel: 0,
+          isInfiniteStock: false,
+          status: "Active",
+          lastUpdated: today,
+          ondcCompliant: false,
+          missingOndcFields: [],
+        });
+        added++;
+      }
+    }
+    setProducts(updated);
   };
 
   const handleDownloadBizomTemplate = () => {
@@ -1654,6 +1744,31 @@ export function PriceInventory() {
         </DialogContent>
       </Dialog>
 
+      {/* Standardized bulk-import flow — same dialog the My SKU page
+          mounts under "Update Price & Stock". Differs only in copy. */}
+      <BulkImportDialog
+        open={isBulkImportOpen}
+        onOpenChange={setIsBulkImportOpen}
+        config={{
+          title: "Update Price & Stock — Bulk Import",
+          description:
+            "Upload a Bizom DMS export. Existing SKUs get their MRP, Selling Price, and Stock refreshed; rows for new SKU Codes are added as fresh entries.",
+          instructions: (
+            <>
+              Upload the <b>Bizom DMS</b> Price &amp; Inventory export. SKU
+              Codes that already exist get updated; new ones are appended to
+              your catalog.
+            </>
+          ),
+          sample: {
+            fileName: "Bizom_DMS_Inventory_Template.csv",
+            onDownload: handleDownloadBizomTemplate,
+          },
+          accept: ".csv,.xlsx,.xls",
+          validate: validateBizomFile,
+          onImport: importBizomRows,
+        }}
+      />
     </div>
   );
 }
