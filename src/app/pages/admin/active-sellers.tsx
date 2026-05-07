@@ -16,7 +16,7 @@ import { ListPagination, paginate } from "../../components/ui/list-pagination";
 import {
   SellersFilterDrawer,
   type SellerStatusFilter,
-} from "../../components/SellersFilterDrawer";
+} from "../../components/filter-drawers/sellers-filter-drawer";
 
 const PAGE_SIZE = 10;
 

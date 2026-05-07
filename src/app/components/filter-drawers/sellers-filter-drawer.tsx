@@ -1,40 +1,48 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
-import { Button } from "./ui/button";
-import { Label } from "./ui/label";
+import { Button } from "../ui/button";
+import { Label } from "../ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
-import { toast } from "sonner";
+} from "../ui/select";
 
-interface PriceListFilterDrawerProps {
+export type SellerStatusFilter = "all" | "active" | "inactive";
+
+interface SellersFilterDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  statusFilter: string;
-  setStatusFilter: (value: string) => void;
-  sourceFilter: string;
-  setSourceFilter: (value: string) => void;
+  status: SellerStatusFilter;
+  onStatusChange: (value: SellerStatusFilter) => void;
   onClearFilters: () => void;
 }
 
-export function PriceListFilterDrawer({
+/**
+ * Right-hand drawer of filters for the Admin → Sellers list page.
+ * Mirrors the seller-module filter drawers (My SKU, Orders, Offers,
+ * etc.) so the Super Admin learns the pattern once: chip filters chosen
+ * here, Apply / Clear at the bottom, slides in from the right.
+ *
+ * Phase 1 ships a single Status filter (Active / Inactive). Add more
+ * controls (Seller Type, Created date range, etc.) by dropping more
+ * `<Select>` blocks into the content area — every block reuses the
+ * same `<Label>` + `<Select>` pattern below.
+ */
+export function SellersFilterDrawer({
   isOpen,
   onClose,
-  statusFilter,
-  setStatusFilter,
-  sourceFilter,
-  setSourceFilter,
+  status,
+  onStatusChange,
   onClearFilters,
-}: PriceListFilterDrawerProps) {
+}: SellersFilterDrawerProps) {
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop — clicking outside closes the drawer. */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -58,6 +66,7 @@ export function PriceListFilterDrawer({
               <button
                 onClick={onClose}
                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                aria-label="Close filters"
               >
                 <X className="h-5 w-5 text-gray-500" />
               </button>
@@ -66,38 +75,28 @@ export function PriceListFilterDrawer({
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-6">
-                {/* Source Filter */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">
-                    Source
-                  </Label>
-                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Sources" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Sources</SelectItem>
-                      <SelectItem value="DMS Sync">DMS Sync</SelectItem>
-                      <SelectItem value="Manual">Manual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Status Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-700">
                     Status
                   </Label>
-                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <Select
+                    value={status}
+                    onValueChange={(v) =>
+                      onStatusChange(v as SellerStatusFilter)
+                    }
+                  >
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Status" />
+                      <SelectValue placeholder="All statuses" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Status</SelectItem>
-                      <SelectItem value="Active">Active</SelectItem>
-                      <SelectItem value="Inactive">Inactive</SelectItem>
+                      <SelectItem value="all">All statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-[11px] text-gray-500">
+                    Filter the list to active or deactivated sellers only.
+                  </p>
                 </div>
               </div>
             </div>
@@ -107,16 +106,11 @@ export function PriceListFilterDrawer({
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => {
-                  onClearFilters();
-                }}
+                onClick={onClearFilters}
               >
                 Clear Filters
               </Button>
-              <Button
-                className="flex-1"
-                onClick={onClose}
-              >
+              <Button className="flex-1" onClick={onClose}>
                 Apply
               </Button>
             </div>

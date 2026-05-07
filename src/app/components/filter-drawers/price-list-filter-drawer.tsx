@@ -1,31 +1,35 @@
 import { motion, AnimatePresence } from "motion/react";
 import { X } from "lucide-react";
-import { Button } from "./ui/button";
-import { Label } from "./ui/label";
+import { Button } from "../ui/button";
+import { Label } from "../ui/label";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "./ui/select";
+} from "../ui/select";
 import { toast } from "sonner";
 
-interface ProductCatalogFilterDrawerProps {
+interface PriceListFilterDrawerProps {
   isOpen: boolean;
   onClose: () => void;
-  filterCategory: string;
-  setFilterCategory: (value: string) => void;
+  statusFilter: string;
+  setStatusFilter: (value: string) => void;
+  sourceFilter: string;
+  setSourceFilter: (value: string) => void;
   onClearFilters: () => void;
 }
 
-export function ProductCatalogFilterDrawer({
+export function PriceListFilterDrawer({
   isOpen,
   onClose,
-  filterCategory,
-  setFilterCategory,
+  statusFilter,
+  setStatusFilter,
+  sourceFilter,
+  setSourceFilter,
   onClearFilters,
-}: ProductCatalogFilterDrawerProps) {
+}: PriceListFilterDrawerProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -62,22 +66,36 @@ export function ProductCatalogFilterDrawer({
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
               <div className="space-y-6">
-                {/* Category Filter */}
+                {/* Source Filter */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-gray-700">
-                    Category
+                    Source
                   </Label>
-                  <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <Select value={sourceFilter} onValueChange={setSourceFilter}>
                     <SelectTrigger className="w-full">
-                      <SelectValue placeholder="All Categories" />
+                      <SelectValue placeholder="All Sources" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Categories</SelectItem>
-                      <SelectItem value="Biscuits">Biscuits</SelectItem>
-                      <SelectItem value="Beverages">Beverages</SelectItem>
-                      <SelectItem value="Snacks">Snacks</SelectItem>
-                      <SelectItem value="Dairy">Dairy</SelectItem>
-                      <SelectItem value="Personal Care">Personal Care</SelectItem>
+                      <SelectItem value="all">All Sources</SelectItem>
+                      <SelectItem value="DMS Sync">DMS Sync</SelectItem>
+                      <SelectItem value="Manual">Manual</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {/* Status Filter */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-gray-700">
+                    Status
+                  </Label>
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="All Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Status</SelectItem>
+                      <SelectItem value="Active">Active</SelectItem>
+                      <SelectItem value="Inactive">Inactive</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -36,7 +36,7 @@ import {
   FileSpreadsheet,
 } from "lucide-react";
 import { PageHeader } from "../components/PageHeader";
-import { InventoryFilterDrawer } from "../components/InventoryFilterDrawer";
+import { InventoryFilterDrawer } from "../components/filter-drawers/inventory-filter-drawer";
 import { toast } from "sonner";
 
 interface InventoryItem {
