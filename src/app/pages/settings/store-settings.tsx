@@ -19,6 +19,7 @@ import {
   Save,
   Store,
   Calendar,
+  Clock,
   Trash2,
   Plus,
   Warehouse as WarehouseIcon,
@@ -397,15 +398,18 @@ export function StoreSettings() {
             out — sellers told us the per-day window was overkill, so
             the only schedule control left is which weekdays are closed. */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Weekly Off — pick the days that are always closed */}
+          {/* Working Hours — Phase 1 schedule control. The only thing
+              the seller actually configures here is which weekdays
+              are closed (Weekly Off). Open / close time inputs were
+              dropped earlier as nobody used them. */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
                 <CardTitle className="text-sm flex items-center gap-2">
-                  <CalendarOff className="h-4 w-4 text-amber-600" />
-                  Weekly Off
+                  <Clock className="h-4 w-4 text-blue-600" />
+                  Working Hours
                   <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
-                    {weekOff.size}
+                    {weekOff.size} weekly off
                   </Badge>
                 </CardTitle>
                 <Button
@@ -420,9 +424,13 @@ export function StoreSettings() {
               </div>
             </CardHeader>
             <CardContent className="pt-0 space-y-2">
+              <Label className="text-xs flex items-center gap-1.5 text-gray-700">
+                <CalendarOff className="h-3.5 w-3.5 text-amber-600" />
+                Weekly Off
+              </Label>
               <p className="text-[11px] text-gray-500">
-                Days the store is always closed. Buyers see these as recurring
-                weekly off-days.
+                Tap the days the store is always closed. Buyers see these as
+                recurring weekly off-days.
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {WEEK_DAYS.map((d) => {
