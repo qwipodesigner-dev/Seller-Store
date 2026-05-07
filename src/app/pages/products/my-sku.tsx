@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router";
 import { Card } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -46,10 +46,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
-import { validateSKU, ValidationError, SKUInput } from "../../lib/ondc-validation";
 import {
   importBizomCsv,
-  BizomValidationResult,
   BIZOM_REQUIRED_HEADERS,
   AggregatedSKU,
 } from "../../lib/bizom-validation";
@@ -57,6 +55,11 @@ import { Layers, PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { ListPagination } from "../../components/ui/list-pagination";
+import {
+  BulkImportDialog,
+  type BulkImportValidationResult,
+  type BulkImportError as BulkImportErrorRow,
+} from "../../components/bulk-import-dialog";
 
 // ONDC Data structure
 interface ONDCData {
@@ -275,22 +278,6 @@ const sampleSKUs: SKUData[] = [
 const ONDC_REQUIRED_COLUMNS = ["SKU Code", "SKU Name"];
 const ONDC_OPTIONAL_COLUMNS: string[] = [];
 
-interface ValidationRow {
-  rowNumber: number;
-  skuCode: string;
-  skuName: string;
-  status: "valid" | "invalid";
-  errors: ValidationError[];
-  parsed: SKUInput;
-}
-
-interface ValidationResult {
-  totalRows: number;
-  validRows: number;
-  invalidRows: number;
-  details: ValidationRow[];
-}
-
 export function MySKU() {
   const navigate = useNavigate();
   const [skus, setSkus] = useState<SKUData[]>(() =>
@@ -299,21 +286,11 @@ export function MySKU() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // Add SKU bulk import dialog
-  const [isAddSkuOpen, setIsAddSkuOpen] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [isValidating, setIsValidating] = useState(false);
-  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Price & Stock bulk update dialog (Bizom DMS export)
-  const [isPriceStockOpen, setIsPriceStockOpen] = useState(false);
-  const [psFile, setPsFile] = useState<File | null>(null);
-  const [isPsValidating, setIsPsValidating] = useState(false);
-  const [psResult, setPsResult] = useState<BizomValidationResult | null>(null);
-  const [psSkippedSkus, setPsSkippedSkus] = useState<AggregatedSKU[]>([]);
-  const [psView, setPsView] = useState<"aggregated" | "batches">("aggregated");
-  const psFileInputRef = useRef<HTMLInputElement | null>(null);
+  // Add SKU + Price/Stock bulk import are both driven through the
+  // shared <BulkImportDialog>. Each owns only its open flag; the
+  // dialog handles upload, validation, results, and import flow.
+  const [isAddSkuBulkOpen, setIsAddSkuBulkOpen] = useState(false);
+  const [isPriceStockBulkOpen, setIsPriceStockBulkOpen] = useState(false);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
@@ -389,14 +366,13 @@ export function MySKU() {
     toast.info("Import functionality coming soon");
   };
 
-  // ---- Add SKU: bulk import ----
-  const handleOpenAddSku = () => {
-    setUploadedFile(null);
-    setValidationResult(null);
-    setIsAddSkuOpen(true);
-  };
-
-  const handleDownloadSample = () => {
+  // ---- Add SKU bulk import ----
+  // Both flows (Add SKU + Price/Stock) drive the shared
+  // <BulkImportDialog>. The validate / onImport closures below adapt
+  // the existing parsing logic to the standardized
+  // BulkImportValidationResult shape so the dialog renders the same
+  // summary card + Row/Field/Error table for every module.
+  const handleDownloadAddSkuSample = () => {
     // Phase-change: template only needs SKU Code + SKU Name.
     // All other ONDC attributes are filled in from the SKU Detail page.
     const headers = ONDC_REQUIRED_COLUMNS.map((c) => `${c}*`);
@@ -423,185 +399,123 @@ export function MySKU() {
     toast.success("Sample template downloaded");
   };
 
-  const validateFile = (file: File) => {
-    setIsValidating(true);
-    setValidationResult(null);
-
-    // Basic file type check
-    const validExts = [".xlsx", ".xls", ".csv"];
-    const name = file.name.toLowerCase();
-    if (!validExts.some((e) => name.endsWith(e))) {
-      setIsValidating(false);
-      toast.error("Invalid file format. Please upload .xlsx, .xls, or .csv");
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = String(ev.target?.result || "");
-
-      // Simple CSV parser — handles quoted fields with embedded commas and escaped quotes.
-      const parseCsv = (t: string): string[][] => {
-        const rows: string[][] = [];
-        let row: string[] = [];
-        let field = "";
-        let inQuotes = false;
-        for (let i = 0; i < t.length; i++) {
-          const c = t[i];
-          if (inQuotes) {
-            if (c === '"' && t[i + 1] === '"') { field += '"'; i++; }
-            else if (c === '"') { inQuotes = false; }
-            else { field += c; }
-          } else {
-            if (c === '"') { inQuotes = true; }
-            else if (c === ',') { row.push(field); field = ""; }
-            else if (c === '\n' || c === '\r') {
-              if (c === '\r' && t[i + 1] === '\n') i++;
-              row.push(field); rows.push(row); row = []; field = "";
-            } else { field += c; }
-          }
-        }
-        if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
-        return rows.filter((r) => r.some((c) => c.trim() !== ""));
-      };
-
-      const allRows = parseCsv(text);
-      if (allRows.length < 2) {
-        setIsValidating(false);
-        toast.error("File is empty or has no data rows.");
-        return;
-      }
-
-      // Normalise headers: strip trailing "*" (mandatory marker) and trim
-      const headers = allRows[0].map((h) => h.replace(/\*+\s*$/, "").trim());
-      const dataRows = allRows.slice(1);
-
-      // The import file has only two columns. Accept a few common header spellings.
-      const skuCodeIdx = headers.findIndex((h) =>
-        /^(sku code|sku id|item code|skucode)$/i.test(h),
-      );
-      const skuNameIdx = headers.findIndex((h) =>
-        /^(sku name|item name|name)$/i.test(h),
-      );
-
-      if (skuCodeIdx < 0 || skuNameIdx < 0) {
-        setIsValidating(false);
-        toast.error(
-          "File must contain 'SKU Code' and 'SKU Name' columns. Use the sample template.",
-        );
-        return;
-      }
-
-      const seenCodes = new Set<string>();
-      // Existing catalog — for ERR_IMP_004 (SKU already exists, new-SKU import rejects)
-      const existingCatalogCodes = new Set(skus.map((s) => s.sku));
-
-      const details: ValidationRow[] = dataRows.map((cols, idx) => {
-        const rowNumber = idx + 2;
-        const skuCode = (cols[skuCodeIdx] ?? "").trim();
-        const skuName = (cols[skuNameIdx] ?? "").trim();
-
-        // Phase-change: only two fields are imported; the rest of the ONDC fields are
-        // filled later from the SKU Detail page (validated on save there).
-        const errors: ValidationError[] = [];
-        if (!skuCode) {
-          errors.push({
-            ruleId: "V-001-IMP",
-            code: "ERR_IMP_001",
-            field: "SKU Code",
-            message: "SKU Code is required.",
-          });
-        } else if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
-          errors.push({
-            ruleId: "V-001-IMP",
-            code: "ERR_IMP_001",
-            field: "SKU Code",
-            message: "SKU Code must be alphanumeric (letters, digits, dashes, or underscores).",
-          });
-        } else if (seenCodes.has(skuCode)) {
-          errors.push({
-            ruleId: "V-003-IMP",
-            code: "ERR_IMP_003",
-            field: "SKU Code",
-            message: "Duplicate SKU Code in this file — already appeared in an earlier row.",
-          });
-        } else if (existingCatalogCodes.has(skuCode)) {
-          // SKU Code is the uniqueness key. A new-SKU import cannot create an existing one.
-          errors.push({
-            ruleId: "V-004-IMP",
-            code: "ERR_IMP_004",
-            field: "SKU Code",
-            message: `SKU "${skuCode}" already exists in your catalog. Use the Price & Stock Update flow to modify it.`,
-          });
-        }
-
-        if (!skuName) {
-          errors.push({
-            ruleId: "V-002-IMP",
-            code: "ERR_IMP_002",
-            field: "SKU Name",
-            message: "SKU Name is required.",
-          });
-        } else if (skuName.length < 3 || skuName.length > 100) {
-          errors.push({
-            ruleId: "V-002-IMP",
-            code: "ERR_IMP_002",
-            field: "SKU Name",
-            message: "SKU Name must be between 3 and 100 characters.",
-          });
-        }
-
-        if (skuCode) seenCodes.add(skuCode);
-
-        const input: SKUInput = {
-          itemCode: skuCode,
-          itemName: skuName,
-        };
-
-        return {
-          rowNumber,
-          skuCode,
-          skuName,
-          status: errors.length === 0 ? "valid" : "invalid",
-          errors,
-          parsed: input,
-        };
-      });
-
-      const result: ValidationResult = {
-        totalRows: details.length,
-        validRows: details.filter((d) => d.status === "valid").length,
-        invalidRows: details.filter((d) => d.status === "invalid").length,
-        details,
-      };
-
-      setValidationResult(result);
-      setIsValidating(false);
-      if (result.invalidRows > 0) {
-        toast.warning(`${result.invalidRows} row(s) failed validation. Review errors below.`);
+  // Plain CSV parser shared by both validate adapters. Handles quoted
+  // fields with embedded commas and escaped quotes.
+  const parseCsv = (t: string): string[][] => {
+    const rows: string[][] = [];
+    let row: string[] = [];
+    let field = "";
+    let inQuotes = false;
+    for (let i = 0; i < t.length; i++) {
+      const c = t[i];
+      if (inQuotes) {
+        if (c === '"' && t[i + 1] === '"') { field += '"'; i++; }
+        else if (c === '"') { inQuotes = false; }
+        else { field += c; }
       } else {
-        toast.success(`All ${result.validRows} rows passed validation`);
+        if (c === '"') { inQuotes = true; }
+        else if (c === ',') { row.push(field); field = ""; }
+        else if (c === '\n' || c === '\r') {
+          if (c === '\r' && t[i + 1] === '\n') i++;
+          row.push(field); rows.push(row); row = []; field = "";
+        } else { field += c; }
       }
-    };
-    reader.onerror = () => {
-      setIsValidating(false);
-      toast.error("Could not read file.");
-    };
-    reader.readAsText(file);
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setUploadedFile(file);
-      validateFile(file);
     }
+    if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+    return rows.filter((r) => r.some((c) => c.trim() !== ""));
   };
 
-  const handleImportValid = () => {
-    if (!validationResult) return;
-    const valid = validationResult.details.filter((d) => d.status === "valid");
+  const readFileText = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (ev) => resolve(String(ev.target?.result || ""));
+      reader.onerror = () => reject(new Error("Could not read file."));
+      reader.readAsText(file);
+    });
 
+  // Validate uploaded Add-SKU file → returns the standardized result
+  // shape consumed by <BulkImportDialog>.
+  const validateAddSkuFile = async (
+    file: File,
+  ): Promise<BulkImportValidationResult> => {
+    const text = await readFileText(file);
+    const allRows = parseCsv(text);
+    const errors: BulkImportErrorRow[] = [];
+    if (allRows.length < 2) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [{ row: 1, field: "File", error: "File is empty or has no data rows." }],
+        validData: [],
+      };
+    }
+
+    const headers = allRows[0].map((h) => h.replace(/\*+\s*$/, "").trim());
+    const dataRows = allRows.slice(1);
+    const skuCodeIdx = headers.findIndex((h) =>
+      /^(sku code|sku id|item code|skucode)$/i.test(h),
+    );
+    const skuNameIdx = headers.findIndex((h) =>
+      /^(sku name|item name|name)$/i.test(h),
+    );
+    if (skuCodeIdx < 0 || skuNameIdx < 0) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [{ row: 1, field: "Header", error: "File must contain 'SKU Code' and 'SKU Name' columns. Use the sample template." }],
+        validData: [],
+      };
+    }
+
+    const seenCodes = new Set<string>();
+    const existing = new Set(skus.map((s) => s.sku));
+    const validData: { skuCode: string; skuName: string }[] = [];
+    let validCount = 0;
+
+    dataRows.forEach((cols, idx) => {
+      const rowNumber = idx + 2; // +1 for header, +1 for 1-based
+      const skuCode = (cols[skuCodeIdx] ?? "").trim();
+      const skuName = (cols[skuNameIdx] ?? "").trim();
+      const rowErrors: BulkImportErrorRow[] = [];
+
+      if (!skuCode) {
+        rowErrors.push({ row: rowNumber, field: "SKU Code", error: "SKU Code is required." });
+      } else if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
+        rowErrors.push({ row: rowNumber, field: "SKU Code", error: "SKU Code must be alphanumeric (letters, digits, dashes, or underscores)." });
+      } else if (seenCodes.has(skuCode)) {
+        rowErrors.push({ row: rowNumber, field: "SKU Code", error: "Duplicate SKU Code in this file." });
+      } else if (existing.has(skuCode)) {
+        rowErrors.push({ row: rowNumber, field: "SKU Code", error: `SKU "${skuCode}" already exists. Use the Price & Stock Update flow to modify it.` });
+      }
+      if (!skuName) {
+        rowErrors.push({ row: rowNumber, field: "SKU Name", error: "SKU Name is required." });
+      } else if (skuName.length < 3 || skuName.length > 100) {
+        rowErrors.push({ row: rowNumber, field: "SKU Name", error: "SKU Name must be between 3 and 100 characters." });
+      }
+
+      if (skuCode) seenCodes.add(skuCode);
+      if (rowErrors.length === 0) {
+        validCount++;
+        validData.push({ skuCode, skuName });
+      } else {
+        errors.push(...rowErrors);
+      }
+    });
+
+    return {
+      totalRows: dataRows.length,
+      validRows: validCount,
+      invalidRows: dataRows.length - validCount,
+      errors,
+      validData,
+    };
+  };
+
+  // Apply validated Add-SKU rows into the catalog.
+  const importAddSkuRows = (rows: unknown[]) => {
+    const valid = rows as { skuCode: string; skuName: string }[];
     const newSkus: SKUData[] = valid.map((row, idx) => ({
       id: String(skus.length + idx + 1),
       name: row.skuName,
@@ -613,18 +527,12 @@ export function MySKU() {
       sku: row.skuCode,
       ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
     }));
-
     setSkus((prev) => [...newSkus, ...prev]);
-    toast.success(`${newSkus.length} SKU(s) imported successfully`);
-    setIsAddSkuOpen(false);
-    setUploadedFile(null);
-    setValidationResult(null);
   };
 
   // ---- Price & Stock update (Bizom DMS bulk import) ----
-  // Business rule: if the SKU Code from the file does NOT exist in the catalog, the row
-  // is silently skipped (no error, no record created). Only existing SKUs get their
-  // price and stock updated.
+  // Business rule: SKU Codes from the file that don't exist in the
+  // catalog are silently skipped; only existing SKUs are updated.
   const handleDownloadPsSample = () => {
     const headers = [
       ...BIZOM_REQUIRED_HEADERS,
@@ -656,50 +564,62 @@ export function MySKU() {
     toast.success("Sample template downloaded");
   };
 
-  const handlePsFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    if (!f) return;
-    if (!/\.(csv|xlsx|xls)$/i.test(f.name)) {
-      toast.error("Invalid file format. Upload .csv, .xlsx, or .xls.");
-      return;
-    }
-    setPsFile(f);
-    setIsPsValidating(true);
-    setPsResult(null);
-    setPsSkippedSkus([]);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const text = String(ev.target?.result || "");
-      const result = importBizomCsv(text);
-      // Silent-skip: split aggregated SKUs into those present in the catalog vs not.
-      const catalog = new Set(skus.map((s) => s.sku));
-      const matched: AggregatedSKU[] = [];
-      const skipped: AggregatedSKU[] = [];
-      for (const agg of result.aggregated) {
-        if (catalog.has(agg.skuCode)) matched.push(agg);
-        else skipped.push(agg);
-      }
-      setPsResult({ ...result, aggregated: matched });
-      setPsSkippedSkus(skipped);
-      setIsPsValidating(false);
+  // Validate uploaded Price/Stock file → standardized result for the
+  // shared dialog. Wraps importBizomCsv() and rejects rows whose SKU
+  // Code is not present in the catalog (we don't auto-create on a
+  // price update — that's the Add SKU flow).
+  const validatePriceStockFile = async (
+    file: File,
+  ): Promise<BulkImportValidationResult> => {
+    const text = await readFileText(file);
+    const result = importBizomCsv(text);
+    const errors: BulkImportErrorRow[] = [];
 
-      if (result.fileLevelErrors.length > 0) {
-        toast.error(result.fileLevelErrors[0].message);
-      } else if (matched.length === 0 && skipped.length === 0) {
-        toast.warning("No valid SKUs found in the file.");
-      } else {
-        toast.success(
-          `${matched.length} SKU(s) ready to update${skipped.length > 0 ? `, ${skipped.length} skipped (not in catalog)` : ""}.`,
-        );
+    // File-level errors (header missing, completely empty, etc.) — fold
+    // each into a single Row 1 entry so the standardized table renders.
+    for (const fe of result.fileLevelErrors) {
+      errors.push({ row: 1, field: fe.field || "File", error: fe.message });
+    }
+
+    // Per-batch-row validation errors from the Bizom validator.
+    for (const br of result.batchRows) {
+      for (const e of br.errors) {
+        errors.push({ row: br.raw.rowNumber, field: e.field, error: e.message });
       }
+    }
+
+    // Silent-skip rule for unknown SKU Codes — these aren't validation
+    // errors, they're just rows we ignore. We still expose them in the
+    // error table so the seller can see what was skipped and why.
+    const catalog = new Set(skus.map((s) => s.sku));
+    const matched: AggregatedSKU[] = [];
+    for (const agg of result.aggregated) {
+      if (catalog.has(agg.skuCode)) {
+        matched.push(agg);
+      } else {
+        errors.push({
+          row: 0,
+          field: "SKU Code",
+          error: `SKU "${agg.skuCode}" not found in catalog — row skipped.`,
+        });
+      }
+    }
+
+    return {
+      totalRows: result.totalRows,
+      validRows: matched.length,
+      invalidRows: result.totalRows - matched.length,
+      errors,
+      validData: matched,
     };
-    reader.readAsText(f);
   };
 
-  const handleApplyPriceStock = () => {
-    if (!psResult || psResult.aggregated.length === 0) return;
+  // Apply validated price/stock rows to the catalog.
+  const importPriceStockRows = (rows: unknown[]) => {
+    const matched = rows as AggregatedSKU[];
+    if (matched.length === 0) return;
     const today = new Date().toISOString().split("T")[0];
-    const byCode = new Map(psResult.aggregated.map((s) => [s.skuCode, s]));
+    const byCode = new Map(matched.map((s) => [s.skuCode, s]));
     setSkus((prev) =>
       prev.map((s) => {
         const agg = byCode.get(s.sku);
@@ -714,13 +634,6 @@ export function MySKU() {
         };
       }),
     );
-    toast.success(
-      `Updated price & stock for ${psResult.aggregated.length} SKU(s)${psSkippedSkus.length > 0 ? ` — ${psSkippedSkus.length} row(s) skipped (unknown SKU Code)` : ""}.`,
-    );
-    setIsPriceStockOpen(false);
-    setPsFile(null);
-    setPsResult(null);
-    setPsSkippedSkus([]);
   };
 
   const getSourceBadge = (source: string) => {
@@ -803,7 +716,10 @@ export function MySKU() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
-                    <DropdownMenuItem onClick={handleOpenAddSku} className="gap-2 cursor-pointer">
+                    <DropdownMenuItem
+                      onClick={() => setIsAddSkuBulkOpen(true)}
+                      className="gap-2 cursor-pointer"
+                    >
                       <Plus className="h-4 w-4 text-blue-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Add New SKUs</p>
@@ -820,7 +736,7 @@ export function MySKU() {
                       onClick={
                         isEmpty
                           ? undefined
-                          : () => navigate("/products/add-sku/import")
+                          : () => setIsPriceStockBulkOpen(true)
                       }
                       className="gap-2 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed cursor-pointer"
                       title={
@@ -1160,525 +1076,59 @@ export function MySKU() {
         )}
       </AnimatePresence>
 
-      {/* Price & Stock Update Dialog (Bizom DMS) — silent-skip for unknown SKU codes */}
-      <Dialog open={isPriceStockOpen} onOpenChange={setIsPriceStockOpen}>
-        <DialogContent className="!max-w-[min(96vw,1280px)] w-[min(96vw,1280px)] max-h-[92vh] overflow-y-auto p-5">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Database className="h-5 w-5 text-purple-600" />
-              Update Price & Stock — Bulk Import (Bizom DMS)
-            </DialogTitle>
-            <DialogDescription>
-              Upload the Bizom DMS export. Only existing SKUs are updated — rows whose SKU Code
-              does not exist in your catalog are <b>silently skipped</b> (no error, no record
-              created). Stock is summed across batches; prices follow the max-price-wins rule.
-            </DialogDescription>
-          </DialogHeader>
+      {/* Add SKU — Bulk Import. Drives the standardized
+          BulkImportDialog flow: upload → validating → results →
+          import. Module-specific copy / sample / validator only. */}
+      <BulkImportDialog
+        open={isAddSkuBulkOpen}
+        onOpenChange={setIsAddSkuBulkOpen}
+        config={{
+          title: "Add SKU — Bulk Import",
+          description:
+            "Upload a CSV/XLSX with SKU Code and SKU Name. Each valid row creates an SKU stub; the rest of the ONDC fields are filled in from the SKU Detail page.",
+          instructions: (
+            <>
+              File must contain <b>SKU Code</b> and <b>SKU Name</b> columns.
+              Both are mandatory. Other ONDC fields are filled later from the
+              SKU Detail page.
+            </>
+          ),
+          sample: {
+            fileName: "SKU_Import_Template.csv",
+            onDownload: handleDownloadAddSkuSample,
+          },
+          accept: ".csv,.xlsx,.xls",
+          validate: validateAddSkuFile,
+          onImport: importAddSkuRows,
+        }}
+      />
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-purple-600 font-semibold text-sm">1</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900 text-sm">Download sample template</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Matches the Bizom DMS Price & Inventory export format.</p>
-                    <div className="flex items-center gap-2 mt-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                      <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">Bizom_Price_Stock_Template.csv</p>
-                        <p className="text-[10px] text-gray-500">Same columns as the Bizom DMS export</p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={handleDownloadPsSample} className="gap-1 h-7 px-2 text-xs">
-                        <Download className="h-3 w-3" /> Download
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-purple-600 font-semibold text-sm">2</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900 text-sm">Upload Bizom DMS export</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Supported: .csv, .xlsx, .xls</p>
-                    <input ref={psFileInputRef} type="file" accept=".csv,.xlsx,.xls" onChange={handlePsFileChange} className="hidden" />
-                    {!psFile ? (
-                      <button
-                        type="button"
-                        onClick={() => psFileInputRef.current?.click()}
-                        className="mt-2 w-full border-2 border-dashed border-gray-300 hover:border-purple-400 rounded-lg py-3 flex items-center justify-center gap-2 text-gray-600 hover:text-purple-600 transition-colors"
-                      >
-                        <Upload className="h-4 w-4" />
-                        <span className="text-xs font-medium">Click to browse file</span>
-                      </button>
-                    ) : (
-                      <div className="mt-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                        <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-900 truncate">{psFile.name}</p>
-                          <p className="text-[10px] text-gray-500">{(psFile.size / 1024).toFixed(1)} KB</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => {
-                            setPsFile(null);
-                            setPsResult(null);
-                            setPsSkippedSkus([]);
-                            if (psFileInputRef.current) psFileInputRef.current.value = "";
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {(isPsValidating || psResult) && (
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-purple-100 rounded-lg flex items-center justify-center shrink-0">
-                      <span className="text-purple-600 font-semibold text-sm">3</span>
-                    </div>
-                    <p className="font-semibold text-gray-900 text-sm">Validation & preview</p>
-                  </div>
-                  {psResult && (
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                        Batch rows <b>{psResult.totalRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">
-                        <FileCheck className="h-3 w-3" /> Valid <b>{psResult.validBatchRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
-                        <FileWarning className="h-3 w-3" /> Invalid <b>{psResult.invalidBatchRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded">
-                        <Layers className="h-3 w-3" /> Will update <b>{psResult.aggregated.length}</b>
-                      </span>
-                      {psSkippedSkus.length > 0 && (
-                        <span
-                          className="inline-flex items-center gap-1 text-xs font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded"
-                          title="SKU Code not found in your catalog — silently skipped."
-                        >
-                          Skipped <b>{psSkippedSkus.length}</b>
-                        </span>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                {isPsValidating && (
-                  <p className="text-sm text-gray-600 py-4 text-center">Parsing and validating file…</p>
-                )}
-
-                {psResult && (
-                  <>
-                    {psResult.fileLevelErrors.length > 0 && (
-                      <div className="mb-3 bg-red-50 border border-red-200 rounded-lg p-3">
-                        {psResult.fileLevelErrors.map((err, i) => (
-                          <p key={i} className="text-xs text-red-700">
-                            <span className="font-mono font-semibold">[{err.code}]</span> {err.message}
-                          </p>
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="mb-2 inline-flex bg-gray-100 rounded-lg p-0.5 border border-gray-200">
-                      <button
-                        type="button"
-                        onClick={() => setPsView("aggregated")}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${psView === "aggregated" ? "bg-white shadow-sm text-gray-900" : "text-gray-600"}`}
-                      >
-                        Will Update ({psResult.aggregated.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setPsView("batches")}
-                        className={`px-3 py-1 text-xs font-semibold rounded-md transition-colors ${psView === "batches" ? "bg-white shadow-sm text-gray-900" : "text-gray-600"}`}
-                      >
-                        Batch Rows ({psResult.totalRows})
-                      </button>
-                    </div>
-
-                    {psView === "aggregated" ? (
-                      <div className="max-h-[45vh] overflow-y-auto border border-gray-200 rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr className="text-left">
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code <span className="text-red-500">*</span></th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name <span className="text-red-500">*</span></th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">Batches</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP (max)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Selling Price (max)</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Total Stock</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Notes</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {psResult.aggregated.map((agg) => (
-                              <tr key={agg.skuCode} className="hover:bg-gray-50">
-                                <td className="px-4 py-3 font-mono text-xs text-gray-700">{agg.skuCode}</td>
-                                <td className="px-4 py-3 text-gray-900">{agg.skuName}</td>
-                                <td className="px-4 py-3 text-center">
-                                  <Badge className="bg-blue-50 text-blue-700 border-blue-200">{agg.batchCount}</Badge>
-                                </td>
-                                <td className="px-4 py-3 text-right font-medium text-gray-900">₹{agg.mrp.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right font-medium text-green-700">₹{agg.sellingPrice.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right font-medium text-gray-900">{agg.totalStock}</td>
-                                <td className="px-4 py-3">
-                                  <div className="flex flex-wrap gap-1">
-                                    {agg.hasPriceDivergence && (
-                                      <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]" title="Batches had different prices — system took the maximum.">
-                                        Price varied
-                                      </Badge>
-                                    )}
-                                  </div>
-                                </td>
-                              </tr>
-                            ))}
-                            {psSkippedSkus.map((agg) => (
-                              <tr key={"sk-" + agg.skuCode} className="bg-amber-50/40">
-                                <td className="px-4 py-3 font-mono text-xs text-gray-500">{agg.skuCode}</td>
-                                <td className="px-4 py-3 text-gray-500">{agg.skuName}</td>
-                                <td className="px-4 py-3 text-center text-gray-500">{agg.batchCount}</td>
-                                <td className="px-4 py-3 text-right text-gray-500">—</td>
-                                <td className="px-4 py-3 text-right text-gray-500">—</td>
-                                <td className="px-4 py-3 text-right text-gray-500">—</td>
-                                <td className="px-4 py-3">
-                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px]">
-                                    Skipped — SKU not in catalog
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
-                            {psResult.aggregated.length === 0 && psSkippedSkus.length === 0 && (
-                              <tr>
-                                <td colSpan={7} className="px-4 py-3 text-center text-sm text-gray-500">
-                                  No valid SKUs to update.
-                                </td>
-                              </tr>
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="max-h-[45vh] overflow-y-auto border border-gray-200 rounded-lg">
-                        <table className="w-full text-sm">
-                          <thead className="bg-gray-50 sticky top-0 z-10">
-                            <tr className="text-left">
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-14">Row</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code <span className="text-red-500">*</span></th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Batch</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">MRP</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">Price</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-28">Status</th>
-                              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Errors</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-gray-100">
-                            {psResult.batchRows.map((b) => (
-                              <tr key={b.raw.rowNumber} className={b.status === "invalid" ? "bg-red-50/50" : ""}>
-                                <td className="px-4 py-3 text-gray-700 align-top">{b.raw.rowNumber}</td>
-                                <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top">{b.raw.skuCode || "—"}</td>
-                                <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top">{b.raw.batch || "—"}</td>
-                                <td className="px-4 py-3 text-right text-gray-900 align-top">₹{b.parsed.mrp.toFixed(2)}</td>
-                                <td className="px-4 py-3 text-right text-green-700 align-top">₹{b.parsed.sellingPrice.toFixed(2)}</td>
-                                <td className="px-4 py-3 align-top">
-                                  {b.status === "valid" ? (
-                                    <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
-                                      <CheckCircle2 className="h-3 w-3" /> Valid
-                                    </Badge>
-                                  ) : (
-                                    <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                                      <AlertCircle className="h-3 w-3" /> {b.errors.length}
-                                    </Badge>
-                                  )}
-                                </td>
-                                <td className="px-4 py-3 align-top">
-                                  {b.errors.length === 0 ? (
-                                    <span className="text-xs text-green-700">All checks passed.</span>
-                                  ) : (
-                                    <ul className="space-y-1 text-xs text-red-700">
-                                      {b.errors.map((err, i) => (
-                                        <li key={i} className="flex gap-2">
-                                          <span className="font-mono font-medium text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start">
-                                            {err.code}
-                                          </span>
-                                          <span>{err.message}</span>
-                                        </li>
-                                      ))}
-                                    </ul>
-                                  )}
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
-              <p className="font-semibold mb-1">Rules for Price & Stock update:</p>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li>SKUs that exist in your catalog are updated — MRP = max across batches, Selling Price = max across batches, Stock = sum of saleable batches.</li>
-                <li>Rows whose <b>SKU Code is not in your catalog</b> are <b>silently skipped</b> — no error is raised, no new SKU is created.</li>
-                <li>Batch-level errors (negative price/stock, MRP &lt; SP, invalid dates, duplicates) still reject only those specific rows.</li>
-                <li>To add a brand-new SKU, use <b>Bulk Import → Add New SKUs</b>.</li>
-              </ul>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPriceStockOpen(false)}>Cancel</Button>
-            <Button
-              onClick={handleApplyPriceStock}
-              disabled={!psResult || psResult.aggregated.length === 0}
-              className=""
-            >
-              Update {psResult?.aggregated.length ?? 0} SKU{(psResult?.aggregated.length ?? 0) !== 1 ? "s" : ""}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add SKU — Bulk Import Dialog */}
-      <Dialog open={isAddSkuOpen} onOpenChange={setIsAddSkuOpen}>
-        <DialogContent className="!max-w-[min(95vw,1200px)] w-[min(95vw,1200px)] max-h-[92vh] overflow-y-auto p-5">
-          <DialogHeader className="pb-2">
-            <DialogTitle className="flex items-center gap-2 text-xl">
-              <Plus className="h-5 w-5 text-blue-600" />
-              Add SKU — Bulk Import
-            </DialogTitle>
-            <DialogDescription>
-              Upload a file containing just <b>SKU Code</b> and <b>SKU Name</b>. Imported SKUs are
-              created as stubs — every other ONDC field is filled in from the SKU Detail page and
-              fully validated there when you click <b>Save</b>.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4">
-            {/* Steps 1 + 2 — side-by-side to save vertical space */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-              {/* Step 1 — Download Sample */}
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-blue-600 font-semibold text-sm">1</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900 text-sm">Download sample template</p>
-                    <p className="text-xs text-gray-600 mt-0.5">
-                      Columns marked <span className="font-mono text-red-600">*</span> are mandatory.
-                    </p>
-                    <div className="flex items-center gap-2 mt-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                      <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-900 truncate">SKU_Import_Template.csv</p>
-                        <p className="text-[10px] text-gray-500">
-                          {ONDC_REQUIRED_COLUMNS.length} mandatory + {ONDC_OPTIONAL_COLUMNS.length} optional
-                        </p>
-                      </div>
-                      <Button variant="outline" size="sm" onClick={handleDownloadSample} className="gap-1 h-7 px-2 text-xs">
-                        <Download className="h-3 w-3" />
-                        Download
-                      </Button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Step 2 — Upload File */}
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-start gap-2">
-                  <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                    <span className="text-blue-600 font-semibold text-sm">2</span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="font-semibold text-gray-900 text-sm">Upload filled file</p>
-                    <p className="text-xs text-gray-600 mt-0.5">Supported: .xlsx, .xls, .csv</p>
-
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept=".xlsx,.xls,.csv"
-                      onChange={handleFileChange}
-                      className="hidden"
-                    />
-
-                    {!uploadedFile ? (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="mt-2 w-full border-2 border-dashed border-gray-300 hover:border-blue-400 rounded-lg py-3 flex items-center justify-center gap-2 text-gray-600 hover:text-blue-600 transition-colors"
-                      >
-                        <Upload className="h-4 w-4" />
-                        <span className="text-xs font-medium">Click to browse file</span>
-                      </button>
-                    ) : (
-                      <div className="mt-2 flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg p-2">
-                        <FileSpreadsheet className="h-5 w-5 text-green-600 shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-gray-900 truncate">{uploadedFile.name}</p>
-                          <p className="text-[10px] text-gray-500">{(uploadedFile.size / 1024).toFixed(1)} KB</p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0"
-                          onClick={() => {
-                            setUploadedFile(null);
-                            setValidationResult(null);
-                            if (fileInputRef.current) fileInputRef.current.value = "";
-                          }}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Step 3 — Validation Results (full width, tall for multiple errors) */}
-            {(isValidating || validationResult) && (
-              <div className="border border-gray-200 rounded-lg p-3">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 bg-blue-100 rounded-lg flex items-center justify-center shrink-0">
-                      <span className="text-blue-600 font-semibold text-sm">3</span>
-                    </div>
-                    <p className="font-semibold text-gray-900 text-sm">Validation results</p>
-                  </div>
-                  {validationResult && (
-                    <div className="flex items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded">
-                        Total <b>{validationResult.totalRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-700 bg-green-50 border border-green-200 px-2 py-0.5 rounded">
-                        <FileCheck className="h-3 w-3" /> Valid <b>{validationResult.validRows}</b>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-700 bg-red-50 border border-red-200 px-2 py-0.5 rounded">
-                        <FileWarning className="h-3 w-3" /> Invalid <b>{validationResult.invalidRows}</b>
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {isValidating && (
-                  <p className="text-sm text-gray-600 py-4 text-center">Validating file against ONDC rules…</p>
-                )}
-
-                {validationResult && (
-                  <div className="max-h-[50vh] overflow-y-auto border border-gray-200 rounded-lg">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 sticky top-0 z-10">
-                        <tr className="text-left">
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-14">Row</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-44">Item Code</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-56">Item Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-28">Status</th>
-                          <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Errors</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {validationResult.details.map((r) => (
-                          <tr key={r.rowNumber} className={r.status === "invalid" ? "bg-red-50/50" : ""}>
-                            <td className="px-4 py-3 text-gray-700 align-top">{r.rowNumber}</td>
-                            <td className="px-4 py-3 font-mono text-xs text-gray-700 align-top break-all">
-                              {r.skuCode || "—"}
-                            </td>
-                            <td className="px-4 py-3 text-gray-900 align-top">{r.skuName || "—"}</td>
-                            <td className="px-4 py-3 align-top">
-                              {r.status === "valid" ? (
-                                <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
-                                  <CheckCircle2 className="h-3 w-3" /> Valid
-                                </Badge>
-                              ) : (
-                                <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                                  <AlertCircle className="h-3 w-3" /> {r.errors.length} error
-                                  {r.errors.length !== 1 ? "s" : ""}
-                                </Badge>
-                              )}
-                            </td>
-                            <td className="px-4 py-3 align-top">
-                              {r.errors.length === 0 ? (
-                                <span className="text-xs text-green-700">All checks passed.</span>
-                              ) : (
-                                <ul className="space-y-1 text-xs text-red-700">
-                                  {r.errors.map((err, i) => (
-                                    <li key={i} className="flex gap-2">
-                                      <span
-                                        className="font-mono font-medium text-[10px] bg-red-100 text-red-800 border border-red-200 px-1 py-0.5 rounded shrink-0 self-start"
-                                        title={`Rule ${err.ruleId} — field: ${err.field}`}
-                                      >
-                                        {err.code}
-                                      </span>
-                                      <span>{err.message}</span>
-                                    </li>
-                                  ))}
-                                </ul>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Validation rules — simplified: import file only carries SKU Code + SKU Name */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-900">
-              <p className="font-semibold mb-1">Import validation rules (SKU stubs only):</p>
-              <ul className="list-disc list-inside space-y-0.5">
-                <li><span className="font-mono">ERR_IMP_001</span> SKU Code required, alphanumeric (letters, digits, dashes or underscores).</li>
-                <li><span className="font-mono">ERR_IMP_002</span> SKU Name required, 3–100 characters.</li>
-                <li><span className="font-mono">ERR_IMP_003</span> Duplicate SKU Code within the same file is rejected.</li>
-                <li><span className="font-mono">ERR_IMP_004</span> SKU Code already exists in catalog — use the <b>Price & Stock Update</b> flow to modify it.</li>
-              </ul>
-              <p className="mt-2 text-[11px]">
-                <b>Note:</b> Only SKU Code and SKU Name are imported. All other ONDC fields
-                (Item Code, Thumbnail, Descriptions, Measure Unit/Value, Commerce Attributes,
-                Consumer Care, Country of Origin, Brand, etc.) are filled in per-SKU on the
-                <b> SKU Detail</b> page and fully validated on <b>Save</b> against ONDC rules
-                (V-001 → V-033).
-              </p>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddSkuOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleImportValid}
-              disabled={!validationResult || validationResult.validRows === 0}
-              className=""
-            >
-              Import {validationResult?.validRows ?? 0} Valid SKU
-              {(validationResult?.validRows ?? 0) !== 1 ? "s" : ""}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Price & Stock — Bulk Import. Same standardized flow as Add
+          SKU; differs only in copy, sample template, and validator
+          (Bizom DMS export, silent-skip for unknown SKU Codes). */}
+      <BulkImportDialog
+        open={isPriceStockBulkOpen}
+        onOpenChange={setIsPriceStockBulkOpen}
+        config={{
+          title: "Update Price & Stock — Bulk Import",
+          description:
+            "Upload a Bizom DMS export. Existing SKUs get their MRP, Selling Price, and Stock refreshed; rows whose SKU Code is not in the catalog are skipped.",
+          instructions: (
+            <>
+              Upload the <b>Bizom DMS</b> Price &amp; Inventory export. Rows whose
+              SKU Code is not in your catalog will be reported as skipped and
+              not imported.
+            </>
+          ),
+          sample: {
+            fileName: "Bizom_Price_Stock_Template.csv",
+            onDownload: handleDownloadPsSample,
+          },
+          accept: ".csv,.xlsx,.xls",
+          validate: validatePriceStockFile,
+          onImport: importPriceStockRows,
+        }}
+      />
     </div>
   );
 }
