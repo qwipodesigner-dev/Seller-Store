@@ -74,11 +74,23 @@ const sellerOffersDemoNav = {
   icon: Tag,
 };
 
+// Auto-register-on-first-order customers workflow demo. Empty-mode
+// only — companies cluster their customers, distributors bulk-assign
+// delivery days, and per-customer Block keeps reorders out of the
+// system. Lives alongside the existing Customers screen so we can
+// trial the model without disturbing the live page.
+const sellerCustomersDemoNav = {
+  name: "Customers 2",
+  href: "/customers-demo",
+  icon: Users,
+};
+
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/products/my-sku")) return "My SKU List";
   if (pathname.startsWith("/products/price-inventory")) return "Price & Inventory";
+  if (pathname.startsWith("/customers-demo")) return "Customers 2";
   if (pathname.startsWith("/customers")) return "Customer Management";
   if (pathname.startsWith("/offers-demo")) return "Offers & Schemes 2";
   if (pathname.startsWith("/offers")) return "Offers & Schemes";
@@ -110,6 +122,7 @@ export function RootLayout() {
     : isEmptyMode
       ? [
           ...sellerNavigation,
+          sellerCustomersDemoNav,
           sellerOffersDemoNav,
           sellerErrorScreensNav,
           sellerLoadingScreensNav,

@@ -7,6 +7,7 @@ import { Orders } from "./pages/orders";
 import { OrderDetail } from "./pages/order-detail";
 import { Customers } from "./pages/customers";
 import { CustomerDetail } from "./pages/customer-detail";
+import { CustomersDemo } from "./pages/customers-demo";
 import { Profile } from "./pages/profile";
 import { Connectors } from "./pages/connectors";
 import { ConnectorDetail } from "./pages/connector-detail";
@@ -120,6 +121,11 @@ export const router = createBrowserRouter([
       { path: "orders/:orderId", Component: OrderDetail },
       { path: "customers", Component: Customers },
       { path: "customers/:customerId", Component: CustomerDetail },
+      // Customers 2 — empty-mode demo of the auto-register-on-first-order
+      // workflow with bulk delivery-day assignment, per-customer block,
+      // and clubbed-by-company rows. Built as a parallel page so the
+      // existing Customers screen is left untouched.
+      { path: "customers-demo", Component: CustomersDemo },
       { path: "profile", Component: Profile },
       { path: "connectors", Component: Connectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },
