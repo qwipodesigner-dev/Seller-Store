@@ -34,7 +34,15 @@ import {
   Layers,
   Eye,
   Pencil,
-  TrendingDown,
+  // Offer-type picker icons — one per scheme.
+  IndianRupee,
+  Boxes,
+  Receipt,
+  Store as StoreIcon,
+  Rocket,
+  Award,
+  Clock,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { catalogSkus, findSku } from "../../lib/sku-catalog";
@@ -50,6 +58,105 @@ import { EmptyState } from "../../components/empty-state";
 import { ListPagination } from "../../components/ui/list-pagination";
 
 // Seed QPS schemes — these populate the list on first load.
+// The ten offer types surfaced on the "Create Offers" picker dialog.
+// QPS is the only one wired up in Phase 1 — everything else carries
+// a "Coming Soon" badge and is non-interactive in the picker UI.
+//
+// Icon + colour pair follow the same convention used everywhere
+// else in the app (Settings hub tiles, ConnectorCard, dashboard
+// shortcut cards): a Lucide icon in a tinted square. Each offer type
+// gets its own tone so the grid reads at a glance.
+interface OfferType {
+  id: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+}
+const OFFER_TYPES: OfferType[] = [
+  {
+    id: "qps",
+    label: "QPS",
+    description: "Quantity-based price slabs with tiered discounts",
+    icon: Layers,
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+  },
+  {
+    id: "value-slab",
+    label: "Value Slab",
+    description: "Order value-based discount tiers",
+    icon: IndianRupee,
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
+  },
+  {
+    id: "bogo",
+    label: "BOGO",
+    description: "Buy X quantity, get Y free units",
+    icon: Gift,
+    iconBg: "bg-pink-100",
+    iconColor: "text-pink-600",
+  },
+  {
+    id: "case-bonus",
+    label: "Case Bonus",
+    description: "Extra cases free on bulk purchase",
+    icon: Boxes,
+    iconBg: "bg-amber-100",
+    iconColor: "text-amber-600",
+  },
+  {
+    id: "off-invoice",
+    label: "Off-Invoice",
+    description: "Flat discount applied on invoice total",
+    icon: Receipt,
+    iconBg: "bg-purple-100",
+    iconColor: "text-purple-600",
+  },
+  {
+    id: "display-allowance",
+    label: "Display Allowance",
+    description: "Incentive for in-store product display",
+    icon: StoreIcon,
+    iconBg: "bg-cyan-100",
+    iconColor: "text-cyan-600",
+  },
+  {
+    id: "launch-incentive",
+    label: "Launch Incentive",
+    description: "Special pricing for new product launches",
+    icon: Rocket,
+    iconBg: "bg-orange-100",
+    iconColor: "text-orange-600",
+  },
+  {
+    id: "loyalty-rebate",
+    label: "Loyalty Rebate",
+    description: "Cashback rebate for repeat purchases",
+    icon: Award,
+    iconBg: "bg-yellow-100",
+    iconColor: "text-yellow-600",
+  },
+  {
+    id: "combo-bundle",
+    label: "Combo Bundle",
+    description: "Bundled products at discounted rate",
+    icon: Package,
+    iconBg: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+  },
+  {
+    id: "early-payment",
+    label: "Early Payment",
+    description: "Discount for early invoice settlement",
+    icon: Clock,
+    iconBg: "bg-teal-100",
+    iconColor: "text-teal-600",
+  },
+];
+
 // Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
 // so the seller can see how each looks on the list.
 const seedQpsSchemes: QpsScheme[] = [
@@ -145,6 +252,12 @@ export function OffersList() {
   const itemsPerPage = 10;
 
   // Create / Edit QPS dialog (shared — editingId=null means create)
+  // ---- Offer-type picker (the "Create Offers" entry-point dialog) ----
+  // Shows the 10 offer types as cards with hover effects. Only QPS is
+  // active in Phase 1; the rest render with a "Coming Soon" badge.
+  // Picking QPS closes this dialog and opens the existing QPS editor.
+  const [isOfferTypeOpen, setIsOfferTypeOpen] = useState(false);
+
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorSkuCode, setEditorSkuCode] = useState<string>("");
@@ -187,16 +300,6 @@ export function OffersList() {
     startIndex + itemsPerPage,
   );
 
-  // ---- KPIs ----
-  const totalSchemes = qpsSchemes.length;
-  const activeSchemes = qpsSchemes.filter((s) => s.status === "Active").length;
-  const totalSlabs = qpsSchemes.reduce((n, s) => n + s.slabs.length, 0);
-  const avgDiscount = qpsSchemes.length
-    ? qpsSchemes.reduce((sum, s) => {
-        const best = Math.min(...s.slabs.map((sl) => sl.effectivePrice));
-        return sum + ((s.sellingPrice - best) / s.sellingPrice) * 100;
-      }, 0) / qpsSchemes.length
-    : 0;
 
   // ---- Editor handlers (create + edit) ----
   const selectedSku = findSku(editorSkuCode);
@@ -211,6 +314,13 @@ export function OffersList() {
     setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "flat", slabPrice: 0 }]);
     setEditorActive(true);
     setIsEditorOpen(true);
+  };
+
+  // Bridges the offer-type picker → existing QPS editor: closes the
+  // type dialog first, then opens the editor for a fresh QPS scheme.
+  const handlePickQps = () => {
+    setIsOfferTypeOpen(false);
+    handleOpenCreate();
   };
 
   const handleOpenEdit = (scheme: QpsScheme) => {
@@ -351,48 +461,6 @@ export function OffersList() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* KPI Summary */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <Layers className="h-6 w-6 text-gray-600" />
-              <div>
-                <div className="text-xl font-bold">{totalSchemes}</div>
-                <p className="text-xs text-gray-600">Total QPS Schemes</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <div>
-                <div className="text-xl font-bold text-green-600">{activeSchemes}</div>
-                <p className="text-xs text-gray-600">Active</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <Tag className="h-6 w-6 text-blue-600" />
-              <div>
-                <div className="text-xl font-bold text-blue-600">{totalSlabs}</div>
-                <p className="text-xs text-gray-600">Total Pricing Rules</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <TrendingDown className="h-6 w-6 text-purple-600" />
-              <div>
-                <div className="text-xl font-bold text-purple-600">{avgDiscount.toFixed(1)}%</div>
-                <p className="text-xs text-gray-600">Avg max discount</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-
       {/* Page area — Card stretches; only the rows scroll. Mirrors the
           My SKU page pattern. */}
       <div className="flex-1 overflow-hidden p-6">
@@ -437,9 +505,13 @@ export function OffersList() {
               )}
             </div>
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleOpenCreate} className="gap-2">
+              <Button
+                size="sm"
+                onClick={() => setIsOfferTypeOpen(true)}
+                className="gap-2"
+              >
                 <Plus className="h-4 w-4" />
-                Create QPS
+                Create Offers
               </Button>
             </div>
           </div>
@@ -706,6 +778,78 @@ export function OffersList() {
         </DialogContent>
       </Dialog>
 
+      {/* ====================== Offer-Type Picker Dialog ======================
+          Phase-1 entry point for "Create Offers". Surfaces all 10
+          offer types as cards with hover affordances. Only QPS is
+          live; the rest carry a "Coming Soon" badge and are
+          non-interactive. Picking QPS bridges to the existing QPS
+          editor below. */}
+      <Dialog open={isOfferTypeOpen} onOpenChange={setIsOfferTypeOpen}>
+        <DialogContent className="!max-w-[min(95vw,1100px)] w-[min(95vw,1100px)] max-h-[92vh] overflow-y-auto p-5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Tag className="h-5 w-5 text-blue-600" />
+              Create Offers
+            </DialogTitle>
+            <DialogDescription>
+              Pick the type of offer you want to set up for your catalog.
+              More types are rolling out — stay tuned.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Two rows of five — same shape as the dashboard shortcut
+              grid. Each tile mirrors the Settings hub card: icon
+              tile on the left, heading + one-line subtitle on the
+              right, top-aligned. The whole card is the click target. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 py-2">
+            {OFFER_TYPES.map((t) => {
+              const enabled = t.id === "qps";
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={enabled ? handlePickQps : undefined}
+                  disabled={!enabled}
+                  className={
+                    "relative text-left rounded-xl border p-4 transition-all min-h-[140px] " +
+                    (enabled
+                      ? "bg-white border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                      : "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed")
+                  }
+                >
+                  {!enabled && (
+                    <span className="absolute top-2 right-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-700 border border-gray-300 leading-none">
+                      Coming Soon
+                    </span>
+                  )}
+                  <div
+                    className={`${t.iconBg} ${t.iconColor} p-2 rounded-lg w-fit`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mt-3 leading-tight">
+                    {t.label}
+                  </p>
+                  <p className="text-[11px] text-gray-600 leading-snug mt-1">
+                    {t.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsOfferTypeOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ====================== Create / Edit QPS Dialog ====================== */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="!max-w-[min(95vw,1150px)] w-[min(95vw,1150px)] max-h-[92vh] overflow-y-auto p-5">
@@ -770,11 +914,16 @@ export function OffersList() {
                   )}
                 </p>
               </div>
+              {/* Order is Inactive ← Switch → Active so the side the
+                  thumb travels to (right, "checked") visually matches
+                  the green "Active" label. The previous arrangement
+                  (Active left / Inactive right) read as if turning ON
+                  the switch was deactivating the scheme. */}
               <div className="flex items-center gap-3">
                 <span
-                  className={`text-xs font-semibold ${editorActive ? "text-green-700" : "text-gray-400"}`}
+                  className={`text-xs font-semibold ${!editorActive ? "text-orange-700" : "text-gray-400"}`}
                 >
-                  Active
+                  Inactive
                 </span>
                 <Switch
                   checked={editorActive}
@@ -782,9 +931,9 @@ export function OffersList() {
                   disabled={!!editorEndDate && editorEndDate < new Date().toISOString().slice(0, 10)}
                 />
                 <span
-                  className={`text-xs font-semibold ${!editorActive ? "text-orange-700" : "text-gray-400"}`}
+                  className={`text-xs font-semibold ${editorActive ? "text-green-700" : "text-gray-400"}`}
                 >
-                  Inactive
+                  Active
                 </span>
               </div>
             </div>
@@ -815,7 +964,11 @@ export function OffersList() {
               </div>
             )}
 
-            {/* Slab editor */}
+            {/* Slab editor — only visible after a SKU is selected.
+                Authoring price slabs without a Selling Price reference
+                is meaningless, so we hide the entire section (header
+                row + table + helper banner) until a SKU is picked. */}
+            {selectedSku && (
             <div className="border border-gray-200 rounded-lg overflow-hidden">
               <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
                 <p className="text-sm font-semibold text-gray-900">Pricing Slabs</p>
@@ -964,6 +1117,7 @@ export function OffersList() {
                 </div>
               )}
             </div>
+            )}
 
             {/* Validation errors */}
             {selectedSku && editorErrors.length > 0 && (
