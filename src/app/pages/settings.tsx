@@ -5,7 +5,6 @@ import {
   Store,
   ShoppingCart,
   Truck,
-  MapPin,
   Wallet,
   ChevronRight,
   MessageCircle,
@@ -50,15 +49,6 @@ const settingsCards: SettingCard[] = [
     iconBg: "bg-amber-100",
     iconColor: "text-amber-600",
     comingSoon: true,
-  },
-  {
-    id: "serviceability",
-    title: "Serviceability",
-    description: "Configure company-level delivery areas",
-    icon: <MapPin className="h-6 w-6" />,
-    path: "/settings/serviceability",
-    iconBg: "bg-green-100",
-    iconColor: "text-green-600",
   },
   {
     id: "payment",

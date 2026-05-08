@@ -13,6 +13,7 @@ import {
   TabsTrigger,
   TabsContent,
 } from "../../components/ui/tabs";
+import { ServiceabilityManager } from "../../components/serviceability-manager";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +36,7 @@ import {
   X,
   ArrowRight,
   Pencil,
+  MapPin,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -404,6 +406,13 @@ export function AdminSellerDetail() {
                   <Plug className="h-4 w-4 mr-2" />
                   Connectors
                 </TabsTrigger>
+                <TabsTrigger
+                  value="serviceability"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                >
+                  <MapPin className="h-4 w-4 mr-2" />
+                  Serviceability
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -741,6 +750,15 @@ export function AdminSellerDetail() {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* Serviceability — moved here from the seller-side
+                Settings hub. Renders the same flow (per-company
+                polygon upload, list + configure views) inside the
+                Manage Seller view, so admins can configure delivery
+                zones for any seller from a single place. */}
+            <TabsContent value="serviceability" className="p-6 mt-0">
+              <ServiceabilityManager />
             </TabsContent>
           </Tabs>
         </Card>

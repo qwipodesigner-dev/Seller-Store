@@ -28,7 +28,6 @@ import { CreateScheme } from "./pages/offers/create-scheme";
 import { StoreSettings } from "./pages/settings/store-settings";
 import { OrderSettings } from "./pages/settings/order-settings";
 import { ShippingSettings } from "./pages/settings/shipping-settings";
-import { ServiceabilitySettings } from "./pages/settings/serviceability-settings";
 import { PaymentSettings } from "./pages/settings/payment-settings";
 import { CustomerSettings } from "./pages/settings/customer-settings";
 import { CommunicationSettings } from "./pages/settings/communication-settings";
@@ -128,7 +127,6 @@ export const router = createBrowserRouter([
       { path: "settings/store", Component: StoreSettings },
       { path: "settings/order", Component: OrderSettings },
       { path: "settings/shipping", Component: ShippingSettings },
-      { path: "settings/serviceability", Component: ServiceabilitySettings },
       { path: "settings/payment", Component: PaymentSettings },
       { path: "settings/customer", Component: CustomerSettings },
       { path: "settings/communication", Component: CommunicationSettings },
