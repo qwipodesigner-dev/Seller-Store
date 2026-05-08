@@ -693,7 +693,12 @@ export function OrderDetail() {
                             </p>
                           </td>
                         </tr>
-                        {product.qps && <QpsImpactRow product={product} />}
+                        {product.qps && (
+                          <QpsImpactRow
+                            product={product}
+                            isEditMode={isEditMode}
+                          />
+                        )}
                       </React.Fragment>
                     ))}
                   </tbody>
@@ -949,7 +954,7 @@ export function OrderDetail() {
               Back
             </Button>
             <Button onClick={handleConfirmUpdate} className="">
-              Save &amp; Apply
+              Confirm &amp; Save
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1073,19 +1078,28 @@ export function OrderDetail() {
 
 // ---------- QPS impact row ----------
 // Read-only banner shown directly under each QPS-eligible line item.
-// Two pieces stacked:
-//   1. The compact one-liner naming the active slab + line saving.
+// Two pieces:
+//   1. The compact one-liner naming the active slab + line saving —
+//      always visible.
 //   2. The full QPS schedule (Slab / Qty range / Discount /
-//      Price-per-unit) — the row matching the order's quantity is
-//      softly highlighted so the seller can see at a glance which
-//      tier is in effect.
+//      Price-per-unit) — only visible while the seller is in Modify
+//      Items mode. Before that, surfacing every slab tier is noise;
+//      the seller already sees which slab applies via the one-liner
+//      and the highlighted active row in the schedule once they
+//      open it. The currently-applied slab is softly highlighted.
 //
-// Edit-mode affordances (Was → Now diff, Slab dropped / upgraded
-// chips, "Apply slab price" CTA) are intentionally not here — they
-// surface inside the Save Changes popup once the seller commits.
-// The "Active" column was also dropped from the table; the row
-// highlight is enough to communicate the currently-applied slab.
-function QpsImpactRow({ product }: { product: OrderProduct }) {
+// Edit-mode affordances that USED to live here (Was → Now diff,
+// Slab dropped / upgraded chips, "Apply slab price" CTA) are
+// intentionally absent — they surface inside the Save Changes popup
+// once the seller commits. The "Active" column was also dropped
+// from the table; the row highlight communicates the same thing.
+function QpsImpactRow({
+  product,
+  isEditMode,
+}: {
+  product: OrderProduct;
+  isEditMode: boolean;
+}) {
   const qps = product.qps!;
   const base = product.basePrice ?? 0;
   const slabs = qps.slabs;
@@ -1108,8 +1122,9 @@ function QpsImpactRow({ product }: { product: OrderProduct }) {
             </span>
           </div>
 
-          {/* Full slab schedule */}
-          {slabs && slabs.length > 0 && (
+          {/* Full slab schedule — only when the seller is in Modify
+              Items mode. Before that, the one-liner above is enough. */}
+          {isEditMode && slabs && slabs.length > 0 && (
             <div className="bg-white border border-purple-200 rounded overflow-hidden">
               <table className="w-full text-[11px]">
                 <thead className="bg-purple-50 text-purple-800">
