@@ -21,6 +21,10 @@ interface SettingCard {
   comingSoon?: boolean;
 }
 
+// Order: active settings first (Store → Order → Communication), then
+// the Coming-Soon cards (Shipping, Payment) at the end so the seller
+// reaches what they can actually use without scanning past disabled
+// tiles.
 const settingsCards: SettingCard[] = [
   {
     id: "store",
@@ -41,6 +45,15 @@ const settingsCards: SettingCard[] = [
     iconColor: "text-purple-600",
   },
   {
+    id: "communication",
+    title: "Communication Settings",
+    description: "Configure email and SMS settings",
+    icon: <MessageCircle className="h-6 w-6" />,
+    path: "/settings/communication",
+    iconBg: "bg-cyan-100",
+    iconColor: "text-cyan-600",
+  },
+  {
     id: "shipping",
     title: "Shipping Settings",
     description: "Set delivery charges and shipping rules",
@@ -59,15 +72,6 @@ const settingsCards: SettingCard[] = [
     iconBg: "bg-rose-100",
     iconColor: "text-rose-600",
     comingSoon: true,
-  },
-  {
-    id: "communication",
-    title: "Communication Settings",
-    description: "Configure email and SMS settings",
-    icon: <MessageCircle className="h-6 w-6" />,
-    path: "/settings/communication",
-    iconBg: "bg-cyan-100",
-    iconColor: "text-cyan-600",
   },
 ];
 
