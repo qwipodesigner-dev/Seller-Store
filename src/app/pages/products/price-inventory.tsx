@@ -1234,8 +1234,19 @@ export function PriceInventory() {
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
               Cancel
             </Button>
+            {/* Save disabled until the user enters valid numeric MRP +
+                Selling Price + (when finite stock) Stock. handleSaveEdit
+                still runs the deeper validation (MRP ≥ SP, etc.). */}
             <Button
               onClick={handleSaveEdit}
+              disabled={
+                !editMrp ||
+                parseFloat(editMrp) < 0 ||
+                !editSellingPrice ||
+                parseFloat(editSellingPrice) < 0 ||
+                (!editIsInfiniteStock &&
+                  (!editStock || parseInt(editStock) < 0))
+              }
               className=""
             >
               Save ONDC Values

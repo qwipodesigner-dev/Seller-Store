@@ -1065,6 +1065,10 @@ export function OrderDetail() {
             <Button
               variant="destructive"
               onClick={handleCancel}
+              disabled={
+                !cancelReason ||
+                (cancelReason === "Other" && !cancelOtherReason.trim())
+              }
             >
               Confirm Cancellation
             </Button>

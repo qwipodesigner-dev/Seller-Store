@@ -1231,6 +1231,7 @@ export function Orders() {
             <Button
               variant="destructive"
               onClick={handleRejectOrders}
+              disabled={!rejectReason.trim()}
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />

@@ -1408,10 +1408,15 @@ export function Customers() {
             <Button variant="outline" onClick={() => setBulkRejectOpen(false)}>
               Cancel
             </Button>
-            {/* CTA always enabled — clicking with no reason picked
-                surfaces inline errors above. */}
+            {/* CTA disabled until a reason is chosen (and the "Other"
+                free-text is filled in when that radio is picked) —
+                user must perform the input before they can submit. */}
             <Button
               onClick={handleBulkReject}
+              disabled={
+                !bulkRejectReason ||
+                (bulkRejectReason === "Other" && !bulkRejectOtherReason.trim())
+              }
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               <XCircle className="h-4 w-4 mr-2" />
@@ -1576,10 +1581,14 @@ export function Customers() {
             <Button variant="outline" onClick={closeReject}>
               Cancel
             </Button>
-            {/* CTA always enabled — clicking with no reason surfaces
-                inline errors above. */}
+            {/* CTA disabled until a reason is chosen (plus the "Other"
+                free-text when that radio is picked). */}
             <Button
               onClick={handleReject}
+              disabled={
+                !rejectReason ||
+                (rejectReason === "Other" && !rejectOtherReason.trim())
+              }
               className="bg-red-600 hover:bg-red-700 text-white"
             >
               <XCircle className="h-4 w-4 mr-2" />
