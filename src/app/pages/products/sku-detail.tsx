@@ -59,6 +59,10 @@ import {
   getCompanies as getAdminCatalogCompanies,
   subscribeToCompanies as subscribeToAdminCatalog,
 } from "../../lib/admin-catalog";
+import {
+  getProcessingTimeHours,
+  formatProcessingTimeLabel,
+} from "../../lib/order-settings-data";
 import { useEffect } from "react";
 
 // ONDC eB2B category taxonomy — shown as the Category ID dropdown options.
@@ -1381,20 +1385,29 @@ function ProductDetailsTab({ sku }: { sku: any }) {
             />
           }
         />
+        {/* Time to Ship is no longer per-SKU editable. The seller
+            configures their dispatch window once on Settings > Order
+            Settings > Processing Time, and every SKU surfaces that
+            value here as a read-only field — same treatment as
+            Volumetric Weight and SKU Code. */}
         <DualRow
           label="Time to Ship"
           required
           ondcRequired
-          help="Pick the dispatch window."
+          help="Inherited from Settings > Order Settings > Processing Time. Update it there to change every SKU at once."
           dms={""}
           ondc={
-            <SelectInput
-              value={ondc.timeToShip}
-              onChange={(v) => update("timeToShip", v)}
-              edited={isEdited("timeToShip")}
-              // Spec: dropdown 24/36/48 hours, default 24.
-              options={["24 hours", "36 hours", "48 hours"]}
-            />
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">
+                {formatProcessingTimeLabel(getProcessingTimeHours())}
+              </p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="Time to Ship is set on Settings > Order Settings > Processing Time."
+              >
+                Read-only
+              </span>
+            </div>
           }
         />
         <DualRow
