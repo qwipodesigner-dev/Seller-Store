@@ -64,12 +64,23 @@ const sellerLoadingScreensNav = {
   icon: Loader2,
 };
 
+// Multi-offer-type demo of the Offers & Schemes list. Surfaced only
+// in the empty-mode sidebar — reviewers see how the table reads when
+// every offer type is in play and the same SKU appears in multiple
+// rows for different schemes.
+const sellerOffersDemoNav = {
+  name: "Offers & Schemes 2",
+  href: "/offers-demo",
+  icon: Tag,
+};
+
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
   if (pathname.startsWith("/products/my-sku")) return "My SKU List";
   if (pathname.startsWith("/products/price-inventory")) return "Price & Inventory";
   if (pathname.startsWith("/customers")) return "Customer Management";
+  if (pathname.startsWith("/offers-demo")) return "Offers & Schemes 2";
   if (pathname.startsWith("/offers")) return "Offers & Schemes";
   if (pathname.startsWith("/orders")) return "Orders Management";
   if (pathname.startsWith("/connectors")) return "Connectors";
@@ -97,7 +108,12 @@ export function RootLayout() {
       ? [...adminNavigation, adminErrorScreensNav, adminLoadingScreensNav]
       : adminNavigation
     : isEmptyMode
-      ? [...sellerNavigation, sellerErrorScreensNav, sellerLoadingScreensNav]
+      ? [
+          ...sellerNavigation,
+          sellerOffersDemoNav,
+          sellerErrorScreensNav,
+          sellerLoadingScreensNav,
+        ]
       : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(

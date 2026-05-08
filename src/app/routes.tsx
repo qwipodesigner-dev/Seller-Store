@@ -24,6 +24,7 @@ import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-syn
 import { PriceList } from "./pages/products/price-list";
 import { PriceInventory } from "./pages/products/price-inventory";
 import { OffersList } from "./pages/offers/offers-list";
+import { OffersDemo } from "./pages/offers/offers-demo";
 import { CreateScheme } from "./pages/offers/create-scheme";
 import { StoreSettings } from "./pages/settings/store-settings";
 import { OrderSettings } from "./pages/settings/order-settings";
@@ -112,6 +113,7 @@ export const router = createBrowserRouter([
       { path: "products/price-list", Component: PriceList },
       { path: "products/price-inventory", Component: PriceInventory },
       { path: "offers", Component: OffersList },
+      { path: "offers-demo", Component: OffersDemo },
       { path: "offers/create", Component: CreateScheme },
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },

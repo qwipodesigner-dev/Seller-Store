@@ -56,6 +56,10 @@ import {
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { ListPagination } from "../../components/ui/list-pagination";
+import {
+  OffersFilterDrawer,
+  type OfferTypeOption,
+} from "../../components/filter-drawers/offers-filter-drawer";
 
 // Seed QPS schemes — these populate the list on first load.
 // The ten offer types surfaced on the "Create Offers" picker dialog.
@@ -246,6 +250,8 @@ export function OffersList() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [offerTypeFilter, setOfferTypeFilter] = useState<string>("all");
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   // Pagination — reset to page 1 on any filter / search change so the
   // visible window doesn't fall off the end of a shorter result set.
   const [currentPage, setCurrentPage] = useState(1);
@@ -291,7 +297,10 @@ export function OffersList() {
       s.skuName.toLowerCase().includes(q) ||
       s.name.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || s.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    // Live page only carries QPS schemes; filter still works for
+    // consistency (and so the demo page can reuse the same shape).
+    const matchesType = offerTypeFilter === "all" || offerTypeFilter === "qps";
+    return matchesSearch && matchesStatus && matchesType;
   });
   // Slice the filtered list down to the current page's window.
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -483,28 +492,28 @@ export function OffersList() {
                   className="pl-10 pr-3 h-9"
                 />
               </div>
-              {!isEmpty && (
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => {
-                  setStatusFilter(v);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-36 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                  <SelectItem value="Scheduled">Scheduled</SelectItem>
-                  <SelectItem value="Expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-              )}
             </div>
+            {/* Right-aligned actions: Filters (right-side drawer) +
+                Create Offers. Matches the My SKU / Customers pattern
+                so the toolbar reads consistently across list pages. */}
             <div className="flex items-center gap-2">
+              {!isEmpty && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  className="gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {(statusFilter !== "all" || offerTypeFilter !== "all") && (
+                    <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
+                      {(statusFilter !== "all" ? 1 : 0) +
+                        (offerTypeFilter !== "all" ? 1 : 0)}
+                    </Badge>
+                  )}
+                </Button>
+              )}
               <Button
                 size="sm"
                 onClick={() => setIsOfferTypeOpen(true)}
@@ -534,12 +543,6 @@ export function OffersList() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Offer Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
-                    Pricing Rules
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
-                    MRP / SP
-                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Validity</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                     Status
@@ -552,7 +555,7 @@ export function OffersList() {
               <tbody className="divide-y divide-gray-100">
                 {filteredSchemes.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-3">
+                    <td colSpan={6} className="px-4 py-3">
                       <EmptyState
                         icon={Tag}
                         title="No matches"
@@ -562,8 +565,6 @@ export function OffersList() {
                   </tr>
                 ) : (
                   paginatedSchemes.map((s) => {
-                    const bestPrice = Math.min(...s.slabs.map((x) => x.effectivePrice));
-                    const maxSaving = (((s.sellingPrice - bestPrice) / s.sellingPrice) * 100).toFixed(1);
                     return (
                       <tr key={s.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.skuCode}</td>
@@ -574,19 +575,6 @@ export function OffersList() {
                           <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">
                             <Layers className="h-3 w-3" /> QPS
                           </Badge>
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="inline-flex flex-col items-center">
-                            <span className="text-lg font-medium text-gray-900">{s.slabs.length}</span>
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">
-                              slab{s.slabs.length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="text-xs text-gray-500">MRP ₹{s.mrp}</p>
-                          <p className="text-sm font-medium text-green-700">SP ₹{s.sellingPrice}</p>
-                          <p className="text-[10px] text-purple-700">Best: ₹{bestPrice.toFixed(2)} ({maxSaving}% off)</p>
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-700">{s.startDate}</p>
@@ -1155,6 +1143,33 @@ export function OffersList() {
         </DialogContent>
       </Dialog>
 
+      {/* Right-side filter drawer — Status + Offer Type. Live page
+          only ships QPS schemes, so the Offer Type dropdown surfaces
+          a single option; the empty-mode demo page uses the same
+          drawer with all 10 types. */}
+      <OffersFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        filterStatus={statusFilter}
+        setFilterStatus={(v) => {
+          setStatusFilter(v);
+          setCurrentPage(1);
+        }}
+        filterOfferType={offerTypeFilter}
+        setFilterOfferType={(v) => {
+          setOfferTypeFilter(v);
+          setCurrentPage(1);
+        }}
+        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps").map<OfferTypeOption>((t) => ({
+          value: t.id,
+          label: t.label,
+        }))}
+        onClearFilters={() => {
+          setStatusFilter("all");
+          setOfferTypeFilter("all");
+          setCurrentPage(1);
+        }}
+      />
     </div>
   );
 }
