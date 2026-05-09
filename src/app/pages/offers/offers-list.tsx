@@ -67,6 +67,7 @@ import {
   getAllSchemes,
   setAllSchemes,
 } from "../../lib/offers-data";
+import { SkuComboBox } from "../../components/sku-combobox";
 
 // Seed QPS schemes — these populate the list on first load.
 // The ten offer types surfaced on the "Create Offers" picker dialog.
@@ -270,6 +271,28 @@ export function OffersList() {
   const selectedSku = findSku(editorSkuCode);
   const spForEditor = selectedSku?.sellingPrice ?? 0;
   const mrpForEditor = selectedSku?.mrp ?? 0;
+
+  // Build the SKU pool the combobox can search over:
+  //   - drop Inactive SKUs (catalog status === "Inactive") — they're
+  //     not eligible for new offer mappings.
+  //   - drop SKUs that are already mapped to a non-expired QPS
+  //     scheme. In edit mode we keep the SKU of the scheme we're
+  //     currently editing in the list (so the seller can re-pick
+  //     it without it being filtered out as "already mapped").
+  const skuPickerOptions = useMemo(() => {
+    const blockedCodes = new Set(
+      qpsSchemes
+        .filter(
+          (s) => s.status !== "Expired" && s.id !== editingId,
+        )
+        .map((s) => s.skuCode),
+    );
+    return catalogSkus.filter((c) => {
+      if (c.status !== "Active") return false;
+      if (blockedCodes.has(c.skuCode)) return false;
+      return true;
+    });
+  }, [qpsSchemes, editingId]);
 
   const handleOpenCreate = () => {
     setEditingId(null);
@@ -852,18 +875,18 @@ export function OffersList() {
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
                   SKU <span className="text-red-500">*</span>
                 </Label>
-                <Select value={editorSkuCode} onValueChange={setEditorSkuCode}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a SKU from your catalog..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogSkus.map((s) => (
-                      <SelectItem key={s.skuCode} value={s.skuCode}>
-                        {s.skuCode} — {s.skuName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Search-as-you-type SKU picker. The pool is
+                    filtered upstream — Inactive SKUs and SKUs
+                    already mapped to a non-expired scheme are
+                    excluded so each scheme owns exactly one SKU.
+                    See `skuPickerOptions` above. */}
+                <SkuComboBox
+                  skus={skuPickerOptions}
+                  value={editorSkuCode}
+                  onChange={setEditorSkuCode}
+                  placeholder="Search SKU by code, name, brand…"
+                  emptyMessage="No matching active SKU. Inactive SKUs and ones already mapped to a scheme are hidden."
+                />
               </div>
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
@@ -977,12 +1000,38 @@ export function OffersList() {
                 row + table + helper banner) until a SKU is picked. */}
             {selectedSku && (
             <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-900">Pricing Slabs</p>
-                <Button variant="outline" size="sm" onClick={addSlab} className="gap-1 h-7 text-xs">
-                  <Plus className="h-3.5 w-3.5" /> Add Slab
-                </Button>
-              </div>
+              {(() => {
+                // The seller can only add another slab when the
+                // current last slab has a finite Max Qty. If the
+                // last slab has Max Qty blank (∞ / unlimited), the
+                // ranges are already covered to the top — adding
+                // another tier would create an overlap. The button
+                // is disabled with a tooltip explaining why.
+                const lastSlab = editorSlabs[editorSlabs.length - 1];
+                const lastIsInfinite =
+                  !lastSlab ||
+                  lastSlab.maxQty === null ||
+                  lastSlab.maxQty === undefined;
+                return (
+                  <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">Pricing Slabs</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addSlab}
+                      disabled={lastIsInfinite}
+                      title={
+                        lastIsInfinite
+                          ? "Set a Max Qty on the last slab before adding a new one. Slabs without an upper bound already cover all higher quantities."
+                          : "Add another slab"
+                      }
+                      className="gap-1 h-7 text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Slab
+                    </Button>
+                  </div>
+                );
+              })()}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50/50 border-b border-gray-200">
@@ -1116,15 +1165,18 @@ export function OffersList() {
                   </tbody>
                 </table>
               </div>
-              {/* MRP reference footer */}
+              {/* Effective-price explainer + last-slab fallback hint.
+                  The MRP/SP figures used to be repeated on the right
+                  of this strip — they're already shown prominently
+                  in the Selected SKU panel above, so the duplicate
+                  is removed. */}
               {selectedSku && (
-                <div className="bg-gray-50 border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600 flex items-center justify-between">
-                  <span>
-                    💡 Effective price = the per-unit price the <b>customer pays</b> after the slab
-                    discount.
-                  </span>
-                  <span>
-                    MRP: <b className="text-gray-900">₹{mrpForEditor}</b> · SP: <b className="text-green-700">₹{spForEditor}</b>
+                <div className="bg-gray-50 border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600">
+                  💡 Effective price = the per-unit price the{" "}
+                  <b>customer pays</b> after the slab discount.{" "}
+                  <span className="block sm:inline mt-0.5 sm:mt-0">
+                    Orders above the last slab quantity will still get
+                    the <b>highest slab discount</b>.
                   </span>
                 </div>
               )}

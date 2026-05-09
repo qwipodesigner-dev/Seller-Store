@@ -60,8 +60,13 @@ interface OrderProduct {
   basePrice?: number;
   /** Snapshot of the QPS slab applied to this line item, if any. */
   qps?: {
+    /** The Offer Code (scheme ID) the discount was applied from —
+     *  e.g. "QPS-180000008". Surfaced on the product line so the
+     *  seller can trace each line's pricing back to the scheme that
+     *  authored it. */
+    offerCode: string;
     slabLabel: string;       // e.g. "Slab 2 · 12–47 qty"
-    discountLabel: string;   // e.g. "5% off" or "Flat ₹155"
+    discountLabel: string;   // Phase 1 — always "N% off" / "—" (no flat slabs)
     savingPerUnit: number;   // ₹ saved per unit vs basePrice
     totalSaving: number;     // ₹ saved on the whole line
     /** Full slab schedule — present so we can re-evaluate live when the seller
@@ -78,14 +83,29 @@ function slabLabelFor(idx: number, slab: QpsSlabDef): string {
   return `Slab ${idx + 1} · ${range}`;
 }
 
-/** Locate the slab that a given quantity falls into. Returns null if qty < lowest tier. */
+/**
+ * Locate the slab that a given quantity falls into.
+ *
+ * Returns -1 only when qty < the lowest tier's minQty. When qty
+ * exceeds the highest defined slab's maxQty (i.e. the seller
+ * authored bounded slabs and the order goes past them), we fall
+ * back to the LAST slab so the customer still gets the highest
+ * tier's discount. This matches the product rule: "the highest
+ * tier always applies to over-quantity orders."
+ */
 function findSlabIdx(qty: number, slabs: QpsSlabDef[]): number {
+  if (slabs.length === 0) return -1;
   for (let i = 0; i < slabs.length; i++) {
     const s = slabs[i];
     const inRange =
       qty >= s.minQty && (s.maxQty === undefined || qty <= s.maxQty);
     if (inRange) return i;
   }
+  // Past every defined slab — pick the last one (highest qty range)
+  // if the order quantity exceeds its minQty. (If qty is below
+  // every slab's minQty we return -1 unchanged.)
+  const last = slabs[slabs.length - 1];
+  if (qty >= last.minQty) return slabs.length - 1;
   return -1;
 }
 
@@ -141,6 +161,7 @@ const mockOrderData: OrderDetails = {
       totalPrice: 4061.25,
       isModified: false,
       qps: {
+        offerCode: "QPS-180000008",
         slabLabel: "Slab 2 · 12–47 qty",
         discountLabel: "5% off",
         savingPerUnit: 8.55,
@@ -153,7 +174,7 @@ const mockOrderData: OrderDetails = {
       },
     },
     {
-      // QPS-eligible: Aashirvaad Atta 10kg slabs
+      // QPS-eligible: Aashirvaad Atta 10kg slabs (percent-only per Phase 1)
       //   1–9 qty → ₹450 (no discount) · 10–24 → 6.67% off (₹420) · 25+ → 11.11% off (₹400)
       // This order has 20 units → falls in Slab 2.
       id: "1a",
@@ -168,14 +189,15 @@ const mockOrderData: OrderDetails = {
       totalPrice: 8400,
       isModified: false,
       qps: {
+        offerCode: "QPS-SKU-AASH-10",
         slabLabel: "Slab 2 · 10–24 qty",
-        discountLabel: "Flat ₹30 off",
+        discountLabel: "6.67% off",
         savingPerUnit: 30,
         totalSaving: 600,
         slabs: [
           { minQty: 1, maxQty: 9, discountLabel: "—", pricePerUnit: 450 },
-          { minQty: 10, maxQty: 24, discountLabel: "Flat ₹30 off", pricePerUnit: 420 },
-          { minQty: 25, discountLabel: "Flat ₹50 off", pricePerUnit: 400 },
+          { minQty: 10, maxQty: 24, discountLabel: "6.67% off", pricePerUnit: 420 },
+          { minQty: 25, discountLabel: "11.11% off", pricePerUnit: 400 },
         ],
       },
     },
@@ -1120,6 +1142,14 @@ function QpsImpactRow({
               <TrendingDown className="h-3 w-3" />
               saved <b>₹{qps.totalSaving.toFixed(2)}</b>
             </span>
+            {/* Offer Code lives here, on the same line as the slab +
+                discount + saving summary — keeps the trace next to
+                the offer details rather than under the product name. */}
+            {qps.offerCode && (
+              <span className="text-purple-800 font-mono">
+                · Offer: <b>{qps.offerCode}</b>
+              </span>
+            )}
           </div>
 
           {/* Full slab schedule — only when the seller is in Modify
