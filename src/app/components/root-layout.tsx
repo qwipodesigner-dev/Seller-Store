@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
+import { useTheme } from "next-themes";
 import {
   LayoutDashboard,
   Package,
@@ -32,6 +33,11 @@ import {
 } from "./ui/dropdown-menu";
 import logoImage from "../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
 import iconLogo from "../../imports/Qwipo_Icon_Logo_for_Light_BG@4x-8.png";
+// Dark-BG variants — used when the sidebar is rendered against the
+// dark theme so the wordmark / icon stays legible without a CSS
+// filter hack. Vite imports SVGs as a URL string.
+import logoImageDark from "../../imports/Qwipo_Secondary_Logo_for_Dark_BG.svg";
+import iconLogoDark from "../../imports/Qwipo_Icon_Logo_for_Dark_BG.svg";
 import { useAuth } from "../lib/auth-context";
 import {
   adminErrorScreensNav,
@@ -41,6 +47,7 @@ import {
 } from "../lib/admin-navigation";
 import { AlertOctagon, Loader2 } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
+import { ThemeToggle } from "./theme-toggle";
 
 const sellerNavigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -110,6 +117,15 @@ export function RootLayout() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const isAdmin = user?.role === "admin";
+  // Theme-aware logo swap. We mount-guard with `themeReady` so the
+  // first paint after hydration uses the persisted theme without a
+  // visible flicker between the two PNG/SVG sources.
+  const { resolvedTheme } = useTheme();
+  const [themeReady, setThemeReady] = useState(false);
+  useEffect(() => setThemeReady(true), []);
+  const isDarkLogo = themeReady && resolvedTheme === "dark";
+  const sidebarLogoSrc = isDarkLogo ? logoImageDark : logoImage;
+  const sidebarIconLogoSrc = isDarkLogo ? iconLogoDark : iconLogo;
   // Empty-mode demo personas (Super Admin Empty / Seller Empty) get
   // extra "Error Screens" + "Loading" items appended to their sidebar
   // so reviewers can browse the error and loading galleries without
@@ -281,7 +297,7 @@ export function RootLayout() {
           {!sidebarCollapsed ? (
             <>
               <img
-                src={logoImage}
+                src={sidebarLogoSrc}
                 alt="Qwipo"
                 className="h-6 object-contain"
               />
@@ -300,7 +316,7 @@ export function RootLayout() {
               title="Expand sidebar"
             >
               <img
-                src={iconLogo}
+                src={sidebarIconLogoSrc}
                 alt="Qwipo"
                 className="h-8 w-8 object-contain"
               />
@@ -337,6 +353,12 @@ export function RootLayout() {
             {/* Notifications icon removed for Phase 1 — the notifications
                 feature is deferred, so we don't show a bell that goes
                 nowhere. Restore this block when notifications ship. */}
+
+            {/* Light / dark mode toggle — sits immediately before the
+                profile dropdown so it's the last action the user's
+                eye lands on before their identity. Available to every
+                logged-in role (admin + seller). */}
+            <ThemeToggle />
 
             {/* User Menu */}
             <DropdownMenu>
@@ -429,7 +451,7 @@ export function RootLayout() {
               {/* Header */}
               <div className="flex items-center justify-between p-4 border-b border-gray-200">
                 <img
-                  src={logoImage}
+                  src={sidebarLogoSrc}
                   alt="Qwipo"
                   className="h-6 object-contain"
                 />
