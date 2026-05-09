@@ -276,7 +276,10 @@ export function OffersList() {
     setEditorSkuCode("");
     setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
-    setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "flat", slabPrice: 0 }]);
+    // Phase 1 — only Discount % is offered as a slab type. Flat
+    // price is held back for a later phase, so new slabs default
+    // to percent.
+    setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "percent", slabPercent: 0 }]);
     setEditorActive(true);
     setIsEditorOpen(true);
   };
@@ -291,19 +294,44 @@ export function OffersList() {
   const handleOpenEdit = (scheme: QpsScheme) => {
     setEditingId(scheme.id);
     setEditorSkuCode(scheme.skuCode);
-    setEditorStartDate(scheme.startDate);
+    // Phase 1 rule — Start Date is always today, even on edit. The
+    // scheme's saved startDate is ignored; if the seller wants to
+    // pause an in-flight scheme they should toggle Inactive.
+    setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(scheme.endDate);
+    // Phase 1 — only "% Discount" slabs are supported. Auto-migrate
+    // any legacy flat-price slabs to percent by computing the % off
+    // SP they represented, so the seller's existing scheme keeps
+    // its effective pricing instead of resetting to 0%.
+    const sp = scheme.sellingPrice || 1;
     setEditorSlabs(
-      scheme.slabs.map((s) => ({
-        minQty: s.minQty,
-        maxQty: s.maxQty,
-        discountType: s.discountType,
-        slabPrice: s.slabPrice,
-        slabPercent: s.slabPercent,
-      })),
+      scheme.slabs.map((s) => {
+        if (s.discountType === "percent") {
+          return {
+            minQty: s.minQty,
+            maxQty: s.maxQty,
+            discountType: "percent",
+            slabPercent: s.slabPercent,
+          };
+        }
+        // Convert flat slab → equivalent percent off SP.
+        const flatPrice = s.slabPrice ?? sp;
+        const percent = sp > 0
+          ? +(((sp - flatPrice) / sp) * 100).toFixed(2)
+          : 0;
+        return {
+          minQty: s.minQty,
+          maxQty: s.maxQty,
+          discountType: "percent",
+          slabPercent: Math.max(0, Math.min(99.99, percent)),
+        };
+      }),
     );
-    // Active toggle reflects whether the seller chose to keep the scheme running.
-    // Scheduled = future-active, so toggle is on. Inactive / Expired = off.
+    // Active toggle reflects whether the seller chose to keep the
+    // scheme running. Inactive / Expired = off. Scheduled status
+    // (legacy / persisted from before) is treated the same as
+    // Active for editing purposes — schemes can no longer start
+    // in the future.
     setEditorActive(scheme.status === "Active" || scheme.status === "Scheduled");
     setIsEditorOpen(true);
   };
@@ -319,14 +347,16 @@ export function OffersList() {
         last && typeof last.maxQty === "number" && last.maxQty !== null
           ? last.maxQty + 1
           : (last?.minQty ?? 0) + 10;
+      // Phase 1 — only Discount % is offered. Always seed the new
+      // slab as percent regardless of what previous slabs used (in
+      // case a legacy scheme is being edited that has flat slabs).
       return [
         ...prev,
         {
           minQty: start,
           maxQty: start + 10,
-          discountType: last?.discountType ?? "flat",
-          slabPrice: last?.discountType === "percent" ? undefined : 0,
-          slabPercent: last?.discountType === "percent" ? 0 : undefined,
+          discountType: "percent",
+          slabPercent: 0,
         },
       ];
     });
@@ -367,13 +397,14 @@ export function OffersList() {
       effectivePrice: computeEffectivePrice(s, selectedSku.sellingPrice),
     }));
 
-    // Resolve final status: end-date past → Expired (auto); otherwise the
-    // seller's Active/Inactive toggle decides; future-dated → Scheduled.
+    // Resolve final status. Phase 1 rule: schemes can no longer
+    // start in the future — Start Date is forced to today on the
+    // editor. So the only outcomes are Expired (end date past),
+    // Inactive (seller toggled off), or Active.
     const today = new Date().toISOString().slice(0, 10);
     let finalStatus: QpsScheme["status"];
     if (editorEndDate < today) finalStatus = "Expired";
     else if (!editorActive) finalStatus = "Inactive";
-    else if (editorStartDate > today) finalStatus = "Scheduled";
     else finalStatus = "Active";
 
     if (editingId) {
@@ -496,10 +527,12 @@ export function OffersList() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr className="text-left">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Offer Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Offer Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Validity</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Valid From</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Valid Till</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                     Status
                   </th>
@@ -511,7 +544,7 @@ export function OffersList() {
               <tbody className="divide-y divide-gray-100">
                 {filteredSchemes.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-3">
+                    <td colSpan={8} className="px-4 py-3">
                       <EmptyState
                         icon={Tag}
                         title="No matches"
@@ -523,6 +556,7 @@ export function OffersList() {
                   paginatedSchemes.map((s) => {
                     return (
                       <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.id}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.skuCode}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-gray-900">{s.skuName}</p>
@@ -534,7 +568,9 @@ export function OffersList() {
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-700">{s.startDate}</p>
-                          <p className="text-xs text-gray-500">to {s.endDate}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-gray-700">{s.endDate}</p>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Badge className={`${getStatusColor(s.status)} border font-medium text-xs`}>
@@ -803,9 +839,9 @@ export function OffersList() {
               {editingId ? "Edit" : "Create"} Quantity Pricing Scheme (QPS)
             </DialogTitle>
             <DialogDescription>
-              Select a SKU and define quantity-based pricing slabs. Use flat price or %
-              discount per slab — the effective per-unit price that the customer pays is
-              calculated live.
+              Select a SKU and define quantity-based pricing slabs. Each slab takes a %
+              discount off the Selling Price — the effective per-unit price the customer
+              pays is calculated live.
             </DialogDescription>
           </DialogHeader>
 
@@ -833,13 +869,40 @@ export function OffersList() {
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
                   Start Date <span className="text-red-500">*</span>
                 </Label>
-                <Input type="date" value={editorStartDate} onChange={(e) => setEditorStartDate(e.target.value)} />
+                {/* Phase 1 rule — schemes always start today.
+                    Future-dating is removed; past dates are not
+                    allowed. The input is locked via min/max + the
+                    disabled attribute so the seller can't override
+                    it from the date picker. The handlers that open
+                    the editor (create + edit) always reset
+                    editorStartDate to today, so this displays
+                    today regardless of the underlying scheme. */}
+                <Input
+                  type="date"
+                  value={editorStartDate}
+                  min={editorStartDate}
+                  max={editorStartDate}
+                  disabled
+                  readOnly
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Schemes always start today.
+                </p>
               </div>
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
                   End Date <span className="text-red-500">*</span>
                 </Label>
-                <Input type="date" value={editorEndDate} onChange={(e) => setEditorEndDate(e.target.value)} />
+                {/* End Date can be any day from today onwards. The
+                    `min` attribute pins the picker to the start
+                    date so earlier days are disabled at the OS
+                    level. */}
+                <Input
+                  type="date"
+                  value={editorEndDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setEditorEndDate(e.target.value)}
+                />
               </div>
             </div>
 
@@ -967,13 +1030,19 @@ export function OffersList() {
                             />
                           </td>
                           <td className="px-4 py-3">
+                            {/* Phase 1 — only "% Discount" is on
+                                offer; flat-price slabs are
+                                deferred. The dropdown still
+                                renders so the cell layout stays
+                                stable, but it has only one option
+                                and the seller can't switch off it. */}
                             <Select
-                              value={slab.discountType ?? "flat"}
+                              value="percent"
                               onValueChange={(v) =>
                                 updateSlab(i, {
                                   discountType: v as SlabDiscountType,
-                                  slabPrice: v === "flat" ? (slab.slabPrice ?? 0) : undefined,
-                                  slabPercent: v === "percent" ? (slab.slabPercent ?? 0) : undefined,
+                                  slabPercent: slab.slabPercent ?? 0,
+                                  slabPrice: undefined,
                                 })
                               }
                             >
@@ -981,7 +1050,6 @@ export function OffersList() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="flat">Flat Price (₹)</SelectItem>
                                 <SelectItem value="percent">% Discount</SelectItem>
                               </SelectContent>
                             </Select>

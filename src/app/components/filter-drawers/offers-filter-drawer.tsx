@@ -97,7 +97,6 @@ export function OffersFilterDrawer({
                       <SelectItem value="all">All Status</SelectItem>
                       <SelectItem value="Active">Active</SelectItem>
                       <SelectItem value="Inactive">Inactive</SelectItem>
-                      <SelectItem value="Scheduled">Scheduled</SelectItem>
                       <SelectItem value="Expired">Expired</SelectItem>
                     </SelectContent>
                   </Select>

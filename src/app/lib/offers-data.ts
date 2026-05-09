@@ -21,9 +21,10 @@ import {
 
 const STORAGE_KEY = "qwipo.qpsSchemes";
 
-// Seed schemes — same shape that offers-list.tsx renders. One
-// example of each status (Active, Inactive, Scheduled, Expired)
-// so reviewers can see how each looks on the list.
+// Seed schemes — Phase 1 only ships percent-discount slabs and
+// only supports schemes that start today (no future-dating). One
+// example of each remaining status (Active, Inactive, Expired) so
+// reviewers can see how each looks on the list.
 export const seedQpsSchemes: QpsScheme[] = [
   {
     id: "QPS-180000008",
@@ -32,11 +33,11 @@ export const seedQpsSchemes: QpsScheme[] = [
     skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
     mrp: 188,
     sellingPrice: 171,
-    startDate: "2026-04-01",
-    endDate: "2026-05-31",
+    startDate: "2026-05-09",
+    endDate: "2026-06-30",
     status: "Active",
     slabs: [
-      { minQty: 1, maxQty: 11, discountType: "flat", slabPrice: 171, effectivePrice: 171 },
+      { minQty: 1, maxQty: 11, discountType: "percent", slabPercent: 0, effectivePrice: 171 },
       { minQty: 12, maxQty: 47, discountType: "percent", slabPercent: 5, effectivePrice: +(171 * 0.95).toFixed(2) },
       { minQty: 48, maxQty: null, discountType: "percent", slabPercent: 10, effectivePrice: +(171 * 0.9).toFixed(2) },
     ],
@@ -52,9 +53,9 @@ export const seedQpsSchemes: QpsScheme[] = [
     endDate: "2026-06-30",
     status: "Inactive",
     slabs: [
-      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 875, effectivePrice: 875 },
-      { minQty: 5, maxQty: 19, discountType: "flat", slabPrice: 855, effectivePrice: 855 },
-      { minQty: 20, maxQty: null, discountType: "flat", slabPrice: 820, effectivePrice: 820 },
+      { minQty: 1, maxQty: 4, discountType: "percent", slabPercent: 0, effectivePrice: 875 },
+      { minQty: 5, maxQty: 19, discountType: "percent", slabPercent: 2.29, effectivePrice: +(875 * (1 - 2.29 / 100)).toFixed(2) },
+      { minQty: 20, maxQty: null, discountType: "percent", slabPercent: 6.29, effectivePrice: +(875 * (1 - 6.29 / 100)).toFixed(2) },
     ],
   },
   {
@@ -64,11 +65,11 @@ export const seedQpsSchemes: QpsScheme[] = [
     skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
     mrp: 3091,
     sellingPrice: 2810,
-    startDate: "2026-05-15",
+    startDate: "2026-05-09",
     endDate: "2026-07-31",
-    status: "Scheduled",
+    status: "Active",
     slabs: [
-      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 2810, effectivePrice: 2810 },
+      { minQty: 1, maxQty: 4, discountType: "percent", slabPercent: 0, effectivePrice: 2810 },
       { minQty: 5, maxQty: null, discountType: "percent", slabPercent: 4, effectivePrice: +(2810 * 0.96).toFixed(2) },
     ],
   },
@@ -83,7 +84,7 @@ export const seedQpsSchemes: QpsScheme[] = [
     endDate: "2026-03-31",
     status: "Expired",
     slabs: [
-      { minQty: 1, maxQty: 9, discountType: "flat", slabPrice: 2580, effectivePrice: 2580 },
+      { minQty: 1, maxQty: 9, discountType: "percent", slabPercent: 0, effectivePrice: 2580 },
       { minQty: 10, maxQty: null, discountType: "percent", slabPercent: 6, effectivePrice: +(2580 * 0.94).toFixed(2) },
     ],
   },
@@ -114,13 +115,13 @@ export function setAllSchemes(schemes: QpsScheme[]) {
 }
 
 /**
- * Return the schemes currently in effect (or about to be) for a
- * given SKU. We treat both "Active" and "Scheduled" as worth
- * warning about — Scheduled schemes will activate soon and the
- * seller's price update will affect their effective prices then.
- *
- * "Inactive" (toggled off by seller) and "Expired" (past end date)
- * are filtered out — they have no live impact on pricing.
+ * Return the schemes currently in effect for a given SKU. Phase 1
+ * only ships "Active" — future-dating (Scheduled) is no longer
+ * supported, and "Inactive" (toggled off by seller) / "Expired"
+ * (past end date) have no live impact on pricing. We still allow
+ * a legacy "Scheduled" status to slip through for older persisted
+ * data, since its slab pricing would still apply if the start
+ * date has since arrived.
  */
 export function getActiveSchemesForSku(skuCode: string): QpsScheme[] {
   return getAllSchemes().filter(
