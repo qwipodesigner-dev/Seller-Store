@@ -23,7 +23,6 @@ import { AddManually } from "./pages/products/add-sku/manual";
 import { BrandSync } from "./pages/products/add-sku/brand-sync";
 import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-sync";
 import { PriceList } from "./pages/products/price-list";
-import { PriceInventory } from "./pages/products/price-inventory";
 import { OffersList } from "./pages/offers/offers-list";
 import { OffersDemo } from "./pages/offers/offers-demo";
 import { CreateScheme } from "./pages/offers/create-scheme";
@@ -112,7 +111,6 @@ export const router = createBrowserRouter([
       { path: "products/add-sku/manual", Component: AddManually },
       { path: "products/add-sku/brand-sync", Component: BrandSync },
       { path: "products/price-list", Component: PriceList },
-      { path: "products/price-inventory", Component: PriceInventory },
       { path: "offers", Component: OffersList },
       { path: "offers-demo", Component: OffersDemo },
       { path: "offers/create", Component: CreateScheme },

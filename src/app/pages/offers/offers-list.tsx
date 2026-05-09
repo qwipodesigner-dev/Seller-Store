@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -60,6 +60,13 @@ import {
   OffersFilterDrawer,
   type OfferTypeOption,
 } from "../../components/filter-drawers/offers-filter-drawer";
+// Shared seed + persistence for QPS schemes so the Price &
+// Inventory page (and any future consumer) can read the same
+// dataset to validate price updates against active schemes.
+import {
+  getAllSchemes,
+  setAllSchemes,
+} from "../../lib/offers-data";
 
 // Seed QPS schemes — these populate the list on first load.
 // The ten offer types surfaced on the "Create Offers" picker dialog.
@@ -161,72 +168,10 @@ const OFFER_TYPES: OfferType[] = [
   },
 ];
 
-// Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
-// so the seller can see how each looks on the list.
-const seedQpsSchemes: QpsScheme[] = [
-  {
-    id: "QPS-180000008",
-    name: "QPS – Sunflower Oil 1L x16",
-    skuCode: "180000008",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
-    mrp: 188,
-    sellingPrice: 171,
-    startDate: "2026-04-01",
-    endDate: "2026-05-31",
-    status: "Active",
-    slabs: [
-      { minQty: 1, maxQty: 11, discountType: "flat", slabPrice: 171, effectivePrice: 171 },
-      { minQty: 12, maxQty: 47, discountType: "percent", slabPercent: 5, effectivePrice: +(171 * 0.95).toFixed(2) },
-      { minQty: 48, maxQty: null, discountType: "percent", slabPercent: 10, effectivePrice: +(171 * 0.9).toFixed(2) },
-    ],
-  },
-  {
-    id: "QPS-180000249",
-    name: "QPS – Sunflower Oil 5Lx4 Jars",
-    skuCode: "180000249",
-    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    mrp: 963,
-    sellingPrice: 875,
-    startDate: "2026-04-15",
-    endDate: "2026-06-30",
-    status: "Inactive", // toggled off by seller
-    slabs: [
-      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 875, effectivePrice: 875 },
-      { minQty: 5, maxQty: 19, discountType: "flat", slabPrice: 855, effectivePrice: 855 },
-      { minQty: 20, maxQty: null, discountType: "flat", slabPrice: 820, effectivePrice: 820 },
-    ],
-  },
-  {
-    id: "QPS-180000005",
-    name: "QPS – Sunflower Oil 15 KG",
-    skuCode: "180000005",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
-    mrp: 3091,
-    sellingPrice: 2810,
-    startDate: "2026-05-15",
-    endDate: "2026-07-31",
-    status: "Scheduled", // future-dated, not yet active
-    slabs: [
-      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 2810, effectivePrice: 2810 },
-      { minQty: 5, maxQty: null, discountType: "percent", slabPercent: 4, effectivePrice: +(2810 * 0.96).toFixed(2) },
-    ],
-  },
-  {
-    id: "QPS-180000006",
-    name: "QPS – Sunflower Oil 15 LTR",
-    skuCode: "180000006",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN",
-    mrp: 2838,
-    sellingPrice: 2580,
-    startDate: "2026-01-01",
-    endDate: "2026-03-31",
-    status: "Expired", // past end date — not editable
-    slabs: [
-      { minQty: 1, maxQty: 9, discountType: "flat", slabPrice: 2580, effectivePrice: 2580 },
-      { minQty: 10, maxQty: null, discountType: "percent", slabPercent: 6, effectivePrice: +(2580 * 0.94).toFixed(2) },
-    ],
-  },
-];
+// Seed schemes live in `lib/offers-data.ts` so the Price &
+// Inventory page can read the same dataset for its price-update
+// validation. `getAllSchemes()` here will return the persisted
+// set if the seller has edited any, falling back to the seed.
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -244,9 +189,20 @@ const getStatusColor = (status: string) => {
 };
 
 export function OffersList() {
+  // Initial state — empty mode shows zero schemes; otherwise fall
+  // back to whatever's persisted (seed on first load).
   const [qpsSchemes, setQpsSchemes] = useState<QpsScheme[]>(() =>
-    isEmptyMode() ? [] : seedQpsSchemes,
+    isEmptyMode() ? [] : getAllSchemes(),
   );
+
+  // Keep localStorage in sync with the in-memory state so the
+  // price-update validation on Price & Inventory always reads the
+  // latest. We skip persistence in empty mode — the empty-mode
+  // demo deliberately starts blank on every page load.
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllSchemes(qpsSchemes);
+  }, [qpsSchemes]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
