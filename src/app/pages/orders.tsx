@@ -58,6 +58,10 @@ interface OrderLineItem {
   company: string;
   /** Brand the product belongs to (e.g. "Freedom"). */
   brand: string;
+  /** Category the product belongs to in the ONDC eB2B taxonomy
+   *  (e.g. "Edible Oil", "Biscuits", "Stationery"). Surfaced on the
+   *  export so finance can roll the sheet up by category. */
+  category: string;
   qty: number;
   /** Catalog Selling Price before any line-level / slab discount. */
   originalPricePerUnit: number;
@@ -135,6 +139,7 @@ const mockOrders: Order[] = [
         productName: "Freedom Refined Sunflower Oil 1L × 16",
         company: "Gemini Edibles & Fats India",
         brand: "Freedom",
+        category: "Edible Oil",
         qty: 25,
         originalPricePerUnit: 171,
         finalPricePerUnit: 162.45,
@@ -147,6 +152,7 @@ const mockOrders: Order[] = [
         productName: "Aashirvaad Atta 10kg",
         company: "ITC Limited",
         brand: "Aashirvaad",
+        category: "Foodgrains",
         qty: 20,
         originalPricePerUnit: 450,
         finalPricePerUnit: 420,
@@ -159,6 +165,7 @@ const mockOrders: Order[] = [
         productName: "Sunfeast Biscuits Dark Fantasy 150g",
         company: "ITC Limited",
         brand: "Sunfeast",
+        category: "Biscuits",
         qty: 50,
         originalPricePerUnit: 35,
         finalPricePerUnit: 35,
@@ -171,6 +178,7 @@ const mockOrders: Order[] = [
         productName: "Classmate Notebook 172 Pages",
         company: "ITC Limited",
         brand: "Classmate",
+        category: "Stationery",
         qty: 30,
         originalPricePerUnit: 45,
         finalPricePerUnit: 45,
@@ -183,6 +191,7 @@ const mockOrders: Order[] = [
         productName: "Bingo Mad Angles 90g",
         company: "ITC Limited",
         brand: "Bingo",
+        category: "Snacks",
         qty: 40,
         originalPricePerUnit: 20,
         finalPricePerUnit: 20,
@@ -195,6 +204,7 @@ const mockOrders: Order[] = [
         productName: "Yippee Noodles 240g",
         company: "ITC Limited",
         brand: "Yippee",
+        category: "Noodles",
         qty: 25,
         originalPricePerUnit: 12,
         finalPricePerUnit: 12,
@@ -653,9 +663,10 @@ export function Orders() {
         productName: name,
         // No richer brand/company info to draw on — fall back to the
         // order's brand and an em-dash for company. Real builds would
-        // resolve company from the SKU catalog.
+        // resolve company and category from the SKU catalog.
         company: "—",
         brand: order.brand,
+        category: "—",
         qty,
         originalPricePerUnit: ppu,
         finalPricePerUnit: ppu,
@@ -713,6 +724,7 @@ export function Orders() {
       "Product Name",
       "Company",
       "Brand",
+      "Category",
       "QTY",
       "Original Price/Unit",
       "Final Price/Unit",
@@ -755,6 +767,7 @@ export function Orders() {
           item.productName,
           item.company,
           item.brand,
+          item.category,
           item.qty,
           item.originalPricePerUnit,
           item.finalPricePerUnit,
