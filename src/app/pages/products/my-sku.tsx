@@ -511,6 +511,7 @@ export function MySKU() {
             error: `${f.header} is required.`,
             skuLabel,
             skuCode,
+            skuName,
             value,
           });
           return;
@@ -523,6 +524,7 @@ export function MySKU() {
             error: `${f.header} must be one of: ${f.options.join(", ")}.`,
             skuLabel,
             skuCode,
+            skuName,
             value,
           });
         }
@@ -540,6 +542,7 @@ export function MySKU() {
             error: "SKU Code must be alphanumeric (letters, digits, dashes, underscores).",
             skuLabel,
             skuCode,
+            skuName,
             value: skuCode,
           });
         } else if (seenCodes.has(skuCode)) {
@@ -549,6 +552,7 @@ export function MySKU() {
             error: "Duplicate SKU Code in this file.",
             skuLabel,
             skuCode,
+            skuName,
             value: skuCode,
           });
         } else if (existing.has(skuCode)) {
@@ -558,6 +562,7 @@ export function MySKU() {
             error: `SKU "${skuCode}" already exists. Use the Price & Stock Update flow to modify it.`,
             skuLabel,
             skuCode,
+            skuName,
             value: skuCode,
           });
         }
@@ -569,6 +574,7 @@ export function MySKU() {
           error: "SKU Name must be between 3 and 100 characters.",
           skuLabel,
           skuCode,
+          skuName,
           value: skuName,
         });
       }
@@ -581,6 +587,7 @@ export function MySKU() {
           error: "Short Description must be between 10 and 150 characters.",
           skuLabel,
           skuCode,
+          skuName,
           value: shortDesc,
         });
       }
@@ -592,6 +599,7 @@ export function MySKU() {
           error: "Long Description can't exceed 200 characters.",
           skuLabel,
           skuCode,
+          skuName,
           value: longDesc,
         });
       }
@@ -609,6 +617,7 @@ export function MySKU() {
           error: "Unit Value must be a positive whole number.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.measureValue,
         });
       }
@@ -619,6 +628,7 @@ export function MySKU() {
           error: "Pack Size must be a positive whole number.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.unitizedCount,
         });
       }
@@ -629,6 +639,7 @@ export function MySKU() {
           error: "UPC must contain digits only.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.upc,
         });
       }
@@ -641,6 +652,7 @@ export function MySKU() {
             error: "SKU Weight must be a positive number.",
             skuLabel,
             skuCode,
+            skuName,
             value: row.skuWeight,
           });
         }
@@ -658,6 +670,7 @@ export function MySKU() {
           error: "Min Order Quantity must be a positive whole number.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.minimumOrderQty,
         });
       }
@@ -668,6 +681,7 @@ export function MySKU() {
           error: "Max Order Quantity must be a positive whole number.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.maximumOrderQty,
         });
       }
@@ -684,6 +698,7 @@ export function MySKU() {
           error: "Min Order Quantity can't be greater than Max Order Quantity.",
           skuLabel,
           skuCode,
+          skuName,
           value: `Min ${row.minimumOrderQty} > Max ${row.maximumOrderQty}`,
         });
       }
@@ -696,6 +711,7 @@ export function MySKU() {
           error: "Customer Care Name can only contain letters.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.consumerCareContactName,
         });
       }
@@ -709,6 +725,7 @@ export function MySKU() {
           error: "Customer Care Email must be a valid email address.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.consumerCareContactEmail,
         });
       }
@@ -722,6 +739,7 @@ export function MySKU() {
           error: "Customer Care Phone must be exactly 10 digits.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.consumerCareContactPhone,
         });
       }
@@ -736,6 +754,7 @@ export function MySKU() {
           error: "Manufacturer Address must be 10–250 characters.",
           skuLabel,
           skuCode,
+          skuName,
           value: row.manufacturerAddress,
         });
       }
