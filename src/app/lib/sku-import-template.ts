@@ -13,6 +13,12 @@
 // =====================================================================
 
 import * as XLSX from "xlsx";
+// ExcelJS is heavy (~900 KB unbundled). It's only needed for
+// downloading the template — the parser side uses SheetJS. Import
+// it dynamically inside downloadSkuTemplate so it doesn't ship in
+// the main bundle for users who never open the bulk-import flow.
+// We still import its types statically (erased at compile time).
+import type ExcelJSType from "exceljs";
 
 /** Per-field schema shared by the template generator and the parser. */
 export interface SkuFieldDef {
@@ -316,130 +322,6 @@ export const SKU_FIELDS: SkuFieldDef[] = [
   },
 ];
 
-/** Build the .xlsx workbook (3 sheets) and trigger a download. */
-export const downloadSkuTemplate = () => {
-  const wb = XLSX.utils.book_new();
-
-  // ---- Sheet 1 — Main SKU Upload ----
-  // Row 1 = header (Mandatory cols carry a trailing *).
-  // Row 2 = frozen helper row with Mandatory/Optional + format hint.
-  // Row 3 = empty start-typing row.
-  const headerRow = SKU_FIELDS.map(
-    (f) => f.header + (f.mandatory ? " *" : ""),
-  );
-  const helperRow = SKU_FIELDS.map(
-    (f) => `${f.mandatory ? "Mandatory" : "Optional"} · ${f.format}`,
-  );
-
-  const mainSheet = XLSX.utils.aoa_to_sheet([
-    headerRow,
-    helperRow,
-    new Array(SKU_FIELDS.length).fill(""), // blank input row
-  ]);
-
-  // Freeze header + helper row.
-  mainSheet["!freeze"] = { xSplit: 0, ySplit: 2 };
-  // Older readers honour `!views` instead.
-  (mainSheet as XLSX.WorkSheet & { "!views"?: { state: string; ySplit: number }[] })["!views"] = [
-    { state: "frozen", ySplit: 2 },
-  ];
-
-  // Column widths — generous enough to show the helper row text.
-  mainSheet["!cols"] = SKU_FIELDS.map((f) => ({
-    wch: Math.max(20, f.header.length + 4, f.format.length + 4),
-  }));
-
-  // Cell-level data validation for dropdown columns. Excel reads these
-  // from the workbook's `!dataValidation` array; SheetJS persists them.
-  const dataValidations: {
-    sqref: string;
-    type: "list";
-    formula1: string;
-    allowBlank?: boolean;
-  }[] = [];
-  SKU_FIELDS.forEach((f, idx) => {
-    if (!f.options || f.options.length === 0) return;
-    const colLetter = colToLetter(idx);
-    // Apply the dropdown to rows 3..1000 (input rows). Row 1 = header,
-    // row 2 = helper text we want to keep readable.
-    const sqref = `${colLetter}3:${colLetter}1000`;
-    // Inline list — survives even if the user breaks the Master sheet.
-    const formula1 = `"${f.options.map((o) => o.replace(/"/g, '""')).join(",")}"`;
-    dataValidations.push({
-      sqref,
-      type: "list",
-      formula1,
-      allowBlank: !f.mandatory,
-    });
-  });
-  if (dataValidations.length > 0) {
-    (mainSheet as XLSX.WorkSheet & {
-      "!dataValidation"?: typeof dataValidations;
-    })["!dataValidation"] = dataValidations;
-  }
-
-  XLSX.utils.book_append_sheet(wb, mainSheet, "Main SKU Upload");
-
-  // ---- Sheet 2 — Validation ----
-  const validationRows: (string | number)[][] = [
-    [
-      "Field",
-      "Mandatory / Optional",
-      "Format",
-      "Validation Rules",
-      "Example",
-    ],
-    ...SKU_FIELDS.map((f) => [
-      f.header,
-      f.mandatory ? "Mandatory" : "Optional",
-      f.format,
-      f.rules,
-      f.example ?? "",
-    ]),
-  ];
-  const validationSheet = XLSX.utils.aoa_to_sheet(validationRows);
-  validationSheet["!cols"] = [
-    { wch: 28 }, // Field
-    { wch: 22 }, // Mandatory
-    { wch: 22 }, // Format
-    { wch: 64 }, // Rules
-    { wch: 36 }, // Example
-  ];
-  validationSheet["!freeze"] = { xSplit: 0, ySplit: 1 };
-  (validationSheet as XLSX.WorkSheet & {
-    "!views"?: { state: string; ySplit: number }[];
-  })["!views"] = [{ state: "frozen", ySplit: 1 }];
-  XLSX.utils.book_append_sheet(wb, validationSheet, "Validation");
-
-  // ---- Sheet 3 — Master Data ----
-  // Each option list as its own column so users can also use these
-  // as named ranges if they prefer. The Main-sheet dropdowns use
-  // inline lists so this sheet is purely reference material.
-  const masterColumns: { label: string; values: string[] }[] = [];
-  const seenLabels = new Set<string>();
-  SKU_FIELDS.forEach((f) => {
-    if (!f.options || seenLabels.has(f.header)) return;
-    masterColumns.push({ label: f.header, values: f.options });
-    seenLabels.add(f.header);
-  });
-  const maxRows = Math.max(...masterColumns.map((c) => c.values.length));
-  const masterRows: string[][] = [
-    masterColumns.map((c) => c.label),
-    ...Array.from({ length: maxRows }, (_, r) =>
-      masterColumns.map((c) => c.values[r] ?? ""),
-    ),
-  ];
-  const masterSheet = XLSX.utils.aoa_to_sheet(masterRows);
-  masterSheet["!cols"] = masterColumns.map((c) => ({
-    wch: Math.max(c.label.length + 4, ...c.values.map((v) => v.length + 4)),
-  }));
-  masterSheet["!freeze"] = { xSplit: 0, ySplit: 1 };
-  XLSX.utils.book_append_sheet(wb, masterSheet, "Master Data");
-
-  // ---- Trigger download ----
-  XLSX.writeFile(wb, "SKU_Import_Template.xlsx");
-};
-
 /** Convert a 0-based column index to its Excel letter (A, B, …, AA, AB). */
 const colToLetter = (idx: number): string => {
   let n = idx;
@@ -449,6 +331,241 @@ const colToLetter = (idx: number): string => {
     n = Math.floor(n / 26) - 1;
   }
   return s;
+};
+
+/** Escape a sheet name for cross-sheet formula references (single
+ *  quotes around any name with whitespace, doubled apostrophes). */
+const escapeSheetName = (name: string) =>
+  /[^A-Za-z0-9_]/.test(name)
+    ? `'${name.replace(/'/g, "''")}'`
+    : name;
+
+/**
+ * Build the .xlsx workbook (3 sheets) and trigger a download.
+ *
+ * Why ExcelJS instead of SheetJS for writing? SheetJS Community
+ * doesn't persist data validations on write — they're a Pro feature.
+ * That meant the dropdowns we configured never made it into the
+ * downloaded file. ExcelJS is open-source and writes proper
+ * <dataValidations> XML, so the user actually sees the dropdown
+ * arrows in Excel / Google Sheets / LibreOffice.
+ *
+ * SheetJS still owns the parser side because its sheet_to_json and
+ * cell-resolution logic is best-in-class.
+ */
+export const downloadSkuTemplate = async () => {
+  const ExcelJS = (await import("exceljs")).default;
+  const wb = new ExcelJS.Workbook();
+  wb.creator = "Qwipo Seller Store";
+  wb.created = new Date();
+
+  const HEADER_FILL: ExcelJSType.FillPattern = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FF1E40AF" }, // blue-800
+  };
+  const HEADER_FONT: Partial<ExcelJSType.Font> = {
+    bold: true,
+    color: { argb: "FFFFFFFF" },
+    size: 11,
+  };
+  const HELPER_FILL: ExcelJSType.FillPattern = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFEFF6FF" }, // blue-50
+  };
+  const HELPER_FONT: Partial<ExcelJSType.Font> = {
+    italic: true,
+    color: { argb: "FF1E3A8A" }, // blue-900
+    size: 10,
+  };
+  const BORDER: ExcelJSType.Border = { style: "thin", color: { argb: "FFCBD5E1" } };
+  const ALL_BORDERS: Partial<ExcelJSType.Borders> = {
+    top: BORDER,
+    left: BORDER,
+    right: BORDER,
+    bottom: BORDER,
+  };
+
+  // ---------- Sheet 3 — Master Data (built first so the Main sheet
+  //            can reference it via named ranges). ----------
+  const masterSheet = wb.addWorksheet("Master Data");
+  const masterColumns: { label: string; values: string[]; key: string }[] = [];
+  const seenLabels = new Set<string>();
+  SKU_FIELDS.forEach((f) => {
+    if (!f.options || seenLabels.has(f.header)) return;
+    masterColumns.push({ label: f.header, values: f.options, key: f.key });
+    seenLabels.add(f.header);
+  });
+  // Header row.
+  masterSheet.addRow(masterColumns.map((c) => c.label));
+  const maxRows = Math.max(...masterColumns.map((c) => c.values.length));
+  for (let r = 0; r < maxRows; r++) {
+    masterSheet.addRow(masterColumns.map((c) => c.values[r] ?? ""));
+  }
+  // Style the master header row + freeze it.
+  const masterHeaderRow = masterSheet.getRow(1);
+  masterHeaderRow.eachCell((cell) => {
+    cell.font = HEADER_FONT;
+    cell.fill = HEADER_FILL;
+    cell.alignment = { vertical: "middle", horizontal: "left" };
+    cell.border = ALL_BORDERS;
+  });
+  masterHeaderRow.height = 22;
+  masterSheet.views = [{ state: "frozen", ySplit: 1 }];
+  masterColumns.forEach((c, idx) => {
+    masterSheet.getColumn(idx + 1).width = Math.max(
+      c.label.length + 4,
+      ...c.values.map((v) => v.length + 4),
+    );
+  });
+
+  // Define a workbook-level named range for every option column on the
+  // Master sheet. Cell dropdowns on the Main sheet point at these
+  // names — that way if the user reorders columns later the formulas
+  // stay valid.
+  const namedRanges = new Map<string, string>();
+  masterColumns.forEach((c, idx) => {
+    const colLetter = colToLetter(idx);
+    const range = `${escapeSheetName("Master Data")}!$${colLetter}$2:$${colLetter}$${c.values.length + 1}`;
+    const name = `MASTER_${c.key.toUpperCase()}`;
+    wb.definedNames.add(range, name);
+    namedRanges.set(c.key, name);
+  });
+
+  // ---------- Sheet 1 — Main SKU Upload ----------
+  const main = wb.addWorksheet("Main SKU Upload");
+  // Row 1 = headers (mandatory carry a trailing *).
+  main.addRow(SKU_FIELDS.map((f) => f.header + (f.mandatory ? " *" : "")));
+  // Row 2 = frozen helper row with Mandatory/Optional + format.
+  main.addRow(
+    SKU_FIELDS.map((f) => `${f.mandatory ? "Mandatory" : "Optional"} · ${f.format}`),
+  );
+
+  // Style header row.
+  const headerRow = main.getRow(1);
+  headerRow.height = 24;
+  headerRow.eachCell((cell, col) => {
+    const f = SKU_FIELDS[col - 1];
+    cell.font = HEADER_FONT;
+    cell.fill = HEADER_FILL;
+    cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    cell.border = ALL_BORDERS;
+    if (f && f.mandatory) {
+      cell.font = { ...HEADER_FONT };
+    }
+  });
+
+  // Style helper row.
+  const helperRow = main.getRow(2);
+  helperRow.height = 20;
+  helperRow.eachCell((cell) => {
+    cell.font = HELPER_FONT;
+    cell.fill = HELPER_FILL;
+    cell.alignment = { vertical: "middle", horizontal: "left", wrapText: true };
+    cell.border = ALL_BORDERS;
+  });
+
+  // Column widths.
+  SKU_FIELDS.forEach((f, idx) => {
+    main.getColumn(idx + 1).width = Math.max(
+      20,
+      f.header.length + 4,
+      f.format.length + 4,
+    );
+  });
+
+  // Freeze header + helper row.
+  main.views = [{ state: "frozen", ySplit: 2 }];
+
+  // Cell-level data validation. ExcelJS persists these properly so
+  // Excel renders a dropdown arrow on every option-bearing column.
+  // For long lists (categories) we point at a named range on the
+  // Master sheet — Excel rejects inline lists over 255 chars.
+  const FIRST_DATA_ROW = 3;
+  const LAST_DATA_ROW = 1000;
+  SKU_FIELDS.forEach((f, idx) => {
+    if (!f.options || f.options.length === 0) return;
+    const colLetter = colToLetter(idx);
+    // Use a named range when present, otherwise inline literal list.
+    const inlineList = `"${f.options
+      .map((o) => o.replace(/"/g, '""'))
+      .join(",")}"`;
+    const namedRangeName = namedRanges.get(f.key);
+    const formula =
+      namedRangeName && inlineList.length > 250
+        ? `=${namedRangeName}`
+        : inlineList;
+    for (let r = FIRST_DATA_ROW; r <= LAST_DATA_ROW; r++) {
+      main.getCell(`${colLetter}${r}`).dataValidation = {
+        type: "list",
+        allowBlank: !f.mandatory,
+        formulae: [formula],
+        showErrorMessage: true,
+        errorStyle: "stop",
+        errorTitle: "Invalid value",
+        error: `Pick one of: ${f.options.slice(0, 6).join(", ")}${f.options.length > 6 ? ", …" : ""}.`,
+      };
+    }
+  });
+
+  // ---------- Sheet 2 — Validation ----------
+  const validation = wb.addWorksheet("Validation");
+  validation.addRow([
+    "Field",
+    "Mandatory / Optional",
+    "Format",
+    "Validation Rules",
+    "Example",
+  ]);
+  SKU_FIELDS.forEach((f) => {
+    validation.addRow([
+      f.header,
+      f.mandatory ? "Mandatory" : "Optional",
+      f.format,
+      f.rules,
+      f.example ?? "",
+    ]);
+  });
+  validation.getColumn(1).width = 28;
+  validation.getColumn(2).width = 22;
+  validation.getColumn(3).width = 22;
+  validation.getColumn(4).width = 64;
+  validation.getColumn(5).width = 36;
+  const valHeaderRow = validation.getRow(1);
+  valHeaderRow.height = 22;
+  valHeaderRow.eachCell((cell) => {
+    cell.font = HEADER_FONT;
+    cell.fill = HEADER_FILL;
+    cell.alignment = { vertical: "middle", horizontal: "left" };
+    cell.border = ALL_BORDERS;
+  });
+  // Wrap text in the Rules column.
+  for (let r = 2; r <= validation.rowCount; r++) {
+    validation.getCell(r, 4).alignment = { wrapText: true, vertical: "top" };
+  }
+  validation.views = [{ state: "frozen", ySplit: 1 }];
+
+  // Reorder sheets so the user lands on Main SKU Upload first when
+  // they open the workbook.
+  wb.eachSheet((sheet) => {
+    if (sheet.name !== "Main SKU Upload") return;
+    sheet.orderNo = 0;
+  });
+
+  // ---------- Trigger download ----------
+  const buffer = await wb.xlsx.writeBuffer();
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "SKU_Import_Template.xlsx";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 };
 
 /** Parsed SKU row, keyed by SkuFieldDef.key. */

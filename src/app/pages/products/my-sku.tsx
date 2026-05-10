@@ -378,14 +378,20 @@ export function MySKU() {
   // the existing parsing logic to the standardized
   // BulkImportValidationResult shape so the dialog renders the same
   // summary card + Row/Field/Error table for every module.
-  const handleDownloadAddSkuSample = () => {
+  const handleDownloadAddSkuSample = async () => {
     // Phase 2 spec: download a 3-tab .xlsx (Main SKU Upload /
     // Validation / Master Data) with cell-level dropdowns on every
-    // master-backed column. The generator lives in
+    // master-backed column. The generator (ExcelJS-based, so the
+    // dropdowns actually persist on save) lives in
     // lib/sku-import-template.ts so this page stays focused on the
     // table UX.
-    downloadSkuTemplate();
-    toast.success("SKU import template downloaded");
+    try {
+      await downloadSkuTemplate();
+      toast.success("SKU import template downloaded");
+    } catch (err) {
+      console.error("Failed to generate SKU template", err);
+      toast.error("Couldn't generate the template — please try again.");
+    }
   };
 
   // Plain CSV parser shared by both validate adapters. Handles quoted
