@@ -494,34 +494,62 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                 <tr>
+                  <th className="text-left px-4 py-2 font-semibold text-gray-700 w-44">
+                    SKU Code
+                  </th>
                   <th className="text-left px-4 py-2 font-semibold text-gray-700">
                     SKU Name
                   </th>
-                  <th className="text-right px-4 py-2 font-semibold text-gray-700 w-32">
+                  <th className="text-right px-4 py-2 font-semibold text-gray-700 w-24">
                     Errors
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {(() => {
-                  // Group errors by skuLabel (or fall back to "Row N"
-                  // when callers haven't yet plumbed the label through).
-                  const groups = new Map<string, number>();
+                  // Group errors by SKU. Key prefers skuCode, falls back
+                  // to skuLabel, then a Row-N stand-in. Each group
+                  // tracks both code and name so the summary table can
+                  // show them in separate columns.
+                  type Bucket = {
+                    code: string;
+                    name: string;
+                    count: number;
+                  };
+                  const groups = new Map<string, Bucket>();
                   result.errors.forEach((e) => {
-                    const key = e.skuLabel?.trim() || `Row ${e.row}`;
-                    groups.set(key, (groups.get(key) ?? 0) + 1);
+                    const code = e.skuCode?.trim() ?? "";
+                    const name = e.skuLabel?.trim() ?? "";
+                    const key = code || name || `Row ${e.row}`;
+                    const bucket = groups.get(key);
+                    if (bucket) {
+                      bucket.count += 1;
+                      // Backfill missing fields if the next error
+                      // happens to know one the previous didn't.
+                      if (!bucket.code && code) bucket.code = code;
+                      if (!bucket.name && name) bucket.name = name;
+                    } else {
+                      groups.set(key, {
+                        code: code || (name ? "" : `Row ${e.row}`),
+                        name,
+                        count: 1,
+                      });
+                    }
                   });
-                  const rows = Array.from(groups.entries()).sort(
-                    (a, b) => b[1] - a[1],
+                  const rows = Array.from(groups.values()).sort(
+                    (a, b) => b.count - a.count,
                   );
-                  return rows.map(([sku, count]) => (
-                    <tr key={sku} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-gray-900 truncate max-w-[480px]">
-                        {sku}
+                  return rows.map((b, i) => (
+                    <tr key={`${b.code}-${b.name}-${i}`} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 font-mono text-gray-700 truncate max-w-[180px]">
+                        {b.code || "—"}
+                      </td>
+                      <td className="px-4 py-2 text-gray-900 truncate max-w-[420px]">
+                        {b.name || "—"}
                       </td>
                       <td className="px-4 py-2 text-right">
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
-                          {count}
+                          {b.count}
                         </span>
                       </td>
                     </tr>
