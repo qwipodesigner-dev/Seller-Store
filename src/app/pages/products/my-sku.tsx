@@ -60,6 +60,12 @@ import {
   type BulkImportValidationResult,
   type BulkImportError as BulkImportErrorRow,
 } from "../../components/bulk-import-dialog";
+import {
+  downloadSkuTemplate,
+  parseSkuImportFile,
+  SKU_FIELDS,
+  type ParsedSkuRow,
+} from "../../lib/sku-import-template";
 
 // ONDC Data structure
 interface ONDCData {
@@ -373,30 +379,13 @@ export function MySKU() {
   // BulkImportValidationResult shape so the dialog renders the same
   // summary card + Row/Field/Error table for every module.
   const handleDownloadAddSkuSample = () => {
-    // Phase-change: template only needs SKU Code + SKU Name.
-    // All other ONDC attributes are filled in from the SKU Detail page.
-    const headers = ONDC_REQUIRED_COLUMNS.map((c) => `${c}*`);
-    const sampleRows: string[][] = [
-      ["180000005", "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN"],
-      ["180000006", "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN"],
-      ["180000008", "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS."],
-    ];
-
-    const csv = [
-      headers.join(","),
-      ...sampleRows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")),
-    ].join("\r\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "SKU_Import_Template.csv";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Sample template downloaded");
+    // Phase 2 spec: download a 3-tab .xlsx (Main SKU Upload /
+    // Validation / Master Data) with cell-level dropdowns on every
+    // master-backed column. The generator lives in
+    // lib/sku-import-template.ts so this page stays focused on the
+    // table UX.
+    downloadSkuTemplate();
+    toast.success("SKU import template downloaded");
   };
 
   // Plain CSV parser shared by both validate adapters. Handles quoted
@@ -434,99 +423,318 @@ export function MySKU() {
     });
 
   // Validate uploaded Add-SKU file → returns the standardized result
-  // shape consumed by <BulkImportDialog>.
+  // shape consumed by <BulkImportDialog>. Phase 2: file is a 3-tab
+  // .xlsx with every SKU field as a column. Validation walks the
+  // SKU_FIELDS schema so the rules stay aligned with the template.
   const validateAddSkuFile = async (
     file: File,
   ): Promise<BulkImportValidationResult> => {
-    const text = await readFileText(file);
-    const allRows = parseCsv(text);
+    const parsed = await parseSkuImportFile(file);
     const errors: BulkImportErrorRow[] = [];
-    if (allRows.length < 2) {
+
+    if (parsed.fatalError) {
       return {
         totalRows: 0,
         validRows: 0,
         invalidRows: 0,
-        errors: [{ row: 1, field: "File", error: "File is empty or has no data rows." }],
+        errors: [{ row: 1, field: "File", error: parsed.fatalError }],
         validData: [],
       };
     }
-
-    const headers = allRows[0].map((h) => h.replace(/\*+\s*$/, "").trim());
-    const dataRows = allRows.slice(1);
-    const skuCodeIdx = headers.findIndex((h) =>
-      /^(sku code|sku id|item code|skucode)$/i.test(h),
-    );
-    const skuNameIdx = headers.findIndex((h) =>
-      /^(sku name|item name|name)$/i.test(h),
-    );
-    if (skuCodeIdx < 0 || skuNameIdx < 0) {
+    if (parsed.rows.length === 0) {
       return {
         totalRows: 0,
         validRows: 0,
         invalidRows: 0,
-        errors: [{ row: 1, field: "Header", error: "File must contain 'SKU Code' and 'SKU Name' columns. Use the sample template." }],
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "Couldn't find any data rows. Use the Main SKU Upload sheet from the downloaded template.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    // Header sanity — at minimum SKU Code + SKU Name must be present.
+    const haveSkuCode = parsed.rows.some((r) => "skuCode" in r);
+    const haveSkuName = parsed.rows.some((r) => "skuName" in r);
+    if (!haveSkuCode || !haveSkuName) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "Header",
+            error:
+              "File must contain 'SKU Code' and 'SKU Name' columns. Use the downloaded template.",
+          },
+        ],
         validData: [],
       };
     }
 
     const seenCodes = new Set<string>();
     const existing = new Set(skus.map((s) => s.sku));
-    const validData: { skuCode: string; skuName: string }[] = [];
+    const validData: ParsedSkuRow[] = [];
     let validCount = 0;
+    // The Main sheet starts at row 1 (header). Helper row is row 2.
+    // Data rows therefore begin at spreadsheet row 3.
+    const ROW_OFFSET = 3;
 
-    dataRows.forEach((cols, idx) => {
-      const rowNumber = idx + 2; // +1 for header, +1 for 1-based
-      const skuCode = (cols[skuCodeIdx] ?? "").trim();
-      const skuName = (cols[skuNameIdx] ?? "").trim();
+    parsed.rows.forEach((row, idx) => {
+      const rowNumber = idx + ROW_OFFSET;
+      const skuCode = (row.skuCode ?? "").trim();
+      const skuName = (row.skuName ?? "").trim();
+      const skuLabel = skuName || (skuCode ? `SKU ${skuCode}` : `Row ${rowNumber}`);
       const rowErrors: BulkImportErrorRow[] = [];
 
-      if (!skuCode) {
-        rowErrors.push({ row: rowNumber, field: "SKU Code", error: "SKU Code is required." });
-      } else if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
-        rowErrors.push({ row: rowNumber, field: "SKU Code", error: "SKU Code must be alphanumeric (letters, digits, dashes, or underscores)." });
-      } else if (seenCodes.has(skuCode)) {
-        rowErrors.push({ row: rowNumber, field: "SKU Code", error: "Duplicate SKU Code in this file." });
-      } else if (existing.has(skuCode)) {
-        rowErrors.push({ row: rowNumber, field: "SKU Code", error: `SKU "${skuCode}" already exists. Use the Price & Stock Update flow to modify it.` });
+      // Walk the schema: every mandatory field must be filled, and any
+      // field with options must take a listed value. Custom format
+      // checks for the heavy fields (SKU Code, email, phone, lat/lng-
+      // style numbers etc.) follow.
+      SKU_FIELDS.forEach((f) => {
+        const value = (row[f.key] ?? "").trim();
+        if (f.mandatory && value === "") {
+          rowErrors.push({
+            row: rowNumber,
+            field: f.header,
+            error: `${f.header} is required.`,
+            skuLabel,
+          });
+          return;
+        }
+        if (value === "") return; // optional + blank → skip further checks
+        if (f.options && !f.options.includes(value)) {
+          rowErrors.push({
+            row: rowNumber,
+            field: f.header,
+            error: `${f.header} must be one of: ${f.options.join(", ")}.`,
+            skuLabel,
+          });
+        }
+      });
+
+      // Field-specific format checks (only the rules the schema can't
+      // express declaratively).
+      if (skuCode) {
+        if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "SKU Code",
+            error: "SKU Code must be alphanumeric (letters, digits, dashes, underscores).",
+            skuLabel,
+          });
+        } else if (seenCodes.has(skuCode)) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "SKU Code",
+            error: "Duplicate SKU Code in this file.",
+            skuLabel,
+          });
+        } else if (existing.has(skuCode)) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "SKU Code",
+            error: `SKU "${skuCode}" already exists. Use the Price & Stock Update flow to modify it.`,
+            skuLabel,
+          });
+        }
       }
-      if (!skuName) {
-        rowErrors.push({ row: rowNumber, field: "SKU Name", error: "SKU Name is required." });
-      } else if (skuName.length < 3 || skuName.length > 100) {
-        rowErrors.push({ row: rowNumber, field: "SKU Name", error: "SKU Name must be between 3 and 100 characters." });
+      if (skuName && (skuName.length < 3 || skuName.length > 100)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "SKU Name",
+          error: "SKU Name must be between 3 and 100 characters.",
+          skuLabel,
+        });
+      }
+
+      const shortDesc = (row.shortDesc ?? "").trim();
+      if (shortDesc && (shortDesc.length < 10 || shortDesc.length > 150)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Short Description",
+          error: "Short Description must be between 10 and 150 characters.",
+          skuLabel,
+        });
+      }
+      const longDesc = (row.longDesc ?? "").trim();
+      if (longDesc && longDesc.length > 200) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Long Description",
+          error: "Long Description can't exceed 200 characters.",
+          skuLabel,
+        });
+      }
+
+      // Numeric ranges
+      const positiveInt = (raw: string) => {
+        const n = Number(raw);
+        return Number.isInteger(n) && n > 0;
+      };
+      const numericOnly = (raw: string) => /^\d+$/.test(raw);
+      if (row.measureValue && !positiveInt(row.measureValue)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Unit Value",
+          error: "Unit Value must be a positive whole number.",
+          skuLabel,
+        });
+      }
+      if (row.unitizedCount && !positiveInt(row.unitizedCount)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Pack Size",
+          error: "Pack Size must be a positive whole number.",
+          skuLabel,
+        });
+      }
+      if (row.upc && !numericOnly(row.upc)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "UPC",
+          error: "UPC must contain digits only.",
+          skuLabel,
+        });
+      }
+      if (row.skuWeight) {
+        const w = Number(row.skuWeight);
+        if (!Number.isFinite(w) || w <= 0) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "SKU Weight (kg)",
+            error: "SKU Weight must be a positive number.",
+            skuLabel,
+          });
+        }
+      }
+      const minQ = row.minimumOrderQty
+        ? Number(row.minimumOrderQty)
+        : undefined;
+      const maxQ = row.maximumOrderQty
+        ? Number(row.maximumOrderQty)
+        : undefined;
+      if (row.minimumOrderQty && (!Number.isInteger(minQ!) || minQ! <= 0)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Min Order Quantity",
+          error: "Min Order Quantity must be a positive whole number.",
+          skuLabel,
+        });
+      }
+      if (row.maximumOrderQty && (!Number.isInteger(maxQ!) || maxQ! <= 0)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Max Order Quantity",
+          error: "Max Order Quantity must be a positive whole number.",
+          skuLabel,
+        });
+      }
+      if (
+        minQ !== undefined &&
+        maxQ !== undefined &&
+        Number.isFinite(minQ) &&
+        Number.isFinite(maxQ) &&
+        minQ > maxQ
+      ) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Min Order Quantity",
+          error: "Min Order Quantity can't be greater than Max Order Quantity.",
+          skuLabel,
+        });
+      }
+
+      // Customer Care
+      if (row.consumerCareContactName && !/^[A-Za-z .'-]+$/.test(row.consumerCareContactName)) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Customer Care Name",
+          error: "Customer Care Name can only contain letters.",
+          skuLabel,
+        });
+      }
+      if (
+        row.consumerCareContactEmail &&
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.consumerCareContactEmail)
+      ) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Customer Care Email",
+          error: "Customer Care Email must be a valid email address.",
+          skuLabel,
+        });
+      }
+      if (
+        row.consumerCareContactPhone &&
+        !/^\d{10}$/.test(row.consumerCareContactPhone)
+      ) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Customer Care Phone",
+          error: "Customer Care Phone must be exactly 10 digits.",
+          skuLabel,
+        });
+      }
+      if (
+        row.manufacturerAddress &&
+        (row.manufacturerAddress.length < 10 ||
+          row.manufacturerAddress.length > 250)
+      ) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Manufacturer Address",
+          error: "Manufacturer Address must be 10–250 characters.",
+          skuLabel,
+        });
       }
 
       if (skuCode) seenCodes.add(skuCode);
       if (rowErrors.length === 0) {
         validCount++;
-        validData.push({ skuCode, skuName });
+        validData.push({ ...row });
       } else {
         errors.push(...rowErrors);
       }
     });
 
     return {
-      totalRows: dataRows.length,
+      totalRows: parsed.rows.length,
       validRows: validCount,
-      invalidRows: dataRows.length - validCount,
+      invalidRows: parsed.rows.length - validCount,
       errors,
       validData,
     };
   };
 
-  // Apply validated Add-SKU rows into the catalog.
+  // Apply validated Add-SKU rows into the catalog. Phase 2: rows now
+  // arrive with every SKU field, so we hydrate the catalog record
+  // with category, brand, status, etc. — no more "Imported / —"
+  // placeholders.
   const importAddSkuRows = (rows: unknown[]) => {
-    const valid = rows as { skuCode: string; skuName: string }[];
-    const newSkus: SKUData[] = valid.map((row, idx) => ({
-      id: String(skus.length + idx + 1),
-      name: row.skuName,
-      category: "Imported",
-      brand: "—",
-      source: "Excel Import",
-      status: "Active",
-      lastUpdated: new Date().toISOString().split("T")[0],
-      sku: row.skuCode,
-      ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-    }));
+    const valid = rows as ParsedSkuRow[];
+    const newSkus: SKUData[] = valid.map((row, idx) => {
+      const status =
+        (row.itemStatus ?? "").toLowerCase() === "inactive"
+          ? "Inactive"
+          : "Active";
+      return {
+        id: String(skus.length + idx + 1),
+        name: row.skuName ?? "",
+        category: row.categoryId || "Imported",
+        brand: row.brandAttribute || "—",
+        source: "Excel Import",
+        status,
+        lastUpdated: new Date().toISOString().split("T")[0],
+        sku: row.skuCode ?? "",
+        ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+      };
+    });
     setSkus((prev) => [...newSkus, ...prev]);
   };
 
