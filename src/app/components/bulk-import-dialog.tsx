@@ -29,16 +29,18 @@ export interface BulkImportError {
   row: number;
   field: string;
   error: string;
-  /** Optional SKU-level grouping key — when present, the simplified
-   *  error UI groups rows by this label (e.g. SKU Name) and shows
-   *  only "{skuLabel} | {errorCount} errors" instead of the full
-   *  row × field × message breakdown. The downloadable error
-   *  report still carries every detail. */
+  /** Optional SKU-level grouping key — used for toasts and as a
+   *  last-resort fallback. Prefer `skuName` for the on-screen
+   *  table; that's the verbatim value from the upload. */
   skuLabel?: string;
-  /** SKU Code from the uploaded row, when available. Surfaced in
-   *  the downloadable error report so operators can match a row
-   *  back to its identifier independent of the SKU Name. */
+  /** Raw SKU Code from the uploaded row, exactly as typed (may be
+   *  empty if the user left the cell blank). Drives the on-screen
+   *  summary's first column and the downloadable report. */
   skuCode?: string;
+  /** Raw SKU Name from the uploaded row, exactly as typed (may be
+   *  empty if the user left the cell blank). Drives the on-screen
+   *  summary's second column. */
+  skuName?: string;
   /** Raw value the user typed in the offending cell. Surfaced in the
    *  downloadable error report so the operator can see exactly what
    *  needs to change without re-opening the source file. */
@@ -183,7 +185,10 @@ export function BulkImportDialog({
       lines.push(
         [
           escapeCsv(e.skuCode ?? ""),
-          escapeCsv(e.skuLabel ?? ""),
+          // Raw SKU Name (skuName). Falls back to skuLabel only when
+          // the validator hasn't been migrated yet — shouldn't happen
+          // for the My SKU flow.
+          escapeCsv(e.skuName ?? e.skuLabel ?? ""),
           escapeCsv(e.field),
           escapeCsv(e.value ?? ""),
           escapeCsv(e.error),
@@ -507,10 +512,13 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {(() => {
-                  // Group errors by SKU. Key prefers skuCode, falls back
-                  // to skuLabel, then a Row-N stand-in. Each group
-                  // tracks both code and name so the summary table can
-                  // show them in separate columns.
+                  // Group errors by row. Show the raw SKU Code and
+                  // SKU Name exactly as the user typed them in the
+                  // file — including blanks (rendered as "—"). We
+                  // DON'T derive a synthetic label like "SKU 12345" or
+                  // "Row 7" for the visible columns, because the spec
+                  // wants the file's own values surfaced. Row number
+                  // is used purely as a grouping key for blank rows.
                   type Bucket = {
                     code: string;
                     name: string;
@@ -519,21 +527,18 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
                   const groups = new Map<string, Bucket>();
                   result.errors.forEach((e) => {
                     const code = e.skuCode?.trim() ?? "";
-                    const name = e.skuLabel?.trim() ?? "";
-                    const key = code || name || `Row ${e.row}`;
+                    const name = e.skuName?.trim() ?? "";
+                    // Group key: code first, name second, row last so
+                    // even rows with blank SKU Code+Name still bucket
+                    // together per spreadsheet row.
+                    const key = code || name || `__row_${e.row}`;
                     const bucket = groups.get(key);
                     if (bucket) {
                       bucket.count += 1;
-                      // Backfill missing fields if the next error
-                      // happens to know one the previous didn't.
                       if (!bucket.code && code) bucket.code = code;
                       if (!bucket.name && name) bucket.name = name;
                     } else {
-                      groups.set(key, {
-                        code: code || (name ? "" : `Row ${e.row}`),
-                        name,
-                        count: 1,
-                      });
+                      groups.set(key, { code, name, count: 1 });
                     }
                   });
                   const rows = Array.from(groups.values()).sort(
@@ -541,10 +546,20 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
                   );
                   return rows.map((b, i) => (
                     <tr key={`${b.code}-${b.name}-${i}`} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 font-mono text-gray-700 truncate max-w-[180px]">
+                      <td
+                        className={`px-4 py-2 font-mono truncate max-w-[180px] ${
+                          b.code ? "text-gray-700" : "text-gray-400 italic"
+                        }`}
+                        title={b.code || "Blank in file"}
+                      >
                         {b.code || "—"}
                       </td>
-                      <td className="px-4 py-2 text-gray-900 truncate max-w-[420px]">
+                      <td
+                        className={`px-4 py-2 truncate max-w-[420px] ${
+                          b.name ? "text-gray-900" : "text-gray-400 italic"
+                        }`}
+                        title={b.name || "Blank in file"}
+                      >
                         {b.name || "—"}
                       </td>
                       <td className="px-4 py-2 text-right">
