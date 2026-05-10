@@ -182,13 +182,14 @@ export function BulkImportDialog({
     ];
     const lines = [header.join(",")];
     for (const e of result.errors) {
+      // Both SKU Code and SKU Name come straight from the uploaded
+      // row — no derived "SKU 12345" or "Row 7" stand-ins. Blank
+      // cells stay blank so the report mirrors what the user actually
+      // typed and the operator can match it back to the file.
       lines.push(
         [
           escapeCsv(e.skuCode ?? ""),
-          // Raw SKU Name (skuName). Falls back to skuLabel only when
-          // the validator hasn't been migrated yet — shouldn't happen
-          // for the My SKU flow.
-          escapeCsv(e.skuName ?? e.skuLabel ?? ""),
+          escapeCsv(e.skuName ?? ""),
           escapeCsv(e.field),
           escapeCsv(e.value ?? ""),
           escapeCsv(e.error),
