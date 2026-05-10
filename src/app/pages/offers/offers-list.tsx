@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -34,7 +34,15 @@ import {
   Layers,
   Eye,
   Pencil,
-  TrendingDown,
+  // Offer-type picker icons — one per scheme.
+  IndianRupee,
+  Boxes,
+  Receipt,
+  Store as StoreIcon,
+  Rocket,
+  Award,
+  Clock,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { catalogSkus, findSku } from "../../lib/sku-catalog";
@@ -48,74 +56,123 @@ import {
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { ListPagination } from "../../components/ui/list-pagination";
+import {
+  OffersFilterDrawer,
+  type OfferTypeOption,
+} from "../../components/filter-drawers/offers-filter-drawer";
+// Shared seed + persistence for QPS schemes so the Price &
+// Inventory page (and any future consumer) can read the same
+// dataset to validate price updates against active schemes.
+import {
+  getAllSchemes,
+  setAllSchemes,
+} from "../../lib/offers-data";
+import { SkuComboBox } from "../../components/sku-combobox";
 
 // Seed QPS schemes — these populate the list on first load.
-// Seed schemes — show one example of each status (Active, Inactive, Scheduled, Expired)
-// so the seller can see how each looks on the list.
-const seedQpsSchemes: QpsScheme[] = [
+// The ten offer types surfaced on the "Create Offers" picker dialog.
+// QPS is the only one wired up in Phase 1 — everything else carries
+// a "Coming Soon" badge and is non-interactive in the picker UI.
+//
+// Icon + colour pair follow the same convention used everywhere
+// else in the app (Settings hub tiles, ConnectorCard, dashboard
+// shortcut cards): a Lucide icon in a tinted square. Each offer type
+// gets its own tone so the grid reads at a glance.
+interface OfferType {
+  id: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  iconBg: string;
+  iconColor: string;
+}
+const OFFER_TYPES: OfferType[] = [
   {
-    id: "QPS-180000008",
-    name: "QPS – Sunflower Oil 1L x16",
-    skuCode: "180000008",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
-    mrp: 188,
-    sellingPrice: 171,
-    startDate: "2026-04-01",
-    endDate: "2026-05-31",
-    status: "Active",
-    slabs: [
-      { minQty: 1, maxQty: 11, discountType: "flat", slabPrice: 171, effectivePrice: 171 },
-      { minQty: 12, maxQty: 47, discountType: "percent", slabPercent: 5, effectivePrice: +(171 * 0.95).toFixed(2) },
-      { minQty: 48, maxQty: null, discountType: "percent", slabPercent: 10, effectivePrice: +(171 * 0.9).toFixed(2) },
-    ],
+    id: "qps",
+    label: "QPS",
+    description: "Quantity-based price slabs with tiered discounts",
+    icon: Layers,
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
   },
   {
-    id: "QPS-180000249",
-    name: "QPS – Sunflower Oil 5Lx4 Jars",
-    skuCode: "180000249",
-    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    mrp: 963,
-    sellingPrice: 875,
-    startDate: "2026-04-15",
-    endDate: "2026-06-30",
-    status: "Inactive", // toggled off by seller
-    slabs: [
-      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 875, effectivePrice: 875 },
-      { minQty: 5, maxQty: 19, discountType: "flat", slabPrice: 855, effectivePrice: 855 },
-      { minQty: 20, maxQty: null, discountType: "flat", slabPrice: 820, effectivePrice: 820 },
-    ],
+    id: "value-slab",
+    label: "Value Slab",
+    description: "Order value-based discount tiers",
+    icon: IndianRupee,
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
   },
   {
-    id: "QPS-180000005",
-    name: "QPS – Sunflower Oil 15 KG",
-    skuCode: "180000005",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
-    mrp: 3091,
-    sellingPrice: 2810,
-    startDate: "2026-05-15",
-    endDate: "2026-07-31",
-    status: "Scheduled", // future-dated, not yet active
-    slabs: [
-      { minQty: 1, maxQty: 4, discountType: "flat", slabPrice: 2810, effectivePrice: 2810 },
-      { minQty: 5, maxQty: null, discountType: "percent", slabPercent: 4, effectivePrice: +(2810 * 0.96).toFixed(2) },
-    ],
+    id: "bogo",
+    label: "BOGO",
+    description: "Buy X quantity, get Y free units",
+    icon: Gift,
+    iconBg: "bg-pink-100",
+    iconColor: "text-pink-600",
   },
   {
-    id: "QPS-180000006",
-    name: "QPS – Sunflower Oil 15 LTR",
-    skuCode: "180000006",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN",
-    mrp: 2838,
-    sellingPrice: 2580,
-    startDate: "2026-01-01",
-    endDate: "2026-03-31",
-    status: "Expired", // past end date — not editable
-    slabs: [
-      { minQty: 1, maxQty: 9, discountType: "flat", slabPrice: 2580, effectivePrice: 2580 },
-      { minQty: 10, maxQty: null, discountType: "percent", slabPercent: 6, effectivePrice: +(2580 * 0.94).toFixed(2) },
-    ],
+    id: "case-bonus",
+    label: "Case Bonus",
+    description: "Extra cases free on bulk purchase",
+    icon: Boxes,
+    iconBg: "bg-amber-100",
+    iconColor: "text-amber-600",
+  },
+  {
+    id: "off-invoice",
+    label: "Off-Invoice",
+    description: "Flat discount applied on invoice total",
+    icon: Receipt,
+    iconBg: "bg-purple-100",
+    iconColor: "text-purple-600",
+  },
+  {
+    id: "display-allowance",
+    label: "Display Allowance",
+    description: "Incentive for in-store product display",
+    icon: StoreIcon,
+    iconBg: "bg-cyan-100",
+    iconColor: "text-cyan-600",
+  },
+  {
+    id: "launch-incentive",
+    label: "Launch Incentive",
+    description: "Special pricing for new product launches",
+    icon: Rocket,
+    iconBg: "bg-orange-100",
+    iconColor: "text-orange-600",
+  },
+  {
+    id: "loyalty-rebate",
+    label: "Loyalty Rebate",
+    description: "Cashback rebate for repeat purchases",
+    icon: Award,
+    iconBg: "bg-yellow-100",
+    iconColor: "text-yellow-600",
+  },
+  {
+    id: "combo-bundle",
+    label: "Combo Bundle",
+    description: "Bundled products at discounted rate",
+    icon: Package,
+    iconBg: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+  },
+  {
+    id: "early-payment",
+    label: "Early Payment",
+    description: "Discount for early invoice settlement",
+    icon: Clock,
+    iconBg: "bg-teal-100",
+    iconColor: "text-teal-600",
   },
 ];
+
+// Seed schemes live in `lib/offers-data.ts` so the Price &
+// Inventory page can read the same dataset for its price-update
+// validation. `getAllSchemes()` here will return the persisted
+// set if the seller has edited any, falling back to the seed.
 
 const getStatusColor = (status: string) => {
   switch (status) {
@@ -133,18 +190,37 @@ const getStatusColor = (status: string) => {
 };
 
 export function OffersList() {
+  // Initial state — empty mode shows zero schemes; otherwise fall
+  // back to whatever's persisted (seed on first load).
   const [qpsSchemes, setQpsSchemes] = useState<QpsScheme[]>(() =>
-    isEmptyMode() ? [] : seedQpsSchemes,
+    isEmptyMode() ? [] : getAllSchemes(),
   );
+
+  // Keep localStorage in sync with the in-memory state so the
+  // price-update validation on Price & Inventory always reads the
+  // latest. We skip persistence in empty mode — the empty-mode
+  // demo deliberately starts blank on every page load.
+  useEffect(() => {
+    if (isEmptyMode()) return;
+    setAllSchemes(qpsSchemes);
+  }, [qpsSchemes]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [offerTypeFilter, setOfferTypeFilter] = useState<string>("all");
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
   // Pagination — reset to page 1 on any filter / search change so the
   // visible window doesn't fall off the end of a shorter result set.
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
   // Create / Edit QPS dialog (shared — editingId=null means create)
+  // ---- Offer-type picker (the "Create Offers" entry-point dialog) ----
+  // Shows the 10 offer types as cards with hover effects. Only QPS is
+  // active in Phase 1; the rest render with a "Coming Soon" badge.
+  // Picking QPS closes this dialog and opens the existing QPS editor.
+  const [isOfferTypeOpen, setIsOfferTypeOpen] = useState(false);
+
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editorSkuCode, setEditorSkuCode] = useState<string>("");
@@ -178,7 +254,10 @@ export function OffersList() {
       s.skuName.toLowerCase().includes(q) ||
       s.name.toLowerCase().includes(q);
     const matchesStatus = statusFilter === "all" || s.status === statusFilter;
-    return matchesSearch && matchesStatus;
+    // Live page only carries QPS schemes; filter still works for
+    // consistency (and so the demo page can reuse the same shape).
+    const matchesType = offerTypeFilter === "all" || offerTypeFilter === "qps";
+    return matchesSearch && matchesStatus && matchesType;
   });
   // Slice the filtered list down to the current page's window.
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -187,48 +266,95 @@ export function OffersList() {
     startIndex + itemsPerPage,
   );
 
-  // ---- KPIs ----
-  const totalSchemes = qpsSchemes.length;
-  const activeSchemes = qpsSchemes.filter((s) => s.status === "Active").length;
-  const totalSlabs = qpsSchemes.reduce((n, s) => n + s.slabs.length, 0);
-  const avgDiscount = qpsSchemes.length
-    ? qpsSchemes.reduce((sum, s) => {
-        const best = Math.min(...s.slabs.map((sl) => sl.effectivePrice));
-        return sum + ((s.sellingPrice - best) / s.sellingPrice) * 100;
-      }, 0) / qpsSchemes.length
-    : 0;
 
   // ---- Editor handlers (create + edit) ----
   const selectedSku = findSku(editorSkuCode);
   const spForEditor = selectedSku?.sellingPrice ?? 0;
   const mrpForEditor = selectedSku?.mrp ?? 0;
 
+  // Build the SKU pool the combobox can search over:
+  //   - drop Inactive SKUs (catalog status === "Inactive") — they're
+  //     not eligible for new offer mappings.
+  //   - drop SKUs that are already mapped to a non-expired QPS
+  //     scheme. In edit mode we keep the SKU of the scheme we're
+  //     currently editing in the list (so the seller can re-pick
+  //     it without it being filtered out as "already mapped").
+  const skuPickerOptions = useMemo(() => {
+    const blockedCodes = new Set(
+      qpsSchemes
+        .filter(
+          (s) => s.status !== "Expired" && s.id !== editingId,
+        )
+        .map((s) => s.skuCode),
+    );
+    return catalogSkus.filter((c) => {
+      if (c.status !== "Active") return false;
+      if (blockedCodes.has(c.skuCode)) return false;
+      return true;
+    });
+  }, [qpsSchemes, editingId]);
+
   const handleOpenCreate = () => {
     setEditingId(null);
     setEditorSkuCode("");
     setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(new Date(Date.now() + 30 * 86400 * 1000).toISOString().slice(0, 10));
-    setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "flat", slabPrice: 0 }]);
+    // Phase 1 — only Discount % is offered as a slab type. Flat
+    // price is held back for a later phase, so new slabs default
+    // to percent.
+    setEditorSlabs([{ minQty: 1, maxQty: 5, discountType: "percent", slabPercent: 0 }]);
     setEditorActive(true);
     setIsEditorOpen(true);
+  };
+
+  // Bridges the offer-type picker → existing QPS editor: closes the
+  // type dialog first, then opens the editor for a fresh QPS scheme.
+  const handlePickQps = () => {
+    setIsOfferTypeOpen(false);
+    handleOpenCreate();
   };
 
   const handleOpenEdit = (scheme: QpsScheme) => {
     setEditingId(scheme.id);
     setEditorSkuCode(scheme.skuCode);
-    setEditorStartDate(scheme.startDate);
+    // Phase 1 rule — Start Date is always today, even on edit. The
+    // scheme's saved startDate is ignored; if the seller wants to
+    // pause an in-flight scheme they should toggle Inactive.
+    setEditorStartDate(new Date().toISOString().slice(0, 10));
     setEditorEndDate(scheme.endDate);
+    // Phase 1 — only "% Discount" slabs are supported. Auto-migrate
+    // any legacy flat-price slabs to percent by computing the % off
+    // SP they represented, so the seller's existing scheme keeps
+    // its effective pricing instead of resetting to 0%.
+    const sp = scheme.sellingPrice || 1;
     setEditorSlabs(
-      scheme.slabs.map((s) => ({
-        minQty: s.minQty,
-        maxQty: s.maxQty,
-        discountType: s.discountType,
-        slabPrice: s.slabPrice,
-        slabPercent: s.slabPercent,
-      })),
+      scheme.slabs.map((s) => {
+        if (s.discountType === "percent") {
+          return {
+            minQty: s.minQty,
+            maxQty: s.maxQty,
+            discountType: "percent",
+            slabPercent: s.slabPercent,
+          };
+        }
+        // Convert flat slab → equivalent percent off SP.
+        const flatPrice = s.slabPrice ?? sp;
+        const percent = sp > 0
+          ? +(((sp - flatPrice) / sp) * 100).toFixed(2)
+          : 0;
+        return {
+          minQty: s.minQty,
+          maxQty: s.maxQty,
+          discountType: "percent",
+          slabPercent: Math.max(0, Math.min(99.99, percent)),
+        };
+      }),
     );
-    // Active toggle reflects whether the seller chose to keep the scheme running.
-    // Scheduled = future-active, so toggle is on. Inactive / Expired = off.
+    // Active toggle reflects whether the seller chose to keep the
+    // scheme running. Inactive / Expired = off. Scheduled status
+    // (legacy / persisted from before) is treated the same as
+    // Active for editing purposes — schemes can no longer start
+    // in the future.
     setEditorActive(scheme.status === "Active" || scheme.status === "Scheduled");
     setIsEditorOpen(true);
   };
@@ -244,14 +370,16 @@ export function OffersList() {
         last && typeof last.maxQty === "number" && last.maxQty !== null
           ? last.maxQty + 1
           : (last?.minQty ?? 0) + 10;
+      // Phase 1 — only Discount % is offered. Always seed the new
+      // slab as percent regardless of what previous slabs used (in
+      // case a legacy scheme is being edited that has flat slabs).
       return [
         ...prev,
         {
           minQty: start,
           maxQty: start + 10,
-          discountType: last?.discountType ?? "flat",
-          slabPrice: last?.discountType === "percent" ? undefined : 0,
-          slabPercent: last?.discountType === "percent" ? 0 : undefined,
+          discountType: "percent",
+          slabPercent: 0,
         },
       ];
     });
@@ -292,13 +420,14 @@ export function OffersList() {
       effectivePrice: computeEffectivePrice(s, selectedSku.sellingPrice),
     }));
 
-    // Resolve final status: end-date past → Expired (auto); otherwise the
-    // seller's Active/Inactive toggle decides; future-dated → Scheduled.
+    // Resolve final status. Phase 1 rule: schemes can no longer
+    // start in the future — Start Date is forced to today on the
+    // editor. So the only outcomes are Expired (end date past),
+    // Inactive (seller toggled off), or Active.
     const today = new Date().toISOString().slice(0, 10);
     let finalStatus: QpsScheme["status"];
     if (editorEndDate < today) finalStatus = "Expired";
     else if (!editorActive) finalStatus = "Inactive";
-    else if (editorStartDate > today) finalStatus = "Scheduled";
     else finalStatus = "Active";
 
     if (editingId) {
@@ -351,48 +480,6 @@ export function OffersList() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* KPI Summary */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="grid gap-3 grid-cols-2 md:grid-cols-4">
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <Layers className="h-6 w-6 text-gray-600" />
-              <div>
-                <div className="text-xl font-bold">{totalSchemes}</div>
-                <p className="text-xs text-gray-600">Total QPS Schemes</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-6 w-6 text-green-600" />
-              <div>
-                <div className="text-xl font-bold text-green-600">{activeSchemes}</div>
-                <p className="text-xs text-gray-600">Active</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <Tag className="h-6 w-6 text-blue-600" />
-              <div>
-                <div className="text-xl font-bold text-blue-600">{totalSlabs}</div>
-                <p className="text-xs text-gray-600">Total Pricing Rules</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm p-3">
-            <div className="flex items-center gap-3">
-              <TrendingDown className="h-6 w-6 text-purple-600" />
-              <div>
-                <div className="text-xl font-bold text-purple-600">{avgDiscount.toFixed(1)}%</div>
-                <p className="text-xs text-gray-600">Avg max discount</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
-
       {/* Page area — Card stretches; only the rows scroll. Mirrors the
           My SKU page pattern. */}
       <div className="flex-1 overflow-hidden p-6">
@@ -415,31 +502,35 @@ export function OffersList() {
                   className="pl-10 pr-3 h-9"
                 />
               </div>
-              {!isEmpty && (
-              <Select
-                value={statusFilter}
-                onValueChange={(v) => {
-                  setStatusFilter(v);
-                  setCurrentPage(1);
-                }}
-              >
-                <SelectTrigger className="w-36 h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="Active">Active</SelectItem>
-                  <SelectItem value="Inactive">Inactive</SelectItem>
-                  <SelectItem value="Scheduled">Scheduled</SelectItem>
-                  <SelectItem value="Expired">Expired</SelectItem>
-                </SelectContent>
-              </Select>
-              )}
             </div>
+            {/* Right-aligned actions: Filters (right-side drawer) +
+                Create Offers. Matches the My SKU / Customers pattern
+                so the toolbar reads consistently across list pages. */}
             <div className="flex items-center gap-2">
-              <Button size="sm" onClick={handleOpenCreate} className="gap-2">
+              {!isEmpty && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  className="gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {(statusFilter !== "all" || offerTypeFilter !== "all") && (
+                    <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
+                      {(statusFilter !== "all" ? 1 : 0) +
+                        (offerTypeFilter !== "all" ? 1 : 0)}
+                    </Badge>
+                  )}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                onClick={() => setIsOfferTypeOpen(true)}
+                className="gap-2"
+              >
                 <Plus className="h-4 w-4" />
-                Create QPS
+                Create Offers
               </Button>
             </div>
           </div>
@@ -459,16 +550,12 @@ export function OffersList() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                 <tr className="text-left">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Offer Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Code</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">SKU Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Offer Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
-                    Pricing Rules
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-right">
-                    MRP / SP
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Validity</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Valid From</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">Valid Till</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 text-center">
                     Status
                   </th>
@@ -490,10 +577,9 @@ export function OffersList() {
                   </tr>
                 ) : (
                   paginatedSchemes.map((s) => {
-                    const bestPrice = Math.min(...s.slabs.map((x) => x.effectivePrice));
-                    const maxSaving = (((s.sellingPrice - bestPrice) / s.sellingPrice) * 100).toFixed(1);
                     return (
                       <tr key={s.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.id}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.skuCode}</td>
                         <td className="px-4 py-3">
                           <p className="text-sm text-gray-900">{s.skuName}</p>
@@ -503,22 +589,11 @@ export function OffersList() {
                             <Layers className="h-3 w-3" /> QPS
                           </Badge>
                         </td>
-                        <td className="px-4 py-3 text-center">
-                          <div className="inline-flex flex-col items-center">
-                            <span className="text-lg font-medium text-gray-900">{s.slabs.length}</span>
-                            <span className="text-[10px] text-gray-500 uppercase tracking-wider">
-                              slab{s.slabs.length !== 1 ? "s" : ""}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <p className="text-xs text-gray-500">MRP ₹{s.mrp}</p>
-                          <p className="text-sm font-medium text-green-700">SP ₹{s.sellingPrice}</p>
-                          <p className="text-[10px] text-purple-700">Best: ₹{bestPrice.toFixed(2)} ({maxSaving}% off)</p>
-                        </td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-700">{s.startDate}</p>
-                          <p className="text-xs text-gray-500">to {s.endDate}</p>
+                        </td>
+                        <td className="px-4 py-3">
+                          <p className="text-xs text-gray-700">{s.endDate}</p>
                         </td>
                         <td className="px-4 py-3 text-center">
                           <Badge className={`${getStatusColor(s.status)} border font-medium text-xs`}>
@@ -706,6 +781,78 @@ export function OffersList() {
         </DialogContent>
       </Dialog>
 
+      {/* ====================== Offer-Type Picker Dialog ======================
+          Phase-1 entry point for "Create Offers". Surfaces all 10
+          offer types as cards with hover affordances. Only QPS is
+          live; the rest carry a "Coming Soon" badge and are
+          non-interactive. Picking QPS bridges to the existing QPS
+          editor below. */}
+      <Dialog open={isOfferTypeOpen} onOpenChange={setIsOfferTypeOpen}>
+        <DialogContent className="!max-w-[min(95vw,1100px)] w-[min(95vw,1100px)] max-h-[92vh] overflow-y-auto p-5">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-xl">
+              <Tag className="h-5 w-5 text-blue-600" />
+              Create Offers
+            </DialogTitle>
+            <DialogDescription>
+              Pick the type of offer you want to set up for your catalog.
+              More types are rolling out — stay tuned.
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Two rows of five — same shape as the dashboard shortcut
+              grid. Each tile mirrors the Settings hub card: icon
+              tile on the left, heading + one-line subtitle on the
+              right, top-aligned. The whole card is the click target. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 py-2">
+            {OFFER_TYPES.map((t) => {
+              const enabled = t.id === "qps";
+              const Icon = t.icon;
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={enabled ? handlePickQps : undefined}
+                  disabled={!enabled}
+                  className={
+                    "relative text-left rounded-xl border p-4 transition-all min-h-[140px] " +
+                    (enabled
+                      ? "bg-white border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+                      : "bg-gray-50 border-gray-200 opacity-60 cursor-not-allowed")
+                  }
+                >
+                  {!enabled && (
+                    <span className="absolute top-2 right-2 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-200 text-gray-700 border border-gray-300 leading-none">
+                      Coming Soon
+                    </span>
+                  )}
+                  <div
+                    className={`${t.iconBg} ${t.iconColor} p-2 rounded-lg w-fit`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-900 mt-3 leading-tight">
+                    {t.label}
+                  </p>
+                  <p className="text-[11px] text-gray-600 leading-snug mt-1">
+                    {t.description}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsOfferTypeOpen(false)}
+            >
+              Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* ====================== Create / Edit QPS Dialog ====================== */}
       <Dialog open={isEditorOpen} onOpenChange={setIsEditorOpen}>
         <DialogContent className="!max-w-[min(95vw,1150px)] w-[min(95vw,1150px)] max-h-[92vh] overflow-y-auto p-5">
@@ -715,9 +862,9 @@ export function OffersList() {
               {editingId ? "Edit" : "Create"} Quantity Pricing Scheme (QPS)
             </DialogTitle>
             <DialogDescription>
-              Select a SKU and define quantity-based pricing slabs. Use flat price or %
-              discount per slab — the effective per-unit price that the customer pays is
-              calculated live.
+              Select a SKU and define quantity-based pricing slabs. Each slab takes a %
+              discount off the Selling Price — the effective per-unit price the customer
+              pays is calculated live.
             </DialogDescription>
           </DialogHeader>
 
@@ -728,30 +875,57 @@ export function OffersList() {
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
                   SKU <span className="text-red-500">*</span>
                 </Label>
-                <Select value={editorSkuCode} onValueChange={setEditorSkuCode}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a SKU from your catalog..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {catalogSkus.map((s) => (
-                      <SelectItem key={s.skuCode} value={s.skuCode}>
-                        {s.skuCode} — {s.skuName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {/* Search-as-you-type SKU picker. The pool is
+                    filtered upstream — Inactive SKUs and SKUs
+                    already mapped to a non-expired scheme are
+                    excluded so each scheme owns exactly one SKU.
+                    See `skuPickerOptions` above. */}
+                <SkuComboBox
+                  skus={skuPickerOptions}
+                  value={editorSkuCode}
+                  onChange={setEditorSkuCode}
+                  placeholder="Search SKU by code, name, brand…"
+                  emptyMessage="No matching active SKU. Inactive SKUs and ones already mapped to a scheme are hidden."
+                />
               </div>
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
                   Start Date <span className="text-red-500">*</span>
                 </Label>
-                <Input type="date" value={editorStartDate} onChange={(e) => setEditorStartDate(e.target.value)} />
+                {/* Phase 1 rule — schemes always start today.
+                    Future-dating is removed; past dates are not
+                    allowed. The input is locked via min/max + the
+                    disabled attribute so the seller can't override
+                    it from the date picker. The handlers that open
+                    the editor (create + edit) always reset
+                    editorStartDate to today, so this displays
+                    today regardless of the underlying scheme. */}
+                <Input
+                  type="date"
+                  value={editorStartDate}
+                  min={editorStartDate}
+                  max={editorStartDate}
+                  disabled
+                  readOnly
+                />
+                <p className="text-[11px] text-gray-500 mt-1">
+                  Schemes always start today.
+                </p>
               </div>
               <div>
                 <Label className="text-xs font-medium text-gray-700 mb-1 block">
                   End Date <span className="text-red-500">*</span>
                 </Label>
-                <Input type="date" value={editorEndDate} onChange={(e) => setEditorEndDate(e.target.value)} />
+                {/* End Date can be any day from today onwards. The
+                    `min` attribute pins the picker to the start
+                    date so earlier days are disabled at the OS
+                    level. */}
+                <Input
+                  type="date"
+                  value={editorEndDate}
+                  min={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setEditorEndDate(e.target.value)}
+                />
               </div>
             </div>
 
@@ -770,11 +944,16 @@ export function OffersList() {
                   )}
                 </p>
               </div>
+              {/* Order is Inactive ← Switch → Active so the side the
+                  thumb travels to (right, "checked") visually matches
+                  the green "Active" label. The previous arrangement
+                  (Active left / Inactive right) read as if turning ON
+                  the switch was deactivating the scheme. */}
               <div className="flex items-center gap-3">
                 <span
-                  className={`text-xs font-semibold ${editorActive ? "text-green-700" : "text-gray-400"}`}
+                  className={`text-xs font-semibold ${!editorActive ? "text-orange-700" : "text-gray-400"}`}
                 >
-                  Active
+                  Inactive
                 </span>
                 <Switch
                   checked={editorActive}
@@ -782,9 +961,9 @@ export function OffersList() {
                   disabled={!!editorEndDate && editorEndDate < new Date().toISOString().slice(0, 10)}
                 />
                 <span
-                  className={`text-xs font-semibold ${!editorActive ? "text-orange-700" : "text-gray-400"}`}
+                  className={`text-xs font-semibold ${editorActive ? "text-green-700" : "text-gray-400"}`}
                 >
-                  Inactive
+                  Active
                 </span>
               </div>
             </div>
@@ -815,14 +994,44 @@ export function OffersList() {
               </div>
             )}
 
-            {/* Slab editor */}
+            {/* Slab editor — only visible after a SKU is selected.
+                Authoring price slabs without a Selling Price reference
+                is meaningless, so we hide the entire section (header
+                row + table + helper banner) until a SKU is picked. */}
+            {selectedSku && (
             <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
-                <p className="text-sm font-semibold text-gray-900">Pricing Slabs</p>
-                <Button variant="outline" size="sm" onClick={addSlab} className="gap-1 h-7 text-xs">
-                  <Plus className="h-3.5 w-3.5" /> Add Slab
-                </Button>
-              </div>
+              {(() => {
+                // The seller can only add another slab when the
+                // current last slab has a finite Max Qty. If the
+                // last slab has Max Qty blank (∞ / unlimited), the
+                // ranges are already covered to the top — adding
+                // another tier would create an overlap. The button
+                // is disabled with a tooltip explaining why.
+                const lastSlab = editorSlabs[editorSlabs.length - 1];
+                const lastIsInfinite =
+                  !lastSlab ||
+                  lastSlab.maxQty === null ||
+                  lastSlab.maxQty === undefined;
+                return (
+                  <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+                    <p className="text-sm font-semibold text-gray-900">Pricing Slabs</p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={addSlab}
+                      disabled={lastIsInfinite}
+                      title={
+                        lastIsInfinite
+                          ? "Set a Max Qty on the last slab before adding a new one. Slabs without an upper bound already cover all higher quantities."
+                          : "Add another slab"
+                      }
+                      className="gap-1 h-7 text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Slab
+                    </Button>
+                  </div>
+                );
+              })()}
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50/50 border-b border-gray-200">
@@ -870,13 +1079,19 @@ export function OffersList() {
                             />
                           </td>
                           <td className="px-4 py-3">
+                            {/* Phase 1 — only "% Discount" is on
+                                offer; flat-price slabs are
+                                deferred. The dropdown still
+                                renders so the cell layout stays
+                                stable, but it has only one option
+                                and the seller can't switch off it. */}
                             <Select
-                              value={slab.discountType ?? "flat"}
+                              value="percent"
                               onValueChange={(v) =>
                                 updateSlab(i, {
                                   discountType: v as SlabDiscountType,
-                                  slabPrice: v === "flat" ? (slab.slabPrice ?? 0) : undefined,
-                                  slabPercent: v === "percent" ? (slab.slabPercent ?? 0) : undefined,
+                                  slabPercent: slab.slabPercent ?? 0,
+                                  slabPrice: undefined,
                                 })
                               }
                             >
@@ -884,7 +1099,6 @@ export function OffersList() {
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
-                                <SelectItem value="flat">Flat Price (₹)</SelectItem>
                                 <SelectItem value="percent">% Discount</SelectItem>
                               </SelectContent>
                             </Select>
@@ -951,19 +1165,23 @@ export function OffersList() {
                   </tbody>
                 </table>
               </div>
-              {/* MRP reference footer */}
+              {/* Effective-price explainer + last-slab fallback hint.
+                  The MRP/SP figures used to be repeated on the right
+                  of this strip — they're already shown prominently
+                  in the Selected SKU panel above, so the duplicate
+                  is removed. */}
               {selectedSku && (
-                <div className="bg-gray-50 border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600 flex items-center justify-between">
-                  <span>
-                    💡 Effective price = the per-unit price the <b>customer pays</b> after the slab
-                    discount.
-                  </span>
-                  <span>
-                    MRP: <b className="text-gray-900">₹{mrpForEditor}</b> · SP: <b className="text-green-700">₹{spForEditor}</b>
+                <div className="bg-gray-50 border-t border-gray-100 px-3 py-2 text-[11px] text-gray-600">
+                  💡 Effective price = the per-unit price the{" "}
+                  <b>customer pays</b> after the slab discount.{" "}
+                  <span className="block sm:inline mt-0.5 sm:mt-0">
+                    Orders above the last slab quantity will still get
+                    the <b>highest slab discount</b>.
                   </span>
                 </div>
               )}
             </div>
+            )}
 
             {/* Validation errors */}
             {selectedSku && editorErrors.length > 0 && (
@@ -1001,6 +1219,33 @@ export function OffersList() {
         </DialogContent>
       </Dialog>
 
+      {/* Right-side filter drawer — Status + Offer Type. Live page
+          only ships QPS schemes, so the Offer Type dropdown surfaces
+          a single option; the empty-mode demo page uses the same
+          drawer with all 10 types. */}
+      <OffersFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        filterStatus={statusFilter}
+        setFilterStatus={(v) => {
+          setStatusFilter(v);
+          setCurrentPage(1);
+        }}
+        filterOfferType={offerTypeFilter}
+        setFilterOfferType={(v) => {
+          setOfferTypeFilter(v);
+          setCurrentPage(1);
+        }}
+        offerTypeOptions={OFFER_TYPES.filter((t) => t.id === "qps").map<OfferTypeOption>((t) => ({
+          value: t.id,
+          label: t.label,
+        }))}
+        onClearFilters={() => {
+          setStatusFilter("all");
+          setOfferTypeFilter("all");
+          setCurrentPage(1);
+        }}
+      />
     </div>
   );
 }

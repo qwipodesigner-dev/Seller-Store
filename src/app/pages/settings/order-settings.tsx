@@ -31,6 +31,10 @@ import {
   Clock,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  getProcessingTimeHours,
+  setProcessingTimeHours,
+} from "../../lib/order-settings-data";
 
 export function OrderSettings() {
   const navigate = useNavigate();
@@ -53,10 +57,15 @@ export function OrderSettings() {
   }>({});
 
   // ---- Order Processing ----
-  const [processingTime, setProcessingTime] = useState("24");
+  // Processing Time is persisted via the shared lib so the SKU Detail
+  // page (and any other downstream consumer) can read the seller's
+  // configured value as the source of truth.
+  const [processingTime, setProcessingTime] = useState(() =>
+    getProcessingTimeHours(),
+  );
   const [cancellationWindow, setCancellationWindow] = useState("2");
   const [savedProcessing, setSavedProcessing] = useState({
-    processingTime: "24",
+    processingTime: getProcessingTimeHours(),
     cancellationWindow: "2",
   });
   const isProcessingDirty =
@@ -104,6 +113,7 @@ export function OrderSettings() {
 
   const handleSaveProcessing = () => {
     setSavedProcessing({ processingTime, cancellationWindow });
+    setProcessingTimeHours(processingTime);
     toast.success("Order processing saved.");
   };
 

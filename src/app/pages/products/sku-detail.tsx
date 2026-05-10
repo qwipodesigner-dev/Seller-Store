@@ -59,7 +59,23 @@ import {
   getCompanies as getAdminCatalogCompanies,
   subscribeToCompanies as subscribeToAdminCatalog,
 } from "../../lib/admin-catalog";
+import {
+  getProcessingTimeHours,
+  formatProcessingTimeLabel,
+} from "../../lib/order-settings-data";
 import { useEffect } from "react";
+// Active-offers lookup + warning dialog — used by the Price &
+// Inventory tab to gate Save Price & Stock when the seller updates
+// the SP of a SKU that has Active or Scheduled QPS schemes mapped.
+import { getActiveSchemesForSku } from "../../lib/offers-data";
+import type { QpsScheme } from "../../lib/qps-validation";
+import { PriceUpdateOffersDialog } from "../../components/price-update-offers-dialog";
+// Shared catalog — every SKU in My SKU lives here. SKU Detail only
+// ships rich detail for a few SKUs (1, 2, 190000001); for everything
+// else we synthesize a minimal SKU object from the catalog so the
+// page renders the right SKU code, name, MRP and SP — which the
+// Price & Inventory tab and the offers warning both depend on.
+import { catalogSkus, findSku as findCatalogSku } from "../../lib/sku-catalog";
 
 // ONDC eB2B category taxonomy — shown as the Category ID dropdown options.
 const CATEGORY_OPTIONS = [
@@ -1381,20 +1397,29 @@ function ProductDetailsTab({ sku }: { sku: any }) {
             />
           }
         />
+        {/* Time to Ship is no longer per-SKU editable. The seller
+            configures their dispatch window once on Settings > Order
+            Settings > Processing Time, and every SKU surfaces that
+            value here as a read-only field — same treatment as
+            Volumetric Weight and SKU Code. */}
         <DualRow
           label="Time to Ship"
           required
           ondcRequired
-          help="Pick the dispatch window."
+          help="Inherited from Settings > Order Settings > Processing Time. Update it there to change every SKU at once."
           dms={""}
           ondc={
-            <SelectInput
-              value={ondc.timeToShip}
-              onChange={(v) => update("timeToShip", v)}
-              edited={isEdited("timeToShip")}
-              // Spec: dropdown 24/36/48 hours, default 24.
-              options={["24 hours", "36 hours", "48 hours"]}
-            />
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">
+                {formatProcessingTimeLabel(getProcessingTimeHours())}
+              </p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="Time to Ship is set on Settings > Order Settings > Processing Time."
+              >
+                Read-only
+              </span>
+            </div>
           }
         />
         <DualRow
@@ -2395,7 +2420,21 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     toast.success("ONDC price & inventory values reset to DMS");
   };
 
-  const handleSave = () => {
+  // Active-offers warning — when the seller updates SP for a SKU
+  // that has Active or Scheduled QPS schemes mapped to it, we open
+  // this confirm dialog instead of saving immediately. The dialog
+  // shows the current vs updated effective price for every mapped
+  // slab so the seller can see how the change cascades.
+  const [offersWarningOpen, setOffersWarningOpen] = useState(false);
+  const [offersWarningSchemes, setOffersWarningSchemes] = useState<
+    QpsScheme[]
+  >([]);
+
+  /** Run the actual save logic — toasts + pending-error state. Pulled
+   *  out of handleSave so we can call it directly when no offers are
+   *  mapped, and from the warning dialog's Confirm callback when they
+   *  are. */
+  const commitSave = () => {
     const errs: { code: string; field: string; message: string }[] = [];
     const mrp = parseFloat(ondcPI.mrp);
     const sp = parseFloat(ondcPI.sellingPrice);
@@ -2438,6 +2477,31 @@ function PriceInventoryTab({ sku }: { sku: any }) {
     } else {
       toast.success("Price & inventory saved successfully");
     }
+  };
+
+  const handleSave = () => {
+    // ---- Offers/schemes mapping check ----
+    // Trigger the warning dialog ONLY when the SP has actually
+    // changed AND there are Active/Scheduled schemes mapped to this
+    // SKU. Stock-only or MRP-only edits don't affect slab effective
+    // prices, so they save through directly.
+    const newSp = parseFloat(ondcPI.sellingPrice);
+    const dmsSp = parseFloat(dmsPI.sellingPrice);
+    const spChanged =
+      !isNaN(newSp) && !isNaN(dmsSp) && Math.abs(newSp - dmsSp) > 0.001;
+    if (spChanged) {
+      const skuCode = String(sku.sku ?? sku.skuCode ?? "");
+      if (skuCode) {
+        const mapped = getActiveSchemesForSku(skuCode);
+        if (mapped.length > 0) {
+          setOffersWarningSchemes(mapped);
+          setOffersWarningOpen(true);
+          // Bail — the dialog's Confirm CTA will call commitSave().
+          return;
+        }
+      }
+    }
+    commitSave();
   };
 
   const isEditedPI = (key: keyof typeof dmsPI) =>
@@ -2612,8 +2676,70 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Active-offers warning shown when the seller updates SP for
+          a SKU that has Active or Scheduled QPS schemes mapped. The
+          dialog renders the read-only current vs updated effective
+          prices for every mapped slab and gates the actual save
+          behind the seller's explicit Confirm. */}
+      <PriceUpdateOffersDialog
+        open={offersWarningOpen}
+        onOpenChange={setOffersWarningOpen}
+        skuName={String(sku.skuName ?? sku.name ?? sku.sku ?? "")}
+        skuCode={String(sku.sku ?? sku.skuCode ?? "")}
+        schemes={offersWarningSchemes}
+        currentPrice={parseFloat(dmsPI.sellingPrice) || 0}
+        updatedPrice={parseFloat(ondcPI.sellingPrice) || 0}
+        onConfirm={commitSave}
+      />
     </div>
   );
+}
+
+/**
+ * Build a minimal `sku` object from a catalog entry so SKU Detail
+ * can render the correct SKU code, name, MRP and Selling Price for
+ * any catalog SKU even when we don't have a hand-authored detail
+ * record. The hand-authored entries in `skuData` (1, 2, 190000001)
+ * still take precedence — this is only the fallback path.
+ */
+function synthSkuFromCatalog(skuId: string) {
+  const c = findCatalogSku(skuId);
+  if (!c) return null;
+  return {
+    id: c.id,
+    name: c.skuName,
+    sku: c.skuCode,
+    skuName: c.skuName,
+    category: c.category,
+    brand: c.brand,
+    source: "DMS Sync",
+    status: "Active",
+    lastUpdated: "2026-04-22",
+    description: "",
+    specifications: {
+      weight: "",
+      packaging: "",
+      shelfLife: "",
+      manufacturer: c.brand,
+      countryOfOrigin: "India",
+    },
+    pricing: {
+      mrp: c.mrp,
+      sellingPrice: c.sellingPrice,
+      costPrice: 0,
+      margin: "—",
+    },
+    mrp: c.mrp,
+    sellingPrice: c.sellingPrice,
+    inventory: {
+      currentStock: 0,
+      minStockLevel: 0,
+      reorderPoint: 0,
+      warehouse: "",
+    },
+    tax: { gstRate: "", hsnCode: "" },
+  };
 }
 
 // Main SKU Detail Component
@@ -2622,7 +2748,13 @@ export function SKUDetail() {
   const { skuId } = useParams();
   const [activeTab, setActiveTab] = useState<"details" | "pricing">("details");
 
-  const sku = skuData[skuId || "1"] || skuData["1"];
+  // Prefer hand-authored rich detail when we have it, otherwise
+  // synthesize from the shared catalog. Only fall back to the demo
+  // entry "1" if neither path resolves.
+  const sku =
+    (skuId && skuData[skuId]) ||
+    (skuId && synthSkuFromCatalog(skuId)) ||
+    skuData["1"];
 
   const getStatusBadge = (status: string) => {
     switch (status) {

@@ -48,6 +48,33 @@ import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
 import { ListPagination } from "../components/ui/list-pagination";
 
+// One product line on an order. Captures the per-line numbers that
+// the export needs (the order-list table itself doesn't surface these
+// — they're computed once and re-used for export rows).
+interface OrderLineItem {
+  skuCode: string;
+  productName: string;
+  /** Company that owns the product (e.g. "ITC Limited"). */
+  company: string;
+  /** Brand the product belongs to (e.g. "Freedom"). */
+  brand: string;
+  /** Category the product belongs to in the ONDC eB2B taxonomy
+   *  (e.g. "Edible Oil", "Biscuits", "Stationery"). Surfaced on the
+   *  export so finance can roll the sheet up by category. */
+  category: string;
+  qty: number;
+  /** Catalog Selling Price before any line-level / slab discount. */
+  originalPricePerUnit: number;
+  /** Per-unit price the customer actually pays. */
+  finalPricePerUnit: number;
+  /** Total saving on this line: (orig − final) × qty. */
+  discountApplied: number;
+  /** Free-text describing how the discount was calculated. */
+  discountDetails: string;
+  /** Final per-line subtotal: finalPricePerUnit × qty. */
+  lineTotal: number;
+}
+
 // Simplified Order interface with only 4 statuses
 interface Order {
   id: string;
@@ -60,21 +87,132 @@ interface Order {
   orderDate: string;
   status: "New" | "Confirmed" | "Delivered" | "Rejected";
   marketplace: string;
+  /** Buyer contact info shown on the export. Optional — synthesized
+   *  from retailerName when not provided. */
+  buyerContact?: string;
+  buyerAddress?: string;
+  buyerCode?: string;
+  /** Channel-side order ID (e.g. ONDC-ORD-789456). Optional —
+   *  synthesized from `id` + marketplace when not provided. */
+  channelOrderId?: string;
+  /** Optional order-time suffix appended to orderDate on the export. */
+  orderTime?: string;
+  /** Per-line breakdown for the export. Optional — synthesized from
+   *  itemsSummary when not provided. */
+  lineItems?: OrderLineItem[];
 }
+
+// Single distributor for the demo seller — populates the Seller-* columns
+// on the export. In a real build these come from the logged-in seller's
+// profile / store settings.
+const SELLER_INFO = {
+  name: "ITC Private Limited",
+  contact: "+91 80 2222 3333",
+  code: "SELLER-ITC-001",
+};
 
 // Mock orders with simplified statuses
 const mockOrders: Order[] = [
   {
+    // Fully populated line items so the demo export reproduces the
+    // sample sheet shape end-to-end. Buyer/seller/channel metadata
+    // mirrors the order-detail page's mock so the two views agree.
     id: "DKN-2025-12345",
-    brand: "Freedom Oil",
+    brand: "ITC",
     source: "DMS-Bizom",
-    retailerName: "Ramesh's Kirana",
-    itemsSummary: "15 units Parle-G + 2 more",
-    orderValue: 1865,
+    retailerName: "Balaji Kirana Store",
+    itemsSummary: "Sunflower Oil + 5 more",
+    orderValue: 12450,
     paymentMode: "COD",
-    orderDate: "2026-03-27",
+    orderDate: "2026-03-30",
+    orderTime: "10:30 AM",
     status: "New",
     marketplace: "ONDC",
+    buyerContact: "+91 98765 43210",
+    buyerAddress:
+      "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
+    buyerCode: "BUYER-BAL-456",
+    channelOrderId: "ONDC-ORD-789456",
+    lineItems: [
+      {
+        skuCode: "180000008",
+        productName: "Freedom Refined Sunflower Oil 1L × 16",
+        company: "Gemini Edibles & Fats India",
+        brand: "Freedom",
+        category: "Edible Oil",
+        qty: 25,
+        originalPricePerUnit: 171,
+        finalPricePerUnit: 162.45,
+        discountApplied: 213.75,
+        discountDetails: "Slab 2: 12–47 qty • 5% off vs ₹171.00",
+        lineTotal: 4061.25,
+      },
+      {
+        skuCode: "SKU-AASH-10",
+        productName: "Aashirvaad Atta 10kg",
+        company: "ITC Limited",
+        brand: "Aashirvaad",
+        category: "Foodgrains",
+        qty: 20,
+        originalPricePerUnit: 450,
+        finalPricePerUnit: 420,
+        discountApplied: 600,
+        discountDetails: "Slab 2: 10–24 qty • Flat ₹30 off vs ₹450.00",
+        lineTotal: 8400,
+      },
+      {
+        skuCode: "SKU-SUNF-DF150",
+        productName: "Sunfeast Biscuits Dark Fantasy 150g",
+        company: "ITC Limited",
+        brand: "Sunfeast",
+        category: "Biscuits",
+        qty: 50,
+        originalPricePerUnit: 35,
+        finalPricePerUnit: 35,
+        discountApplied: 0,
+        discountDetails: "No Discount",
+        lineTotal: 1750,
+      },
+      {
+        skuCode: "SKU-CLAS-NB172",
+        productName: "Classmate Notebook 172 Pages",
+        company: "ITC Limited",
+        brand: "Classmate",
+        category: "Stationery",
+        qty: 30,
+        originalPricePerUnit: 45,
+        finalPricePerUnit: 45,
+        discountApplied: 0,
+        discountDetails: "No Discount",
+        lineTotal: 1350,
+      },
+      {
+        skuCode: "SKU-BING-MA90",
+        productName: "Bingo Mad Angles 90g",
+        company: "ITC Limited",
+        brand: "Bingo",
+        category: "Snacks",
+        qty: 40,
+        originalPricePerUnit: 20,
+        finalPricePerUnit: 20,
+        discountApplied: 0,
+        discountDetails: "No Discount",
+        lineTotal: 800,
+      },
+      {
+        skuCode: "SKU-YIPP-240",
+        productName: "Yippee Noodles 240g",
+        company: "ITC Limited",
+        brand: "Yippee",
+        category: "Noodles",
+        qty: 25,
+        originalPricePerUnit: 12,
+        finalPricePerUnit: 12,
+        discountApplied: 0,
+        discountDetails: "No Discount",
+        lineTotal: 300,
+      },
+    ],
   },
   {
     id: "DKN-2025-12346",
@@ -467,6 +605,78 @@ export function Orders() {
     endDate;
 
   // Handle export
+  // ---- Export helpers ----
+  // Used by handleExport to materialise rows in the same shape as the
+  // sample export sheet.
+
+  const escapeCsv = (value: string | number): string => {
+    const s = String(value);
+    return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
+  // Slugify a retailer name into a stable BUYER-XXX-### code so orders
+  // without an explicit buyerCode still get something deterministic.
+  const buyerCodeFor = (order: Order): string => {
+    if (order.buyerCode) return order.buyerCode;
+    const slug =
+      order.retailerName
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, " ")
+        .trim()
+        .split(" ")
+        .slice(0, 1)[0]
+        ?.slice(0, 3) || "BUY";
+    const tail = order.id.slice(-3);
+    return `BUYER-${slug}-${tail}`;
+  };
+
+  // Channel order ID — synthesised from marketplace + last 6 digits of
+  // the order ID when the order doesn't carry its own.
+  const channelOrderIdFor = (order: Order): string => {
+    if (order.channelOrderId) return order.channelOrderId;
+    const tail = order.id.replace(/[^0-9]/g, "").slice(-6);
+    return `${order.marketplace.toUpperCase()}-ORD-${tail}`;
+  };
+
+  // Order Status display string — matches the sample's "New Order"
+  // (instead of just "New") so the export reads as a sentence.
+  const statusLabelFor = (order: Order): string =>
+    `${order.status} Order`;
+
+  // Compose the order-date column. Sample combines date + time; we
+  // append `orderTime` when present.
+  const orderDateLabelFor = (order: Order): string =>
+    order.orderTime ? `${order.orderDate} ${order.orderTime}` : order.orderDate;
+
+  // Synthesize a single line item from `itemsSummary` for orders
+  // that don't carry full lineItems. Best-effort parsing: pulls the
+  // leading qty + product description, prices to orderValue/qty, and
+  // marks the line as no-discount.
+  const synthesizeLineItems = (order: Order): OrderLineItem[] => {
+    const m = order.itemsSummary.match(/^\s*(\d+)\s+units?\s+(.+?)\s*$/i);
+    const qty = m ? parseInt(m[1], 10) : 1;
+    const name = m ? m[2] : order.itemsSummary;
+    const ppu = qty > 0 ? +(order.orderValue / qty).toFixed(2) : order.orderValue;
+    return [
+      {
+        skuCode: `SKU-${order.id.replace(/[^0-9]/g, "").slice(-5)}`,
+        productName: name,
+        // No richer brand/company info to draw on — fall back to the
+        // order's brand and an em-dash for company. Real builds would
+        // resolve company and category from the SKU catalog.
+        company: "—",
+        brand: order.brand,
+        category: "—",
+        qty,
+        originalPricePerUnit: ppu,
+        finalPricePerUnit: ppu,
+        discountApplied: 0,
+        discountDetails: "No Discount",
+        lineTotal: order.orderValue,
+      },
+    ];
+  };
+
   const handleExport = () => {
     if (!exportStartDate || !exportEndDate) {
       toast.error("Please select both start and end dates for export");
@@ -492,40 +702,91 @@ export function Orders() {
       return;
     }
 
-    // Generate CSV content
+    // 24-column layout — mirrors the sample export sheet exactly.
+    // One row per line item; order-level fields (Original Order Value,
+    // Order Level Savings, Final Order Value) repeat on every row.
     const headers = [
+      "Invoice ID",
       "Order ID",
-      "Company / Brand",
-      "Source",
-      "Retailer Name",
-      "Order Value",
-      "Payment Mode",
+      "Order Status",
       "Order Date",
-      "Status",
-      "Marketplace",
+      "Buyer Name",
+      "Buyer Contact",
+      "Buyer Address",
+      "Buyer Code",
+      "Seller Name",
+      "Seller Contact",
+      "Seller Code",
+      "Payment Mode",
+      "Channel Order ID",
+      "Original Order Value",
+      "SKU code",
+      "Product Name",
+      "Company",
+      "Brand",
+      "Category",
+      "QTY",
+      "Original Price/Unit",
+      "Final Price/Unit",
+      "Discount Applied",
+      "Discount Details",
+      "Line Total",
+      "Order Level Savings",
+      "Final Order Value",
     ];
 
     const csvRows = [headers.join(",")];
 
     ordersToExport.forEach((order) => {
-      const row = [
-        order.id,
-        `"${order.brand}"`,
-        order.source,
-        `"${order.retailerName}"`,
-        order.orderValue,
-        order.paymentMode,
-        order.orderDate,
-        order.status,
-        order.marketplace,
-      ];
-      csvRows.push(row.join(","));
+      const lines =
+        order.lineItems && order.lineItems.length > 0
+          ? order.lineItems
+          : synthesizeLineItems(order);
+      const orderLevelSavings = lines.reduce(
+        (n, l) => n + l.discountApplied,
+        0,
+      );
+      const finalOrderValue = order.orderValue;
+      lines.forEach((item) => {
+        const row = [
+          `INV-${order.id}`,
+          order.id,
+          statusLabelFor(order),
+          orderDateLabelFor(order),
+          order.retailerName,
+          order.buyerContact ?? "",
+          order.buyerAddress ?? "",
+          buyerCodeFor(order),
+          SELLER_INFO.name,
+          SELLER_INFO.contact,
+          SELLER_INFO.code,
+          order.paymentMode,
+          channelOrderIdFor(order),
+          order.orderValue,
+          item.skuCode,
+          item.productName,
+          item.company,
+          item.brand,
+          item.category,
+          item.qty,
+          item.originalPricePerUnit,
+          item.finalPricePerUnit,
+          item.discountApplied,
+          item.discountDetails,
+          item.lineTotal,
+          orderLevelSavings,
+          finalOrderValue,
+        ];
+        csvRows.push(row.map(escapeCsv).join(","));
+      });
     });
 
-    const csvContent = csvRows.join("\n");
+    const csvContent = csvRows.join("\r\n");
 
     // Create download link
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const blob = new Blob(["﻿" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
 
@@ -1231,6 +1492,7 @@ export function Orders() {
             <Button
               variant="destructive"
               onClick={handleRejectOrders}
+              disabled={!rejectReason.trim()}
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />
