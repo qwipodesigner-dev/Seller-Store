@@ -35,6 +35,14 @@ export interface BulkImportError {
    *  row × field × message breakdown. The downloadable error
    *  report still carries every detail. */
   skuLabel?: string;
+  /** SKU Code from the uploaded row, when available. Surfaced in
+   *  the downloadable error report so operators can match a row
+   *  back to its identifier independent of the SKU Name. */
+  skuCode?: string;
+  /** Raw value the user typed in the offending cell. Surfaced in the
+   *  downloadable error report so the operator can see exactly what
+   *  needs to change without re-opening the source file. */
+  value?: string;
 }
 
 export interface BulkImportValidationResult {
@@ -160,16 +168,24 @@ export function BulkImportDialog({
   const handleDownloadErrors = () => {
     if (!result || result.errors.length === 0) return;
     // Phase 2 spec: the downloadable report carries the full
-    // SKU / Row / Column / Message detail. The on-screen UI only shows
-    // a simplified "{SKU Name} | {error count}" summary.
-    const header = ["SKU Name", "Row", "Column / Field", "Validation Message"];
+    // SKU Code / SKU Name / Field / Value / Message detail. The
+    // on-screen UI only shows a simplified
+    // "{SKU Name} | {error count}" summary.
+    const header = [
+      "SKU Code",
+      "SKU Name",
+      "Column / Field",
+      "Value Entered",
+      "Validation Message",
+    ];
     const lines = [header.join(",")];
     for (const e of result.errors) {
       lines.push(
         [
+          escapeCsv(e.skuCode ?? ""),
           escapeCsv(e.skuLabel ?? ""),
-          e.row,
           escapeCsv(e.field),
+          escapeCsv(e.value ?? ""),
           escapeCsv(e.error),
         ].join(","),
       );
