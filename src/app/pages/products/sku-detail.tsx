@@ -1113,7 +1113,10 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   return (
     <div className="space-y-3">
       {/* Sticky action bar — stays visible while the user scrolls so they can
-          always hit Save without scrolling back to the top. */}
+          always hit Save without scrolling back to the top. The page is now
+          a single unified SKU view (DMS read-only column dropped per the
+          Phase 2 spec); the only remaining badge is the Active/Inactive
+          status, surfaced through the toggle on the left. */}
       <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 gap-2 shadow-sm">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-gray-700">Item Status</span>
@@ -1121,12 +1124,6 @@ function ProductDetailsTab({ sku }: { sku: any }) {
             active={isActive}
             onChange={(v) => update("itemStatus", v ? "enable" : "disable")}
           />
-          <Badge className="bg-blue-50 text-blue-700 border-blue-200 ml-2">
-            DMS: Read-only reference
-          </Badge>
-          <Badge className="bg-green-50 text-green-700 border-green-200">
-            ONDC: Final source for publishing
-          </Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleReset}>
@@ -1649,6 +1646,18 @@ function ProductDetailsTab({ sku }: { sku: any }) {
 
 // ---------- DMS / ONDC dual-column primitives ----------
 
+// =====================================================================
+// Single-view SKU primitives (Phase 2 revamp)
+// ---------------------------------------------------------------------
+// We dropped the DMS / ONDC two-column layout. The page is now a single
+// unified SKU structure: every field has one editor (except SKU Code,
+// which is locked). Each section renders a card with a 2-column grid
+// of fields (1 column on small screens, 2 on md+). Multi-line fields
+// (Long Description, Manufacturer Address) span both columns via the
+// `multiline` flag on DualRow. The component names stay so existing
+// call sites in this file don't have to change.
+// =====================================================================
+
 function DualSection({
   title,
   icon,
@@ -1658,26 +1667,14 @@ function DualSection({
   title: string;
   icon: React.ReactNode;
   children: React.ReactNode;
-  /** Tighter vertical paddings — useful for short tabs like Price & Inventory */
+  /** Tighter vertical paddings — useful for the Price & Inventory tab. */
   dense?: boolean;
 }) {
-  // gap-0 kills the Card's built-in `gap-6` so the section title bar
-  // sits directly against the column-header row (no white strip in
-  // between). `!pb-` overrides CardHeader's built-in `[.border-b]:pb-6`
-  // so the bottom padding matches the top padding, and `m-0` on
-  // CardTitle zeroes the user-agent <h4> margins so the icon + title
-  // sit symmetrically between the top and bottom of the header bar.
   return (
     <Card className="gap-0 overflow-hidden">
       <CardHeader
         className={
-          (dense
-            ? "py-1.5 px-3 !pb-1.5"
-            : "py-2.5 px-4 !pb-2.5") +
-          // gap-0 kills CardHeader's built-in `gap-1.5` between its two
-          // grid rows (title row + an always-reserved empty
-          // CardDescription row). Without this the empty second row's
-          // 6px gap pushes the bottom padding asymmetry back.
+          (dense ? "py-1.5 px-3 !pb-1.5" : "py-2.5 px-4 !pb-2.5") +
           " gap-0 border-b border-gray-100"
         }
       >
@@ -1686,20 +1683,17 @@ function DualSection({
           {title}
         </CardTitle>
       </CardHeader>
-      <CardContent className="p-0">
-        {/* Column headers */}
-        <div className="grid grid-cols-[200px_1fr_1fr] bg-gray-50 border-b border-gray-200">
-          <div className={`${dense ? "px-3 py-1" : "px-4 py-2"} text-[10px] font-semibold text-gray-600 uppercase tracking-wider`}>
-            Field Name
-          </div>
-          <div className={`${dense ? "px-3 py-1" : "px-4 py-2"} text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200`}>
-            DMS Value (Read-only)
-          </div>
-          <div className={`${dense ? "px-3 py-1" : "px-4 py-2"} text-[10px] font-semibold text-gray-600 uppercase tracking-wider border-l border-gray-200`}>
-            ONDC Value (Editable)
-          </div>
+      <CardContent className={dense ? "p-3" : "p-4"}>
+        {/* 2-column responsive grid. Children are <DualRow>s; rows with
+            `multiline` opt into a full-width slot inside the grid. */}
+        <div
+          className={
+            "grid grid-cols-1 md:grid-cols-2 " +
+            (dense ? "gap-x-4 gap-y-2" : "gap-x-4 gap-y-3")
+          }
+        >
+          {children}
         </div>
-        <div className="divide-y divide-gray-100">{children}</div>
       </CardContent>
     </Card>
   );
@@ -1708,9 +1702,16 @@ function DualSection({
 function DualRow({
   label,
   required,
+  // ondcRequired is preserved for prop-signature compatibility but now
+  // collapses into the same red asterisk as `required` — the dual-mode
+  // distinction is gone in the unified view.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   ondcRequired,
   conditional,
   help,
+  // dms is preserved for prop compat but no longer rendered. Old call
+  // sites that pass dms={dms.someField} are simply ignored.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   dms,
   ondc,
   multiline,
@@ -1723,18 +1724,24 @@ function DualRow({
   help?: string;
   dms: React.ReactNode;
   ondc: React.ReactNode;
+  /** When true, the field spans both columns of the section's grid —
+   *  used for Long Description, Manufacturer Address, etc. */
   multiline?: boolean;
-  /** Tighter vertical paddings — useful for short tabs like Price & Inventory */
+  /** Inherited from DualSection; controls vertical density. */
   dense?: boolean;
 }) {
-  const cellPad = dense ? "px-3 py-1.5" : "px-4 py-3";
   return (
-    <div className="grid grid-cols-[200px_1fr_1fr] hover:bg-gray-50/40 transition-colors">
-      <div className={`${cellPad} flex items-center flex-wrap gap-1`}>
-        <span className="text-sm font-medium text-gray-700">
+    <div
+      className={
+        (multiline ? "md:col-span-2 " : "") +
+        (dense ? "space-y-1" : "space-y-1.5")
+      }
+    >
+      <div className="flex items-center gap-1.5 flex-wrap">
+        <Label className="text-xs font-medium text-gray-700">
           {label}
           {required && <span className="text-red-500 ml-0.5">*</span>}
-        </span>
+        </Label>
         {conditional && (
           <span
             className="inline-flex items-center shrink-0 px-1 py-0.5 rounded text-[9px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 leading-none"
@@ -1743,20 +1750,11 @@ function DualRow({
             Cond.
           </span>
         )}
-        {help && !dense && (
-          <p className="text-[10px] text-gray-500 leading-tight w-full mt-0.5">{help}</p>
-        )}
       </div>
-      <div className={`${cellPad} border-l border-gray-100`}>
-        {typeof dms === "string" ? (
-          <p className={`text-sm text-gray-900 ${multiline ? "whitespace-pre-wrap" : ""}`}>
-            {dms || "—"}
-          </p>
-        ) : (
-          dms
-        )}
-      </div>
-      <div className={`${cellPad} border-l border-gray-100`}>{ondc}</div>
+      <div>{ondc}</div>
+      {help && (
+        <p className="text-[11px] text-gray-500 leading-tight">{help}</p>
+      )}
     </div>
   );
 }

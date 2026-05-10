@@ -29,6 +29,12 @@ export interface BulkImportError {
   row: number;
   field: string;
   error: string;
+  /** Optional SKU-level grouping key — when present, the simplified
+   *  error UI groups rows by this label (e.g. SKU Name) and shows
+   *  only "{skuLabel} | {errorCount} errors" instead of the full
+   *  row × field × message breakdown. The downloadable error
+   *  report still carries every detail. */
+  skuLabel?: string;
 }
 
 export interface BulkImportValidationResult {
@@ -152,11 +158,19 @@ export function BulkImportDialog({
 
   const handleDownloadErrors = () => {
     if (!result || result.errors.length === 0) return;
-    const header = ["Row", "Field", "Error"];
+    // Phase 2 spec: the downloadable report carries the full
+    // SKU / Row / Column / Message detail. The on-screen UI only shows
+    // a simplified "{SKU Name} | {error count}" summary.
+    const header = ["SKU Name", "Row", "Column / Field", "Validation Message"];
     const lines = [header.join(",")];
     for (const e of result.errors) {
       lines.push(
-        [e.row, escapeCsv(e.field), escapeCsv(e.error)].join(","),
+        [
+          escapeCsv(e.skuLabel ?? ""),
+          e.row,
+          escapeCsv(e.field),
+          escapeCsv(e.error),
+        ].join(","),
       );
     }
     const csv = lines.join("\r\n");
@@ -440,39 +454,62 @@ function ResultsStep({ result }: { result: BulkImportValidationResult }) {
         />
       </div>
 
-      {/* Error table */}
+      {/* Simplified SKU-grouped error summary. Phase 2 spec: keep the
+          UI light because a full row × field × message table at SKU
+          scale is unreadable. We collapse to "{SKU Name} | {N errors}"
+          and rely on the Download Error Report button below to carry
+          the detailed breakdown. */}
       {result.errors.length > 0 ? (
         <div className="rounded-lg border border-red-200 overflow-hidden">
-          <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-red-600" />
-            <p className="text-sm font-semibold text-red-900">
-              {result.errors.length} validation error
-              {result.errors.length === 1 ? "" : "s"}
+          <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 text-red-600" />
+              <p className="text-sm font-semibold text-red-900">
+                {result.errors.length} validation error
+                {result.errors.length === 1 ? "" : "s"}
+              </p>
+            </div>
+            <p className="text-[11px] text-red-700">
+              Download the report below for full row-level details.
             </p>
           </div>
           <div className="max-h-[280px] overflow-y-auto">
             <table className="w-full text-xs">
               <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                 <tr>
-                  <th className="text-left px-4 py-2 font-semibold text-gray-700 w-20">
-                    Row
-                  </th>
-                  <th className="text-left px-4 py-2 font-semibold text-gray-700 w-40">
-                    Field
-                  </th>
                   <th className="text-left px-4 py-2 font-semibold text-gray-700">
-                    Error
+                    SKU Name
+                  </th>
+                  <th className="text-right px-4 py-2 font-semibold text-gray-700 w-32">
+                    Errors
                   </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {result.errors.map((e, i) => (
-                  <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-4 py-2 font-mono text-gray-600">{e.row}</td>
-                    <td className="px-4 py-2 text-gray-700">{e.field}</td>
-                    <td className="px-4 py-2 text-red-700">{e.error}</td>
-                  </tr>
-                ))}
+                {(() => {
+                  // Group errors by skuLabel (or fall back to "Row N"
+                  // when callers haven't yet plumbed the label through).
+                  const groups = new Map<string, number>();
+                  result.errors.forEach((e) => {
+                    const key = e.skuLabel?.trim() || `Row ${e.row}`;
+                    groups.set(key, (groups.get(key) ?? 0) + 1);
+                  });
+                  const rows = Array.from(groups.entries()).sort(
+                    (a, b) => b[1] - a[1],
+                  );
+                  return rows.map(([sku, count]) => (
+                    <tr key={sku} className="hover:bg-gray-50">
+                      <td className="px-4 py-2 text-gray-900 truncate max-w-[480px]">
+                        {sku}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-red-50 text-red-700 border border-red-200">
+                          {count}
+                        </span>
+                      </td>
+                    </tr>
+                  ));
+                })()}
               </tbody>
             </table>
           </div>
