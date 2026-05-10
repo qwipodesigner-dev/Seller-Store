@@ -23,6 +23,14 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
+import {
   ArrowLeft,
   MapPin,
   User as UserIcon,
@@ -44,6 +52,7 @@ import {
 import {
   getDemoCustomerById,
   setDemoCompanyDeliveryDay,
+  setDemoStatus,
   subscribeToDemoCustomers,
   type DemoCustomer,
 } from "../lib/customers-demo-data";
@@ -64,6 +73,29 @@ export function CustomerDemoDetail() {
       setCustomer(getDemoCustomerById(customerId) ?? null);
     });
   }, [customerId]);
+
+  // Block / Unblock confirmation. The action lives on the detail page
+  // now (per spec) so the seller acknowledges the consequence in
+  // context, with the customer's full record in front of them.
+  const [pendingBlockToggle, setPendingBlockToggle] = useState<
+    "block" | "unblock" | null
+  >(null);
+
+  const handleConfirmBlockToggle = () => {
+    if (!customer || !pendingBlockToggle) return;
+    if (pendingBlockToggle === "block") {
+      setDemoStatus([customer.customerId], "Blocked");
+      toast.success(
+        `${customer.businessName} has been blocked — no new orders until you unblock.`,
+      );
+    } else {
+      setDemoStatus([customer.customerId], "Active");
+      toast.success(
+        `${customer.businessName} is active again and can place orders.`,
+      );
+    }
+    setPendingBlockToggle(null);
+  };
 
   if (!customer) {
     return (
@@ -127,7 +159,9 @@ export function CustomerDemoDetail() {
 
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
-      {/* Header — store name + owner + phone, matching the canonical page */}
+      {/* Header — store name + owner + phone, plus the Block / Unblock
+          action pulled in from the list page so it's reviewed in
+          context with the customer's full record. */}
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
@@ -157,6 +191,28 @@ export function CustomerDemoDetail() {
           <p className="text-sm text-gray-600 truncate">
             {customer.customerName} · {customer.mobile}
           </p>
+        </div>
+        <div className="shrink-0">
+          {customer.status === "Active" ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
+              onClick={() => setPendingBlockToggle("block")}
+            >
+              <Ban className="h-4 w-4" />
+              Block Customer
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
+              onClick={() => setPendingBlockToggle("unblock")}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+              Unblock Customer
+            </Button>
+          )}
         </div>
       </div>
 
@@ -451,6 +507,77 @@ export function CustomerDemoDetail() {
           </Card>
         </div>
       </div>
+
+      {/* Block / Unblock confirmation. Both directions get a popup so
+          the seller acknowledges the consequence — block stops new
+          orders until manually unblocked; unblock lets the customer
+          place orders again. */}
+      <Dialog
+        open={pendingBlockToggle !== null}
+        onOpenChange={(o) => !o && setPendingBlockToggle(null)}
+      >
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {pendingBlockToggle === "block" ? (
+                <>
+                  <Ban className="h-5 w-5 text-red-600" />
+                  Block this customer?
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+                  Unblock this customer?
+                </>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {pendingBlockToggle === "block"
+                ? `${customer.businessName} won't be able to place new orders until you manually unblock them. Existing orders are not affected.`
+                : `${customer.businessName} will be able to place orders again immediately.`}
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            className={
+              pendingBlockToggle === "block"
+                ? "bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900"
+                : "bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900"
+            }
+          >
+            {pendingBlockToggle === "block" ? (
+              <>
+                <b>Heads up:</b> there is no auto-unblock — you'll need to
+                come back here and reverse this manually.
+              </>
+            ) : (
+              <>
+                The customer will see your storefront as available the next
+                time they check in.
+              </>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setPendingBlockToggle(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmBlockToggle}
+              className={
+                pendingBlockToggle === "block"
+                  ? "bg-red-600 hover:bg-red-700 text-white"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
+              }
+            >
+              {pendingBlockToggle === "block"
+                ? "Yes, block customer"
+                : "Yes, unblock customer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
