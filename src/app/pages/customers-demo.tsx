@@ -161,12 +161,8 @@ export function CustomersDemo() {
   const [assignDay, setAssignDay] = useState<DeliveryDay | "">("");
   const [assignError, setAssignError] = useState<string | null>(null);
 
-  // Block confirmation dialog — single OR bulk depending on
-  // whether a single customerId is set.
-  const [blockTarget, setBlockTarget] = useState<{
-    mode: "single" | "bulk";
-    customerIds: string[];
-  } | null>(null);
+  // Block / Unblock has moved to the detail page; the list no longer
+  // needs the dialog target state.
 
   // Linked Companies popup — shows the per-company breakdown for one
   // customer. Triggered by clicking the count badge in the Company
@@ -341,39 +337,8 @@ export function CustomersDemo() {
     );
   };
 
-  // ---- Block flow ----
-  const openBlockBulk = () => {
-    setBlockTarget({ mode: "bulk", customerIds: Array.from(selected) });
-  };
-
-  const openBlockSingle = (customerId: string) => {
-    setBlockTarget({ mode: "single", customerIds: [customerId] });
-  };
-
-  const handleConfirmBlock = () => {
-    if (!blockTarget) return;
-    const ids = new Set(blockTarget.customerIds);
-    setCustomers((prev) =>
-      prev.map((c) =>
-        ids.has(c.customerId) ? { ...c, status: "Blocked" } : c,
-      ),
-    );
-    toast.success(
-      `${ids.size} customer${ids.size === 1 ? "" : "s"} blocked.`,
-    );
-    setBlockTarget(null);
-    clearSelection();
-  };
-
-  // ---- Unblock — convenience action on per-row blocked state ----
-  const handleUnblock = (customerId: string) => {
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.customerId === customerId ? { ...c, status: "Active" } : c,
-      ),
-    );
-    toast.success("Customer unblocked — they can place orders again.");
-  };
+  // Block / Unblock now lives on the detail page (lib/customers-demo-
+  // data.ts → setDemoStatus). No list-side handlers needed.
 
   // ---- Export ----
   // CSV stays at line-item resolution (one row per (customer ×
@@ -559,15 +524,9 @@ export function CustomersDemo() {
                   <Calendar className="h-3.5 w-3.5 text-blue-700" />
                   Assign Delivery Day
                 </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
-                  onClick={openBlockBulk}
-                >
-                  <Ban className="h-3.5 w-3.5" />
-                  Block Selected
-                </Button>
+                {/* Bulk Block was removed alongside the per-row Block/
+                    Unblock buttons — Block / Unblock now lives on the
+                    detail page so each block is reviewed in context. */}
               </div>
             </div>
           )}
@@ -763,27 +722,11 @@ export function CustomersDemo() {
                               <Eye className="h-3.5 w-3.5" />
                               View
                             </Button>
-                            {c.status === "Active" ? (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1 text-red-700 hover:bg-red-50 hover:text-red-700 h-8"
-                                onClick={() => openBlockSingle(c.customerId)}
-                              >
-                                <Ban className="h-3.5 w-3.5" />
-                                Block
-                              </Button>
-                            ) : (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-1 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700 h-8"
-                                onClick={() => handleUnblock(c.customerId)}
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />
-                                Unblock
-                              </Button>
-                            )}
+                            {/* Block / Unblock has moved to the detail
+                                page so the seller acknowledges the
+                                consequence in context, with the full
+                                customer + linked-companies view in
+                                front of them. */}
                           </div>
                         </td>
                       </tr>
@@ -987,38 +930,8 @@ export function CustomersDemo() {
         </DialogContent>
       </Dialog>
 
-      {/* Block confirmation dialog */}
-      <Dialog
-        open={blockTarget !== null}
-        onOpenChange={(o) => !o && setBlockTarget(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-700">
-              <Ban className="h-5 w-5" />
-              Block customer
-              {blockTarget && blockTarget.customerIds.length === 1 ? "" : "s"}
-            </DialogTitle>
-            <DialogDescription>
-              {blockTarget?.mode === "single"
-                ? "This customer won't be able to place new orders. You can unblock them at any time."
-                : `${blockTarget?.customerIds.length ?? 0} customer${(blockTarget?.customerIds.length ?? 0) === 1 ? "" : "s"} will be blocked. Affected customers can no longer place orders until you unblock them.`}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBlockTarget(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmBlock}
-              className="bg-red-600 hover:bg-red-700 text-white gap-2"
-            >
-              <Ban className="h-4 w-4" />
-              Confirm Block
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Block / Unblock dialogs are gone from the list page — they
+          live on the detail page now. */}
 
       {/* Linked Companies popup — per-company breakdown for one
           customer. Mirrors the canonical "Linked Companies" popup
