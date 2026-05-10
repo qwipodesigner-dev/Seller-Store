@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { Card } from "../components/ui/card";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -31,6 +32,7 @@ import {
   X,
   AlertCircle,
   ChevronRight,
+  Eye,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -40,6 +42,13 @@ import {
   NEXT_DAY,
   type DeliveryDay,
 } from "../lib/customers-data";
+import {
+  getDemoCustomers,
+  setDemoCustomers,
+  subscribeToDemoCustomers,
+  type CompanyLink as SharedCompanyLink,
+  type DemoCustomer as SharedDemoCustomer,
+} from "../lib/customers-demo-data";
 
 // =====================================================================
 // Customers 2 — empty-mode demo of the auto-register flow.
@@ -65,153 +74,15 @@ import {
 // /customers-demo and surfaced only on the empty-mode sidebar.
 // =====================================================================
 
-/** A single (company → delivery day) pairing for a customer. */
-interface CompanyLink {
-  companyId: string;
-  companyName: string;
-  deliveryDay: DeliveryDay | null;
-}
-
-interface DemoCustomer {
-  customerId: string;
-  customerName: string;
-  businessName: string;
-  mobile: string;
-  area: string;
-  pincode: string;
-  classType: "Wholesaler" | "Kirana" | "Modern Trade" | "HoReCa";
-  /** First-order auto-registration date (drives the Registered On column). */
-  registeredDate: string;
-  totalOrders: number;
-  /** Companies the customer buys from. Length ≥ 1. */
-  companies: CompanyLink[];
-  status: "Active" | "Blocked";
-}
+// Types and seed live in lib/customers-demo-data.ts so the list page and
+// the new detail page (customer-demo-detail.tsx) share the same store —
+// a delivery-day change made on either surface is immediately visible
+// on the other.
+type CompanyLink = SharedCompanyLink;
+type DemoCustomer = SharedDemoCustomer;
 
 // Seed data — 7 customers, two of whom span multiple companies so the
 // count badge has interesting cases.
-const seedCustomers: DemoCustomer[] = [
-  {
-    customerId: "c1",
-    customerName: "Priya Singh",
-    businessName: "Sunshine Kirana",
-    mobile: "+91 98765 43222",
-    area: "Indiranagar",
-    pincode: "560038",
-    classType: "Kirana",
-    registeredDate: "2026-04-12",
-    totalOrders: 14,
-    companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Wednesday" },
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Monday" },
-    ],
-    status: "Active",
-  },
-  {
-    customerId: "c2",
-    customerName: "Lakshmi Rao",
-    businessName: "Annapurna Wholesale",
-    mobile: "+91 98765 43224",
-    area: "Secunderabad",
-    pincode: "500003",
-    classType: "Wholesaler",
-    registeredDate: "2026-04-08",
-    totalOrders: 47,
-    companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Friday" },
-    ],
-    status: "Active",
-  },
-  {
-    customerId: "c3",
-    customerName: "Ramesh Patel",
-    businessName: "Patel Provision Store",
-    mobile: "+91 98765 43225",
-    area: "Andheri West",
-    pincode: "400058",
-    classType: "Kirana",
-    registeredDate: "2026-04-22",
-    totalOrders: 6,
-    companies: [
-      {
-        companyId: "co-freedom",
-        companyName: "Gemini Edibles & Fats India",
-        deliveryDay: null,
-      },
-    ],
-    status: "Active",
-  },
-  {
-    customerId: "c4",
-    customerName: "Suresh Kumar",
-    businessName: "City Supermart",
-    mobile: "+91 98765 43226",
-    area: "Connaught Place",
-    pincode: "110001",
-    classType: "Modern Trade",
-    registeredDate: "2026-03-30",
-    totalOrders: 92,
-    companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Tuesday" },
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Thursday" },
-      {
-        companyId: "co-freedom",
-        companyName: "Gemini Edibles & Fats India",
-        deliveryDay: NEXT_DAY,
-      },
-    ],
-    status: "Active",
-  },
-  {
-    customerId: "c5",
-    customerName: "Anand Sharma",
-    businessName: "Anand General Store",
-    mobile: "+91 98765 43227",
-    area: "Banjara Hills",
-    pincode: "500034",
-    classType: "Kirana",
-    registeredDate: "2026-04-25",
-    totalOrders: 3,
-    companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: null },
-    ],
-    status: "Active",
-  },
-  {
-    customerId: "c6",
-    customerName: "Vikram Shah",
-    businessName: "Urban Kirana Stores",
-    mobile: "+91 98765 43228",
-    area: "Bandra",
-    pincode: "400050",
-    classType: "Kirana",
-    registeredDate: "2026-04-18",
-    totalOrders: 22,
-    companies: [
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Saturday" },
-    ],
-    status: "Active",
-  },
-  {
-    customerId: "c7",
-    customerName: "Meena Iyer",
-    businessName: "Coast Grocers Ltd",
-    mobile: "+91 98765 43229",
-    area: "T. Nagar",
-    pincode: "600017",
-    classType: "Wholesaler",
-    registeredDate: "2026-04-02",
-    totalOrders: 38,
-    companies: [
-      {
-        companyId: "co-freedom",
-        companyName: "Gemini Edibles & Fats India",
-        deliveryDay: "Wednesday",
-      },
-    ],
-    status: "Blocked",
-  },
-];
 
 // CSV escape helper (one row per customer, with company list joined).
 const escapeCsv = (v: string | number) => {
@@ -248,7 +119,30 @@ const summariseDays = (companies: CompanyLink[]): DaySummary => {
 };
 
 export function CustomersDemo() {
-  const [customers, setCustomers] = useState<DemoCustomer[]>(seedCustomers);
+  const navigate = useNavigate();
+  // Source of truth lives in lib/customers-demo-data.ts. We mirror it
+  // in local state and re-pull on every store-change notification so
+  // mutations from the detail page (or anywhere else) re-render here.
+  const [customers, setCustomersState] = useState<DemoCustomer[]>(() =>
+    getDemoCustomers(),
+  );
+  useEffect(() => {
+    return subscribeToDemoCustomers(() =>
+      setCustomersState([...getDemoCustomers()]),
+    );
+  }, []);
+  // Keep the existing `setCustomers(prev => …)` call sites working by
+  // routing them through the shared store. Plain replacement saves
+  // touching every site below.
+  const setCustomers = (
+    updater:
+      | ((prev: DemoCustomer[]) => DemoCustomer[])
+      | DemoCustomer[],
+  ) => {
+    const next =
+      typeof updater === "function" ? updater(getDemoCustomers()) : updater;
+    setDemoCustomers(next);
+  };
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
@@ -755,12 +649,21 @@ export function CustomersDemo() {
                           />
                         </td>
                         <td className="px-4 py-3">
-                          <p className="font-medium text-gray-900 text-sm">
-                            {c.customerName}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {c.businessName}
-                          </p>
+                          <button
+                            type="button"
+                            className="text-left hover:underline focus:outline-none focus-visible:underline"
+                            onClick={() =>
+                              navigate(`/customers-demo/${c.customerId}`)
+                            }
+                            title={`View details for ${c.customerName}`}
+                          >
+                            <p className="font-medium text-gray-900 text-sm">
+                              {c.customerName}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {c.businessName}
+                            </p>
+                          </button>
                         </td>
                         <td className="px-4 py-3">
                           <Badge
@@ -847,27 +750,41 @@ export function CustomersDemo() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right">
-                          {c.status === "Active" ? (
+                          <div className="inline-flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="gap-1 text-red-700 hover:bg-red-50 hover:text-red-700 h-8"
-                              onClick={() => openBlockSingle(c.customerId)}
+                              className="gap-1 text-blue-700 hover:bg-blue-50 hover:text-blue-700 h-8"
+                              onClick={() =>
+                                navigate(`/customers-demo/${c.customerId}`)
+                              }
+                              title={`View details for ${c.customerName}`}
                             >
-                              <Ban className="h-3.5 w-3.5" />
-                              Block
+                              <Eye className="h-3.5 w-3.5" />
+                              View
                             </Button>
-                          ) : (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-1 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700 h-8"
-                              onClick={() => handleUnblock(c.customerId)}
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              Unblock
-                            </Button>
-                          )}
+                            {c.status === "Active" ? (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-red-700 hover:bg-red-50 hover:text-red-700 h-8"
+                                onClick={() => openBlockSingle(c.customerId)}
+                              >
+                                <Ban className="h-3.5 w-3.5" />
+                                Block
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-1 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-700 h-8"
+                                onClick={() => handleUnblock(c.customerId)}
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                Unblock
+                              </Button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );

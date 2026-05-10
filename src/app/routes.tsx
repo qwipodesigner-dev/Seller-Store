@@ -8,6 +8,7 @@ import { OrderDetail } from "./pages/order-detail";
 import { Customers } from "./pages/customers";
 import { CustomerDetail } from "./pages/customer-detail";
 import { CustomersDemo } from "./pages/customers-demo";
+import { CustomerDemoDetail } from "./pages/customer-demo-detail";
 import { Profile } from "./pages/profile";
 import { Connectors } from "./pages/connectors";
 import { ConnectorDetail } from "./pages/connector-detail";
@@ -124,6 +125,7 @@ export const router = createBrowserRouter([
       // and clubbed-by-company rows. Built as a parallel page so the
       // existing Customers screen is left untouched.
       { path: "customers-demo", Component: CustomersDemo },
+      { path: "customers-demo/:customerId", Component: CustomerDemoDetail },
       { path: "profile", Component: Profile },
       { path: "connectors", Component: Connectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },
