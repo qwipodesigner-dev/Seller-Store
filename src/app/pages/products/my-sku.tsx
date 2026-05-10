@@ -510,6 +510,8 @@ export function MySKU() {
             field: f.header,
             error: `${f.header} is required.`,
             skuLabel,
+            skuCode,
+            value,
           });
           return;
         }
@@ -520,12 +522,16 @@ export function MySKU() {
             field: f.header,
             error: `${f.header} must be one of: ${f.options.join(", ")}.`,
             skuLabel,
+            skuCode,
+            value,
           });
         }
       });
 
       // Field-specific format checks (only the rules the schema can't
-      // express declaratively).
+      // express declaratively). Every push carries skuCode + the
+      // exact value so the downloadable error report can show
+      // SKU Code, SKU Name, Field, Value Entered, Validation Message.
       if (skuCode) {
         if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
           rowErrors.push({
@@ -533,6 +539,8 @@ export function MySKU() {
             field: "SKU Code",
             error: "SKU Code must be alphanumeric (letters, digits, dashes, underscores).",
             skuLabel,
+            skuCode,
+            value: skuCode,
           });
         } else if (seenCodes.has(skuCode)) {
           rowErrors.push({
@@ -540,6 +548,8 @@ export function MySKU() {
             field: "SKU Code",
             error: "Duplicate SKU Code in this file.",
             skuLabel,
+            skuCode,
+            value: skuCode,
           });
         } else if (existing.has(skuCode)) {
           rowErrors.push({
@@ -547,6 +557,8 @@ export function MySKU() {
             field: "SKU Code",
             error: `SKU "${skuCode}" already exists. Use the Price & Stock Update flow to modify it.`,
             skuLabel,
+            skuCode,
+            value: skuCode,
           });
         }
       }
@@ -556,6 +568,8 @@ export function MySKU() {
           field: "SKU Name",
           error: "SKU Name must be between 3 and 100 characters.",
           skuLabel,
+          skuCode,
+          value: skuName,
         });
       }
 
@@ -566,6 +580,8 @@ export function MySKU() {
           field: "Short Description",
           error: "Short Description must be between 10 and 150 characters.",
           skuLabel,
+          skuCode,
+          value: shortDesc,
         });
       }
       const longDesc = (row.longDesc ?? "").trim();
@@ -575,6 +591,8 @@ export function MySKU() {
           field: "Long Description",
           error: "Long Description can't exceed 200 characters.",
           skuLabel,
+          skuCode,
+          value: longDesc,
         });
       }
 
@@ -590,6 +608,8 @@ export function MySKU() {
           field: "Unit Value",
           error: "Unit Value must be a positive whole number.",
           skuLabel,
+          skuCode,
+          value: row.measureValue,
         });
       }
       if (row.unitizedCount && !positiveInt(row.unitizedCount)) {
@@ -598,6 +618,8 @@ export function MySKU() {
           field: "Pack Size",
           error: "Pack Size must be a positive whole number.",
           skuLabel,
+          skuCode,
+          value: row.unitizedCount,
         });
       }
       if (row.upc && !numericOnly(row.upc)) {
@@ -606,6 +628,8 @@ export function MySKU() {
           field: "UPC",
           error: "UPC must contain digits only.",
           skuLabel,
+          skuCode,
+          value: row.upc,
         });
       }
       if (row.skuWeight) {
@@ -616,6 +640,8 @@ export function MySKU() {
             field: "SKU Weight (kg)",
             error: "SKU Weight must be a positive number.",
             skuLabel,
+            skuCode,
+            value: row.skuWeight,
           });
         }
       }
@@ -631,6 +657,8 @@ export function MySKU() {
           field: "Min Order Quantity",
           error: "Min Order Quantity must be a positive whole number.",
           skuLabel,
+          skuCode,
+          value: row.minimumOrderQty,
         });
       }
       if (row.maximumOrderQty && (!Number.isInteger(maxQ!) || maxQ! <= 0)) {
@@ -639,6 +667,8 @@ export function MySKU() {
           field: "Max Order Quantity",
           error: "Max Order Quantity must be a positive whole number.",
           skuLabel,
+          skuCode,
+          value: row.maximumOrderQty,
         });
       }
       if (
@@ -653,6 +683,8 @@ export function MySKU() {
           field: "Min Order Quantity",
           error: "Min Order Quantity can't be greater than Max Order Quantity.",
           skuLabel,
+          skuCode,
+          value: `Min ${row.minimumOrderQty} > Max ${row.maximumOrderQty}`,
         });
       }
 
@@ -663,6 +695,8 @@ export function MySKU() {
           field: "Customer Care Name",
           error: "Customer Care Name can only contain letters.",
           skuLabel,
+          skuCode,
+          value: row.consumerCareContactName,
         });
       }
       if (
@@ -674,6 +708,8 @@ export function MySKU() {
           field: "Customer Care Email",
           error: "Customer Care Email must be a valid email address.",
           skuLabel,
+          skuCode,
+          value: row.consumerCareContactEmail,
         });
       }
       if (
@@ -685,6 +721,8 @@ export function MySKU() {
           field: "Customer Care Phone",
           error: "Customer Care Phone must be exactly 10 digits.",
           skuLabel,
+          skuCode,
+          value: row.consumerCareContactPhone,
         });
       }
       if (
@@ -697,6 +735,8 @@ export function MySKU() {
           field: "Manufacturer Address",
           error: "Manufacturer Address must be 10–250 characters.",
           skuLabel,
+          skuCode,
+          value: row.manufacturerAddress,
         });
       }
 
