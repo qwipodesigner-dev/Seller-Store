@@ -220,120 +220,90 @@ const breaks = {
 
 const allBreakNames = Object.keys(breaks);
 
-const makeBadRow = (skuCode, skuName, breakNames) => {
-  const row = { ...baseline, skuCode, skuName };
+// Bad rows look exactly like real product rows. Only the breaks that
+// specifically test SKU Code / SKU Name will overwrite those fields
+// — everything else stays clean (TEST_NNN code + a real product
+// name) so the validation UI shows the actual file values.
+const makeBadRow = (testIndex, breakNames) => {
+  const row = { ...baseline };
+  // Pick a clean code + product name. Some break functions
+  // overwrite these on purpose; the rest leave them alone.
+  row.skuCode = `TEST_${String(testIndex).padStart(3, "0")}`;
+  row.skuName = productNames[(testIndex - 1) % productNames.length];
+  // Vary other fields so the row reads like a real product import.
+  row.shortDesc = `${row.skuName.split(" ").slice(0, 4).join(" ")} — premium variant`;
+  row.measureUnit = pickRandom(measureUnits);
+  row.measureValue = String(Math.floor(Math.random() * 10) + 1);
+  row.upc = String(8901234567000 + testIndex);
+  row.skuWeight = (Math.random() * 5 + 0.1).toFixed(2);
+  row.maximumOrderQty = String(50 + testIndex * 5);
+  row.categoryId = pickRandom(categories);
+  row.locationId = pickRandom(["Warehouse 1", "Warehouse 2", "Warehouse 3"]);
+  row.returnable = pickRandom(["Yes", "No"]);
+  row.cancellable = pickRandom(["Yes", "No"]);
+  row.availableOnCod = pickRandom(["Yes", "No"]);
+  row.timeToShip = pickRandom(["24 hours", "36 hours", "48 hours"]);
+  const cIdx = testIndex % companies.length;
+  row.manufacturerName = companies[cIdx];
+  row.brandAttribute = brands[cIdx];
+  // Apply the breaks last so they win over any randomised values
+  // that happen to land in the same field.
   breakNames.forEach((name) => breaks[name](row));
   return row;
 };
 
 const badRows = [];
 
-// 1) SKU with exactly 1 mistake
-badRows.push(
-  makeBadRow("BAD_001_ONE_MISTAKE", "One mistake — bad email only",
-    ["badCcEmail"]),
-);
-
-// 2) Six SKUs with 2 mistakes each (spread across rule families)
-[
-  ["BAD_002_TWO_MIST",   "Bad SKU code + bad measure unit",        ["badSkuCodeFormat", "badMeasureUnit"]],
-  ["BAD_003_TWO_MIST",   "Short desc + bad email",                 ["shortShortDesc", "badCcEmail"]],
-  ["BAD_004_TWO_MIST",   "Bad UPC + bad weight",                   ["badUpc", "badSkuWeight"]],
-  ["BAD_005_TWO_MIST",   "Bad category + bad time-to-ship",        ["badCategory", "badTimeToShip"]],
-  ["BAD_006_TWO_MIST",   "Bad cc name + bad cc phone",             ["badCcName", "badCcPhone"]],
-  ["BAD_007_TWO_MIST",   "Bad returnable + bad COD",               ["badReturnable", "badCod"]],
-].forEach((t) => badRows.push(makeBadRow(t[0], t[1], t[2])));
-
-// 3) Five SKUs with 4 mistakes each
-[
-  ["BAD_008_FOUR_MIST",  "4 mistakes — text/length",
-    ["shortSkuName", "shortShortDesc", "longLongDesc", "shortMfgAddress"]],
-  ["BAD_009_FOUR_MIST",  "4 mistakes — dropdown chaos",
-    ["badMeasureUnit", "badCategory", "badLocation", "badCountry"]],
-  ["BAD_010_FOUR_MIST",  "4 mistakes — numeric chaos",
-    ["badMeasureValue", "badUnitizedCount", "badUpc", "badSkuWeight"]],
-  ["BAD_011_FOUR_MIST",  "4 mistakes — yes/no chaos",
-    ["badReturnable", "badCancellable", "badCod", "badItemStatus"]],
-  ["BAD_012_FOUR_MIST",  "4 mistakes — customer care",
-    ["badCcName", "badCcEmail", "badCcPhone", "badTimeToShip"]],
+// Distribute exactly 20 bad rows with the requested error counts:
+//   1 row × 1 mistake
+//   1 row × 10 mistakes
+//   1 row × max (every rule broken)
+//   17 rows × 2..9 mistakes (varied)
+const badRecipes = [
+  // 1 mistake
+  { mistakes: ["badCcEmail"] },
+  // 2 mistakes
+  { mistakes: ["badSkuCodeFormat", "badMeasureUnit"] },
+  { mistakes: ["shortShortDesc", "badCcEmail"] },
+  { mistakes: ["badUpc", "badSkuWeight"] },
+  { mistakes: ["badCategory", "badTimeToShip"] },
+  { mistakes: ["badCcName", "badCcPhone"] },
+  { mistakes: ["badReturnable", "badCod"] },
+  // 3 mistakes
+  { mistakes: ["shortShortDesc", "badCcEmail", "badCcPhone"] },
+  { mistakes: ["badCategory", "badCountry", "badItemStatus"] },
+  { mistakes: ["badUpc", "minGreaterThanMax", "badSkuWeight"] },
+  // 4 mistakes
+  { mistakes: ["shortSkuName", "shortShortDesc", "longLongDesc", "shortMfgAddress"] },
+  // 5 mistakes
+  { mistakes: ["badMeasureUnit", "badCategory", "badLocation", "badCountry", "badTimeToShip"] },
+  // 6 mistakes
+  { mistakes: ["badMeasureValue", "badUnitizedCount", "badUpc", "badSkuWeight", "badReturnable", "badCod"] },
+  // 7 mistakes
+  { mistakes: ["badCcName", "badCcEmail", "badCcPhone", "badTimeToShip", "badReturnable", "badCancellable", "badItemStatus"] },
+  // 8 mistakes
+  { mistakes: ["shortSkuName", "shortShortDesc", "longLongDesc", "badMeasureUnit", "badUpc", "badCategory", "badCcEmail", "badCountry"] },
+  // 9 mistakes
+  { mistakes: ["badSkuCodeFormat", "shortSkuName", "shortShortDesc", "longLongDesc", "badMeasureUnit", "badMeasureValue", "badUpc", "badCategory", "badCountry"] },
+  // 10 mistakes (the "exactly 10" requested case)
+  { mistakes: ["badSkuCodeFormat", "shortSkuName", "shortShortDesc", "longLongDesc", "badMeasureUnit", "badMeasureValue", "badUpc", "badSkuWeight", "minGreaterThanMax", "badCategory"] },
+  // Two more fillers
+  { mistakes: ["badReturnable", "badCancellable", "badCod", "badFulfillment", "badLocation"] },
+  { mistakes: ["shortSkuName", "longShortDesc", "badMeasureValue", "badUnitizedCount", "badCcEmail", "badItemStatus"] },
+  // Max — every rule broken
+  { mistakes: allBreakNames },
 ];
 
-// 4) Five SKUs with 5–9 mistakes each (varied)
-[
-  ["BAD_008_FOUR_MIST",  "Text/length issues",
-    ["shortSkuName", "shortShortDesc", "longLongDesc", "shortMfgAddress"]],
-  ["BAD_009_FIVE_MIST",  "Dropdown chaos",
-    ["badMeasureUnit", "badCategory", "badLocation", "badCountry", "badTimeToShip"]],
-  ["BAD_010_SIX_MIST",   "Numeric + yes-no chaos",
-    ["badMeasureValue", "badUnitizedCount", "badUpc", "badSkuWeight",
-     "badReturnable", "badCod"]],
-  ["BAD_011_SEVEN_MIST", "Customer care + dropdowns",
-    ["badCcName", "badCcEmail", "badCcPhone", "badTimeToShip",
-     "badReturnable", "badCancellable", "badItemStatus"]],
-  ["BAD_012_EIGHT_MIST", "Mixed bag — eight rules",
-    ["shortSkuName", "shortShortDesc", "longLongDesc", "badMeasureUnit",
-     "badUpc", "badCategory", "badCcEmail", "badCountry"]],
-  ["BAD_013_NINE_MIST",  "Nine mistakes — almost everything",
-    ["badSkuCodeFormat", "shortSkuName", "shortShortDesc", "longLongDesc",
-     "badMeasureUnit", "badMeasureValue", "badUpc", "badCategory",
-     "badCountry"]],
-].forEach((t) => badRows.push(makeBadRow(t[0], t[1], t[2])));
-
-// 5) Three "filler" SKUs at 3 mistakes each
-[
-  ["BAD_014_THREE_MIST", "Three mistakes — desc, email, phone",
-    ["shortShortDesc", "badCcEmail", "badCcPhone"]],
-  ["BAD_015_THREE_MIST", "Three mistakes — cat, country, status",
-    ["badCategory", "badCountry", "badItemStatus"]],
-  ["BAD_016_THREE_MIST", "Three mistakes — UPC, qty, weight",
-    ["badUpc", "minGreaterThanMax", "badSkuWeight"]],
-].forEach((t) => badRows.push(makeBadRow(t[0], t[1], t[2])));
-
-// 6) One SKU with EXACTLY 10 mistakes
-badRows.push(
-  makeBadRow("BAD_017_TEN_MIST", "Exactly 10 mistakes",
-    ["badSkuCodeFormat", "shortSkuName", "shortShortDesc", "longLongDesc",
-     "badMeasureUnit", "badMeasureValue", "badUpc", "badSkuWeight",
-     "minGreaterThanMax", "badCategory"]),
-);
-
-// 7) Two more 5-7 mistake fillers to reach 20 total
-[
-  ["BAD_018_FIVE_MIST", "Five mistakes — yes/no + dropdown",
-    ["badReturnable", "badCancellable", "badCod", "badFulfillment", "badLocation"]],
-  ["BAD_019_SIX_MIST",  "Six mistakes — mixed text + numeric",
-    ["shortSkuName", "longShortDesc", "badMeasureValue", "badUnitizedCount",
-     "badCcEmail", "badItemStatus"]],
-].forEach((t) => badRows.push(makeBadRow(t[0], t[1], t[2])));
-
-// 8) ONE SKU with EVERY rule broken (max-mistakes)
-badRows.push(
-  makeBadRow("BAD_020_ALL_MIST", "MAX — every rule broken",
-    allBreakNames),
-);
-
-if (badRows.length !== 20) {
-  console.warn(`Expected 20 bad rows, got ${badRows.length}.`);
+if (badRecipes.length !== 20) {
+  console.warn(`Expected 20 bad recipes, got ${badRecipes.length}.`);
 }
 
-// Deduplicate by skuCode (some explicit lists overlap by accident)
-const seen = new Set();
-const finalBadRows = [];
-for (const row of badRows) {
-  const key = row.skuCode;
-  if (seen.has(key)) continue;
-  seen.add(key);
-  finalBadRows.push(row);
-}
+badRecipes.forEach((recipe, i) => {
+  const testIndex = 31 + i; // bad rows live at TEST_031..TEST_050
+  badRows.push(makeBadRow(testIndex, recipe.mistakes));
+});
 
-// Pad / trim to exactly 20 bad rows.
-while (finalBadRows.length < 20) {
-  const idx = finalBadRows.length + 1;
-  finalBadRows.push(makeBadRow(`BAD_PAD_${idx}`, `Padding bad row ${idx}`, ["badCcEmail", "badCcPhone"]));
-}
-finalBadRows.length = 20;
-
-const allRows = [...goodRows, ...finalBadRows];
+const allRows = [...goodRows, ...badRows];
 
 // =====================================================================
 // Build the .xlsx — same 3-tab structure as the real template, but
@@ -601,11 +571,11 @@ async function main() {
   await wb.xlsx.writeFile(outPath);
   console.log(`✓ Wrote ${outPath}`);
   console.log(`  Sheets: Main SKU Upload · Validation · Master Data`);
-  console.log(`  - 30 good rows (TEST_001 … TEST_030)`);
-  console.log(`  - 20 bad rows (BAD_001 … BAD_020)`);
-  console.log(`     · BAD_001 — exactly 1 mistake`);
-  console.log(`     · BAD_017 — exactly 10 mistakes`);
-  console.log(`     · BAD_020 — every rule broken (max)`);
+  console.log(`  - 30 good rows  (TEST_001 … TEST_030)`);
+  console.log(`  - 20 bad rows   (TEST_031 … TEST_050)`);
+  console.log(`     · TEST_031 — exactly 1 mistake (bad email)`);
+  console.log(`     · TEST_048 — exactly 10 mistakes`);
+  console.log(`     · TEST_050 — every rule broken (max)`);
 }
 
 main().catch((err) => {
