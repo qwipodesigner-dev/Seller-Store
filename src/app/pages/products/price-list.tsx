@@ -691,7 +691,18 @@ export function PriceList() {
               >
                 Cancel
               </Button>
-              <Button onClick={handleSaveEdit} className="gap-2">
+              <Button
+                onClick={handleSaveEdit}
+                disabled={
+                  !editMrp ||
+                  parseFloat(editMrp) < 0 ||
+                  !editSellingPrice ||
+                  parseFloat(editSellingPrice) < 0 ||
+                  (!editIsInfiniteStock &&
+                    (!editStock || parseInt(editStock) < 0))
+                }
+                className="gap-2"
+              >
                 <Edit2 className="h-4 w-4" />
                 Save Changes
               </Button>

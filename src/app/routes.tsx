@@ -7,6 +7,8 @@ import { Orders } from "./pages/orders";
 import { OrderDetail } from "./pages/order-detail";
 import { Customers } from "./pages/customers";
 import { CustomerDetail } from "./pages/customer-detail";
+import { CustomersDemo } from "./pages/customers-demo";
+import { CustomerDemoDetail } from "./pages/customer-demo-detail";
 import { Profile } from "./pages/profile";
 import { Connectors } from "./pages/connectors";
 import { ConnectorDetail } from "./pages/connector-detail";
@@ -22,13 +24,12 @@ import { AddManually } from "./pages/products/add-sku/manual";
 import { BrandSync } from "./pages/products/add-sku/brand-sync";
 import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-sync";
 import { PriceList } from "./pages/products/price-list";
-import { PriceInventory } from "./pages/products/price-inventory";
 import { OffersList } from "./pages/offers/offers-list";
+import { OffersDemo } from "./pages/offers/offers-demo";
 import { CreateScheme } from "./pages/offers/create-scheme";
 import { StoreSettings } from "./pages/settings/store-settings";
 import { OrderSettings } from "./pages/settings/order-settings";
 import { ShippingSettings } from "./pages/settings/shipping-settings";
-import { ServiceabilitySettings } from "./pages/settings/serviceability-settings";
 import { PaymentSettings } from "./pages/settings/payment-settings";
 import { CustomerSettings } from "./pages/settings/customer-settings";
 import { CommunicationSettings } from "./pages/settings/communication-settings";
@@ -111,14 +112,20 @@ export const router = createBrowserRouter([
       { path: "products/add-sku/manual", Component: AddManually },
       { path: "products/add-sku/brand-sync", Component: BrandSync },
       { path: "products/price-list", Component: PriceList },
-      { path: "products/price-inventory", Component: PriceInventory },
       { path: "offers", Component: OffersList },
+      { path: "offers-demo", Component: OffersDemo },
       { path: "offers/create", Component: CreateScheme },
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },
       { path: "orders/:orderId", Component: OrderDetail },
       { path: "customers", Component: Customers },
       { path: "customers/:customerId", Component: CustomerDetail },
+      // Customers 2 — empty-mode demo of the auto-register-on-first-order
+      // workflow with bulk delivery-day assignment, per-customer block,
+      // and clubbed-by-company rows. Built as a parallel page so the
+      // existing Customers screen is left untouched.
+      { path: "customers-demo", Component: CustomersDemo },
+      { path: "customers-demo/:customerId", Component: CustomerDemoDetail },
       { path: "profile", Component: Profile },
       { path: "connectors", Component: Connectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },
@@ -128,7 +135,6 @@ export const router = createBrowserRouter([
       { path: "settings/store", Component: StoreSettings },
       { path: "settings/order", Component: OrderSettings },
       { path: "settings/shipping", Component: ShippingSettings },
-      { path: "settings/serviceability", Component: ServiceabilitySettings },
       { path: "settings/payment", Component: PaymentSettings },
       { path: "settings/customer", Component: CustomerSettings },
       { path: "settings/communication", Component: CommunicationSettings },

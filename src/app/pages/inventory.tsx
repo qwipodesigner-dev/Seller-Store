@@ -531,7 +531,15 @@ export function Inventory() {
             <Button variant="outline" onClick={() => setIsEditOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateStock}>Update Stock</Button>
+            <Button
+              onClick={handleUpdateStock}
+              disabled={
+                editStock < 0 ||
+                editStock === (selectedItem?.availableStock ?? 0)
+              }
+            >
+              Update Stock
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

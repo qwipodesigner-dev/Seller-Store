@@ -545,11 +545,22 @@ export function AdminCompanies() {
             <Button variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-            {/* CTA stays enabled — clicking with missing data triggers
-                inline field-level errors via handleSave. The dirty
-                tracking is no longer used as a gate; saving without
-                changes in Edit mode simply persists the same record. */}
-            <Button onClick={handleSave}>
+            {/* CTA disabled until the form has the minimum data
+                required: Add mode needs a non-empty company name AND
+                at least one brand with a name. Edit mode (name is
+                read-only) only requires that every existing/new brand
+                row has a name. handleSave still surfaces inline
+                errors for finer issues (duplicate names, etc.). */}
+            <Button
+              onClick={handleSave}
+              disabled={
+                editingId
+                  ? drafts.some((b) => !b.name.trim())
+                  : !name.trim() ||
+                    drafts.length === 0 ||
+                    drafts.some((b) => !b.name.trim())
+              }
+            >
               {editingId ? "Save Changes" : "Create Company"}
             </Button>
           </DialogFooter>
