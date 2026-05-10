@@ -151,12 +151,6 @@ export function CustomerDemoDetail() {
   )}&layer=mapnik&marker=${customer.latitude},${customer.longitude}`;
   const openInMapsUrl = `https://www.google.com/maps/search/?api=1&query=${customer.latitude},${customer.longitude}`;
 
-  const inrFormatter = new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  });
-
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
       {/* Header — store name + owner + phone, plus the Block / Unblock
@@ -428,7 +422,7 @@ export function CustomerDemoDetail() {
                     </p>
                   )}
                 </div>
-                <div>
+                <div className="col-span-2">
                   <p className="text-[11px] text-gray-500">
                     Registered On (First Order)
                   </p>
@@ -436,20 +430,6 @@ export function CustomerDemoDetail() {
                     {formattedRegDate}
                   </p>
                 </div>
-                <div>
-                  <p className="text-[11px] text-gray-500">Total Orders</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {customer.totalOrders}
-                  </p>
-                </div>
-                {customer.totalRevenue !== undefined && (
-                  <div className="col-span-2">
-                    <p className="text-[11px] text-gray-500">Total Revenue</p>
-                    <p className="text-sm font-semibold text-emerald-700">
-                      {inrFormatter.format(customer.totalRevenue)}
-                    </p>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
