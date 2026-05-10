@@ -82,9 +82,10 @@ export interface BulkImportConfig {
    */
   successToast?: (result: BulkImportValidationResult) => string;
   /**
-   * Demo-mode simulated processing delay (ms). Defaults to 30 000 — the
-   * spec's prototype value — so reviewers see the loader experience.
-   * Set to 0 in real builds where validate() takes its own time.
+   * Demo-mode simulated processing delay (ms). Defaults to 5 000 so
+   * reviewers still see the loader experience without waiting half a
+   * minute. Set to 0 in real builds where validate() takes its own
+   * time.
    */
   simulateValidationDelayMs?: number;
 }
@@ -133,7 +134,7 @@ export function BulkImportDialog({
     if (!file) return;
     setStep("validating");
     try {
-      const delay = config.simulateValidationDelayMs ?? 30_000;
+      const delay = config.simulateValidationDelayMs ?? 5_000;
       const [validation] = await Promise.all([
         config.validate(file),
         delay > 0
