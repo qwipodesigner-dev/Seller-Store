@@ -129,77 +129,52 @@ export function Orders() {
   );
   const [deliveryNotes, setDeliveryNotes] = useState("");
 
-  // Export form — month preset OR custom range. The preset is a
-  // "YYYY-MM" string (current month by default); the special value
-  // "custom" unlocks the two date inputs below the dropdown. We
-  // generate the month options dynamically from today so the list
-  // always covers the most recent N months — see MONTH_PRESETS.
+  // Export form — Start + End date inputs with a 31-day max span.
+  // Start Date defaults to 30 days back so the initial pair already
+  // covers the most recent month; End Date is auto-set to Start + 30
+  // when Start changes, so the seller almost never has to touch End
+  // (they can still shrink the window if they want a tighter export).
   const todayIso = new Date().toISOString().split("T")[0];
-  const todayMonth = todayIso.slice(0, 7); // "YYYY-MM"
-  const [exportRangePreset, setExportRangePreset] = useState<string>(todayMonth);
-  const [exportStartDate, setExportStartDate] = useState(todayIso);
+  const isoNDaysBack = (n: number) =>
+    new Date(Date.now() - n * 86400000).toISOString().split("T")[0];
+  const isoNDaysAfter = (anchor: string, n: number) => {
+    const t = new Date(anchor).getTime();
+    if (Number.isNaN(t)) return anchor;
+    return new Date(t + n * 86400000).toISOString().split("T")[0];
+  };
+  const [exportStartDate, setExportStartDate] = useState(isoNDaysBack(30));
   const [exportEndDate, setExportEndDate] = useState(todayIso);
   const [exportFormat, setExportFormat] = useState("csv");
 
-  /**
-   * Months the export dropdown surfaces — 24 months back from today
-   * (current month inclusive) in reverse-chrono order. Each entry
-   * carries the YYYY-MM key, a "Month YYYY" label, plus the
-   * first/last day of that month so we don't recompute them every
-   * time the user clicks Export.
-   */
-  const MONTH_PRESETS = useMemo(() => {
-    const now = new Date();
-    const out: { value: string; label: string; from: string; to: string }[] = [];
-    for (let i = 0; i < 24; i++) {
-      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const y = d.getFullYear();
-      const m = d.getMonth(); // 0-indexed
-      const value = `${y}-${String(m + 1).padStart(2, "0")}`;
-      const label = d.toLocaleString("en-IN", {
-        month: "long",
-        year: "numeric",
-      });
-      const from = `${y}-${String(m + 1).padStart(2, "0")}-01`;
-      const lastDay = new Date(y, m + 1, 0).getDate();
-      const to = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
-      out.push({ value, label, from, to });
-    }
-    return out;
-  }, []);
-
-  /** Resolve the active export range whatever the seller picked. */
+  /** Resolve the active export range. Returns null when either date
+   *  input is empty — the Export button is also disabled in that
+   *  state so this is a belt-and-suspenders check. */
   const resolveExportRange = (): { start: string; end: string } | null => {
-    if (exportRangePreset === "custom") {
-      if (!exportStartDate || !exportEndDate) return null;
-      return { start: exportStartDate, end: exportEndDate };
-    }
-    const preset = MONTH_PRESETS.find((m) => m.value === exportRangePreset);
-    if (!preset) return null;
-    return { start: preset.from, end: preset.to };
+    if (!exportStartDate || !exportEndDate) return null;
+    return { start: exportStartDate, end: exportEndDate };
   };
 
-  /** True when the seller's chosen custom range exceeds one month
-   *  (31 days). Used to disable Export and surface an inline hint. */
-  const customRangeTooLong = (() => {
-    if (exportRangePreset !== "custom") return false;
+  /** True when the chosen range exceeds one month (31 days). The
+   *  End Date input's `max` attribute keeps the OS picker honest,
+   *  but a determined seller could still type a date directly — so
+   *  we also surface an inline error + disable Export. */
+  const exportRangeTooLong = (() => {
     if (!exportStartDate || !exportEndDate) return false;
     const s = new Date(exportStartDate);
     const e = new Date(exportEndDate);
     if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
     if (e < s) return false;
     const diffDays = Math.floor((e.getTime() - s.getTime()) / 86400000);
-    return diffDays > 30; // strict — start + end span > 31 days
+    return diffDays > 30;
   })();
 
-  /** Cap the End Date input's `max` attribute at Start Date + 30
-   *  days, so the OS date picker disables anything past one month. */
-  const customRangeEndMax = (() => {
+  /** End Date can't go past Start + 30 days. Used as the `max`
+   *  attribute on the End Date input. */
+  const exportEndMax = (() => {
     if (!exportStartDate) return undefined;
     const s = new Date(exportStartDate);
     if (Number.isNaN(s.getTime())) return undefined;
-    const cap = new Date(s.getTime() + 30 * 86400000);
-    return cap.toISOString().split("T")[0];
+    return new Date(s.getTime() + 30 * 86400000).toISOString().split("T")[0];
   })();
 
   // Calculate summary statistics
@@ -448,10 +423,11 @@ export function Orders() {
       return;
     }
     // Phase 1 caps the exportable window at one month to keep
-    // generated sheets reasonable. The dropdown's month presets
-    // are inherently one month; only Custom can exceed that.
-    if (customRangeTooLong) {
-      toast.error("Custom date range can span at most one month");
+    // generated sheets reasonable. The End Date input's `max`
+    // attribute keeps the OS picker honest; this guard catches
+    // the typed-date-bypass edge case.
+    if (exportRangeTooLong) {
+      toast.error("Date range can span at most one month (31 days)");
       return;
     }
 
@@ -1338,100 +1314,67 @@ export function Orders() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
-            {/* Date Range picker — single dropdown with the last
-                24 months in reverse-chrono order, plus a "Custom
-                date range" option at the bottom. Picking a month
-                covers its 1st through last day automatically; the
-                custom path reveals two date inputs below. */}
-            <div className="space-y-2">
-              <Label htmlFor="exportRange">
-                Date Range <span className="text-red-500">*</span>
-              </Label>
-              <Select
-                value={exportRangePreset}
-                onValueChange={(v) => {
-                  setExportRangePreset(v);
-                  // When the seller switches to Custom for the
-                  // first time, seed both inputs with a sensible
-                  // 1-week window so the picker isn't blank.
-                  if (v === "custom") {
-                    if (!exportStartDate) setExportStartDate(todayIso);
-                    if (!exportEndDate) setExportEndDate(todayIso);
-                  }
-                }}
-              >
-                <SelectTrigger id="exportRange" className="w-full">
-                  <SelectValue placeholder="Pick a month or custom range" />
-                </SelectTrigger>
-                <SelectContent className="max-h-72">
-                  {MONTH_PRESETS.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
-                    </SelectItem>
-                  ))}
-                  <SelectItem value="custom">Custom date range</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Custom range — only rendered when "Custom date
-                range" is selected. Enforces a 1-month max span:
-                End Date's `max` is pinned to Start + 30 days, and
-                we also surface an inline warning if the seller
-                somehow widens the range another way. */}
-            {exportRangePreset === "custom" && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                <div className="space-y-2">
-                  <Label htmlFor="exportStartDate" className="text-xs">
-                    Start Date <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="exportStartDate"
-                    type="date"
-                    value={exportStartDate}
-                    max={todayIso}
-                    onChange={(e) => {
-                      setExportStartDate(e.target.value);
-                      // If the new Start makes the End fall outside
-                      // the 1-month window, snap End back to Start
-                      // so the seller doesn't sit on an invalid
-                      // pair.
-                      if (e.target.value && exportEndDate) {
-                        const s = new Date(e.target.value);
-                        const ed = new Date(exportEndDate);
-                        const diff = (ed.getTime() - s.getTime()) / 86400000;
-                        if (diff < 0 || diff > 30) {
-                          setExportEndDate(e.target.value);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="exportEndDate" className="text-xs">
-                    End Date <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="exportEndDate"
-                    type="date"
-                    value={exportEndDate}
-                    min={exportStartDate || undefined}
-                    max={customRangeEndMax}
-                    onChange={(e) => setExportEndDate(e.target.value)}
-                  />
-                </div>
-                <p className="sm:col-span-2 text-[11px] text-gray-600">
-                  Custom range can span at most one month (31 days).
-                </p>
-                {customRangeTooLong && (
-                  <p className="sm:col-span-2 text-[11px] text-red-700 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" />
-                    The selected range exceeds one month. Narrow it
-                    before exporting.
-                  </p>
-                )}
+            {/* Date Range — Start + End date inputs with a 31-day
+                max span. When Start changes, End auto-fills to
+                Start + 30 days so the seller almost never has to
+                touch End; they can shrink the window for a
+                tighter export but the OS picker disables anything
+                past one month. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="exportStartDate">
+                  Start Date <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="exportStartDate"
+                  type="date"
+                  value={exportStartDate}
+                  max={todayIso}
+                  onChange={(e) => {
+                    const newStart = e.target.value;
+                    setExportStartDate(newStart);
+                    // Auto-fill End Date to Start + 30 so the
+                    // seller lands on a valid one-month window
+                    // out of the box. They can still pull End
+                    // earlier if they want a shorter export.
+                    if (newStart) {
+                      const cappedEnd = isoNDaysAfter(newStart, 30);
+                      // Don't push End past today even if the
+                      // 30-day window would go into the future.
+                      setExportEndDate(
+                        cappedEnd > todayIso ? todayIso : cappedEnd,
+                      );
+                    }
+                  }}
+                />
               </div>
-            )}
+              <div className="space-y-2">
+                <Label htmlFor="exportEndDate">
+                  End Date <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="exportEndDate"
+                  type="date"
+                  value={exportEndDate}
+                  min={exportStartDate || undefined}
+                  max={exportEndMax}
+                  onChange={(e) => setExportEndDate(e.target.value)}
+                />
+              </div>
+              <p className="sm:col-span-2 text-[11px] text-gray-600">
+                Date range can span at most one month (31 days).
+                When you pick a Start Date, the End Date is set to
+                one month later automatically — adjust it down if
+                you want a tighter window.
+              </p>
+              {exportRangeTooLong && (
+                <p className="sm:col-span-2 text-[11px] text-red-700 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  The selected range exceeds one month. Narrow it
+                  before exporting.
+                </p>
+              )}
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="exportFormat">
@@ -1463,13 +1406,13 @@ export function Orders() {
               onClick={handleExport}
               className="gap-2"
               disabled={
-                customRangeTooLong ||
-                (exportRangePreset === "custom" &&
-                  (!exportStartDate || !exportEndDate))
+                exportRangeTooLong ||
+                !exportStartDate ||
+                !exportEndDate
               }
             >
               <Download className="h-4 w-4" />
-              Export {orders.length} Order(s)
+              Export
             </Button>
           </DialogFooter>
         </DialogContent>

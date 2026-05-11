@@ -387,11 +387,8 @@ export interface SynthesizedOrderProduct {
   skuId: string;
   orderedQuantity: number;
   availableStock: number;
-  editableQuantity: number;
   pricePerUnit: number;
-  editablePricePerUnit: number;
   totalPrice: number;
-  isModified: boolean;
   basePrice?: number;
 }
 
@@ -410,12 +407,9 @@ export function synthesizeProducts(
       skuId: li.skuCode,
       orderedQuantity: li.qty,
       availableStock: Math.max(li.qty * 2, 50),
-      editableQuantity: li.qty,
       basePrice: li.originalPricePerUnit,
       pricePerUnit: li.finalPricePerUnit,
-      editablePricePerUnit: li.finalPricePerUnit,
       totalPrice: li.lineTotal,
-      isModified: false,
     }));
   }
 
@@ -435,12 +429,9 @@ export function synthesizeProducts(
       skuId: `${order.id}-LINE-1`,
       orderedQuantity: qty,
       availableStock: qty * 2,
-      editableQuantity: qty,
       basePrice: ppu,
       pricePerUnit: ppu,
-      editablePricePerUnit: ppu,
       totalPrice: order.orderValue,
-      isModified: false,
     },
   ];
 }
