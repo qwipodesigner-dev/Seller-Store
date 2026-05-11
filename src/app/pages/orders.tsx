@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../components/ui/card";
 import { Button } from "../components/ui/button";
@@ -47,326 +47,44 @@ import { AnimatePresence, motion } from "motion/react";
 import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
 import { ListPagination } from "../components/ui/list-pagination";
+// Shared store — seeds + writers live in lib/orders-data so the
+// detail page can read the same orders by id and writes flow both
+// ways. `Order` / `OrderLineItem` / `OrderStatus` are exported from
+// the lib so we don't redeclare them here.
+import {
+  type Order,
+  type OrderLineItem,
+  SELLER_INFO,
+  getOrders,
+  setOrders as setOrdersStore,
+  subscribeToOrders,
+  updateOrderStatuses,
+} from "../lib/orders-data";
 
-// One product line on an order. Captures the per-line numbers that
-// the export needs (the order-list table itself doesn't surface these
-// — they're computed once and re-used for export rows).
-interface OrderLineItem {
-  skuCode: string;
-  productName: string;
-  /** Company that owns the product (e.g. "ITC Limited"). */
-  company: string;
-  /** Brand the product belongs to (e.g. "Freedom"). */
-  brand: string;
-  /** Category the product belongs to in the ONDC eB2B taxonomy
-   *  (e.g. "Edible Oil", "Biscuits", "Stationery"). Surfaced on the
-   *  export so finance can roll the sheet up by category. */
-  category: string;
-  qty: number;
-  /** Catalog Selling Price before any line-level / slab discount. */
-  originalPricePerUnit: number;
-  /** Per-unit price the customer actually pays. */
-  finalPricePerUnit: number;
-  /** Total saving on this line: (orig − final) × qty. */
-  discountApplied: number;
-  /** Free-text describing how the discount was calculated. */
-  discountDetails: string;
-  /** Final per-line subtotal: finalPricePerUnit × qty. */
-  lineTotal: number;
-}
-
-// Simplified Order interface with only 4 statuses
-interface Order {
-  id: string;
-  brand: string;
-  source: string;
-  retailerName: string;
-  itemsSummary: string;
-  orderValue: number;
-  paymentMode: "COD" | "Prepaid";
-  orderDate: string;
-  status: "New" | "Confirmed" | "Delivered" | "Rejected";
-  marketplace: string;
-  /** Buyer contact info shown on the export. Optional — synthesized
-   *  from retailerName when not provided. */
-  buyerContact?: string;
-  buyerAddress?: string;
-  buyerCode?: string;
-  /** Channel-side order ID (e.g. ONDC-ORD-789456). Optional —
-   *  synthesized from `id` + marketplace when not provided. */
-  channelOrderId?: string;
-  /** Optional order-time suffix appended to orderDate on the export. */
-  orderTime?: string;
-  /** Per-line breakdown for the export. Optional — synthesized from
-   *  itemsSummary when not provided. */
-  lineItems?: OrderLineItem[];
-}
-
-// Single distributor for the demo seller — populates the Seller-* columns
-// on the export. In a real build these come from the logged-in seller's
-// profile / store settings.
-const SELLER_INFO = {
-  name: "ITC Private Limited",
-  contact: "+91 80 2222 3333",
-  code: "SELLER-ITC-001",
-};
-
-// Mock orders with simplified statuses
-const mockOrders: Order[] = [
-  {
-    // Fully populated line items so the demo export reproduces the
-    // sample sheet shape end-to-end. Buyer/seller/channel metadata
-    // mirrors the order-detail page's mock so the two views agree.
-    id: "DKN-2025-12345",
-    brand: "ITC",
-    source: "DMS-Bizom",
-    retailerName: "Balaji Kirana Store",
-    itemsSummary: "Sunflower Oil + 5 more",
-    orderValue: 12450,
-    paymentMode: "COD",
-    orderDate: "2026-03-30",
-    orderTime: "10:30 AM",
-    status: "New",
-    marketplace: "ONDC",
-    buyerContact: "+91 98765 43210",
-    buyerAddress:
-      "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
-    buyerCode: "BUYER-BAL-456",
-    channelOrderId: "ONDC-ORD-789456",
-    lineItems: [
-      {
-        skuCode: "180000008",
-        productName: "Freedom Refined Sunflower Oil 1L × 16",
-        company: "Gemini Edibles & Fats India",
-        brand: "Freedom",
-        category: "Edible Oil",
-        qty: 25,
-        originalPricePerUnit: 171,
-        finalPricePerUnit: 162.45,
-        discountApplied: 213.75,
-        discountDetails: "Slab 2: 12–47 qty • 5% off vs ₹171.00",
-        lineTotal: 4061.25,
-      },
-      {
-        skuCode: "SKU-AASH-10",
-        productName: "Aashirvaad Atta 10kg",
-        company: "ITC Limited",
-        brand: "Aashirvaad",
-        category: "Foodgrains",
-        qty: 20,
-        originalPricePerUnit: 450,
-        finalPricePerUnit: 420,
-        discountApplied: 600,
-        discountDetails: "Slab 2: 10–24 qty • Flat ₹30 off vs ₹450.00",
-        lineTotal: 8400,
-      },
-      {
-        skuCode: "SKU-SUNF-DF150",
-        productName: "Sunfeast Biscuits Dark Fantasy 150g",
-        company: "ITC Limited",
-        brand: "Sunfeast",
-        category: "Biscuits",
-        qty: 50,
-        originalPricePerUnit: 35,
-        finalPricePerUnit: 35,
-        discountApplied: 0,
-        discountDetails: "No Discount",
-        lineTotal: 1750,
-      },
-      {
-        skuCode: "SKU-CLAS-NB172",
-        productName: "Classmate Notebook 172 Pages",
-        company: "ITC Limited",
-        brand: "Classmate",
-        category: "Stationery",
-        qty: 30,
-        originalPricePerUnit: 45,
-        finalPricePerUnit: 45,
-        discountApplied: 0,
-        discountDetails: "No Discount",
-        lineTotal: 1350,
-      },
-      {
-        skuCode: "SKU-BING-MA90",
-        productName: "Bingo Mad Angles 90g",
-        company: "ITC Limited",
-        brand: "Bingo",
-        category: "Snacks",
-        qty: 40,
-        originalPricePerUnit: 20,
-        finalPricePerUnit: 20,
-        discountApplied: 0,
-        discountDetails: "No Discount",
-        lineTotal: 800,
-      },
-      {
-        skuCode: "SKU-YIPP-240",
-        productName: "Yippee Noodles 240g",
-        company: "ITC Limited",
-        brand: "Yippee",
-        category: "Noodles",
-        qty: 25,
-        originalPricePerUnit: 12,
-        finalPricePerUnit: 12,
-        discountApplied: 0,
-        discountDetails: "No Discount",
-        lineTotal: 300,
-      },
-    ],
-  },
-  {
-    id: "DKN-2025-12346",
-    brand: "Marico",
-    source: "DMS-Botery",
-    retailerName: "Sharma Grocery Store",
-    itemsSummary: "25 units Fortune Oil",
-    orderValue: 4125,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-27",
-    status: "New",
-    marketplace: "Amazon",
-  },
-  {
-    id: "DKN-2025-12347",
-    brand: "Pepsi",
-    source: "DMS-Bizom",
-    retailerName: "Balaji Kirana",
-    itemsSummary: "100 units Mixed SKUs",
-    orderValue: 12450,
-    paymentMode: "COD",
-    orderDate: "2026-03-26",
-    status: "Confirmed",
-    marketplace: "ONDC",
-  },
-  {
-    id: "DKN-2025-12348",
-    brand: "Freedom Oil",
-    source: "DMS-Botery",
-    retailerName: "City Supermart",
-    itemsSummary: "50 units Britannia Biscuits",
-    orderValue: 8750,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-26",
-    status: "Confirmed",
-    marketplace: "Flipkart",
-  },
-  {
-    id: "DKN-2025-12349",
-    brand: "Marico",
-    source: "DMS-Bizom",
-    retailerName: "Modern Retail Chain",
-    itemsSummary: "200 units Maggi Noodles",
-    orderValue: 24000,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-25",
-    status: "Delivered",
-    marketplace: "Amazon",
-  },
-  {
-    id: "DKN-2025-12350",
-    brand: "Pepsi",
-    source: "DMS-Botery",
-    retailerName: "Quick Mart",
-    itemsSummary: "30 units Aashirvaad Atta",
-    orderValue: 5400,
-    paymentMode: "COD",
-    orderDate: "2026-03-25",
-    status: "Rejected",
-    marketplace: "ONDC",
-  },
-  {
-    id: "DKN-2025-12351",
-    brand: "Freedom Oil",
-    source: "DMS-Bizom",
-    retailerName: "Sunrise Traders",
-    itemsSummary: "75 units Sunfeast Biscuits",
-    orderValue: 6825,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-24",
-    status: "Confirmed",
-    marketplace: "Amazon",
-  },
-  {
-    id: "DKN-2025-12352",
-    brand: "Marico",
-    source: "DMS-Botery",
-    retailerName: "Lucky Store",
-    itemsSummary: "40 units Surf Excel",
-    orderValue: 9200,
-    paymentMode: "COD",
-    orderDate: "2026-03-24",
-    status: "Confirmed",
-    marketplace: "ONDC",
-  },
-  {
-    id: "DKN-2025-12353",
-    brand: "Pepsi",
-    source: "DMS-Bizom",
-    retailerName: "New Era Retail",
-    itemsSummary: "60 units Colgate Toothpaste",
-    orderValue: 4320,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-23",
-    status: "New",
-    marketplace: "Flipkart",
-  },
-  {
-    id: "DKN-2025-12354",
-    brand: "Freedom Oil",
-    source: "DMS-Botery",
-    retailerName: "Himalaya Traders",
-    itemsSummary: "90 units Lizol Floor Cleaner",
-    orderValue: 10800,
-    paymentMode: "COD",
-    orderDate: "2026-03-23",
-    status: "Delivered",
-    marketplace: "Amazon",
-  },
-  {
-    id: "DKN-2025-12355",
-    brand: "Marico",
-    source: "DMS-Bizom",
-    retailerName: "Anand General Store",
-    itemsSummary: "120 units Tata Tea Gold",
-    orderValue: 19800,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-22",
-    status: "New",
-    marketplace: "ONDC",
-  },
-  {
-    id: "DKN-2025-12356",
-    brand: "Pepsi",
-    source: "DMS-Botery",
-    retailerName: "Premium Retail Pvt Ltd",
-    itemsSummary: "80 units Dove Soap",
-    orderValue: 6400,
-    paymentMode: "COD",
-    orderDate: "2026-03-22",
-    status: "Delivered",
-    marketplace: "Flipkart",
-  },
-  {
-    id: "DKN-2025-12357",
-    brand: "Freedom Oil",
-    source: "DMS-Bizom",
-    retailerName: "Vinayak Traders",
-    itemsSummary: "45 units Ariel Detergent",
-    orderValue: 13500,
-    paymentMode: "Prepaid",
-    orderDate: "2026-03-21",
-    status: "Rejected",
-    marketplace: "Amazon",
-  },
-];
-
-type TabType = "all" | "new" | "confirmed" | "delivered" | "rejected";
+// "rejected" tab label is retired alongside the status rename; the
+// tab now shows Cancelled orders. The TabType value stays as
+// "cancelled" so future code reads consistently.
+type TabType = "all" | "new" | "confirmed" | "delivered" | "cancelled";
 
 export function Orders() {
   const navigate = useNavigate();
-  const [orders, setOrders] = useState<Order[]>(() =>
-    isEmptyMode() ? [] : mockOrders,
+  // Source of truth lives in lib/orders-data. We mirror it locally
+  // and resubscribe so writes from the detail page propagate here.
+  const [orders, setOrdersState] = useState<Order[]>(() =>
+    isEmptyMode() ? [] : getOrders(),
   );
+  useEffect(() => {
+    return subscribeToOrders(() => setOrdersState([...getOrders()]));
+  }, []);
+  // Local setter that also writes through to the store so detail-page
+  // subscribers see the change.
+  const setOrders = (
+    updater: ((prev: Order[]) => Order[]) | Order[],
+  ) => {
+    const next =
+      typeof updater === "function" ? updater(getOrders()) : updater;
+    setOrdersStore(next);
+  };
   const [activeTab, setActiveTab] = useState<TabType>("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -385,7 +103,7 @@ export function Orders() {
     { label: "New", value: "New" },
     { label: "Confirmed", value: "Confirmed" },
     { label: "Delivered", value: "Delivered" },
-    { label: "Rejected", value: "Rejected" },
+    { label: "Cancelled", value: "Cancelled" },
   ];
 
   // Pagination
@@ -394,7 +112,7 @@ export function Orders() {
 
   // Modals
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
-  const [isRejectDialogOpen, setIsRejectDialogOpen] = useState(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
@@ -405,22 +123,84 @@ export function Orders() {
   );
   const [estimatedDispatchTime, setEstimatedDispatchTime] = useState("08:00");
   const [acceptNotes, setAcceptNotes] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
   const [deliveryDate, setDeliveryDate] = useState(
     new Date().toISOString().split("T")[0]
   );
   const [deliveryNotes, setDeliveryNotes] = useState("");
 
-  // Export form data
-  const [exportStartDate, setExportStartDate] = useState(
-    new Date(new Date().setDate(new Date().getDate() - 30))
-      .toISOString()
-      .split("T")[0]
-  );
-  const [exportEndDate, setExportEndDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  // Export form — month preset OR custom range. The preset is a
+  // "YYYY-MM" string (current month by default); the special value
+  // "custom" unlocks the two date inputs below the dropdown. We
+  // generate the month options dynamically from today so the list
+  // always covers the most recent N months — see MONTH_PRESETS.
+  const todayIso = new Date().toISOString().split("T")[0];
+  const todayMonth = todayIso.slice(0, 7); // "YYYY-MM"
+  const [exportRangePreset, setExportRangePreset] = useState<string>(todayMonth);
+  const [exportStartDate, setExportStartDate] = useState(todayIso);
+  const [exportEndDate, setExportEndDate] = useState(todayIso);
   const [exportFormat, setExportFormat] = useState("csv");
+
+  /**
+   * Months the export dropdown surfaces — 24 months back from today
+   * (current month inclusive) in reverse-chrono order. Each entry
+   * carries the YYYY-MM key, a "Month YYYY" label, plus the
+   * first/last day of that month so we don't recompute them every
+   * time the user clicks Export.
+   */
+  const MONTH_PRESETS = useMemo(() => {
+    const now = new Date();
+    const out: { value: string; label: string; from: string; to: string }[] = [];
+    for (let i = 0; i < 24; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const y = d.getFullYear();
+      const m = d.getMonth(); // 0-indexed
+      const value = `${y}-${String(m + 1).padStart(2, "0")}`;
+      const label = d.toLocaleString("en-IN", {
+        month: "long",
+        year: "numeric",
+      });
+      const from = `${y}-${String(m + 1).padStart(2, "0")}-01`;
+      const lastDay = new Date(y, m + 1, 0).getDate();
+      const to = `${y}-${String(m + 1).padStart(2, "0")}-${String(lastDay).padStart(2, "0")}`;
+      out.push({ value, label, from, to });
+    }
+    return out;
+  }, []);
+
+  /** Resolve the active export range whatever the seller picked. */
+  const resolveExportRange = (): { start: string; end: string } | null => {
+    if (exportRangePreset === "custom") {
+      if (!exportStartDate || !exportEndDate) return null;
+      return { start: exportStartDate, end: exportEndDate };
+    }
+    const preset = MONTH_PRESETS.find((m) => m.value === exportRangePreset);
+    if (!preset) return null;
+    return { start: preset.from, end: preset.to };
+  };
+
+  /** True when the seller's chosen custom range exceeds one month
+   *  (31 days). Used to disable Export and surface an inline hint. */
+  const customRangeTooLong = (() => {
+    if (exportRangePreset !== "custom") return false;
+    if (!exportStartDate || !exportEndDate) return false;
+    const s = new Date(exportStartDate);
+    const e = new Date(exportEndDate);
+    if (Number.isNaN(s.getTime()) || Number.isNaN(e.getTime())) return false;
+    if (e < s) return false;
+    const diffDays = Math.floor((e.getTime() - s.getTime()) / 86400000);
+    return diffDays > 30; // strict — start + end span > 31 days
+  })();
+
+  /** Cap the End Date input's `max` attribute at Start Date + 30
+   *  days, so the OS date picker disables anything past one month. */
+  const customRangeEndMax = (() => {
+    if (!exportStartDate) return undefined;
+    const s = new Date(exportStartDate);
+    if (Number.isNaN(s.getTime())) return undefined;
+    const cap = new Date(s.getTime() + 30 * 86400000);
+    return cap.toISOString().split("T")[0];
+  })();
 
   // Calculate summary statistics
   const summary = useMemo(() => {
@@ -429,7 +209,7 @@ export function Orders() {
       new: orders.filter((o) => o.status === "New").length,
       confirmed: orders.filter((o) => o.status === "Confirmed").length,
       delivered: orders.filter((o) => o.status === "Delivered").length,
-      rejected: orders.filter((o) => o.status === "Rejected").length,
+      cancelled: orders.filter((o) => o.status === "Cancelled").length,
     };
   }, [orders]);
 
@@ -439,7 +219,7 @@ export function Orders() {
       new: "New",
       confirmed: "Confirmed",
       delivered: "Delivered",
-      rejected: "Rejected",
+      cancelled: "Cancelled",
     };
 
     return orders.filter((order) => {
@@ -540,27 +320,21 @@ export function Orders() {
     setAcceptNotes("");
   };
 
-  // Reject orders
-  const handleRejectOrders = () => {
-    if (!rejectReason.trim()) {
-      toast.error("Please provide a reason for rejection");
+  // Cancel orders. The Cancel verb replaced "Reject" across the
+  // module — same flow, same destructive intent, just consistent
+  // wording with the single-order Cancel action on the detail page.
+  const handleCancelOrders = () => {
+    if (!cancelReason.trim()) {
+      toast.error("Please provide a reason for cancellation");
       return;
     }
-
-    setOrders((prev) =>
-      prev.map((order) =>
-        selectedOrders.includes(order.id)
-          ? { ...order, status: "Rejected" as const }
-          : order
-      )
-    );
-
+    updateOrderStatuses(selectedOrders, "Cancelled");
     toast.success(
-      `${selectedOrders.length} order(s) rejected. Reason: ${rejectReason}`
+      `${selectedOrders.length} order(s) cancelled. Reason: ${cancelReason}`,
     );
     setSelectedOrders([]);
-    setIsRejectDialogOpen(false);
-    setRejectReason("");
+    setIsCancelDialogOpen(false);
+    setCancelReason("");
   };
 
   // Mark as delivered (Confirmed → Delivered)
@@ -614,22 +388,6 @@ export function Orders() {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
 
-  // Slugify a retailer name into a stable BUYER-XXX-### code so orders
-  // without an explicit buyerCode still get something deterministic.
-  const buyerCodeFor = (order: Order): string => {
-    if (order.buyerCode) return order.buyerCode;
-    const slug =
-      order.retailerName
-        .toUpperCase()
-        .replace(/[^A-Z0-9]+/g, " ")
-        .trim()
-        .split(" ")
-        .slice(0, 1)[0]
-        ?.slice(0, 3) || "BUY";
-    const tail = order.id.slice(-3);
-    return `BUYER-${slug}-${tail}`;
-  };
-
   // Channel order ID — synthesised from marketplace + last 6 digits of
   // the order ID when the order doesn't carry its own.
   const channelOrderIdFor = (order: Order): string => {
@@ -678,16 +436,22 @@ export function Orders() {
   };
 
   const handleExport = () => {
-    if (!exportStartDate || !exportEndDate) {
-      toast.error("Please select both start and end dates for export");
+    const range = resolveExportRange();
+    if (!range) {
+      toast.error("Please select a date range for export");
       return;
     }
-
-    const start = new Date(exportStartDate);
-    const end = new Date(exportEndDate);
-
+    const start = new Date(range.start);
+    const end = new Date(range.end);
     if (start > end) {
       toast.error("Start date cannot be after end date");
+      return;
+    }
+    // Phase 1 caps the exportable window at one month to keep
+    // generated sheets reasonable. The dropdown's month presets
+    // are inherently one month; only Custom can exceed that.
+    if (customRangeTooLong) {
+      toast.error("Custom date range can span at most one month");
       return;
     }
 
@@ -702,21 +466,21 @@ export function Orders() {
       return;
     }
 
-    // 24-column layout — mirrors the sample export sheet exactly.
-    // One row per line item; order-level fields (Original Order Value,
-    // Order Level Savings, Final Order Value) repeat on every row.
+    // 23-column layout — one row per line item; order-level fields
+    // (Original Order Value, Order Level Savings, Final Order Value)
+    // repeat on every row. Phase 1 retired four columns the ops team
+    // never used (Invoice ID, Buyer Code, Seller Code, Line Total),
+    // so the sheet stays focused on the fields finance actually
+    // reconciles against.
     const headers = [
-      "Invoice ID",
       "Order ID",
       "Order Status",
       "Order Date",
       "Buyer Name",
       "Buyer Contact",
       "Buyer Address",
-      "Buyer Code",
       "Seller Name",
       "Seller Contact",
-      "Seller Code",
       "Payment Mode",
       "Channel Order ID",
       "Original Order Value",
@@ -730,7 +494,6 @@ export function Orders() {
       "Final Price/Unit",
       "Discount Applied",
       "Discount Details",
-      "Line Total",
       "Order Level Savings",
       "Final Order Value",
     ];
@@ -749,17 +512,14 @@ export function Orders() {
       const finalOrderValue = order.orderValue;
       lines.forEach((item) => {
         const row = [
-          `INV-${order.id}`,
           order.id,
           statusLabelFor(order),
           orderDateLabelFor(order),
           order.retailerName,
           order.buyerContact ?? "",
           order.buyerAddress ?? "",
-          buyerCodeFor(order),
           SELLER_INFO.name,
           SELLER_INFO.contact,
-          SELLER_INFO.code,
           order.paymentMode,
           channelOrderIdFor(order),
           order.orderValue,
@@ -773,7 +533,6 @@ export function Orders() {
           item.finalPricePerUnit,
           item.discountApplied,
           item.discountDetails,
-          item.lineTotal,
           orderLevelSavings,
           finalOrderValue,
         ];
@@ -793,7 +552,7 @@ export function Orders() {
     link.setAttribute("href", url);
     link.setAttribute(
       "download",
-      `orders_${exportStartDate}_to_${exportEndDate}.${exportFormat}`
+      `orders_${range.start}_to_${range.end}.${exportFormat}`,
     );
     link.style.visibility = "hidden";
     document.body.appendChild(link);
@@ -801,7 +560,7 @@ export function Orders() {
     document.body.removeChild(link);
 
     toast.success(
-      `Successfully exported ${ordersToExport.length} order(s) from ${exportStartDate} to ${exportEndDate}`
+      `Successfully exported ${ordersToExport.length} order(s) from ${range.start} to ${range.end}`,
     );
     setIsExportDialogOpen(false);
   };
@@ -827,10 +586,10 @@ export function Orders() {
             Delivered
           </Badge>
         );
-      case "Rejected":
+      case "Cancelled":
         return (
           <Badge className="bg-red-50 text-red-700 border-red-200">
-            Rejected
+            Cancelled
           </Badge>
         );
       default:
@@ -855,11 +614,11 @@ export function Orders() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => setIsRejectDialogOpen(true)}
+              onClick={() => setIsCancelDialogOpen(true)}
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />
-              Reject ({selectedOrders.length})
+              Cancel ({selectedOrders.length})
             </Button>
           </div>
         );
@@ -876,17 +635,17 @@ export function Orders() {
             </Button>
             <Button
               variant="destructive"
-              onClick={() => setIsRejectDialogOpen(true)}
+              onClick={() => setIsCancelDialogOpen(true)}
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />
-              Reject ({selectedOrders.length})
+              Cancel ({selectedOrders.length})
             </Button>
           </div>
         );
 
       case "delivered":
-      case "rejected":
+      case "cancelled":
       case "all":
         return (
           <div className="text-sm text-gray-600 bg-gray-100 px-4 py-2 rounded-lg">
@@ -949,7 +708,7 @@ export function Orders() {
                 Order ID
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Company / Brand
+                Company
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Retailer Name
@@ -994,7 +753,7 @@ export function Orders() {
                 </td>
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">
-                    {order.brand}
+                    {order.company}
                   </p>
                 </td>
                 <td className="px-4 py-3">
@@ -1094,11 +853,11 @@ export function Orders() {
                       <span className="font-medium">Delivered ({summary.delivered})</span>
                     </TabsTrigger>
                     <TabsTrigger
-                      value="rejected"
+                      value="cancelled"
                       className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2 transition-all whitespace-nowrap"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
-                      <span className="font-medium">Rejected ({summary.rejected})</span>
+                      <span className="font-medium">Cancelled ({summary.cancelled})</span>
                     </TabsTrigger>
                   </TabsList>
 
@@ -1244,10 +1003,10 @@ export function Orders() {
                         size="sm"
                         variant="outline"
                         className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                        onClick={() => setIsRejectDialogOpen(true)}
+                        onClick={() => setIsCancelDialogOpen(true)}
                       >
                         <XCircle className="h-4 w-4" />
-                        Reject
+                        Cancel
                       </Button>
                     </div>
                   )}
@@ -1306,7 +1065,7 @@ export function Orders() {
                         size="sm"
                         variant="outline"
                         className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                        onClick={() => setIsRejectDialogOpen(true)}
+                        onClick={() => setIsCancelDialogOpen(true)}
                       >
                         <XCircle className="h-4 w-4" />
                         Cancel
@@ -1348,7 +1107,7 @@ export function Orders() {
               {renderOrderTable(paginatedOrders)}
             </TabsContent>
 
-            <TabsContent value="rejected" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
+            <TabsContent value="cancelled" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {!isEmpty && (
               <div className="px-6 py-4 border-b flex-shrink-0">
                 <div className="relative max-w-md">
@@ -1445,13 +1204,13 @@ export function Orders() {
         </DialogContent>
       </Dialog>
 
-      {/* Reject Orders Dialog */}
-      <Dialog open={isRejectDialogOpen} onOpenChange={setIsRejectDialogOpen}>
+      {/* Cancel Orders Dialog */}
+      <Dialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <XCircle className="h-5 w-5 text-red-600" />
-              Reject Orders
+              Cancel Orders
             </DialogTitle>
             <DialogDescription>
               You are about to reject {selectedOrders.length} order(s). Please
@@ -1461,14 +1220,14 @@ export function Orders() {
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="rejectReason">
-                Reason for Rejection <span className="text-red-500">*</span>
+              <Label htmlFor="cancelReason">
+                Reason for Cancellation <span className="text-red-500">*</span>
               </Label>
               <Textarea
-                id="rejectReason"
+                id="cancelReason"
                 placeholder="e.g., Out of stock, Cannot deliver to location, Customer request..."
-                value={rejectReason}
-                onChange={(e) => setRejectReason(e.target.value)}
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
                 rows={4}
               />
             </div>
@@ -1476,7 +1235,7 @@ export function Orders() {
             <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
               <p className="text-sm text-amber-800">
                 <AlertCircle className="h-4 w-4 inline mr-1" />
-                Rejected orders will be notified to the customer and cannot be
+                Cancelled orders will be notified to the customer and cannot be
                 undone.
               </p>
             </div>
@@ -1485,18 +1244,18 @@ export function Orders() {
           <DialogFooter>
             <Button
               variant="outline"
-              onClick={() => setIsRejectDialogOpen(false)}
+              onClick={() => setIsCancelDialogOpen(false)}
             >
               Cancel
             </Button>
             <Button
               variant="destructive"
-              onClick={handleRejectOrders}
-              disabled={!rejectReason.trim()}
+              onClick={handleCancelOrders}
+              disabled={!cancelReason.trim()}
               className="gap-2"
             >
               <XCircle className="h-4 w-4" />
-              Reject {selectedOrders.length} Order(s)
+              Cancel {selectedOrders.length} Order(s)
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1579,29 +1338,100 @@ export function Orders() {
           </DialogHeader>
 
           <div className="space-y-4 py-4">
+            {/* Date Range picker — single dropdown with the last
+                24 months in reverse-chrono order, plus a "Custom
+                date range" option at the bottom. Picking a month
+                covers its 1st through last day automatically; the
+                custom path reveals two date inputs below. */}
             <div className="space-y-2">
-              <Label htmlFor="exportStartDate">
-                Start Date <span className="text-red-500">*</span>
+              <Label htmlFor="exportRange">
+                Date Range <span className="text-red-500">*</span>
               </Label>
-              <Input
-                id="exportStartDate"
-                type="date"
-                value={exportStartDate}
-                onChange={(e) => setExportStartDate(e.target.value)}
-              />
+              <Select
+                value={exportRangePreset}
+                onValueChange={(v) => {
+                  setExportRangePreset(v);
+                  // When the seller switches to Custom for the
+                  // first time, seed both inputs with a sensible
+                  // 1-week window so the picker isn't blank.
+                  if (v === "custom") {
+                    if (!exportStartDate) setExportStartDate(todayIso);
+                    if (!exportEndDate) setExportEndDate(todayIso);
+                  }
+                }}
+              >
+                <SelectTrigger id="exportRange" className="w-full">
+                  <SelectValue placeholder="Pick a month or custom range" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  {MONTH_PRESETS.map((m) => (
+                    <SelectItem key={m.value} value={m.value}>
+                      {m.label}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="custom">Custom date range</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="exportEndDate">
-                End Date <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="exportEndDate"
-                type="date"
-                value={exportEndDate}
-                onChange={(e) => setExportEndDate(e.target.value)}
-              />
-            </div>
+            {/* Custom range — only rendered when "Custom date
+                range" is selected. Enforces a 1-month max span:
+                End Date's `max` is pinned to Start + 30 days, and
+                we also surface an inline warning if the seller
+                somehow widens the range another way. */}
+            {exportRangePreset === "custom" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                <div className="space-y-2">
+                  <Label htmlFor="exportStartDate" className="text-xs">
+                    Start Date <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="exportStartDate"
+                    type="date"
+                    value={exportStartDate}
+                    max={todayIso}
+                    onChange={(e) => {
+                      setExportStartDate(e.target.value);
+                      // If the new Start makes the End fall outside
+                      // the 1-month window, snap End back to Start
+                      // so the seller doesn't sit on an invalid
+                      // pair.
+                      if (e.target.value && exportEndDate) {
+                        const s = new Date(e.target.value);
+                        const ed = new Date(exportEndDate);
+                        const diff = (ed.getTime() - s.getTime()) / 86400000;
+                        if (diff < 0 || diff > 30) {
+                          setExportEndDate(e.target.value);
+                        }
+                      }
+                    }}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="exportEndDate" className="text-xs">
+                    End Date <span className="text-red-500">*</span>
+                  </Label>
+                  <Input
+                    id="exportEndDate"
+                    type="date"
+                    value={exportEndDate}
+                    min={exportStartDate || undefined}
+                    max={customRangeEndMax}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                  />
+                </div>
+                <p className="sm:col-span-2 text-[11px] text-gray-600">
+                  Custom range can span at most one month (31 days).
+                </p>
+                {customRangeTooLong && (
+                  <p className="sm:col-span-2 text-[11px] text-red-700 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    The selected range exceeds one month. Narrow it
+                    before exporting.
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="exportFormat">
@@ -1629,7 +1459,15 @@ export function Orders() {
             >
               Cancel
             </Button>
-            <Button onClick={handleExport} className="gap-2">
+            <Button
+              onClick={handleExport}
+              className="gap-2"
+              disabled={
+                customRangeTooLong ||
+                (exportRangePreset === "custom" &&
+                  (!exportStartDate || !exportEndDate))
+              }
+            >
               <Download className="h-4 w-4" />
               Export {orders.length} Order(s)
             </Button>

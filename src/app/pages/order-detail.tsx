@@ -30,8 +30,22 @@ import {
   Hash,
   Layers,
   TrendingDown,
+  Truck,
 } from "lucide-react";
 import { toast } from "sonner";
+// Shared orders store — the detail page now looks up the right
+// order by URL :orderId rather than rendering a single hard-coded
+// mock for every route. Status writes (confirm / cancel / mark as
+// delivered) flow back through `updateOrderStatus` so the list
+// page's subscribe callback sees the change.
+import {
+  getOrderById,
+  updateOrderStatus,
+  subscribeToOrders,
+  synthesizeProducts,
+  SELLER_INFO,
+  type Order,
+} from "../lib/orders-data";
 
 /** One row in the QPS slab schedule for a SKU. */
 interface QpsSlabDef {
@@ -111,7 +125,11 @@ function findSlabIdx(qty: number, slabs: QpsSlabDef[]): number {
 
 interface OrderDetails {
   orderId: string;
-  status: "New" | "Confirmed" | "In Progress" | "Rejected" | "Delivered";
+  // Status string mirrors the shared store. "In Progress" stays in
+  // the union for backwards compatibility but isn't produced by any
+  // current flow; Phase 1 ships New / Confirmed / Cancelled /
+  // Delivered.
+  status: "New" | "Confirmed" | "In Progress" | "Cancelled" | "Delivered";
   orderTime: string;
   channel: "ONDC" | "Amazon" | "Flipkart";
   buyerStoreName: string;
@@ -128,137 +146,202 @@ interface OrderDetails {
   products: OrderProduct[];
 }
 
-const mockOrderData: OrderDetails = {
-  orderId: "DKN-2025-12345",
-  status: "New",
-  orderTime: "2026-03-30 10:30 AM",
-  channel: "ONDC",
-  buyerStoreName: "Balaji Kirana Store",
-  buyerOwnerName: "Ramesh Balaji",
-  buyerPhone: "+91 98765 43210",
-  buyerAddress: "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
-  sellerName: "ITC Private Limited",
-  sellerId: "SELLER-ITC-001",
-  sellerContact: "+91 80 2222 3333",
-  buyerId: "BUYER-BAL-456",
-  channelOrderId: "ONDC-ORD-789456",
-  paymentMode: "COD",
-  orderValue: 12450.00,
-  products: [
-    {
-      // QPS-eligible line: SKU 180000008 has a 3-slab QPS scheme
-      //   1–11 qty → ₹171/unit · 12–47 qty → 5% off (₹162.45) · 48+ qty → 10% off (₹153.90)
-      // This order has 25 units → falls in Slab 2, 5% off.
-      id: "1",
-      name: "Freedom Refined Sunflower Oil 1L × 16",
-      skuId: "180000008",
-      orderedQuantity: 25,
-      availableStock: 642,
-      editableQuantity: 25,
-      basePrice: 171,
-      pricePerUnit: 162.45,
-      editablePricePerUnit: 162.45,
-      totalPrice: 4061.25,
-      isModified: false,
-      qps: {
-        offerCode: "QPS-180000008",
-        slabLabel: "Slab 2 · 12–47 qty",
-        discountLabel: "5% off",
-        savingPerUnit: 8.55,
-        totalSaving: 213.75,
-        slabs: [
-          { minQty: 1, maxQty: 11, discountLabel: "—", pricePerUnit: 171 },
-          { minQty: 12, maxQty: 47, discountLabel: "5% off", pricePerUnit: 162.45 },
-          { minQty: 48, discountLabel: "10% off", pricePerUnit: 153.9 },
-        ],
-      },
+/**
+ * Build an OrderDetails record from a shared-store Order. For
+ * "DKN-2025-12345" we keep the rich products mock (with QPS slab
+ * snapshots) because line items there carry the full discount
+ * trace; for every other order we synthesize the products from
+ * the store's lineItems / itemsSummary. The buyer / seller /
+ * channel / status fields always come from the store row, so
+ * clicking any row in the orders list now lands the seller on the
+ * right order's details.
+ */
+function buildOrderDetailFromStore(order: Order): OrderDetails {
+  // For the rich-mock order, keep the existing hand-authored
+  // products array (with QPS slabs) — synthesizeProducts strips the
+  // QPS field so we'd lose it otherwise.
+  const products =
+    order.id === "DKN-2025-12345"
+      ? RICH_PRODUCTS_DKN_2025_12345
+      : (synthesizeProducts(order) as OrderProduct[]);
+
+  // Status mapping — the store's OrderStatus is a subset of the
+  // detail page's wider union, so the cast is safe.
+  return {
+    orderId: order.id,
+    status: order.status as OrderDetails["status"],
+    orderTime: `${order.orderDate}${order.orderTime ? " " + order.orderTime : ""}`,
+    channel: (order.marketplace as OrderDetails["channel"]) ?? "ONDC",
+    buyerStoreName: order.retailerName,
+    buyerOwnerName: order.retailerName,
+    buyerPhone: order.buyerContact ?? "+91 90000 00000",
+    buyerAddress: order.buyerAddress ?? "Address on file",
+    sellerName: SELLER_INFO.name,
+    sellerId: SELLER_INFO.code,
+    sellerContact: SELLER_INFO.contact,
+    buyerId: order.buyerCode ?? `BUYER-${order.id}`,
+    channelOrderId: order.channelOrderId ?? `${order.marketplace ?? "ONDC"}-${order.id}`,
+    paymentMode: order.paymentMode,
+    orderValue: order.orderValue,
+    products,
+  };
+}
+
+// Rich hand-authored products array used only by DKN-2025-12345 —
+// preserves the QPS slab snapshots so the QPS impact row renders.
+const RICH_PRODUCTS_DKN_2025_12345: OrderProduct[] = [
+  {
+    // QPS-eligible line: SKU 180000008 has a 3-slab QPS scheme
+    //   1–11 qty → ₹171/unit · 12–47 qty → 5% off (₹162.45) · 48+ qty → 10% off (₹153.90)
+    // This order has 25 units → falls in Slab 2, 5% off.
+    id: "1",
+    name: "Freedom Refined Sunflower Oil 1L × 16",
+    skuId: "180000008",
+    orderedQuantity: 25,
+    availableStock: 642,
+    editableQuantity: 25,
+    basePrice: 171,
+    pricePerUnit: 162.45,
+    editablePricePerUnit: 162.45,
+    totalPrice: 4061.25,
+    isModified: false,
+    qps: {
+      offerCode: "QPS-180000008",
+      slabLabel: "Slab 2 · 12–47 qty",
+      discountLabel: "5% off",
+      savingPerUnit: 8.55,
+      totalSaving: 213.75,
+      slabs: [
+        { minQty: 1, maxQty: 11, discountLabel: "—", pricePerUnit: 171 },
+        { minQty: 12, maxQty: 47, discountLabel: "5% off", pricePerUnit: 162.45 },
+        { minQty: 48, discountLabel: "10% off", pricePerUnit: 153.9 },
+      ],
     },
-    {
-      // QPS-eligible: Aashirvaad Atta 10kg slabs (percent-only per Phase 1)
-      //   1–9 qty → ₹450 (no discount) · 10–24 → 6.67% off (₹420) · 25+ → 11.11% off (₹400)
-      // This order has 20 units → falls in Slab 2.
-      id: "1a",
-      name: "Aashirvaad Atta 10kg",
-      skuId: "SKU-AASH-10",
-      orderedQuantity: 20,
-      availableStock: 15,
-      editableQuantity: 20,
-      basePrice: 450,
-      pricePerUnit: 420,
-      editablePricePerUnit: 420,
-      totalPrice: 8400,
-      isModified: false,
-      qps: {
-        offerCode: "QPS-SKU-AASH-10",
-        slabLabel: "Slab 2 · 10–24 qty",
-        discountLabel: "6.67% off",
-        savingPerUnit: 30,
-        totalSaving: 600,
-        slabs: [
-          { minQty: 1, maxQty: 9, discountLabel: "—", pricePerUnit: 450 },
-          { minQty: 10, maxQty: 24, discountLabel: "6.67% off", pricePerUnit: 420 },
-          { minQty: 25, discountLabel: "11.11% off", pricePerUnit: 400 },
-        ],
-      },
+  },
+  {
+    id: "1a",
+    name: "Aashirvaad Atta 10kg",
+    skuId: "SKU-AASH-10",
+    orderedQuantity: 20,
+    availableStock: 15,
+    editableQuantity: 20,
+    basePrice: 450,
+    pricePerUnit: 420,
+    editablePricePerUnit: 420,
+    totalPrice: 8400,
+    isModified: false,
+    qps: {
+      offerCode: "QPS-SKU-AASH-10",
+      slabLabel: "Slab 2 · 10–24 qty",
+      discountLabel: "6.67% off",
+      savingPerUnit: 30,
+      totalSaving: 600,
+      slabs: [
+        { minQty: 1, maxQty: 9, discountLabel: "—", pricePerUnit: 450 },
+        { minQty: 10, maxQty: 24, discountLabel: "6.67% off", pricePerUnit: 420 },
+        { minQty: 25, discountLabel: "11.11% off", pricePerUnit: 400 },
+      ],
     },
-    {
-      id: "2",
-      name: "Sunfeast Biscuits Dark Fantasy 150g",
-      skuId: "SKU-SUNF-DF150",
-      orderedQuantity: 50,
-      availableStock: 100,
-      editableQuantity: 50,
-      pricePerUnit: 35,
-      editablePricePerUnit: 35,
-      totalPrice: 1750,
-      isModified: false,
-    },
-    {
-      id: "3",
-      name: "Classmate Notebook 172 Pages",
-      skuId: "SKU-CLAS-NB172",
-      orderedQuantity: 30,
-      availableStock: 25,
-      editableQuantity: 30,
-      pricePerUnit: 45,
-      editablePricePerUnit: 45,
-      totalPrice: 1350,
-      isModified: false,
-    },
-    {
-      id: "4",
-      name: "Bingo Mad Angles 90g",
-      skuId: "SKU-BING-MA90",
-      orderedQuantity: 40,
-      availableStock: 80,
-      editableQuantity: 40,
-      pricePerUnit: 20,
-      editablePricePerUnit: 20,
-      totalPrice: 800,
-      isModified: false,
-    },
-    {
-      id: "5",
-      name: "Yippee Noodles 240g",
-      skuId: "SKU-YIPP-240",
-      orderedQuantity: 25,
-      availableStock: 10,
-      editableQuantity: 25,
-      pricePerUnit: 12,
-      editablePricePerUnit: 12,
-      totalPrice: 300,
-      isModified: false,
-    },
-  ],
-};
+  },
+  {
+    id: "2",
+    name: "Sunfeast Biscuits Dark Fantasy 150g",
+    skuId: "SKU-SUNF-DF150",
+    orderedQuantity: 50,
+    availableStock: 100,
+    editableQuantity: 50,
+    pricePerUnit: 35,
+    editablePricePerUnit: 35,
+    totalPrice: 1750,
+    isModified: false,
+  },
+  {
+    id: "3",
+    name: "Classmate Notebook 172 Pages",
+    skuId: "SKU-CLAS-NB172",
+    orderedQuantity: 30,
+    availableStock: 25,
+    editableQuantity: 30,
+    pricePerUnit: 45,
+    editablePricePerUnit: 45,
+    totalPrice: 1350,
+    isModified: false,
+  },
+  {
+    id: "4",
+    name: "Bingo Mad Angles 90g",
+    skuId: "SKU-BING-MA90",
+    orderedQuantity: 40,
+    availableStock: 80,
+    editableQuantity: 40,
+    pricePerUnit: 20,
+    editablePricePerUnit: 20,
+    totalPrice: 800,
+    isModified: false,
+  },
+  {
+    id: "5",
+    name: "Yippee Noodles 240g",
+    skuId: "SKU-YIPP-240",
+    orderedQuantity: 25,
+    availableStock: 10,
+    editableQuantity: 25,
+    pricePerUnit: 12,
+    editablePricePerUnit: 12,
+    totalPrice: 300,
+    isModified: false,
+  },
+];
 
 export function OrderDetail() {
   const { orderId } = useParams();
   const navigate = useNavigate();
-  const [orderData, setOrderData] = useState<OrderDetails>(mockOrderData);
+  // Resolve the order from the shared store by URL :orderId. If
+  // the ID isn't in the store (e.g. the seller hand-typed a URL
+  // for a non-existent order), fall back to the rich mock so the
+  // page still renders something useful instead of crashing.
+  const initialOrder = orderId ? getOrderById(orderId) : undefined;
+  const initialDetail = initialOrder
+    ? buildOrderDetailFromStore(initialOrder)
+    : buildOrderDetailFromStore({
+        id: orderId ?? "DKN-2025-12345",
+        brand: "ITC",
+        company: "ITC Limited",
+        source: "DMS-Bizom",
+        retailerName: "Balaji Kirana Store",
+        itemsSummary: "Sunflower Oil + 5 more",
+        orderValue: 12450,
+        paymentMode: "COD",
+        orderDate: "2026-03-30",
+        orderTime: "10:30 AM",
+        status: "New",
+        marketplace: "ONDC",
+      });
+  const [orderData, setOrderData] = useState<OrderDetails>(initialDetail);
+
+  // Resync when the URL changes (clicking a different order in a
+  // new tab, or back/forward) AND when the store fires a write
+  // notification (bulk confirm/cancel/deliver from the list page).
+  useEffect(() => {
+    const refresh = () => {
+      if (!orderId) return;
+      const o = getOrderById(orderId);
+      if (!o) return;
+      setOrderData((prev) => ({
+        ...buildOrderDetailFromStore(o),
+        // Preserve in-flight product edits so a list write doesn't
+        // clobber the seller's edit-mode changes mid-stream.
+        products: prev.orderId === o.id ? prev.products : buildOrderDetailFromStore(o).products,
+      }));
+    };
+    refresh();
+    return subscribeToOrders(refresh);
+  }, [orderId]);
+
   const [hasModifications, setHasModifications] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
   const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("Out of Stock");
   const [cancelOtherReason, setCancelOtherReason] = useState("");
@@ -289,10 +372,10 @@ export function OrderDetail() {
             In Progress
           </Badge>
         );
-      case "Rejected":
+      case "Cancelled":
         return (
           <Badge className="bg-red-50 text-red-700 border-red-200 text-base px-4 py-1">
-            Rejected
+            Cancelled
           </Badge>
         );
       case "Delivered":
@@ -407,6 +490,9 @@ export function OrderDetail() {
 
   const handleConfirm = () => {
     setOrderData((prev) => ({ ...prev, status: "Confirmed" }));
+    // Write the new status back to the shared store so the list
+    // page (and any other subscriber) sees the change.
+    if (orderData.orderId) updateOrderStatus(orderData.orderId, "Confirmed");
     setIsConfirmModalOpen(false);
     toast.success("Order confirmed successfully!");
     setTimeout(() => {
@@ -420,9 +506,28 @@ export function OrderDetail() {
 
   const handleCancel = () => {
     const reason = cancelReason === "Other" ? cancelOtherReason : cancelReason;
-    setOrderData((prev) => ({ ...prev, status: "Rejected" }));
+    setOrderData((prev) => ({ ...prev, status: "Cancelled" }));
+    if (orderData.orderId) updateOrderStatus(orderData.orderId, "Cancelled");
     setIsCancelModalOpen(false);
     toast.error(`Order cancelled. Reason: ${reason}`);
+    setTimeout(() => {
+      navigate("/orders");
+    }, 1500);
+  };
+
+  // ---- Mark as Delivered (Confirmed → Delivered) ----
+  // The Confirmed-status flow needs a follow-on "Mark as
+  // Delivered" CTA. The detail page used to only handle New →
+  // Confirmed; Phase 1 finishes the loop here.
+  const handleMarkDelivered = () => {
+    setIsDeliverModalOpen(true);
+  };
+
+  const handleConfirmDelivered = () => {
+    setOrderData((prev) => ({ ...prev, status: "Delivered" }));
+    if (orderData.orderId) updateOrderStatus(orderData.orderId, "Delivered");
+    setIsDeliverModalOpen(false);
+    toast.success("Order marked as delivered.");
     setTimeout(() => {
       navigate("/orders");
     }, 1500);
@@ -497,6 +602,11 @@ export function OrderDetail() {
                   </Button>
                 </>
               )}
+              {/* Status-aware CTAs.
+                  New → Confirm Order + Cancel.
+                  Confirmed → Mark as Delivered + Cancel.
+                  Delivered / Cancelled → no destructive actions —
+                  the order is past the seller's hand. */}
               {orderData.status === "New" && !isEditMode && (
                 <>
                   <Button
@@ -515,6 +625,27 @@ export function OrderDetail() {
                   >
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" />
                     Confirm Order
+                  </Button>
+                </>
+              )}
+              {orderData.status === "Confirmed" && !isEditMode && (
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-300 text-red-700 hover:bg-red-50 h-8"
+                    onClick={handleCancelOrder}
+                  >
+                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                    Cancel
+                  </Button>
+                  <Button
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700 h-8"
+                    onClick={handleMarkDelivered}
+                  >
+                    <Truck className="h-3.5 w-3.5 mr-1.5" />
+                    Mark as Delivered
                   </Button>
                 </>
               )}
@@ -1090,6 +1221,36 @@ export function OrderDetail() {
               }
             >
               Confirm Cancellation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Mark as Delivered Modal — confirmation step for the
+          Confirmed → Delivered transition. */}
+      <Dialog open={isDeliverModalOpen} onOpenChange={setIsDeliverModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Truck className="h-5 w-5 text-green-600" />
+              Mark as Delivered
+            </DialogTitle>
+            <DialogDescription>
+              Confirm that Order #{orderData.orderId} has been delivered to{" "}
+              {orderData.buyerStoreName}. This action moves the order to the
+              Delivered tab and can't be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeliverModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmDelivered}
+              className="bg-green-600 hover:bg-green-700 text-white"
+            >
+              <Truck className="h-4 w-4 mr-1.5" />
+              Confirm Delivery
             </Button>
           </DialogFooter>
         </DialogContent>
