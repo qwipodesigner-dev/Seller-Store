@@ -12,12 +12,16 @@
 // also lets the upcoming Excel-template tests target a small surface.
 // =====================================================================
 
-import * as XLSX from "xlsx";
-// ExcelJS is heavy (~900 KB unbundled). It's only needed for
-// downloading the template — the parser side uses SheetJS. Import
-// it dynamically inside downloadSkuTemplate so it doesn't ship in
-// the main bundle for users who never open the bulk-import flow.
-// We still import its types statically (erased at compile time).
+// ExcelJS is heavy (~900 KB unbundled). It's only needed when the
+// seller actively downloads the template OR uploads a file, so we
+// import it dynamically inside the two consumer functions —
+// downloadSkuTemplate and parseSkuImportFile. Types are imported
+// statically (erased at compile time).
+//
+// Phase 1 used SheetJS (xlsx) for the read path. We dropped that
+// dependency — the unpublished xlsx CVEs (prototype pollution +
+// ReDoS) had no fix on npm — and rebuilt the reader on top of the
+// same ExcelJS instance the writer already uses.
 import type ExcelJSType from "exceljs";
 
 /** Per-field schema shared by the template generator and the parser. */
@@ -580,28 +584,147 @@ export interface ParseFileResult {
   fatalError?: string;
 }
 
-/** Parse an uploaded .xlsx / .csv file using SheetJS. */
+/**
+ * Lightweight CSV parser. We only use this on the read path for
+ * plain-text CSV uploads — ExcelJS' CSV reader is Node-stream-based
+ * and doesn't run cleanly in the browser. The grammar handles the
+ * common dialect: comma separator, double-quote quoting with `""`
+ * escape, and \r / \n / \r\n line endings.
+ */
+function parseCsvText(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let inQuotes = false;
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (inQuotes) {
+      if (c === '"' && text[i + 1] === '"') {
+        field += '"';
+        i++;
+      } else if (c === '"') {
+        inQuotes = false;
+      } else {
+        field += c;
+      }
+    } else {
+      if (c === '"') {
+        inQuotes = true;
+      } else if (c === ",") {
+        row.push(field);
+        field = "";
+      } else if (c === "\n" || c === "\r") {
+        if (c === "\r" && text[i + 1] === "\n") i++;
+        row.push(field);
+        rows.push(row);
+        row = [];
+        field = "";
+      } else {
+        field += c;
+      }
+    }
+  }
+  if (field.length > 0 || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  // Drop fully-blank rows so blank gaps in the file don't show up
+  // as ghost data rows downstream.
+  return rows.filter((r) => r.some((c) => c.trim() !== ""));
+}
+
+/**
+ * Coerce an ExcelJS cell value to its display string, mirroring
+ * SheetJS' `raw: false` behaviour. Handles plain strings/numbers,
+ * formula cells (the cached `result`), rich-text cells, dates, and
+ * hyperlinks. Falls back to `String(value)` for anything exotic.
+ */
+function cellToString(value: ExcelJSType.CellValue): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (value instanceof Date) {
+    // ISO format matches what users typically expect when they pull
+    // a date out of Excel as text.
+    return value.toISOString().slice(0, 10);
+  }
+  const v = value as Record<string, unknown>;
+  if ("text" in v && typeof v.text === "string") return v.text;
+  if ("richText" in v && Array.isArray(v.richText)) {
+    return (v.richText as Array<{ text: string }>)
+      .map((r) => r.text ?? "")
+      .join("");
+  }
+  if ("result" in v) {
+    const r = v.result;
+    if (r === null || r === undefined) return "";
+    if (typeof r === "string" || typeof r === "number" || typeof r === "boolean") {
+      return String(r);
+    }
+    return cellToString(r as ExcelJSType.CellValue);
+  }
+  if ("hyperlink" in v && typeof v.hyperlink === "string") {
+    return ("text" in v && typeof v.text === "string" ? v.text : v.hyperlink) as string;
+  }
+  return String(value);
+}
+
+/** Parse an uploaded .xlsx / .csv file using ExcelJS (plus an
+ *  inline CSV reader for plain-text uploads). */
 export const parseSkuImportFile = async (
   file: File,
 ): Promise<ParseFileResult> => {
   const buffer = await file.arrayBuffer();
-  const wb = XLSX.read(buffer, { type: "array" });
+  let aoa: string[][] = [];
 
-  // Prefer the "Main SKU Upload" sheet when present (xlsx template);
-  // fall back to the first sheet so a plain .csv still works.
-  const sheetName =
-    wb.SheetNames.find((n) => /main\s*sku\s*upload/i.test(n)) ??
-    wb.SheetNames[0];
-  if (!sheetName) {
-    return { headers: [], rows: [], fatalError: "File has no sheets." };
+  // CSV path — text-decode and parse inline. ExcelJS' CSV reader is
+  // Node-stream-based and doesn't run cleanly in the browser, and
+  // CSV grammar is simple enough to roll ourselves.
+  if (/\.csv$/i.test(file.name)) {
+    const text = new TextDecoder("utf-8").decode(buffer);
+    aoa = parseCsvText(text);
+  } else {
+    // XLSX path — defer-load ExcelJS so the heavy dependency stays
+    // out of the main bundle for users who never bulk-import.
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    try {
+      await wb.xlsx.load(buffer);
+    } catch {
+      return {
+        headers: [],
+        rows: [],
+        fatalError:
+          "Couldn't read the file. Make sure it's a valid .xlsx export.",
+      };
+    }
+    if (wb.worksheets.length === 0) {
+      return { headers: [], rows: [], fatalError: "File has no sheets." };
+    }
+
+    // Prefer the "Main SKU Upload" sheet when present (xlsx
+    // template); fall back to the first sheet otherwise.
+    const sheet =
+      wb.worksheets.find((w) =>
+        /main\s*sku\s*upload/i.test(w.name),
+      ) ?? wb.worksheets[0];
+
+    // Walk the sheet and emit a tidy array-of-arrays. ExcelJS rows
+    // are 1-indexed and row.values has an empty slot at index 0; we
+    // slice that off when we materialise each row.
+    sheet.eachRow({ includeEmpty: false }, (row) => {
+      const values = row.values as ExcelJSType.CellValue[];
+      const maxCol = Math.max(values.length - 1, 0);
+      const cells: string[] = [];
+      for (let c = 1; c <= maxCol; c++) {
+        cells.push(cellToString(row.getCell(c).value).trim());
+      }
+      // Drop fully-blank rows — mirrors SheetJS' `blankrows: false`.
+      if (cells.some((c) => c !== "")) aoa.push(cells);
+    });
   }
-  const sheet = wb.Sheets[sheetName];
-  const aoa: string[][] = XLSX.utils.sheet_to_json(sheet, {
-    header: 1,
-    blankrows: false,
-    defval: "",
-    raw: false,
-  });
+
   if (aoa.length === 0) {
     return { headers: [], rows: [], fatalError: "Sheet is empty." };
   }
