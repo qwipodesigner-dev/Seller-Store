@@ -110,7 +110,7 @@ interface OrderDetails {
 
 /**
  * Build an OrderDetails record from a shared-store Order. For
- * "DKN-2025-12345" we keep the rich products mock (with QPS slab
+ * "QWI-ONDC-260330-8F3K92" we keep the rich products mock (with QPS slab
  * snapshots) because line items there carry the full discount
  * trace; for every other order we synthesize the products from
  * the store's lineItems / itemsSummary. The buyer / seller /
@@ -123,8 +123,8 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
   // products array (with QPS slabs) — synthesizeProducts strips the
   // QPS field so we'd lose it otherwise.
   const products =
-    order.id === "DKN-2025-12345"
-      ? RICH_PRODUCTS_DKN_2025_12345
+    order.id === "QWI-ONDC-260330-8F3K92"
+      ? RICH_PRODUCTS_FOR_SEED_ORDER
       : (synthesizeProducts(order) as OrderProduct[]);
 
   // Status mapping — the store's OrderStatus is a subset of the
@@ -146,9 +146,13 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
   };
 }
 
-// Rich hand-authored products array used only by DKN-2025-12345 —
-// preserves the QPS slab snapshots so the QPS impact row renders.
-const RICH_PRODUCTS_DKN_2025_12345: OrderProduct[] = [
+// Rich hand-authored products array for the single seed order that
+// carries the full QPS slab demo (QWI-ONDC-260330-8F3K92, "Balaji
+// Kirana Store"). Synthesised orders use the smaller line-item
+// shape from lib/orders-data, which drops slab snapshots — so we
+// keep this hand-authored array around exclusively for that one
+// order.
+const RICH_PRODUCTS_FOR_SEED_ORDER: OrderProduct[] = [
   {
     // QPS-eligible line: SKU 180000008 has a 3-slab QPS scheme
     //   1–11 qty → ₹171/unit · 12–47 qty → 5% off (₹162.45) · 48+ qty → 10% off (₹153.90)
@@ -245,7 +249,7 @@ export function OrderDetail() {
   const initialDetail = initialOrder
     ? buildOrderDetailFromStore(initialOrder)
     : buildOrderDetailFromStore({
-        id: orderId ?? "DKN-2025-12345",
+        id: orderId ?? "QWI-ONDC-260330-8F3K92",
         brand: "ITC",
         company: "ITC Limited",
         source: "DMS-Bizom",
@@ -536,15 +540,31 @@ export function OrderDetail() {
           </CardContent>
         </Card>
 
-        {/* Product List */}
-        <Card>
-          <CardHeader className="py-2 px-3 border-b border-gray-100">
+        {/* Product List.
+            `gap-0` overrides the Card primitive's default `gap-6`
+            so there's no 24px slot of whitespace between the
+            CardHeader border-bottom and the table's <thead>.
+            The `pb-2.5!` important suffix is here because the
+            shadcn CardHeader primitive ships a default
+            `[.border-b]:pb-6` rule — same-element arbitrary
+            selector, higher specificity than plain `py-2.5` — so a
+            non-important `pb-2.5` would lose. With the override
+            the top and bottom of the heading have equal 10px
+            spacing. */}
+        <Card className="gap-0">
+          <CardHeader className="pt-2.5 pb-2.5! px-3 border-b border-gray-100">
             <CardTitle className="text-sm flex items-center gap-2">
               <Package className="h-4 w-4 text-purple-600" />
               Order Items ({orderData.products.length})
             </CardTitle>
           </CardHeader>
-          <CardContent className="p-0">
+          {/* The `pb-0!` override is here because the shadcn
+              CardContent ships with `[&:last-child]:pb-6` —
+              arbitrary same-element selector, higher specificity
+              than plain `p-0`. Without important, 24px of empty
+              space stays at the bottom of the card below the last
+              row. */}
+          <CardContent className="p-0 pb-0!">
             <div className="overflow-hidden">
               <div className="overflow-x-auto max-h-[55vh] overflow-y-auto">
                 <table className="w-full text-sm">

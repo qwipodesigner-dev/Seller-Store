@@ -4,7 +4,7 @@
 // Why a shared store? Before this lib, the orders list owned the
 // table data and the detail page rendered a single hard-coded
 // OrderDetails mock for every order ID. Clicking any row landed
-// the seller on the same "DKN-2025-12345" detail regardless of
+// the seller on the same "QWI-ONDC-260330-8F3K92" detail regardless of
 // which row they came from. With this lib:
 //
 //   - The list reads from `getOrders()`.
@@ -74,7 +74,7 @@ export const SELLER_INFO = {
 // line-item company so the list's second column has a real value.
 export const seedOrders: Order[] = [
   {
-    id: "DKN-2025-12345",
+    id: "QWI-ONDC-260330-8F3K92",
     brand: "ITC",
     company: "ITC Limited",
     source: "DMS-Bizom",
@@ -173,7 +173,7 @@ export const seedOrders: Order[] = [
     ],
   },
   {
-    id: "DKN-2025-12347",
+    id: "QWI-ONDC-260326-K2P7XR",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Bizom",
@@ -186,7 +186,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
   },
   {
-    id: "DKN-2025-12348",
+    id: "QWI-FLPK-260326-Q4M8YE",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Botery",
@@ -199,7 +199,7 @@ export const seedOrders: Order[] = [
     marketplace: "Flipkart",
   },
   {
-    id: "DKN-2025-12349",
+    id: "QWI-AMZN-260325-V6T3HN",
     brand: "Marico",
     company: "Marico Limited",
     source: "DMS-Bizom",
@@ -212,7 +212,7 @@ export const seedOrders: Order[] = [
     marketplace: "Amazon",
   },
   {
-    id: "DKN-2025-12350",
+    id: "QWI-ONDC-260325-J5C9BD",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Botery",
@@ -225,7 +225,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
   },
   {
-    id: "DKN-2025-12351",
+    id: "QWI-AMZN-260324-N7W2XK",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Bizom",
@@ -238,7 +238,7 @@ export const seedOrders: Order[] = [
     marketplace: "Amazon",
   },
   {
-    id: "DKN-2025-12352",
+    id: "QWI-ONDC-260324-R3F4PT",
     brand: "Marico",
     company: "Marico Limited",
     source: "DMS-Botery",
@@ -251,7 +251,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
   },
   {
-    id: "DKN-2025-12353",
+    id: "QWI-FLPK-260323-A6H8WC",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Bizom",
@@ -264,7 +264,7 @@ export const seedOrders: Order[] = [
     marketplace: "Flipkart",
   },
   {
-    id: "DKN-2025-12354",
+    id: "QWI-AMZN-260323-B9D2MZ",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Botery",
@@ -277,7 +277,7 @@ export const seedOrders: Order[] = [
     marketplace: "Amazon",
   },
   {
-    id: "DKN-2025-12355",
+    id: "QWI-ONDC-260322-E5G7QY",
     brand: "Marico",
     company: "Marico Limited",
     source: "DMS-Bizom",
@@ -290,7 +290,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
   },
   {
-    id: "DKN-2025-12356",
+    id: "QWI-FLPK-260322-S4U8VK",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Botery",
@@ -303,7 +303,7 @@ export const seedOrders: Order[] = [
     marketplace: "Flipkart",
   },
   {
-    id: "DKN-2025-12357",
+    id: "QWI-AMZN-260321-T6Y9NF",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Bizom",
@@ -376,7 +376,7 @@ export function subscribeToOrders(cb: () => void): () => void {
 // ---- Synthesizer for the detail page ----
 //
 // OrderDetail wants a richer shape than the list row. For the seed
-// "DKN-2025-12345" we have full line items in the seed; for every
+// "QWI-ONDC-260330-8F3K92" we have full line items in the seed; for every
 // other order we synthesize a single-line products array from the
 // itemsSummary string so the products table has something to show.
 // In production this would be a real lookup against the backend.
