@@ -17,6 +17,7 @@ import { Settings } from "./pages/settings";
 import { Reports } from "./pages/reports";
 import { Login } from "./pages/auth/login";
 import { Onboarding } from "./pages/auth/onboarding";
+import { DesignSystem } from "./pages/design-system";
 import { AddSKU } from "./pages/products/add-sku";
 import { MySKU } from "./pages/products/my-sku";
 import { SKUDetail } from "./pages/products/sku-detail";
@@ -59,6 +60,18 @@ export const router = createBrowserRouter([
   {
     path: "/onboarding",
     Component: Onboarding,
+  },
+  // Design system handbook — role-gated to "designer". Single-page
+  // app with its own sidebar; intentionally does NOT use the
+  // seller RootLayout because the audience here is reviewing
+  // design language, not running a distribution business.
+  {
+    path: "/design",
+    element: (
+      <ProtectedRoute allow="designer">
+        <DesignSystem />
+      </ProtectedRoute>
+    ),
   },
   // Admin subtree — role-gated to "admin"
   {

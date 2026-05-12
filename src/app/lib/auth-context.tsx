@@ -9,10 +9,15 @@ import { applyDataMode as applyAdminCatalogDataMode } from "./admin-catalog";
 import { applyDataMode as applyMockStoreDataMode } from "./mock-store";
 import { setDataMode as setGlobalDataMode } from "./data-mode";
 
-// Phase 1 ships only two roles: super-admin and seller. The previous
-// "admin_seller" role (Qwipo staff acting as a specific seller via the
-// SellerPicker) has been removed.
-export type Role = "admin" | "seller";
+// Phase 1 ships three roles:
+//   - admin    → Qwipo Super Admin (admin subtree at /admin)
+//   - seller   → Distributor (seller subtree at /)
+//   - designer → Design system viewer (read-only docs at /design).
+//     This isn't a production role — it's a demo persona that lands
+//     on the design-system handbook so PMs / designers / developers
+//     can browse tokens + components + patterns without bumping
+//     into seller chrome.
+export type Role = "admin" | "seller" | "designer";
 
 export interface AuthUser {
   id: string;
@@ -56,7 +61,9 @@ function readStoredUser(): AuthUser | null {
       parsed &&
       typeof parsed === "object" &&
       typeof parsed.id === "string" &&
-      (parsed.role === "admin" || parsed.role === "seller")
+      (parsed.role === "admin" ||
+        parsed.role === "seller" ||
+        parsed.role === "designer")
     ) {
       return parsed as AuthUser;
     }

@@ -59,6 +59,22 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "empty",
     },
   },
+  // Design system persona — lands on /design, a self-contained
+  // handbook of every token + component + pattern in use. The
+  // role exists so PMs, designers, and developers can hand each
+  // other a single URL when discussing the design language
+  // without seller chrome around it.
+  "7777777777": {
+    otp: "1234",
+    user: {
+      id: "designer",
+      name: "Design System",
+      email: "design@qwipo.com",
+      role: "designer",
+      avatarInitials: "DS",
+      dataMode: "demo",
+    },
+  },
 };
 
 export function validateCredentials(

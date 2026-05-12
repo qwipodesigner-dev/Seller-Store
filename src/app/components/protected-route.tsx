@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 
 // Client-side route guard.
 // - Not authenticated → /login
-// - Wrong role → own home (admin → /admin, seller → /)
+// - Wrong role → own home (admin → /admin, seller → /, designer → /design)
 export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
   const { user, isAuthenticated } = useAuth();
   const location = useLocation();
@@ -22,6 +22,7 @@ export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
 
   if (!allowed.includes(user.role)) {
     if (user.role === "admin") return <Navigate to="/admin" replace />;
+    if (user.role === "designer") return <Navigate to="/design" replace />;
     return <Navigate to="/" replace />;
   }
 
