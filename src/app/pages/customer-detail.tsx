@@ -280,7 +280,7 @@ export function CustomerDetail() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate("/customers")}
+          onClick={() => navigate("/customers-demo")}
           className="hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5" />

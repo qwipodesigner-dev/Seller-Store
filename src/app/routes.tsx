@@ -118,14 +118,19 @@ export const router = createBrowserRouter([
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },
       { path: "orders/:orderId", Component: OrderDetail },
-      { path: "customers", Component: Customers },
-      { path: "customers/:customerId", Component: CustomerDetail },
-      // Customers 2 — empty-mode demo of the auto-register-on-first-order
-      // workflow with bulk delivery-day assignment, per-customer block,
-      // and clubbed-by-company rows. Built as a parallel page so the
-      // existing Customers screen is left untouched.
-      { path: "customers-demo", Component: CustomersDemo },
-      { path: "customers-demo/:customerId", Component: CustomerDemoDetail },
+      // The Customers module ships the auto-register-on-first-order
+      // flow (originally prototyped as "Customers 2" in the
+      // empty-mode demo). It became the production model after PM
+      // sign-off, so it's mounted at /customers — the canonical
+      // sidebar entry. The legacy Pending → Approved → Rejected
+      // approval flow is preserved at /customers-demo so empty-mode
+      // reviewers can still compare the two.
+      { path: "customers", Component: CustomersDemo },
+      { path: "customers/:customerId", Component: CustomerDemoDetail },
+      // Legacy approval flow — kept for reference under the empty-
+      // mode "Customers 2" sidebar entry.
+      { path: "customers-demo", Component: Customers },
+      { path: "customers-demo/:customerId", Component: CustomerDetail },
       { path: "profile", Component: Profile },
       { path: "connectors", Component: Connectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },

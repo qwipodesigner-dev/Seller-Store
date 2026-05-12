@@ -1012,7 +1012,7 @@ export function Customers() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-gray-500"
-                            onClick={() => navigate(`/customers/${c.id}`)}
+                            onClick={() => navigate(`/customers-demo/${c.id}`)}
                             title="Open customer detail"
                           >
                             <Eye className="h-3.5 w-3.5" />
@@ -1068,7 +1068,7 @@ export function Customers() {
                             variant="outline"
                             size="sm"
                             className="gap-1.5 h-8 px-2.5"
-                            onClick={() => navigate(`/customers/${c.id}`)}
+                            onClick={() => navigate(`/customers-demo/${c.id}`)}
                           >
                             <Eye className="h-3.5 w-3.5" />
                             Details
@@ -1659,7 +1659,7 @@ export function Customers() {
               <Button
                 className="gap-2"
                 onClick={() => {
-                  navigate(`/customers/${breakdownCustomer.id}`);
+                  navigate(`/customers-demo/${breakdownCustomer.id}`);
                   setBreakdownCustomer(null);
                 }}
               >
