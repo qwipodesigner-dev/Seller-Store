@@ -396,61 +396,9 @@ export function CustomersDemo() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* KPI Summary — four tiles */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="grid gap-4 grid-cols-1 sm:grid-cols-4">
-          <Card className="border-0 shadow-sm">
-            <div className="p-4 flex items-center gap-3">
-              <div className="bg-gray-100 text-gray-700 p-2 rounded-lg">
-                <Building2 className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-xl font-bold">{totalCustomers}</div>
-                <p className="text-xs text-gray-600">Total Customers</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <div className="p-4 flex items-center gap-3">
-              <div className="bg-emerald-100 text-emerald-700 p-2 rounded-lg">
-                <CheckCircle2 className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-emerald-700">
-                  {activeCount}
-                </div>
-                <p className="text-xs text-gray-600">Active</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <div className="p-4 flex items-center gap-3">
-              <div className="bg-amber-100 text-amber-700 p-2 rounded-lg">
-                <Calendar className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-amber-700">
-                  {unassignedDayCount}
-                </div>
-                <p className="text-xs text-gray-600">Awaiting delivery day</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="border-0 shadow-sm">
-            <div className="p-4 flex items-center gap-3">
-              <div className="bg-red-100 text-red-700 p-2 rounded-lg">
-                <Ban className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-xl font-bold text-red-700">
-                  {blockedCount}
-                </div>
-                <p className="text-xs text-gray-600">Blocked</p>
-              </div>
-            </div>
-          </Card>
-        </div>
-      </div>
+      {/* KPI tiles removed per Phase 2 spec — the list page now starts
+          directly with the toolbar + table. Delivery Day management
+          moved to the detail page; column removed below too. */}
 
       {/* Page area — Card stretches; only the rows scroll. */}
       <div className="flex-1 overflow-hidden p-6">
@@ -514,20 +462,12 @@ export function CustomersDemo() {
                   Clear
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 gap-1.5"
-                  onClick={openAssignDialog}
-                >
-                  <Calendar className="h-3.5 w-3.5 text-blue-700" />
-                  Assign Delivery Day
-                </Button>
-                {/* Bulk Block was removed alongside the per-row Block/
-                    Unblock buttons — Block / Unblock now lives on the
-                    detail page so each block is reviewed in context. */}
-              </div>
+              {/* Bulk actions (Assign Delivery Day / Block) all
+                  moved to the detail page so each change is reviewed
+                  in context with the customer's full record. The
+                  selection row stays only for the future "Export
+                  selected" CTA — until that lands it's just feedback
+                  that rows are checked. */}
             </div>
           )}
 
@@ -550,7 +490,7 @@ export function CustomersDemo() {
                     />
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Customer
+                    Business Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Class
@@ -564,9 +504,6 @@ export function CustomersDemo() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Area / PIN
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Delivery Day
-                  </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
@@ -579,7 +516,7 @@ export function CustomersDemo() {
                 {paginated.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={9}
+                      colSpan={8}
                       className="px-4 py-12 text-center text-sm text-gray-500"
                     >
                       No customers match your search or filters.
@@ -588,7 +525,6 @@ export function CustomersDemo() {
                 ) : (
                   paginated.map((c) => {
                     const isSel = selected.has(c.customerId);
-                    const ds = summariseDays(c.companies);
                     return (
                       <tr
                         key={c.customerId}
@@ -607,6 +543,9 @@ export function CustomersDemo() {
                             aria-label={`Select ${c.customerName}`}
                           />
                         </td>
+                        {/* Business Name only — Customer Name was
+                            dropped per Phase 2 spec so the row carries
+                            one identity, not two. */}
                         <td className="px-4 py-3">
                           <button
                             type="button"
@@ -614,12 +553,9 @@ export function CustomersDemo() {
                             onClick={() =>
                               navigate(`/customers-demo/${c.customerId}`)
                             }
-                            title={`View details for ${c.customerName}`}
+                            title={`View details for ${c.businessName}`}
                           >
                             <p className="font-medium text-gray-900 text-sm">
-                              {c.customerName}
-                            </p>
-                            <p className="text-xs text-gray-500">
                               {c.businessName}
                             </p>
                           </button>
@@ -658,43 +594,8 @@ export function CustomersDemo() {
                           <p className="text-sm text-gray-900">{c.area}</p>
                           <p className="text-xs text-gray-500">{c.pincode}</p>
                         </td>
-                        <td className="px-4 py-3">
-                          {ds.kind === "single" ? (
-                            <Badge
-                              variant="outline"
-                              className={
-                                ds.day === NEXT_DAY
-                                  ? "bg-blue-50 text-blue-700 border-blue-200 gap-1"
-                                  : "bg-emerald-50 text-emerald-700 border-emerald-200 gap-1"
-                              }
-                            >
-                              <Calendar className="h-3 w-3" />
-                              {ds.day}
-                            </Badge>
-                          ) : ds.kind === "mixed" ? (
-                            <button
-                              type="button"
-                              onClick={() => setLinkedCustomer(c)}
-                              title="Open Linked Companies to see per-company days"
-                            >
-                              <Badge
-                                variant="outline"
-                                className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1 cursor-pointer hover:bg-indigo-100"
-                              >
-                                <Calendar className="h-3 w-3" />
-                                Mixed ({ds.count})
-                              </Badge>
-                            </button>
-                          ) : (
-                            <Badge
-                              variant="outline"
-                              className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
-                            >
-                              <AlertCircle className="h-3 w-3" />
-                              Unassigned
-                            </Badge>
-                          )}
-                        </td>
+                        {/* Delivery Day cell removed — it's owned by
+                            the detail page now. */}
                         <td className="px-4 py-3 text-center">
                           {c.status === "Active" ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
@@ -717,7 +618,7 @@ export function CustomersDemo() {
                               onClick={() =>
                                 navigate(`/customers-demo/${c.customerId}`)
                               }
-                              title={`View details for ${c.customerName}`}
+                              title={`View details for ${c.businessName}`}
                             >
                               <Eye className="h-3.5 w-3.5" />
                               View
