@@ -357,26 +357,29 @@ export function CustomersDemo() {
   // ---- Export ----
   // CSV stays at line-item resolution (one row per (customer ×
   // company)) so downstream operations teams can still reconcile by
-  // company. The customer-level columns repeat across their rows.
+  // company. Phase 2 column set (locked by spec): Customer ID,
+  // Customer Name, Business Name, Mobile, Class, Area, PIN, Company,
+  // Status, Registered On — where Registered On is the per-company
+  // first-order date, not the customer's overall registration.
   const handleExport = () => {
     const headers = [
-      "Customer",
-      "Business",
+      "Customer ID",
+      "Customer Name",
+      "Business Name",
       "Mobile",
       "Class",
       "Area",
       "PIN",
       "Company",
-      "Delivery Day",
       "Status",
       "Registered On",
-      "Total Orders",
     ];
     const lines = [headers.join(",")];
     filteredCustomers.forEach((c) => {
       c.companies.forEach((co) => {
         lines.push(
           [
+            c.customerId.toUpperCase(),
             c.customerName,
             c.businessName,
             c.mobile,
@@ -384,10 +387,8 @@ export function CustomersDemo() {
             c.area,
             c.pincode,
             co.companyName,
-            co.deliveryDay ?? "—",
             c.status,
-            c.registeredDate,
-            c.totalOrders,
+            co.registeredAt ?? c.registeredDate,
           ]
             .map(escapeCsv)
             .join(","),
