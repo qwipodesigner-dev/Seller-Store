@@ -515,9 +515,8 @@ export function CustomersDemo() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Company
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Area / PIN
-                  </th>
+                  {/* Area / PIN column removed — full address is shown
+                      on the detail page. */}
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
@@ -530,7 +529,7 @@ export function CustomersDemo() {
                 {paginated.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={8}
+                      colSpan={7}
                       className="px-4 py-12 text-center text-sm text-gray-500"
                     >
                       No customers match your search or filters.
@@ -604,12 +603,9 @@ export function CustomersDemo() {
                             <ChevronRight className="h-3 w-3 opacity-60" />
                           </Button>
                         </td>
-                        <td className="px-4 py-3">
-                          <p className="text-sm text-gray-900">{c.area}</p>
-                          <p className="text-xs text-gray-500">{c.pincode}</p>
-                        </td>
-                        {/* Delivery Day cell removed — it's owned by
-                            the detail page now. */}
+                        {/* Area / PIN cell removed — full address is
+                            on the detail page. Delivery Day was also
+                            moved there. */}
                         <td className="px-4 py-3 text-center">
                           {c.status === "Active" ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
