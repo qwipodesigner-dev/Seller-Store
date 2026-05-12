@@ -668,7 +668,7 @@ export function Orders() {
     return (
       <div className="flex-1 overflow-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               {isActionable && (
                 <th className="text-left py-4 px-6 w-12">

@@ -42,6 +42,7 @@ import {
   MapPin,
   Menu,
   Mic,
+  Moon,
   MoreHorizontal,
   Move,
   Package,
@@ -55,6 +56,7 @@ import {
   ShoppingCart,
   Sparkles,
   Star,
+  Sun,
   Tag,
   Trash2,
   TrendingUp,
@@ -267,6 +269,7 @@ const SECTIONS: { group: string; items: SectionDef[] }[] = [
       { id: "motion", title: "Motion", icon: Zap },
       { id: "layout-tokens", title: "Z-index & Breakpoints", icon: Layers },
       { id: "icons", title: "Icons", icon: Component },
+      { id: "dark-mode", title: "Dark Mode", icon: Moon },
     ],
   },
   {
@@ -501,6 +504,53 @@ const BORDER_WIDTHS: { token: string; px: string; usage: string }[] = [
   { token: "border-4", px: "4 px", usage: "Decorative emphasis only (rare)" },
 ];
 
+// Semantic CSS variables that drive the whole theme. Defined in
+// src/styles/theme.css under :root (light) and .dark (dark).
+const SEMANTIC_TOKENS: {
+  name: string;
+  light: string;
+  dark: string;
+  usage: string;
+}[] = [
+  { name: "--background", light: "#FFFFFF", dark: "#1F1F1F", usage: "Page background" },
+  { name: "--foreground", light: "#0F0F0F", dark: "#FAFAFA", usage: "Default body text" },
+  { name: "--card", light: "#FFFFFF", dark: "#1F1F1F", usage: "Card surface" },
+  { name: "--card-foreground", light: "#0F0F0F", dark: "#FAFAFA", usage: "Text on cards" },
+  { name: "--popover", light: "#FFFFFF", dark: "#1F1F1F", usage: "Popover / Dropdown surface" },
+  { name: "--primary", light: "#2563EB", dark: "#FAFAFA", usage: "Primary CTA fill" },
+  { name: "--primary-foreground", light: "#FFFFFF", dark: "#2A2A2A", usage: "Text on primary fill" },
+  { name: "--muted", light: "#ECECF0", dark: "#3B3B3B", usage: "Disabled / subtle surface" },
+  { name: "--muted-foreground", light: "#717182", dark: "#A6A6A6", usage: "Secondary / placeholder text" },
+  { name: "--destructive", light: "#D4183D", dark: "#7F1D1D", usage: "Destructive fill (Delete)" },
+  { name: "--border", light: "rgba(0,0,0,.10)", dark: "#3B3B3B", usage: "Divider / outline" },
+  { name: "--input", light: "transparent", dark: "#3B3B3B", usage: "Input field background ring" },
+  { name: "--ring", light: "#2563EB", dark: "#6A6A6A", usage: "Focus ring" },
+];
+
+// Tailwind utility classes that get automatic dark-mode overrides via
+// .dark .<utility> selectors in theme.css. Developers don't need to
+// write dark:bg-* — these flip automatically when the theme switches.
+const UTILITY_FLIPS: {
+  utility: string;
+  light: string;
+  dark: string;
+}[] = [
+  { utility: "bg-white", light: "#FFFFFF", dark: "#343434" },
+  { utility: "bg-gray-50", light: "#F9FAFB", dark: "#2E2E2E" },
+  { utility: "bg-gray-100", light: "#F3F4F6", dark: "#3F3F3F" },
+  { utility: "bg-gray-200", light: "#E5E7EB", dark: "#494949" },
+  { utility: "text-gray-900", light: "#111827", dark: "#F5F5F5" },
+  { utility: "text-gray-700", light: "#374151", dark: "#D4D4D4" },
+  { utility: "text-gray-600", light: "#4B5563", dark: "#BABABA" },
+  { utility: "text-gray-500", light: "#6B7280", dark: "#A2A2A2" },
+  { utility: "border-gray-200", light: "#E5E7EB", dark: "#4E4E4E" },
+  { utility: "border-gray-300", light: "#D1D5DB", dark: "#575757" },
+  { utility: "bg-blue-50", light: "#EFF6FF", dark: "rgba(67,127,234,.18)" },
+  { utility: "bg-emerald-50", light: "#ECFDF5", dark: "rgba(60,167,127,.18)" },
+  { utility: "bg-amber-50", light: "#FFFBEB", dark: "rgba(195,144,46,.18)" },
+  { utility: "bg-red-50", light: "#FEF2F2", dark: "rgba(180,72,72,.18)" },
+];
+
 const OPACITY_TOKENS: { token: string; value: string; usage: string }[] = [
   { token: "opacity-40", value: "0.4", usage: "Disabled icons" },
   { token: "opacity-50", value: "0.5", usage: "Disabled buttons / inputs" },
@@ -627,13 +677,37 @@ function PreviewBox({ children }: { children: React.ReactNode }) {
   );
 }
 
+// Locked theme preview — wraps content in a `.dark` ancestor so the
+// utility-class overrides flip the children to dark colors, regardless
+// of the page's current theme. The light variant renders normally.
+// Note: this works reliably when the page itself is in light mode; if
+// the page is already in dark mode, both panels look dark.
+function ThemePreview({
+  mode,
+  children,
+}: {
+  mode: "light" | "dark";
+  children: React.ReactNode;
+}) {
+  const body = (
+    <div className="rounded-lg border border-gray-200 bg-white p-4 space-y-3">
+      <p className="text-[10px] uppercase tracking-wider font-semibold flex items-center gap-1.5 text-gray-500">
+        {mode === "dark" ? <Moon className="h-3 w-3" /> : <Sun className="h-3 w-3" />}
+        {mode === "dark" ? "Dark mode" : "Light mode"}
+      </p>
+      {children}
+    </div>
+  );
+  return mode === "dark" ? <div className="dark">{body}</div> : body;
+}
+
 // ---- Main page ---------------------------------------------------
 
 export function DesignSystem() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const [activeSection, setActiveSection] = useState("overview");
-  const { resolvedTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [themeReady, setThemeReady] = useState(false);
   useEffect(() => setThemeReady(true), []);
   const logoSrc = themeReady && resolvedTheme === "dark" ? logoImageDark : logoImage;
@@ -1149,6 +1223,286 @@ export function DesignSystem() {
                 </a>
                 . Avoid using two different icons for the same concept.
               </p>
+            </Section>
+
+            {/* ===== Foundations — Dark Mode ===== */}
+            <Section
+              id="dark-mode"
+              title="Dark Mode"
+              description="The app ships with a fully-themed dark mode. Developers don't write dark: variants on every utility — the theme system flips them automatically. This section documents the mechanism, the tokens, and how each component reacts."
+            >
+              <Card className="border-gray-200 bg-gradient-to-br from-gray-50 to-white">
+                <CardContent className="p-4 space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      {resolvedTheme === "dark" ? (
+                        <Moon className="h-5 w-5 text-fuchsia-600" />
+                      ) : (
+                        <Sun className="h-5 w-5 text-fuchsia-600" />
+                      )}
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">
+                          Current theme: {resolvedTheme === "dark" ? "Dark" : "Light"}
+                        </p>
+                        <p className="text-[11px] text-gray-600">
+                          Toggle the whole page to see every component flip.
+                        </p>
+                      </div>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() =>
+                        setTheme(resolvedTheme === "dark" ? "light" : "dark")
+                      }
+                    >
+                      {resolvedTheme === "dark" ? (
+                        <>
+                          <Sun className="h-4 w-4" />
+                          Switch to Light
+                        </>
+                      ) : (
+                        <>
+                          <Moon className="h-4 w-4" />
+                          Switch to Dark
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <SubHeader>How it works</SubHeader>
+              <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-5 leading-relaxed">
+                <li>
+                  <code className="font-mono text-fuchsia-700">next-themes</code>
+                  {" "}toggles a <code className="font-mono text-fuchsia-700">.dark</code> class on the <code className="font-mono">&lt;html&gt;</code> element. Preference persists under{" "}
+                  <code className="font-mono text-fuchsia-700">qwipo.theme</code> in localStorage.
+                </li>
+                <li>
+                  Semantic CSS variables (<code className="font-mono text-fuchsia-700">--background</code>,
+                  {" "}<code className="font-mono text-fuchsia-700">--foreground</code>,
+                  {" "}<code className="font-mono text-fuchsia-700">--primary</code>, etc.) are redefined under the <code className="font-mono">.dark</code> selector in <code className="font-mono">src/styles/theme.css</code>.
+                </li>
+                <li>
+                  Tailwind utility classes (<code className="font-mono text-fuchsia-700">bg-white</code>,
+                  {" "}<code className="font-mono text-fuchsia-700">text-gray-900</code>,
+                  {" "}<code className="font-mono text-fuchsia-700">border-gray-200</code>, etc.) have explicit dark overrides in the same stylesheet. You don't need <code className="font-mono">dark:bg-*</code> in component code — it flips for free.
+                </li>
+                <li>
+                  Components that need theme-aware behavior in JS read <code className="font-mono text-fuchsia-700">resolvedTheme</code> from <code className="font-mono text-fuchsia-700">useTheme()</code> (see the logo swap in the top nav).
+                </li>
+              </ul>
+
+              <SubHeader>Semantic Tokens (CSS Variables)</SubHeader>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wider text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold w-44">Token</th>
+                      <th className="px-3 py-2 font-semibold w-16">Light</th>
+                      <th className="px-3 py-2 font-semibold w-32 font-mono">Hex</th>
+                      <th className="px-3 py-2 font-semibold w-16">Dark</th>
+                      <th className="px-3 py-2 font-semibold w-32 font-mono">Hex</th>
+                      <th className="px-3 py-2 font-semibold">Usage</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {SEMANTIC_TOKENS.map((t) => (
+                      <tr key={t.name}>
+                        <td className="px-3 py-2">
+                          <code className="text-[11px] font-mono text-fuchsia-700">{t.name}</code>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="inline-block h-5 w-5 rounded border border-gray-200"
+                            style={{ background: t.light }}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{t.light}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="inline-block h-5 w-5 rounded border border-gray-700"
+                            style={{ background: t.dark }}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{t.dark}</td>
+                        <td className="px-3 py-2 text-xs text-gray-600">{t.usage}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <SubHeader>Utility-class Flips</SubHeader>
+              <p className="text-xs text-gray-600 leading-relaxed -mt-1">
+                These Tailwind utility classes have explicit dark-mode overrides. Write them once; both themes look right.
+              </p>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-left text-[11px] uppercase tracking-wider text-gray-600">
+                    <tr>
+                      <th className="px-3 py-2 font-semibold w-48">Utility</th>
+                      <th className="px-3 py-2 font-semibold w-16">Light</th>
+                      <th className="px-3 py-2 font-semibold w-40 font-mono">Hex</th>
+                      <th className="px-3 py-2 font-semibold w-16">Dark</th>
+                      <th className="px-3 py-2 font-semibold font-mono">Hex</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {UTILITY_FLIPS.map((u) => (
+                      <tr key={u.utility}>
+                        <td className="px-3 py-2">
+                          <code className="text-[11px] font-mono text-fuchsia-700">{u.utility}</code>
+                        </td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="inline-block h-5 w-5 rounded border border-gray-200"
+                            style={{ background: u.light }}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{u.light}</td>
+                        <td className="px-3 py-2">
+                          <span
+                            className="inline-block h-5 w-5 rounded border border-gray-700"
+                            style={{ background: u.dark }}
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-[11px] font-mono text-gray-700">{u.dark}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              <SubHeader>Side-by-side Component Preview</SubHeader>
+              <p className="text-xs text-gray-600 leading-relaxed -mt-1">
+                Same markup, two themes. This is what each primitive looks like to a developer who never wrote a single <code className="font-mono text-fuchsia-700">dark:</code> class.
+              </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {(["light", "dark"] as const).map((mode) => (
+                  <ThemePreview key={mode} mode={mode}>
+                    {/* text-gray-900 on the wrapper is intentional — it
+                        has an explicit `.dark .text-gray-900` override,
+                        so every inherited text (Label, plain <label>,
+                        Ghost button, "Checked"/"On" copy) flips
+                        cleanly inside the .dark scope. */}
+                    <div className="space-y-3 text-gray-900">
+                      <p className="text-xl font-semibold text-gray-900">Heading</p>
+                      <p className="text-sm text-gray-700">
+                        Body copy reads on a card surface. Secondary text sits in <span className="text-gray-500">gray-500</span>.
+                      </p>
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-700">Mobile</Label>
+                        <Input placeholder="10-digit number" />
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm">Primary</Button>
+                        <Button size="sm" variant="outline">Outline</Button>
+                        <Button size="sm" variant="ghost" className="text-gray-700">Ghost</Button>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
+                        <Badge className="bg-amber-50 text-amber-700 border-amber-200">Scheduled</Badge>
+                        <Badge className="bg-red-50 text-red-700 border-red-200">Cancelled</Badge>
+                        <Badge className="bg-blue-50 text-blue-700 border-blue-200">QPS</Badge>
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-gray-700">
+                        <label className="flex items-center gap-2">
+                          <Checkbox defaultChecked /> Checked
+                        </label>
+                        <label className="flex items-center gap-2">
+                          <Switch defaultChecked /> On
+                        </label>
+                      </div>
+                      <div className="rounded-md border border-blue-200 bg-blue-50 p-2.5 flex gap-2 text-blue-900 text-xs">
+                        <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                        <span>Inline banner — auto-tinted for the active theme.</span>
+                      </div>
+                    </div>
+                  </ThemePreview>
+                ))}
+              </div>
+
+              <SubHeader>Toast notifications across themes</SubHeader>
+              <p className="text-xs text-gray-600 leading-relaxed -mt-1">
+                Sonner toasts render in a portal at the document root, so they always pick up the global page theme — toggle the page above to see live toasts flip. The static mocks below show what each variant looks like in each mode.
+              </p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {(["light", "dark"] as const).map((mode) => (
+                  <ThemePreview key={mode} mode={mode}>
+                    <div className="space-y-2 text-gray-900">
+                      {[
+                        { tone: "success", title: "Order confirmed", body: "QWI-ONDC-260330-8F3K92", icon: CheckCircle2, ring: "ring-emerald-500/30", iconColor: "text-emerald-600" },
+                        { tone: "error", title: "Could not save", body: "Network timeout — please retry.", icon: AlertCircle, ring: "ring-red-500/30", iconColor: "text-red-600" },
+                        { tone: "warning", title: "Stock running low", body: "Sunflower 1L · 3 units left.", icon: AlertTriangle, ring: "ring-amber-500/30", iconColor: "text-amber-600" },
+                        { tone: "info", title: "Sync scheduled", body: "Next catalog sync at 02:00.", icon: Info, ring: "ring-blue-500/30", iconColor: "text-blue-600" },
+                      ].map((t) => (
+                        <div
+                          key={t.tone}
+                          className={`rounded-md border border-gray-200 bg-white shadow-sm px-3 py-2.5 flex items-start gap-2.5 ring-1 ${t.ring}`}
+                        >
+                          <t.icon className={`h-4 w-4 shrink-0 mt-0.5 ${t.iconColor}`} />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-gray-900 leading-tight">{t.title}</p>
+                            <p className="text-xs text-gray-600 mt-0.5 leading-snug">{t.body}</p>
+                          </div>
+                          <button className="text-gray-400 hover:text-gray-700 shrink-0">
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </ThemePreview>
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Button size="sm" onClick={() => toast.success("Order confirmed", { description: "QWI-ONDC-260330-8F3K92" })}>
+                  Trigger success
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => toast.error("Could not save", { description: "Network timeout — please retry." })}>
+                  Trigger error
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => toast.warning("Stock running low", { description: "Sunflower 1L · 3 units left." })}>
+                  Trigger warning
+                </Button>
+                <Button size="sm" variant="outline" onClick={() => toast.info("Sync scheduled", { description: "Next catalog sync at 02:00." })}>
+                  Trigger info
+                </Button>
+              </div>
+
+              <SubHeader>Status tints across themes</SubHeader>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                {(["light", "dark"] as const).map((mode) => (
+                  <ThemePreview key={mode} mode={mode}>
+                    <div className="space-y-2">
+                      {[
+                        { tone: "Info", bg: "bg-blue-50", text: "text-blue-900", border: "border-blue-200", icon: Info },
+                        { tone: "Success", bg: "bg-emerald-50", text: "text-emerald-900", border: "border-emerald-200", icon: CheckCircle2 },
+                        { tone: "Warning", bg: "bg-amber-50", text: "text-amber-900", border: "border-amber-200", icon: AlertTriangle },
+                        { tone: "Danger", bg: "bg-red-50", text: "text-red-900", border: "border-red-200", icon: AlertCircle },
+                      ].map((s) => (
+                        <div
+                          key={s.tone}
+                          className={`rounded-md border ${s.border} ${s.bg} p-2.5 flex items-center gap-2 ${s.text} text-xs`}
+                        >
+                          <s.icon className="h-3.5 w-3.5 shrink-0" />
+                          <span className="font-semibold">{s.tone}</span>
+                          <span className="opacity-80">— status tint reads on both surfaces.</span>
+                        </div>
+                      ))}
+                    </div>
+                  </ThemePreview>
+                ))}
+              </div>
+
+              <SubHeader>Rules of thumb</SubHeader>
+              <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-5 leading-relaxed">
+                <li>Reach for documented utilities — they flip for free. If you find yourself writing arbitrary hex, add it to the override table in <code className="font-mono text-fuchsia-700">theme.css</code> instead.</li>
+                <li>For brand colors that should NOT flip (e.g. an always-blue logo), use the raw hex and skip dark overrides.</li>
+                <li>Test every new screen in both modes before shipping. The global toggle lives in the top nav.</li>
+                <li>Status tints stay tinted in dark mode — green still reads green, red still reads red — so the semantic meaning survives the theme flip.</li>
+              </ul>
             </Section>
 
             {/* ===== Forms — Buttons ===== */}
