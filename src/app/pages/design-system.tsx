@@ -882,7 +882,6 @@ export function DesignSystem() {
             <Section
               id="overview"
               title="Qwipo Design System"
-              description="A living handbook for everyone shipping on the Qwipo design language. Every token, component, and pattern is pulled directly from the production codebase — so what you see here is exactly what users see, and it's safe to reuse across other Qwipo products."
             >
               <Card className="border-fuchsia-200 bg-gradient-to-br from-fuchsia-50 via-white to-purple-50">
                 <CardContent className="p-5 space-y-3">
