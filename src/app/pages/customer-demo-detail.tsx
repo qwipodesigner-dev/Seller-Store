@@ -16,13 +16,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card"
 import { Button } from "../components/ui/button";
 import { Badge } from "../components/ui/badge";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -34,24 +27,16 @@ import {
   ArrowLeft,
   MapPin,
   User as UserIcon,
-  Calendar,
   CheckCircle2,
   Navigation,
   Building2,
   AlertCircle,
   ExternalLink,
-  Truck,
   Ban,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  DELIVERY_DAY_OPTIONS,
-  NEXT_DAY,
-  type DeliveryDay,
-} from "../lib/customers-data";
-import {
   getDemoCustomerById,
-  setDemoCompanyDeliveryDay,
   setDemoStatus,
   subscribeToDemoCustomers,
   type DemoCustomer,
@@ -120,30 +105,11 @@ export function CustomerDemoDetail() {
     );
   }
 
-  const handleChangeDay = (companyId: string, day: DeliveryDay) => {
-    setDemoCompanyDeliveryDay(customer.customerId, companyId, day);
-    const co = customer.companies.find((c) => c.companyId === companyId);
-    toast.success(
-      `Delivery day for ${co?.companyName ?? "company"} set to ${day === NEXT_DAY ? "Next Day Delivery" : day}.`,
-    );
-  };
+  // Delivery-day handler removed alongside the Linked Companies card —
+  // the workflow lives outside the detail page now.
 
-  /** Format an ISO date for display. */
-  const formatRegDate = (iso: string | undefined): string => {
-    if (!iso) return "—";
-    const d = new Date(iso + "T00:00:00");
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-  const formattedRegDate = formatRegDate(customer.registeredDate);
-
-  const unassignedCount = customer.companies.filter(
-    (c) => c.deliveryDay === null,
-  ).length;
+  // formatRegDate / unassignedCount removed — detail page no longer
+  // surfaces Registered On or per-company delivery-day counts.
 
   // Embedded OpenStreetMap iframe centred on the customer's coords; the
   // overlay link redirects to Google Maps (same pattern as the canonical
@@ -215,97 +181,11 @@ export function CustomerDemoDetail() {
         </div>
       </div>
 
-      {/* Linked Companies — per-company delivery-day picker. The auto-
-          register demo has no approval state, so each row just carries
-          a Select bound to the seven delivery-day options. Picking a
-          value persists immediately. */}
-      <Card>
-        <CardHeader className="py-2.5 px-4 border-b border-gray-100">
-          <div className="flex items-center justify-between gap-2">
-            <CardTitle className="text-sm flex items-center gap-2">
-              <Building2 className="h-4 w-4 text-blue-600" />
-              Linked Companies ({customer.companies.length})
-            </CardTitle>
-            {unassignedCount > 0 && (
-              <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-[10px] gap-1">
-                <AlertCircle className="h-2.5 w-2.5" />
-                {unassignedCount} need a day
-              </Badge>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-3">
-          {customer.companies.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-4">
-              No companies linked to this customer yet.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {customer.companies.map((co) => (
-                <div
-                  key={co.companyId}
-                  className={`flex items-center justify-between gap-3 border rounded-lg p-3 ${
-                    co.deliveryDay
-                      ? "bg-emerald-50 border-emerald-200"
-                      : "bg-amber-50 border-amber-200"
-                  }`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="font-semibold text-sm text-gray-900">
-                        {co.companyName}
-                      </p>
-                      {co.deliveryDay ? (
-                        <Badge
-                          variant="outline"
-                          className="text-[10px] bg-white border-gray-200 text-gray-700"
-                        >
-                          <Calendar className="h-3 w-3 mr-1" />
-                          {co.deliveryDay === NEXT_DAY
-                            ? "Next Day Delivery"
-                            : co.deliveryDay}
-                        </Badge>
-                      ) : (
-                        <Badge className="text-[10px] bg-amber-500 text-white border-transparent">
-                          Unassigned
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1.5">
-                      <Calendar className="h-3 w-3 text-gray-400" />
-                      Registered on{" "}
-                      <span className="font-medium text-gray-700">
-                        {formatRegDate(co.registeredAt)}
-                      </span>
-                      {" "}— first order placed with this company.
-                    </p>
-                  </div>
-                  <div className="shrink-0 flex items-center gap-2">
-                    <Truck className="h-3.5 w-3.5 text-gray-500" />
-                    <Select
-                      value={co.deliveryDay ?? ""}
-                      onValueChange={(v) =>
-                        handleChangeDay(co.companyId, v as DeliveryDay)
-                      }
-                    >
-                      <SelectTrigger className="h-8 w-44 text-sm bg-white">
-                        <SelectValue placeholder="Pick a day" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {DELIVERY_DAY_OPTIONS.map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {d === NEXT_DAY ? "Next Day Delivery (NDD)" : d}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      {/* Linked Companies card removed per Phase 2 spec — the per-
+          company delivery-day workflow now lives elsewhere; the
+          detail page is profile-only. The list page's Linked
+          Companies popup carries the company × registration date
+          view if the seller needs that breakdown. */}
 
       {/* Main Content Grid — left column (details) + right column (map),
           matching the canonical detail page exactly. */}
@@ -432,14 +312,9 @@ export function CustomerDemoDetail() {
                     </p>
                   )}
                 </div>
-                <div className="col-span-2">
-                  <p className="text-[11px] text-gray-500">
-                    Registered On (First Order)
-                  </p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {formattedRegDate}
-                  </p>
-                </div>
+                {/* Registered On (First Order) removed — registration
+                    is per-company now and surfaced on the list page's
+                    Linked Companies popup. */}
               </div>
             </CardContent>
           </Card>
