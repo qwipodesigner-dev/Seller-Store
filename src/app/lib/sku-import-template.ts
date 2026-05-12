@@ -41,6 +41,53 @@ export interface SkuFieldDef {
   options?: string[];
   /** Example value shown on the Validation sheet. */
   example?: string;
+  /** When true the column is rendered greyed-out in the template
+   *  and tagged "Auto" on the Validation sheet — the importer
+   *  computes the value from other fields (currently used for
+   *  SKU Weight which we derive from Measure Unit × Unit Value). */
+  computed?: boolean;
+}
+
+/**
+ * Convert a (measureUnit, value) pair into kilograms. Mass units
+ * convert exactly; volume units use a water-density approximation
+ * (1 mL ≈ 1 g, 1 L ≈ 1 kg) so the Calculated SKU Weight column has
+ * a meaningful kg value for liquids too. Dozen / count units return
+ * null because there's no defensible mass mapping — those rows
+ * surface "—" in the read-only column.
+ */
+export function measureToKg(
+  measureUnit: string | undefined | null,
+  value: number,
+): number | null {
+  if (!measureUnit || !Number.isFinite(value)) return null;
+  switch (measureUnit.trim().toLowerCase()) {
+    case "gram":
+      return value / 1000;
+    case "kilogram":
+      return value;
+    case "ton":
+      return value * 1000;
+    case "milliliter":
+      return value / 1000;
+    case "liter":
+      return value;
+    case "dozen":
+      return null;
+    default:
+      return null;
+  }
+}
+
+/** Display helper for the computed SKU Weight column: format the
+ *  kg number with sensible decimals or surface "—" for non-mass
+ *  units. */
+export function formatKgValue(kg: number | null): string {
+  if (kg === null || !Number.isFinite(kg)) return "—";
+  // Three decimals are enough to represent 1g (0.001 kg) without
+  // turning whole-kg values into "5.000 kg".
+  const rounded = Math.round(kg * 1000) / 1000;
+  return `${rounded} kg`;
 }
 
 // Categories — pulled from the SKU detail page's CATEGORY_OPTIONS so
@@ -110,6 +157,21 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. 3 to 100 characters. Plain text.",
     example: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
   },
+  // Group Name lets the seller cluster variants of the same product
+  // family (e.g. "Freedom Model" groups Freedom Model 50ml / 100ml /
+  // 200ml) so the list page can render them together and downstream
+  // analytics roll up per family. Optional — single-variant SKUs
+  // simply leave it blank. The list of known group names becomes
+  // the dropdown source for the manual Add SKU form.
+  {
+    key: "groupName",
+    header: "Group Name",
+    mandatory: false,
+    format: "Up to 100 chars",
+    rules:
+      "Optional. Up to 100 characters. Pick an existing group from the dropdown OR type a new one — new values get added to the group master.",
+    example: "Freedom Model",
+  },
   {
     key: "shortDesc",
     header: "Short Description",
@@ -161,13 +223,21 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Optional. Numeric value.",
     example: "8901234567890",
   },
+  // SKU Weight is no longer a user input — the importer derives it
+  // from Measure Unit × Unit Value (gram/kg/ton → exact; ml/L use a
+  // water-density approximation; dozen has no mass mapping and
+  // surfaces "—"). The column is kept on the Main sheet so reviewers
+  // can see the converted kg value alongside their row, but it's
+  // greyed-out + the helper row reads "Auto-calculated".
   {
     key: "skuWeight",
     header: "SKU Weight (kg)",
     mandatory: false,
-    format: "Decimal > 0",
-    rules: "Optional. Positive number — gross weight in kilograms.",
-    example: "15.0",
+    format: "Auto-calculated",
+    rules:
+      "Auto-calculated from Measure Unit × Unit Value. Read-only — any value typed here is ignored on import.",
+    example: "0.5",
+    computed: true,
   },
   {
     key: "minimumOrderQty",
@@ -442,8 +512,14 @@ export const downloadSkuTemplate = async () => {
   // Row 1 = headers (mandatory carry a trailing *).
   main.addRow(SKU_FIELDS.map((f) => f.header + (f.mandatory ? " *" : "")));
   // Row 2 = frozen helper row with Mandatory/Optional + format.
+  // Computed columns get the "Auto-calculated" tag so reviewers
+  // know not to type a value there.
   main.addRow(
-    SKU_FIELDS.map((f) => `${f.mandatory ? "Mandatory" : "Optional"} · ${f.format}`),
+    SKU_FIELDS.map((f) =>
+      f.computed
+        ? `Auto-calculated · ${f.format}`
+        : `${f.mandatory ? "Mandatory" : "Optional"} · ${f.format}`,
+    ),
   );
 
   // Style header row.
@@ -509,6 +585,42 @@ export const downloadSkuTemplate = async () => {
         errorStyle: "stop",
         errorTitle: "Invalid value",
         error: `Pick one of: ${f.options.slice(0, 6).join(", ")}${f.options.length > 6 ? ", …" : ""}.`,
+      };
+    }
+  });
+
+  // Computed columns (currently just SKU Weight) get a grey fill +
+  // italic helper text so the seller can see at a glance not to
+  // fill them. Cell-level data validation rejects any typed value
+  // with the explanatory message — the importer ignores whatever
+  // shows up here regardless, but the picker feedback is friendlier
+  // than a silent overwrite.
+  const COMPUTED_FILL: ExcelJSType.FillPattern = {
+    type: "pattern",
+    pattern: "solid",
+    fgColor: { argb: "FFF1F5F9" }, // slate-100
+  };
+  const COMPUTED_FONT: Partial<ExcelJSType.Font> = {
+    italic: true,
+    color: { argb: "FF64748B" }, // slate-500
+    size: 10,
+  };
+  SKU_FIELDS.forEach((f, idx) => {
+    if (!f.computed) return;
+    const colLetter = colToLetter(idx);
+    for (let r = FIRST_DATA_ROW; r <= LAST_DATA_ROW; r++) {
+      const cell = main.getCell(`${colLetter}${r}`);
+      cell.fill = COMPUTED_FILL;
+      cell.font = COMPUTED_FONT;
+      cell.dataValidation = {
+        type: "custom",
+        allowBlank: true,
+        formulae: ["FALSE"],
+        showErrorMessage: true,
+        errorStyle: "warning",
+        errorTitle: "Auto-calculated",
+        error:
+          "This column is auto-calculated by the importer from Measure Unit × Unit Value. Anything you type here is ignored on upload.",
       };
     }
   });
@@ -764,6 +876,20 @@ export const parseSkuImportFile = async (
         const key = colKey[i];
         if (!key) return;
         row[key] = String(cell ?? "").trim();
+      });
+      // Auto-fill every computed column from its source fields so
+      // downstream validators see the system value rather than
+      // whatever the seller may have typed by accident.
+      //   skuWeight ← measureToKg(measureUnit, measureValue)
+      // Other computed columns can be slotted in here as the
+      // schema grows.
+      SKU_FIELDS.forEach((f) => {
+        if (!f.computed) return;
+        if (f.key === "skuWeight") {
+          const numericValue = parseFloat(row.measureValue ?? "");
+          const kg = measureToKg(row.measureUnit, numericValue);
+          row.skuWeight = kg === null ? "" : String(kg);
+        }
       });
       return row;
     });

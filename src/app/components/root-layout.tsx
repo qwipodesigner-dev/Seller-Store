@@ -95,6 +95,7 @@ const sellerCustomersDemoNav = {
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
+  if (pathname.startsWith("/products/sku-detail")) return "SKU Details";
   if (pathname.startsWith("/products/my-sku")) return "My SKU List";
   if (pathname.startsWith("/customers-demo")) return "Customers 2";
   if (pathname.startsWith("/customers")) return "Customer Management";

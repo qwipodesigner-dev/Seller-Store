@@ -71,6 +71,10 @@ import { useEffect } from "react";
 import { getActiveSchemesForSku } from "../../lib/offers-data";
 import type { QpsScheme } from "../../lib/qps-validation";
 import { PriceUpdateOffersDialog } from "../../components/price-update-offers-dialog";
+// SKU Weight is auto-calculated from Measure Unit × Unit Value;
+// measureToKg + formatKgValue live with the bulk-import schema so
+// the manual form and the import preview agree on the math.
+import { measureToKg, formatKgValue } from "../../lib/sku-import-template";
 // Shared catalog — every SKU in My SKU lives here. SKU Detail only
 // ships rich detail for a few SKUs (1, 2, 190000001); for everything
 // else we synthesize a minimal SKU object from the catalog so the
@@ -118,6 +122,27 @@ const CATEGORY_OPTIONS = [
   "Baby Care",
   "Snacks & Branded Foods",
 ];
+
+// Group-name dropdown options. In production these would come from a
+// distinct-groupName API across the seller's imported SKUs; for the
+// demo we seed the most common families so the Add SKU dialog has
+// something useful to pick from.
+const KNOWN_GROUP_NAMES = [
+  "Freedom Model",
+  "Freedom Refined Sunflower Oil",
+  "Aashirvaad Atta",
+  "Sunfeast Biscuits",
+  "Yippee Noodles",
+  "Bingo Snacks",
+  "Marico Saffola",
+  "Classmate Notebooks",
+];
+
+// Sentinel for the "no group" choice in the Select dropdown. Radix
+// rejects empty-string SelectItem values, so we use this string as
+// the visible label *and* the internal Select value, then translate
+// it to "" when the ondc state writes back.
+const GROUP_NAME_NONE = "— None —";
 
 // validateSKU returns errors keyed by ONDC JSON-paths (e.g.
 // "items[].descriptor.name"). The seller doesn't think in those
@@ -842,6 +867,10 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     itemStatus: sku.status === "Active" ? "enable" : "disable",
     itemName: sku.name || "",
     itemCode: "1:" + (sku.sku || ""),
+    // Group Name clusters variants of the same product family
+    // (e.g. "Freedom Model" groups the 50ml / 100ml / 200ml SKUs).
+    // Optional — single-variant SKUs leave it blank.
+    groupName: "",
     shortDesc: sku.description?.split(".")[0] || "",
     longDesc: sku.description || "",
     additionalImages: [] as string[],
@@ -881,6 +910,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   // (these are the unique identifiers). Everything else is left for the seller to fill in.
   const blankOndc: typeof dms = {
     ...dms,
+    groupName: "",
     shortDesc: "",
     longDesc: "",
     additionalImages: [],
@@ -1154,6 +1184,33 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           dms={dms.itemName}
           ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required />}
         />
+        {/* Group Name clusters variants of the same product family
+            so the My SKU list can render them together. The
+            dropdown is sourced from previously-imported groups
+            (KNOWN_GROUP_NAMES — replace with an API lookup in
+            production). Optional — single-variant SKUs leave it
+            blank. */}
+        {/* Group Name uses the Select primitive's empty-value
+            convention: when `value` is "" the trigger shows the
+            placeholder text. Radix Select rejects empty-string
+            SelectItem values, so the "No group" choice is
+            represented by clicking the chevron and re-selecting
+            None... we route that through a sentinel option. */}
+        <DualRow
+          label="Group Name"
+          help="Cluster variants of the same product family. Pick an existing group from the dropdown."
+          dms={dms.groupName || "—"}
+          ondc={
+            <SelectInput
+              value={ondc.groupName || GROUP_NAME_NONE}
+              onChange={(v) =>
+                update("groupName", v === GROUP_NAME_NONE ? "" : v)
+              }
+              edited={isEdited("groupName")}
+              options={[GROUP_NAME_NONE, ...KNOWN_GROUP_NAMES]}
+            />
+          }
+        />
         <DualRow
           label="SKU Code"
           required
@@ -1209,10 +1266,10 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           }
         />
         <DualRow
-          label="Unit Value"
+          label="SKU Weight"
           required
           ondcRequired
-          help="Up to 3 decimals"
+          help="Enter the SKU's weight in the unit picked above (up to 3 decimals)."
           dms={""}
           ondc={<TextInput value={ondc.measureValue} onChange={(v) => update("measureValue", v)} edited={isEdited("measureValue")} required type="number" />}
         />
@@ -1228,11 +1285,36 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           dms={""}
           ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} type="number" />}
         />
+        {/* Weight in KG is auto-calculated from Measure Unit ×
+            SKU Weight. Mass units (Gram / Kilogram / Ton) convert
+            exactly; volume units (Milliliter / Liter) use a
+            water-density approximation (1 mL ≈ 1 g) so the kg
+            figure is meaningful for liquids too. Dozen has no
+            mass mapping and surfaces "—". The seller can't edit
+            this — the field is locked to the system value. */}
         <DualRow
-          label="SKU Weight"
-          help="Gross weight of the SKU (kg)"
-          dms={""}
-          ondc={<TextInput value={ondc.skuWeight} onChange={(v) => update("skuWeight", v)} edited={isEdited("skuWeight")} type="number" />}
+          label="Weight in KG"
+          help="Auto-calculated from Measure Unit × SKU Weight, expressed in kg."
+          dms={
+            formatKgValue(
+              measureToKg(dms.measureUnit, parseFloat(dms.measureValue)),
+            )
+          }
+          ondc={
+            <div className="flex items-center gap-2">
+              <p className="text-sm text-gray-900 font-mono">
+                {formatKgValue(
+                  measureToKg(ondc.measureUnit, parseFloat(ondc.measureValue)),
+                )}
+              </p>
+              <span
+                className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
+                title="SKU Weight is auto-calculated from Measure Unit × Unit Value and cannot be edited."
+              >
+                Auto
+              </span>
+            </div>
+          }
         />
         <DualRow
           label="Min Order Qty"
