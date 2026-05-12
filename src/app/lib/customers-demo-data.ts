@@ -11,6 +11,11 @@ export interface CompanyLink {
   companyId: string;
   companyName: string;
   deliveryDay: DeliveryDay | null;
+  /** Date of the customer's FIRST order against this company. We
+   *  treat that as the customer's per-company registration date —
+   *  the customer auto-registers the moment they place an order
+   *  with a given seller-linked company. ISO date string. */
+  registeredAt: string;
 }
 
 export interface DemoCustomer {
@@ -62,8 +67,8 @@ const SEED: DemoCustomer[] = [
     totalOrders: 14,
     totalRevenue: 145600,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Wednesday" },
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Monday" },
+      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Wednesday", registeredAt: "2026-04-12" },
+      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Monday", registeredAt: "2026-04-18" },
     ],
     status: "Active",
   },
@@ -86,7 +91,7 @@ const SEED: DemoCustomer[] = [
     totalOrders: 47,
     totalRevenue: 612400,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Friday" },
+      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Friday", registeredAt: "2026-04-08" },
     ],
     status: "Active",
   },
@@ -112,6 +117,7 @@ const SEED: DemoCustomer[] = [
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         deliveryDay: null,
+        registeredAt: "2026-04-22",
       },
     ],
     status: "Active",
@@ -135,12 +141,13 @@ const SEED: DemoCustomer[] = [
     totalOrders: 92,
     totalRevenue: 1480000,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Tuesday" },
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Thursday" },
+      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Tuesday", registeredAt: "2026-03-30" },
+      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Thursday", registeredAt: "2026-04-05" },
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         deliveryDay: NEXT_DAY,
+        registeredAt: "2026-04-12",
       },
     ],
     status: "Active",
@@ -162,7 +169,7 @@ const SEED: DemoCustomer[] = [
     totalOrders: 3,
     totalRevenue: 12450,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: null },
+      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: null, registeredAt: "2026-04-25" },
     ],
     status: "Active",
   },
@@ -184,7 +191,7 @@ const SEED: DemoCustomer[] = [
     totalOrders: 21,
     totalRevenue: 256000,
     companies: [
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Saturday" },
+      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Saturday", registeredAt: "2026-04-15" },
     ],
     status: "Active",
   },
@@ -211,6 +218,7 @@ const SEED: DemoCustomer[] = [
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         deliveryDay: "Wednesday",
+        registeredAt: "2026-04-02",
       },
     ],
     status: "Blocked",
