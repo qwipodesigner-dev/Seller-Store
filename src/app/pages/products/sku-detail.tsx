@@ -1160,16 +1160,16 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           <Button variant="outline" size="sm" onClick={handleReset}>
             Reset
           </Button>
-          {/* Save ONDC Value — disabled by default (BR-1), enables on
-              first ONDC field change (BR-2), shows a brief loading
-              state during the round-trip, returns to disabled after a
-              successful save with no further changes. */}
+          {/* Save — disabled by default, enables on first ONDC field
+              change, shows a brief loading state during the round-trip,
+              returns to disabled after a successful save with no further
+              changes. */}
           <Button
             size="sm"
             onClick={handleSave}
             disabled={!ondcDirty || isSavingOndc}
           >
-            {isSavingOndc ? "Saving..." : "Save ONDC Value"}
+            {isSavingOndc ? "Saving..." : "Save"}
           </Button>
         </div>
       </div>
@@ -2152,6 +2152,7 @@ function TextInput({
   required,
   type = "text",
   placeholder,
+  prefix,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2159,6 +2160,7 @@ function TextInput({
   required?: boolean;
   type?: "text" | "number";
   placeholder?: string;
+  prefix?: React.ReactNode;
 }) {
   const missing = required && (!value || String(value).trim() === "");
   const borderClass = missing
@@ -2168,13 +2170,20 @@ function TextInput({
       : "border-gray-300 focus:ring-blue-500";
   return (
     <div>
-      <input
-        type={type}
-        value={value}
-        placeholder={placeholder}
-        onChange={(e) => onChange(e.target.value)}
-        className={`w-full px-2.5 py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
-      />
+      <div className="relative">
+        {prefix !== undefined && (
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+            {prefix}
+          </span>
+        )}
+        <input
+          type={type}
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          className={`w-full ${prefix !== undefined ? "pl-7 pr-2.5" : "px-2.5"} py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
+        />
+      </div>
       <FieldStatus edited={edited} missing={missing} />
     </div>
   );
@@ -2596,12 +2605,6 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           <span className="text-sm font-medium text-gray-700">
             Price & Inventory for <b>{sku.sku}</b>
           </span>
-          <Badge className="bg-blue-50 text-blue-700 border-blue-200 ml-2">
-            DMS: Read-only reference
-          </Badge>
-          <Badge className="bg-green-50 text-green-700 border-green-200">
-            ONDC: Final source for publishing
-          </Badge>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={handleReset}>
@@ -2678,18 +2681,14 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           required
           dms={dmsPI.mrp ? `₹${dmsPI.mrp}` : ""}
           ondc={
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">₹</span>
-              <div className="pl-4">
-                <TextInput
-                  value={ondcPI.mrp}
-                  onChange={(v) => updatePI("mrp", v)}
-                  edited={isEditedPI("mrp")}
-                  required
-                  type="number"
-                />
-              </div>
-            </div>
+            <TextInput
+              value={ondcPI.mrp}
+              onChange={(v) => updatePI("mrp", v)}
+              edited={isEditedPI("mrp")}
+              required
+              type="number"
+              prefix="₹"
+            />
           }
         />
         <DualRow
@@ -2698,18 +2697,14 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           required
           dms={dmsPI.sellingPrice ? `₹${dmsPI.sellingPrice}` : ""}
           ondc={
-            <div className="relative">
-              <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">₹</span>
-              <div className="pl-4">
-                <TextInput
-                  value={ondcPI.sellingPrice}
-                  onChange={(v) => updatePI("sellingPrice", v)}
-                  edited={isEditedPI("sellingPrice")}
-                  required
-                  type="number"
-                />
-              </div>
-            </div>
+            <TextInput
+              value={ondcPI.sellingPrice}
+              onChange={(v) => updatePI("sellingPrice", v)}
+              edited={isEditedPI("sellingPrice")}
+              required
+              type="number"
+              prefix="₹"
+            />
           }
         />
       </DualSection>

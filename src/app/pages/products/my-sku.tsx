@@ -54,6 +54,7 @@ import {
 import { Layers, PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
+import { CopyOnHover } from "../../components/copy-on-hover";
 import { ListPagination } from "../../components/ui/list-pagination";
 import {
   BulkImportDialog,
@@ -1138,12 +1139,16 @@ export function MySKU() {
                   paginatedSKUs.map((sku) => (
                     <tr key={sku.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-3">
-                        <span className="font-mono text-sm font-medium text-gray-900">
-                          {sku.sku}
-                        </span>
+                        <CopyOnHover value={sku.sku} label="SKU code">
+                          <span className="font-mono text-sm font-medium text-gray-900">
+                            {sku.sku}
+                          </span>
+                        </CopyOnHover>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="font-medium text-gray-900 text-sm">{sku.name}</p>
+                        <CopyOnHover value={sku.name} label="SKU name">
+                          <p className="font-medium text-gray-900 text-sm">{sku.name}</p>
+                        </CopyOnHover>
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{sku.brand}</span>

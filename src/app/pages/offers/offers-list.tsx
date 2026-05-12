@@ -68,6 +68,7 @@ import {
   setAllSchemes,
 } from "../../lib/offers-data";
 import { SkuComboBox } from "../../components/sku-combobox";
+import { CopyOnHover } from "../../components/copy-on-hover";
 
 // Seed QPS schemes — these populate the list on first load.
 // The ten offer types surfaced on the "Create Offers" picker dialog.
@@ -579,10 +580,16 @@ export function OffersList() {
                   paginatedSchemes.map((s) => {
                     return (
                       <tr key={s.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.id}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-gray-800">{s.skuCode}</td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">
+                          <CopyOnHover value={s.id} label="Offer code">{s.id}</CopyOnHover>
+                        </td>
+                        <td className="px-4 py-3 font-mono text-xs text-gray-800">
+                          <CopyOnHover value={s.skuCode} label="SKU code">{s.skuCode}</CopyOnHover>
+                        </td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-gray-900">{s.skuName}</p>
+                          <CopyOnHover value={s.skuName} label="SKU name">
+                            <p className="text-sm text-gray-900">{s.skuName}</p>
+                          </CopyOnHover>
                         </td>
                         <td className="px-4 py-3">
                           <Badge variant="outline" className="gap-1 bg-blue-50 text-blue-700 border-blue-200">

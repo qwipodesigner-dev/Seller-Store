@@ -52,6 +52,7 @@ import {
 } from "../lib/customers-demo-data";
 import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
+import { CopyOnHover } from "../components/copy-on-hover";
 
 // =====================================================================
 // Customers 2 — empty-mode demo of the auto-register flow.
@@ -492,18 +493,20 @@ export function CustomersDemo() {
                             dropped per Phase 2 spec so the row carries
                             one identity, not two. */}
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            className="text-left hover:underline focus:outline-none focus-visible:underline"
-                            onClick={() =>
-                              navigate(`/customers/${c.customerId}`)
-                            }
-                            title={`View details for ${c.businessName}`}
-                          >
-                            <p className="font-medium text-gray-900 text-sm">
-                              {c.businessName}
-                            </p>
-                          </button>
+                          <CopyOnHover value={c.businessName} label="Business name">
+                            <button
+                              type="button"
+                              className="text-left hover:underline focus:outline-none focus-visible:underline"
+                              onClick={() =>
+                                navigate(`/customers/${c.customerId}`)
+                              }
+                              title={`View details for ${c.businessName}`}
+                            >
+                              <p className="font-medium text-gray-900 text-sm">
+                                {c.businessName}
+                              </p>
+                            </button>
+                          </CopyOnHover>
                         </td>
                         <td className="px-4 py-3">
                           <Badge
@@ -514,9 +517,11 @@ export function CustomersDemo() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-gray-700 font-mono">
-                            {c.mobile}
-                          </p>
+                          <CopyOnHover value={c.mobile} label="Mobile number">
+                            <p className="text-sm text-gray-700 font-mono">
+                              {c.mobile}
+                            </p>
+                          </CopyOnHover>
                         </td>
                         {/* Company — count badge that opens the
                             Linked Companies popup. Mirrors the
