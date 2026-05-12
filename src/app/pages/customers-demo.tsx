@@ -85,6 +85,20 @@ type DemoCustomer = SharedDemoCustomer;
 // count badge has interesting cases.
 
 // CSV escape helper (one row per customer, with company list joined).
+/** Format an ISO date as `26 Apr 2026` for the Linked Companies popup
+ *  and the detail page. Falls back to the raw value when the input
+ *  isn't a valid date so we never render "Invalid Date". */
+const formatRegDate = (iso: string | undefined): string => {
+  if (!iso) return "—";
+  const d = new Date(iso + "T00:00:00");
+  if (isNaN(d.getTime())) return iso;
+  return d.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
+
 const escapeCsv = (v: string | number) => {
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -850,68 +864,45 @@ export function CustomersDemo() {
             <DialogDescription>
               {linkedCustomer ? (
                 <>
-                  <b className="text-gray-900">{linkedCustomer.customerName}</b>{" "}
-                  · {linkedCustomer.businessName} ·{" "}
+                  <b className="text-gray-900">{linkedCustomer.businessName}</b>
+                  {" · "}
                   {linkedCustomer.companies.length}{" "}
-                  {linkedCustomer.companies.length === 1
-                    ? "company"
-                    : "companies"}
+                  {linkedCustomer.companies.length === 1 ? "company" : "companies"}
                 </>
               ) : null}
             </DialogDescription>
           </DialogHeader>
 
           {linkedCustomer && (
-            <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
-              {linkedCustomer.companies.map((co) => (
-                <div
-                  key={co.companyId}
-                  className="border border-gray-200 rounded-lg p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
-                    <Badge
-                      variant="outline"
-                      className="bg-gray-50 text-gray-800 border-gray-200 text-xs"
-                    >
-                      {co.companyName}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 sm:w-56">
-                    <Select
-                      value={co.deliveryDay ?? "__unassigned__"}
-                      onValueChange={(v) =>
-                        setCompanyDay(
-                          linkedCustomer.customerId,
-                          co.companyId,
-                          v === "__unassigned__"
-                            ? null
-                            : (v as DeliveryDay),
-                        )
-                      }
-                    >
-                      <SelectTrigger className="h-8 text-xs">
-                        <SelectValue placeholder="Pick a day…" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__unassigned__">
-                          Unassigned
-                        </SelectItem>
-                        {DELIVERY_DAY_OPTIONS.map((d) => (
-                          <SelectItem key={d} value={d}>
-                            {d}
-                            {d === NEXT_DAY && (
-                              <span className="text-[10px] text-blue-700 ml-2">
-                                (express)
-                              </span>
-                            )}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+            <div className="py-2 max-h-[60vh] overflow-y-auto">
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
+                {/* Header row */}
+                <div className="grid grid-cols-[1fr_140px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                  <span>Company</span>
+                  <span>Registration Date</span>
                 </div>
-              ))}
+                {linkedCustomer.companies.map((co) => (
+                  <div
+                    key={co.companyId}
+                    className="grid grid-cols-[1fr_140px] gap-3 px-3 py-2.5 items-center"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {co.companyName}
+                      </p>
+                    </div>
+                    <p className="text-sm text-gray-700">
+                      {formatRegDate(co.registeredAt)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-500 mt-2 px-1">
+                Registration date is the day the customer placed their first
+                order with each company. Delivery day is managed from the
+                customer's detail page.
+              </p>
             </div>
           )}
 

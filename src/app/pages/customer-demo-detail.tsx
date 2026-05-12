@@ -128,13 +128,18 @@ export function CustomerDemoDetail() {
     );
   };
 
-  const formattedRegDate = new Date(
-    customer.registeredDate + "T00:00:00",
-  ).toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  /** Format an ISO date for display. */
+  const formatRegDate = (iso: string | undefined): string => {
+    if (!iso) return "—";
+    const d = new Date(iso + "T00:00:00");
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
+  const formattedRegDate = formatRegDate(customer.registeredDate);
 
   const unassignedCount = customer.companies.filter(
     (c) => c.deliveryDay === null,
@@ -266,8 +271,13 @@ export function CustomerDemoDetail() {
                         </Badge>
                       )}
                     </div>
-                    <p className="text-[11px] text-gray-600 mt-0.5">
-                      Pick a delivery day to commit a beat for this company.
+                    <p className="text-[11px] text-gray-600 mt-0.5 flex items-center gap-1.5">
+                      <Calendar className="h-3 w-3 text-gray-400" />
+                      Registered on{" "}
+                      <span className="font-medium text-gray-700">
+                        {formatRegDate(co.registeredAt)}
+                      </span>
+                      {" "}— first order placed with this company.
                     </p>
                   </div>
                   <div className="shrink-0 flex items-center gap-2">
