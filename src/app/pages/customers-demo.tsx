@@ -897,8 +897,7 @@ export function CustomersDemo() {
               </div>
               <p className="text-[11px] text-gray-500 mt-2 px-1">
                 Registration date is the day the customer placed their first
-                order with each company. Delivery day is managed from the
-                customer's detail page.
+                order with each company.
               </p>
             </div>
           )}

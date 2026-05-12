@@ -33,6 +33,7 @@ import {
   AlertCircle,
   ExternalLink,
   Ban,
+  Calendar,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -108,8 +109,18 @@ export function CustomerDemoDetail() {
   // Delivery-day handler removed alongside the Linked Companies card —
   // the workflow lives outside the detail page now.
 
-  // formatRegDate / unassignedCount removed — detail page no longer
-  // surfaces Registered On or per-company delivery-day counts.
+  /** Format an ISO date as "26 Apr 2026". Returns "—" for empty
+   *  values and the raw string when the date can't be parsed. */
+  const formatRegDate = (iso: string | undefined): string => {
+    if (!iso) return "—";
+    const d = new Date(iso + "T00:00:00");
+    if (isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
+  };
 
   // Embedded OpenStreetMap iframe centred on the customer's coords; the
   // overlay link redirects to Google Maps (same pattern as the canonical
@@ -313,9 +324,59 @@ export function CustomerDemoDetail() {
                   )}
                 </div>
                 {/* Registered On (First Order) removed — registration
-                    is per-company now and surfaced on the list page's
-                    Linked Companies popup. */}
+                    is per-company now and surfaced in the Linked
+                    Companies card just below. */}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Linked Companies — per-company registration dates. Same
+              data the list-page Linked Companies popup shows; carried
+              here so the seller can see the full breakdown without
+              jumping back to the list. */}
+          <Card>
+            <CardHeader className="py-2.5 px-4 border-b border-gray-100">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Building2 className="h-4 w-4 text-blue-600" />
+                Linked Companies ({customer.companies.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {customer.companies.length === 0 ? (
+                <p className="p-4 text-sm text-gray-500 text-center">
+                  No companies linked to this customer yet.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-[1fr_140px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                    <span>Company</span>
+                    <span>Registration Date</span>
+                  </div>
+                  <div className="divide-y divide-gray-100">
+                    {customer.companies.map((co) => (
+                      <div
+                        key={co.companyId}
+                        className="grid grid-cols-[1fr_140px] gap-3 px-4 py-2.5 items-center"
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {co.companyName}
+                          </p>
+                        </div>
+                        <p className="text-sm text-gray-700 flex items-center gap-1.5">
+                          <Calendar className="h-3 w-3 text-gray-400" />
+                          {formatRegDate(co.registeredAt)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="text-[11px] text-gray-500 px-4 py-2 border-t border-gray-100 bg-gray-50/40">
+                    Registration date is the day the customer placed
+                    their first order with each company.
+                  </p>
+                </>
+              )}
             </CardContent>
           </Card>
         </div>
