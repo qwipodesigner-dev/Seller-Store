@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Activity,
@@ -722,6 +722,25 @@ export function DesignSystem() {
   const [multiValue, setMultiValue] = useState<string[]>(["mumbai", "pune"]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
 
+  // Land at the top of the handbook on mount unless the URL points
+  // at a specific section (#anchor). Two safeguards run together:
+  //   - flip history.scrollRestoration to "manual" so the browser
+  //     stops re-applying the prior scroll position after React mounts
+  //   - useLayoutEffect runs before paint so the initial scroll is set
+  //     before the user sees anything; a follow-up scroll via rAF
+  //     swats away any late layout shifts (lazy-loaded images, fonts).
+  useLayoutEffect(() => {
+    const prev = window.history.scrollRestoration;
+    window.history.scrollRestoration = "manual";
+    if (!window.location.hash) {
+      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
+    }
+    return () => {
+      window.history.scrollRestoration = prev;
+    };
+  }, []);
+
   // Scroll spy — highlights the sidebar entry of whichever section
   // is currently in view.
   useEffect(() => {
@@ -745,6 +764,35 @@ export function DesignSystem() {
     });
     return () => observer.disconnect();
   }, []);
+
+  // Keep the sidebar's active item visible — when the user scrolls
+  // far enough that the highlighted entry would fall off the nav's
+  // viewport, slide the nav so the entry stays in view. We
+  // manipulate `nav.scrollTop` directly (not scrollIntoView) so the
+  // page itself never moves.
+  useEffect(() => {
+    const link = document.querySelector<HTMLAnchorElement>(
+      `aside nav a[href="#${activeSection}"]`,
+    );
+    if (!link) return;
+    const nav = link.closest("nav");
+    if (!nav) return;
+    const linkTop = link.offsetTop;
+    const linkBottom = linkTop + link.offsetHeight;
+    const navScrollTop = nav.scrollTop;
+    const navHeight = nav.clientHeight;
+    const navScrollBottom = navScrollTop + navHeight;
+    // Add a small buffer so the active entry never hugs the edge.
+    const buffer = 48;
+    if (linkTop < navScrollTop + buffer) {
+      nav.scrollTo({ top: linkTop - buffer, behavior: "smooth" });
+    } else if (linkBottom > navScrollBottom - buffer) {
+      nav.scrollTo({
+        top: linkBottom - navHeight + buffer,
+        behavior: "smooth",
+      });
+    }
+  }, [activeSection]);
 
   const handleLogout = () => {
     logout();
