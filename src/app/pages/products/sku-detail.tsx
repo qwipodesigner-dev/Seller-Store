@@ -1688,14 +1688,15 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         onChange={(imgs) => update("productImages", imgs)}
       />
 
-      {/* Post-save confirmation dialog retired. Save-time errors now
-          render INLINE beneath each affected input via getError().
-          The dialog block below is left intact (and unmounted) so the
-          state/handlers it referenced can stay during the refactor;
-          a future cleanup can excise the unused state once we're
-          confident no surface relies on the title/body strings. */}
+      {/* Post-save summary — surfaces the count of saved fields vs
+          fields that still need fixing. Per-field error detail also
+          renders INLINE beneath each affected input via getError(),
+          so this dialog is purely the high-level "how the save went"
+          summary that lets the seller move on with confidence
+          (incremental save: valid fields are persisted, invalid ones
+          stay editable with their inline red helper text). */}
       <Dialog
-        open={false}
+        open={postSavePrompt !== null}
         onOpenChange={(o) => !o && setPostSavePrompt(null)}
       >
         <DialogContent
@@ -2782,7 +2783,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
 
       {/* Save-time error popup */}
       <Dialog
-        open={false}
+        open={pendingPIErrors.length > 0}
         onOpenChange={(o) => !o && setPendingPIErrors([])}
       >
         <DialogContent className="max-w-xl">
