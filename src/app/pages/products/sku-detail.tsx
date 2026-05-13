@@ -363,6 +363,7 @@ const skuData: Record<string, any> = {
       maximumOrderQty: "100",
       minimumOrderQty: "1",
       upc: "8901725100015",
+      weightMeasure: "Kilogram",
       skuWeight: "10",
       // Physical dimensions in cm — drives the volumetric weight read-out.
       productLength: "30",
@@ -890,6 +891,10 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     maximumOrderQty: "100",
     minimumOrderQty: "1",
     upc: "12",
+    // Weight Measure pairs with SKU Weight to give Weight in KG its
+    // canonical source. For a 1L oil seed the bottle is roughly 1.05 kg,
+    // so the demo defaults the weight to Kilogram + 1.05.
+    weightMeasure: "Kilogram",
     skuWeight: "1.05",
     // Physical dimensions in cm. Optional on DMS — left blank by default
     // and surfaced as editable fields under the Dimensions section so
@@ -930,6 +935,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     maximumOrderQty: "",
     minimumOrderQty: "",
     upc: "",
+    weightMeasure: "",
     skuWeight: "",
     productLength: "",
     productWidth: "",
@@ -1308,13 +1314,67 @@ function ProductDetailsTab({ sku }: { sku: any }) {
             />
           }
         />
+        {/* Unit Value — pairs with Measure Unit to describe pack size
+            (e.g. Measure Unit = "Liter" + Unit Value = "1.5" → 1.5 L
+            bottle). Separate from the physical weight pair below
+            because pack size and weight diverge for liquids. */}
+        <DualRow
+          label="Unit Value"
+          required
+          ondcRequired
+          help="Number paired with Measure Unit (e.g. 1.5 for a 1.5 L bottle)."
+          dms={""}
+          ondc={
+            <TextInput
+              value={ondc.measureValue}
+              onChange={(v) => update("measureValue", v)}
+              edited={isEdited("measureValue")}
+              required
+              type="number"
+              errorMessage={getError("measureValue")}
+              disabled={!ondc.measureUnit}
+              disabledHint="Pick a Measure Unit first."
+            />
+          }
+        />
+        {/* Weight Measure — narrower than Measure Unit (Gram /
+            Kilogram only) because physical weight always rolls up
+            to mass. Paired with SKU Weight below to drive the
+            read-only Weight in KG column. */}
+        <DualRow
+          label="Weight Measure"
+          required
+          ondcRequired
+          help="Gram or Kilogram — drives the auto-calculated Weight in KG."
+          dms={""}
+          ondc={
+            <SelectInput
+              value={ondc.weightMeasure}
+              onChange={(v) => update("weightMeasure", v)}
+              edited={isEdited("weightMeasure")}
+              errorMessage={getError("weightMeasure")}
+              options={["Gram", "Kilogram"]}
+            />
+          }
+        />
         <DualRow
           label="SKU Weight"
           required
           ondcRequired
-          help="Enter the SKU's weight in the unit picked above (up to 3 decimals)."
+          help="Physical weight in the chosen Weight Measure (up to 3 decimals)."
           dms={""}
-          ondc={<TextInput value={ondc.measureValue} onChange={(v) => update("measureValue", v)} edited={isEdited("measureValue")} required type="number" errorMessage={getError("measureValue")} />}
+          ondc={
+            <TextInput
+              value={ondc.skuWeight}
+              onChange={(v) => update("skuWeight", v)}
+              edited={isEdited("skuWeight")}
+              required
+              type="number"
+              errorMessage={getError("skuWeight")}
+              disabled={!ondc.weightMeasure}
+              disabledHint="Pick a Weight Measure first."
+            />
+          }
         />
         <DualRow
           label="Pack Size (Inner Pack)"
@@ -1328,30 +1388,28 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           dms={""}
           ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} type="number" errorMessage={getError("upc")} />}
         />
-        {/* Weight in KG is auto-calculated from Measure Unit ×
-            SKU Weight. Mass units (Gram / Kilogram) convert
-            exactly; volume units (Milliliter / Liter) use a
-            water-density approximation (1 mL ≈ 1 g) so the kg
-            figure is meaningful for liquids too. The seller can't
-            edit this — the field is locked to the system value. */}
+        {/* Weight in KG is auto-calculated from Weight Measure ×
+            SKU Weight. Gram and Kilogram convert exactly; the
+            seller can't edit this — the field is locked to the
+            system value. */}
         <DualRow
           label="Weight in KG"
-          help="Auto-calculated from Measure Unit × SKU Weight, expressed in kg."
+          help="Auto-calculated from Weight Measure × SKU Weight, expressed in kg."
           dms={
             formatKgValue(
-              measureToKg(dms.measureUnit, parseFloat(dms.measureValue)),
+              measureToKg(dms.weightMeasure, parseFloat(dms.skuWeight)),
             )
           }
           ondc={
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-900 font-mono">
                 {formatKgValue(
-                  measureToKg(ondc.measureUnit, parseFloat(ondc.measureValue)),
+                  measureToKg(ondc.weightMeasure, parseFloat(ondc.skuWeight)),
                 )}
               </p>
               <span
                 className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
-                title="Weight in KG is auto-calculated from Measure Unit × SKU Weight and cannot be edited."
+                title="Weight in KG is auto-calculated from Weight Measure × SKU Weight and cannot be edited."
               >
                 Auto
               </span>
@@ -2206,6 +2264,8 @@ function TextInput({
   placeholder,
   prefix,
   errorMessage,
+  disabled,
+  disabledHint,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2217,29 +2277,42 @@ function TextInput({
   /** When set, paints the field red and shows the message below the
    *  input. Takes precedence over the "Required" pill. */
   errorMessage?: string;
+  /** Greys the input out and blocks edits. Used to gate dependent
+   *  fields — e.g. Unit Value waits for Measure Unit, SKU Weight
+   *  waits for Weight Measure. */
+  disabled?: boolean;
+  /** Helper text shown below a disabled input to explain why it's
+   *  blocked. Suppresses the "Required" pill while disabled. */
+  disabledHint?: string;
 }) {
-  const missing = required && (!value || String(value).trim() === "");
-  const hasError = !!errorMessage;
+  const missing = required && !disabled && (!value || String(value).trim() === "");
+  const hasError = !disabled && !!errorMessage;
   const borderClass = hasError || missing
     ? "border-red-400 focus:ring-red-500"
     : "border-gray-300 focus:ring-blue-500";
+  const stateClass = disabled
+    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+    : "bg-white";
   return (
     <div>
       <div className="relative">
         {prefix !== undefined && (
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+          <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${disabled ? "text-gray-300" : "text-gray-500"}`}>
             {prefix}
           </span>
         )}
         <input
           type={type}
           value={value}
-          placeholder={placeholder}
+          placeholder={disabled ? "" : placeholder}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full ${prefix !== undefined ? "pl-7 pr-2.5" : "px-2.5"} py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
+          disabled={disabled}
+          className={`w-full ${prefix !== undefined ? "pl-7 pr-2.5" : "px-2.5"} py-1.5 rounded-md border text-sm focus:outline-none focus:ring-2 ${borderClass} ${stateClass}`}
         />
       </div>
-      {hasError ? (
+      {disabled && disabledHint ? (
+        <p className="mt-1 text-[11px] text-gray-500 italic">{disabledHint}</p>
+      ) : hasError ? (
         <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
           <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
           <span>{errorMessage}</span>
