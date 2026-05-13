@@ -17,6 +17,7 @@ import { Settings } from "./pages/settings";
 import { Reports } from "./pages/reports";
 import { Login } from "./pages/auth/login";
 import { Onboarding } from "./pages/auth/onboarding";
+import { DesignSystem } from "./pages/design-system";
 import { AddSKU } from "./pages/products/add-sku";
 import { MySKU } from "./pages/products/my-sku";
 import { SKUDetail } from "./pages/products/sku-detail";
@@ -59,6 +60,18 @@ export const router = createBrowserRouter([
   {
     path: "/onboarding",
     Component: Onboarding,
+  },
+  // Design system handbook — role-gated to "designer". Single-page
+  // app with its own sidebar; intentionally does NOT use the
+  // seller RootLayout because the audience here is reviewing
+  // design language, not running a distribution business.
+  {
+    path: "/design",
+    element: (
+      <ProtectedRoute allow="designer">
+        <DesignSystem />
+      </ProtectedRoute>
+    ),
   },
   // Admin subtree — role-gated to "admin"
   {
@@ -118,14 +131,19 @@ export const router = createBrowserRouter([
       { path: "inventory", Component: Inventory },
       { path: "orders", Component: Orders },
       { path: "orders/:orderId", Component: OrderDetail },
-      { path: "customers", Component: Customers },
-      { path: "customers/:customerId", Component: CustomerDetail },
-      // Customers 2 — empty-mode demo of the auto-register-on-first-order
-      // workflow with bulk delivery-day assignment, per-customer block,
-      // and clubbed-by-company rows. Built as a parallel page so the
-      // existing Customers screen is left untouched.
-      { path: "customers-demo", Component: CustomersDemo },
-      { path: "customers-demo/:customerId", Component: CustomerDemoDetail },
+      // The Customers module ships the auto-register-on-first-order
+      // flow (originally prototyped as "Customers 2" in the
+      // empty-mode demo). It became the production model after PM
+      // sign-off, so it's mounted at /customers — the canonical
+      // sidebar entry. The legacy Pending → Approved → Rejected
+      // approval flow is preserved at /customers-demo so empty-mode
+      // reviewers can still compare the two.
+      { path: "customers", Component: CustomersDemo },
+      { path: "customers/:customerId", Component: CustomerDemoDetail },
+      // Legacy approval flow — kept for reference under the empty-
+      // mode "Customers 2" sidebar entry.
+      { path: "customers-demo", Component: Customers },
+      { path: "customers-demo/:customerId", Component: CustomerDetail },
       { path: "profile", Component: Profile },
       { path: "connectors", Component: Connectors },
       { path: "connectors/:connectorId", Component: ConnectorDetail },

@@ -46,6 +46,7 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { isEmptyMode } from "../lib/data-mode";
 import { EmptyState } from "../components/empty-state";
+import { CopyOnHover } from "../components/copy-on-hover";
 import { ListPagination } from "../components/ui/list-pagination";
 // Shared store — seeds + writers live in lib/orders-data so the
 // detail page can read the same orders by id and writes flow both
@@ -667,7 +668,7 @@ export function Orders() {
     return (
       <div className="flex-1 overflow-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
+          <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               {isActionable && (
                 <th className="text-left py-4 px-6 w-12">
@@ -723,9 +724,11 @@ export function Orders() {
                   </td>
                 )}
                 <td className="px-4 py-3">
-                  <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
-                    {order.id}
-                  </code>
+                  <CopyOnHover value={order.id} label="Order ID">
+                    <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
+                      {order.id}
+                    </code>
+                  </CopyOnHover>
                 </td>
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">
@@ -733,9 +736,11 @@ export function Orders() {
                   </p>
                 </td>
                 <td className="px-4 py-3">
-                  <p className="font-medium text-gray-900">
-                    {order.retailerName}
-                  </p>
+                  <CopyOnHover value={order.retailerName} label="Retailer name">
+                    <p className="font-medium text-gray-900">
+                      {order.retailerName}
+                    </p>
+                  </CopyOnHover>
                 </td>
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">

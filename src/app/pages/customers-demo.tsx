@@ -33,6 +33,7 @@ import {
   AlertCircle,
   ChevronRight,
   Eye,
+  Users,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -49,6 +50,9 @@ import {
   type CompanyLink as SharedCompanyLink,
   type DemoCustomer as SharedDemoCustomer,
 } from "../lib/customers-demo-data";
+import { isEmptyMode } from "../lib/data-mode";
+import { EmptyState } from "../components/empty-state";
+import { CopyOnHover } from "../components/copy-on-hover";
 
 // =====================================================================
 // Customers 2 — empty-mode demo of the auto-register flow.
@@ -137,14 +141,21 @@ export function CustomersDemo() {
   // Source of truth lives in lib/customers-demo-data.ts. We mirror it
   // in local state and re-pull on every store-change notification so
   // mutations from the detail page (or anywhere else) re-render here.
+  //
+  // Empty-mode (seller persona "Seller (Empty)") forces a zero-row
+  // dataset for the inception-day screenshot. We seed `customers`
+  // as [] and skip the store subscription so demo data never leaks
+  // into the empty screen.
+  const isEmpty = isEmptyMode();
   const [customers, setCustomersState] = useState<DemoCustomer[]>(() =>
-    getDemoCustomers(),
+    isEmpty ? [] : getDemoCustomers(),
   );
   useEffect(() => {
+    if (isEmpty) return;
     return subscribeToDemoCustomers(() =>
       setCustomersState([...getDemoCustomers()]),
     );
-  }, []);
+  }, [isEmpty]);
   // Keep the existing `setCustomers(prev => …)` call sites working by
   // routing them through the shared store. Plain replacement saves
   // touching every site below.
@@ -163,17 +174,21 @@ export function CustomersDemo() {
   const [dayFilter, setDayFilter] = useState<string>("all");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // Selection — Set of customerIds checked for bulk actions.
-  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Per-row checkbox + bulk-action strip were retired in this
+  // sweep. With Assign Delivery Day / Block moved to the detail
+  // page, the list has no bulk actions left, so the leading
+  // checkbox column was pure noise. Keeping the state names out
+  // of the file entirely is the cleanest signal that the
+  // surface is read-only at the list level.
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // Bulk Assign Delivery Day dialog
-  const [isAssignOpen, setIsAssignOpen] = useState(false);
-  const [assignDay, setAssignDay] = useState<DeliveryDay | "">("");
-  const [assignError, setAssignError] = useState<string | null>(null);
+  // Bulk Assign Delivery Day state was retired alongside the row
+  // checkbox column — the dialog was only reachable via the bulk
+  // action strip. Per-company delivery days now live on the
+  // detail page.
 
   // Block / Unblock has moved to the detail page; the list no longer
   // needs the dialog target state.
@@ -239,34 +254,6 @@ export function CustomersDemo() {
     startIndex + itemsPerPage,
   );
 
-  const visibleKeys = paginated.map((c) => c.customerId);
-  const allOnPageSelected =
-    visibleKeys.length > 0 && visibleKeys.every((k) => selected.has(k));
-  const someOnPageSelected =
-    visibleKeys.some((k) => selected.has(k)) && !allOnPageSelected;
-
-  const togglePageSelect = (checked: boolean) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (checked) {
-        visibleKeys.forEach((k) => next.add(k));
-      } else {
-        visibleKeys.forEach((k) => next.delete(k));
-      }
-      return next;
-    });
-  };
-
-  const toggleRow = (customerId: string, checked: boolean) =>
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (checked) next.add(customerId);
-      else next.delete(customerId);
-      return next;
-    });
-
-  const clearSelection = () => setSelected(new Set());
-
   const filtersActive =
     statusFilter !== "all" ||
     companyFilter !== "all" ||
@@ -283,41 +270,9 @@ export function CustomersDemo() {
     setCurrentPage(1);
   };
 
-  // ---- Bulk Assign Delivery Day ----
-  // Bulk assign sets the same day for every company of every selected
-  // customer. The Linked Companies popup is the place to set
-  // per-company days individually if the seller wants finer control.
-  const openAssignDialog = () => {
-    setAssignDay("");
-    setAssignError(null);
-    setIsAssignOpen(true);
-  };
-
-  const handleAssign = () => {
-    if (!assignDay) {
-      setAssignError("Pick a delivery day");
-      return;
-    }
-    const ids = new Set(selected);
-    setCustomers((prev) =>
-      prev.map((c) =>
-        ids.has(c.customerId)
-          ? {
-              ...c,
-              companies: c.companies.map((co) => ({
-                ...co,
-                deliveryDay: assignDay as DeliveryDay,
-              })),
-            }
-          : c,
-      ),
-    );
-    toast.success(
-      `Delivery day set to ${assignDay} for ${ids.size} customer${ids.size === 1 ? "" : "s"}.`,
-    );
-    setIsAssignOpen(false);
-    clearSelection();
-  };
+  // Bulk Assign Delivery Day handler removed alongside the row
+  // checkbox column. Per-company delivery days are now managed
+  // exclusively from the detail page's Linked Companies card.
 
   // Set delivery day for a single (customer × company) pairing from
   // the Linked Companies popup.
@@ -434,76 +389,64 @@ export function CustomersDemo() {
                 />
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsFilterDrawerOpen(true)}
-                className="gap-2"
-              >
-                <Filter className="h-4 w-4" />
-                Filters
-                {filtersActive && (
-                  <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
-                    {activeFilterCount}
-                  </Badge>
-                )}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleExport}
-                className="gap-2"
-              >
-                <Download className="h-4 w-4" />
-                Export
-              </Button>
-            </div>
+            {/* Filters + Export only render when there's data
+                to filter or export. The empty-mode screen keeps
+                the search bar (so the chrome reads as a real
+                page) but drops these CTAs since neither has
+                anything to act on. */}
+            {!isEmpty && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsFilterDrawerOpen(true)}
+                  className="gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  Filters
+                  {filtersActive && (
+                    <Badge className="bg-blue-600 text-white border-blue-600 ml-1 h-5 px-1.5 text-[10px]">
+                      {activeFilterCount}
+                    </Badge>
+                  )}
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleExport}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export
+                </Button>
+              </div>
+            )}
           </div>
 
-          {/* Bulk action bar — only visible when at least one customer
-              is selected. Sits above the table so the seller's eye
-              tracks down from the actions to the rows. */}
-          {selected.size > 0 && (
-            <div className="border-b border-blue-200 bg-blue-50 px-4 py-2 flex flex-wrap items-center justify-between gap-2 flex-shrink-0">
-              <div className="text-sm text-blue-900 flex items-center gap-2">
-                <Checkbox checked className="pointer-events-none" />
-                <b>{selected.size}</b> customer
-                {selected.size === 1 ? "" : "s"} selected
-                <button
-                  type="button"
-                  onClick={clearSelection}
-                  className="ml-2 text-xs text-blue-700 underline hover:text-blue-900"
-                >
-                  Clear
-                </button>
-              </div>
-              {/* Bulk actions (Assign Delivery Day / Block) all
-                  moved to the detail page so each change is reviewed
-                  in context with the customer's full record. The
-                  selection row stays only for the future "Export
-                  selected" CTA — until that lands it's just feedback
-                  that rows are checked. */}
-            </div>
-          )}
+          {/* Bulk action bar was removed alongside the row checkbox
+              column — Assign Delivery Day / Block live on the
+              detail page now, so the list has no bulk actions
+              left. */}
 
+          {/* Empty-mode short-circuit. The seller (Empty) persona
+              should see no table chrome at all — just the search
+              bar above and a clean empty state where the rows
+              would go. The pagination underneath is also hidden
+              in the same branch. */}
+          {isEmpty ? (
+            <div className="flex-1 flex items-center justify-center">
+              <EmptyState
+                icon={Users}
+                title="No customers yet"
+                description="Once retailers register against your brands from the buyer app, they'll auto-register as Active here and appear in this list."
+              />
+            </div>
+          ) : (
+            <>
           {/* Table */}
           <div className="flex-1 overflow-auto">
             <table className="w-full">
-              <thead className="bg-gray-50 border-b sticky top-0 z-10">
+              <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
                 <tr>
-                  <th className="pl-4 pr-2 py-3 w-8">
-                    <Checkbox
-                      checked={
-                        allOnPageSelected
-                          ? true
-                          : someOnPageSelected
-                            ? "indeterminate"
-                            : false
-                      }
-                      onCheckedChange={(v) => togglePageSelect(!!v)}
-                      aria-label="Select all customers on this page"
-                    />
-                  </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Business Name
                   </th>
@@ -530,7 +473,7 @@ export function CustomersDemo() {
                 {paginated.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="px-4 py-12 text-center text-sm text-gray-500"
                     >
                       No customers match your search or filters.
@@ -538,41 +481,32 @@ export function CustomersDemo() {
                   </tr>
                 ) : (
                   paginated.map((c) => {
-                    const isSel = selected.has(c.customerId);
                     return (
                       <tr
                         key={c.customerId}
                         className={
-                          (isSel ? "bg-blue-50/40 " : "") +
                           (c.status === "Blocked" ? "opacity-70 " : "") +
                           "hover:bg-gray-50 transition-colors"
                         }
                       >
-                        <td className="pl-4 pr-2 py-3">
-                          <Checkbox
-                            checked={isSel}
-                            onCheckedChange={(v) =>
-                              toggleRow(c.customerId, !!v)
-                            }
-                            aria-label={`Select ${c.customerName}`}
-                          />
-                        </td>
                         {/* Business Name only — Customer Name was
                             dropped per Phase 2 spec so the row carries
                             one identity, not two. */}
                         <td className="px-4 py-3">
-                          <button
-                            type="button"
-                            className="text-left hover:underline focus:outline-none focus-visible:underline"
-                            onClick={() =>
-                              navigate(`/customers-demo/${c.customerId}`)
-                            }
-                            title={`View details for ${c.businessName}`}
-                          >
-                            <p className="font-medium text-gray-900 text-sm">
-                              {c.businessName}
-                            </p>
-                          </button>
+                          <CopyOnHover value={c.businessName} label="Business name">
+                            <button
+                              type="button"
+                              className="text-left hover:underline focus:outline-none focus-visible:underline"
+                              onClick={() =>
+                                navigate(`/customers/${c.customerId}`)
+                              }
+                              title={`View details for ${c.businessName}`}
+                            >
+                              <p className="font-medium text-gray-900 text-sm">
+                                {c.businessName}
+                              </p>
+                            </button>
+                          </CopyOnHover>
                         </td>
                         <td className="px-4 py-3">
                           <Badge
@@ -583,9 +517,11 @@ export function CustomersDemo() {
                           </Badge>
                         </td>
                         <td className="px-4 py-3">
-                          <p className="text-sm text-gray-700 font-mono">
-                            {c.mobile}
-                          </p>
+                          <CopyOnHover value={c.mobile} label="Mobile number">
+                            <p className="text-sm text-gray-700 font-mono">
+                              {c.mobile}
+                            </p>
+                          </CopyOnHover>
                         </td>
                         {/* Company — count badge that opens the
                             Linked Companies popup. Mirrors the
@@ -627,7 +563,7 @@ export function CustomersDemo() {
                               size="sm"
                               className="gap-1 text-blue-700 hover:bg-blue-50 hover:text-blue-700 h-8"
                               onClick={() =>
-                                navigate(`/customers-demo/${c.customerId}`)
+                                navigate(`/customers/${c.customerId}`)
                               }
                               title={`View details for ${c.businessName}`}
                             >
@@ -656,6 +592,8 @@ export function CustomersDemo() {
             onPageChange={setCurrentPage}
             itemLabel="customer"
           />
+            </>
+          )}
         </Card>
       </div>
 
@@ -782,65 +720,9 @@ export function CustomersDemo() {
         )}
       </AnimatePresence>
 
-      {/* Bulk Assign Delivery Day dialog */}
-      <Dialog open={isAssignOpen} onOpenChange={setIsAssignOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-blue-600" />
-              Assign Delivery Day
-            </DialogTitle>
-            <DialogDescription>
-              Pick a delivery day for the {selected.size} selected customer
-              {selected.size === 1 ? "" : "s"}. The day applies to every
-              company they buy from. Use Linked Companies to set per-company
-              days individually.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 py-2">
-            <Label className="text-xs">
-              Delivery Day <span className="text-red-500">*</span>
-            </Label>
-            <Select
-              value={assignDay}
-              onValueChange={(v) => {
-                setAssignDay(v as DeliveryDay);
-                if (assignError) setAssignError(null);
-              }}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Pick a day…" />
-              </SelectTrigger>
-              <SelectContent>
-                {DELIVERY_DAY_OPTIONS.map((d) => (
-                  <SelectItem key={d} value={d}>
-                    {d}
-                    {d === NEXT_DAY && (
-                      <span className="text-[10px] text-blue-700 ml-2">
-                        (express)
-                      </span>
-                    )}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {assignError && (
-              <p className="flex items-start gap-1 text-xs text-red-600">
-                <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                {assignError}
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAssignOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleAssign} disabled={!assignDay}>
-              Assign
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* The Bulk Assign Delivery Day dialog was retired along
+          with the row checkbox column — per-company delivery days
+          are edited on the customer detail page now. */}
 
       {/* Block / Unblock dialogs are gone from the list page — they
           live on the detail page now. */}

@@ -279,8 +279,14 @@
 .dark .border-gray-150 { border-color: oklch(0.28 0 0); }
 .dark .border-gray-200 { border-color: oklch(0.3 0 0); }
 .dark .border-gray-300 { border-color: oklch(0.34 0 0); }
-.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: oklch(0.27 0 0); }
-.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: oklch(0.3 0 0); }
+/* divide-* dark overrides — Tailwind v4 applies divide-y as
+   border-bottom on `:not(:last-child)` (not border-top on `~`-siblings
+   like v3). The v3-style override missed the first child's
+   border-bottom, leaving it the default near-white border color in
+   dark mode. Targeting all direct children covers both v3 and v4
+   patterns; child elements without a border-width render nothing. */
+.dark .divide-gray-100 > * { border-color: oklch(0.27 0 0); }
+.dark .divide-gray-200 > * { border-color: oklch(0.3 0 0); }
 
 /* ---- Status tint backgrounds (50/100/200) ----
  * These are used for badges, pills, and soft callouts. In dark mode

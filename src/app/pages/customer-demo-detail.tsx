@@ -96,7 +96,7 @@ export function CustomerDemoDetail() {
           <Button
             variant="outline"
             size="sm"
-            onClick={() => navigate("/customers-demo")}
+            onClick={() => navigate("/customers")}
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Customers
@@ -142,7 +142,7 @@ export function CustomerDemoDetail() {
         <Button
           variant="outline"
           size="icon"
-          onClick={() => navigate("/customers-demo")}
+          onClick={() => navigate("/customers")}
           className="hover:bg-gray-100"
         >
           <ArrowLeft className="h-5 w-5" />
