@@ -38,7 +38,7 @@ import {
 import { toast } from "sonner";
 import {
   getDemoCustomerById,
-  setDemoStatus,
+  setDemoCompanyStatus,
   subscribeToDemoCustomers,
   type DemoCustomer,
 } from "../lib/customers-demo-data";
@@ -60,24 +60,37 @@ export function CustomerDemoDetail() {
     });
   }, [customerId]);
 
-  // Block / Unblock confirmation. The action lives on the detail page
-  // now (per spec) so the seller acknowledges the consequence in
-  // context, with the customer's full record in front of them.
-  const [pendingBlockToggle, setPendingBlockToggle] = useState<
-    "block" | "unblock" | null
-  >(null);
+  // Block / Unblock confirmation — Block lives on a per-company link
+  // now (a customer can be Active for one brand and Blocked for
+  // another), so we track the target companyId alongside the action.
+  const [pendingBlockToggle, setPendingBlockToggle] = useState<{
+    action: "block" | "unblock";
+    companyId: string;
+  } | null>(null);
+
+  const pendingBlockCompany = customer?.companies.find(
+    (co) => co.companyId === pendingBlockToggle?.companyId,
+  );
 
   const handleConfirmBlockToggle = () => {
-    if (!customer || !pendingBlockToggle) return;
-    if (pendingBlockToggle === "block") {
-      setDemoStatus([customer.customerId], "Blocked");
+    if (!customer || !pendingBlockToggle || !pendingBlockCompany) return;
+    if (pendingBlockToggle.action === "block") {
+      setDemoCompanyStatus(
+        customer.customerId,
+        pendingBlockToggle.companyId,
+        "Blocked",
+      );
       toast.success(
-        `${customer.businessName} has been blocked — no new orders until you unblock.`,
+        `${customer.businessName} blocked for ${pendingBlockCompany.companyName} — no new orders against this brand until you unblock.`,
       );
     } else {
-      setDemoStatus([customer.customerId], "Active");
+      setDemoCompanyStatus(
+        customer.customerId,
+        pendingBlockToggle.companyId,
+        "Active",
+      );
       toast.success(
-        `${customer.businessName} is active again and can place orders.`,
+        `${customer.businessName} unblocked for ${pendingBlockCompany.companyName}.`,
       );
     }
     setPendingBlockToggle(null);
@@ -135,9 +148,11 @@ export function CustomerDemoDetail() {
 
   return (
     <div className="p-4 space-y-3 bg-gray-50 min-h-full">
-      {/* Header — store name + owner + phone, plus the Block / Unblock
-          action pulled in from the list page so it's reviewed in
-          context with the customer's full record. */}
+      {/* Header — store name + owner + phone. Customer-level Active /
+          Blocked badge is gone; status is now per-company and surfaced
+          in the Linked Companies card below, where Block / Unblock
+          also lives. The header still rolls up the company statuses
+          so the seller has an at-a-glance signal. */}
       <div className="flex items-center gap-3">
         <Button
           variant="outline"
@@ -152,43 +167,40 @@ export function CustomerDemoDetail() {
             <h1 className="text-xl font-bold text-gray-900 truncate">
               {customer.businessName}
             </h1>
-            {customer.status === "Blocked" ? (
-              <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                <Ban className="h-3 w-3" />
-                Blocked
-              </Badge>
-            ) : (
-              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                <CheckCircle2 className="h-3 w-3" />
-                Active
-              </Badge>
-            )}
+            {(() => {
+              const activeCount = customer.companies.filter(
+                (co) => co.status === "Active",
+              ).length;
+              const blockedCount = customer.companies.length - activeCount;
+              if (blockedCount === 0) {
+                return (
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                    <CheckCircle2 className="h-3 w-3" />
+                    Active
+                  </Badge>
+                );
+              }
+              if (activeCount === 0) {
+                return (
+                  <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                    <Ban className="h-3 w-3" />
+                    Blocked
+                  </Badge>
+                );
+              }
+              return (
+                <Badge
+                  className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
+                  title={`${activeCount} active · ${blockedCount} blocked`}
+                >
+                  Mixed ({activeCount}/{customer.companies.length})
+                </Badge>
+              );
+            })()}
           </div>
           <p className="text-sm text-gray-600 truncate">
             {customer.customerName} · {customer.mobile}
           </p>
-        </div>
-        <div className="shrink-0">
-          {customer.status === "Active" ? (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5 border-red-300 text-red-700 hover:bg-red-50"
-              onClick={() => setPendingBlockToggle("block")}
-            >
-              <Ban className="h-4 w-4" />
-              Block Customer
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="gap-1.5 bg-emerald-600 hover:bg-emerald-700"
-              onClick={() => setPendingBlockToggle("unblock")}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Unblock Customer
-            </Button>
-          )}
         </div>
       </div>
 
@@ -239,12 +251,6 @@ export function CustomerDemoDetail() {
                     </p>
                   </div>
                 )}
-                <div>
-                  <p className="text-[11px] text-gray-500">Class</p>
-                  <p className="text-sm font-medium text-gray-900">
-                    {customer.classType}
-                  </p>
-                </div>
               </div>
             </CardContent>
           </Card>
@@ -330,10 +336,10 @@ export function CustomerDemoDetail() {
             </CardContent>
           </Card>
 
-          {/* Linked Companies — per-company registration dates. Same
-              data the list-page Linked Companies popup shows; carried
-              here so the seller can see the full breakdown without
-              jumping back to the list. */}
+          {/* Linked Companies — per-company registration date, status,
+              and Block / Unblock control. Status and the block action
+              are per-company: a customer can be Active for one brand
+              and Blocked for another. */}
           <Card>
             <CardHeader className="py-2.5 px-4 border-b border-gray-100">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -348,15 +354,17 @@ export function CustomerDemoDetail() {
                 </p>
               ) : (
                 <>
-                  <div className="grid grid-cols-[1fr_140px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                  <div className="grid grid-cols-[1fr_120px_110px_120px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                     <span>Company</span>
-                    <span>Registration Date</span>
+                    <span>Registered</span>
+                    <span className="text-center">Status</span>
+                    <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-gray-100">
                     {customer.companies.map((co) => (
                       <div
                         key={co.companyId}
-                        className="grid grid-cols-[1fr_140px] gap-3 px-4 py-2.5 items-center"
+                        className="grid grid-cols-[1fr_120px_110px_120px] gap-3 px-4 py-2.5 items-center"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -368,10 +376,56 @@ export function CustomerDemoDetail() {
                           <Calendar className="h-3 w-3 text-gray-400" />
                           {formatRegDate(co.registeredAt)}
                         </p>
+                        <div className="flex justify-center">
+                          {co.status === "Active" ? (
+                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              Active
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                              <Ban className="h-3 w-3" />
+                              Blocked
+                            </Badge>
+                          )}
+                        </div>
+                        <div className="flex justify-end">
+                          {co.status === "Active" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                              onClick={() =>
+                                setPendingBlockToggle({
+                                  action: "block",
+                                  companyId: co.companyId,
+                                })
+                              }
+                            >
+                              <Ban className="h-3.5 w-3.5" />
+                              Block
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                              onClick={() =>
+                                setPendingBlockToggle({
+                                  action: "unblock",
+                                  companyId: co.companyId,
+                                })
+                              }
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              Unblock
+                            </Button>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
                   <p className="text-[11px] text-gray-500 px-4 py-2 border-t border-gray-100 bg-gray-50/40">
+                    Status and Block / Unblock are tracked per company.
                     Registration date is the day the customer placed
                     their first order with each company.
                   </p>
@@ -434,10 +488,10 @@ export function CustomerDemoDetail() {
         </div>
       </div>
 
-      {/* Block / Unblock confirmation. Both directions get a popup so
-          the seller acknowledges the consequence — block stops new
-          orders until manually unblocked; unblock lets the customer
-          place orders again. */}
+      {/* Block / Unblock confirmation — scoped to a single company link
+          so the seller acknowledges the per-brand consequence. Block
+          stops new orders against that brand only; other brands the
+          customer buys from are unaffected. */}
       <Dialog
         open={pendingBlockToggle !== null}
         onOpenChange={(o) => !o && setPendingBlockToggle(null)}
@@ -445,40 +499,40 @@ export function CustomerDemoDetail() {
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {pendingBlockToggle === "block" ? (
+              {pendingBlockToggle?.action === "block" ? (
                 <>
                   <Ban className="h-5 w-5 text-red-600" />
-                  Block this customer?
+                  Block for {pendingBlockCompany?.companyName}?
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="h-5 w-5 text-emerald-600" />
-                  Unblock this customer?
+                  Unblock for {pendingBlockCompany?.companyName}?
                 </>
               )}
             </DialogTitle>
             <DialogDescription>
-              {pendingBlockToggle === "block"
-                ? `${customer.businessName} won't be able to place new orders until you manually unblock them. Existing orders are not affected.`
-                : `${customer.businessName} will be able to place orders again immediately.`}
+              {pendingBlockToggle?.action === "block"
+                ? `${customer.businessName} won't be able to place new orders for ${pendingBlockCompany?.companyName} until you manually unblock. Orders against other linked companies are not affected.`
+                : `${customer.businessName} will be able to place orders for ${pendingBlockCompany?.companyName} again immediately.`}
             </DialogDescription>
           </DialogHeader>
           <div
             className={
-              pendingBlockToggle === "block"
+              pendingBlockToggle?.action === "block"
                 ? "bg-amber-50 border border-amber-200 rounded-md p-3 text-xs text-amber-900"
                 : "bg-emerald-50 border border-emerald-200 rounded-md p-3 text-xs text-emerald-900"
             }
           >
-            {pendingBlockToggle === "block" ? (
+            {pendingBlockToggle?.action === "block" ? (
               <>
                 <b>Heads up:</b> there is no auto-unblock — you'll need to
                 come back here and reverse this manually.
               </>
             ) : (
               <>
-                The customer will see your storefront as available the next
-                time they check in.
+                The customer will see your storefront as available for
+                this brand the next time they check in.
               </>
             )}
           </div>
@@ -492,14 +546,14 @@ export function CustomerDemoDetail() {
             <Button
               onClick={handleConfirmBlockToggle}
               className={
-                pendingBlockToggle === "block"
+                pendingBlockToggle?.action === "block"
                   ? "bg-red-600 hover:bg-red-700 text-white"
                   : "bg-emerald-600 hover:bg-emerald-700 text-white"
               }
             >
-              {pendingBlockToggle === "block"
-                ? "Yes, block customer"
-                : "Yes, unblock customer"}
+              {pendingBlockToggle?.action === "block"
+                ? "Yes, block for this company"
+                : "Yes, unblock for this company"}
             </Button>
           </DialogFooter>
         </DialogContent>

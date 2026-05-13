@@ -3,7 +3,9 @@
 // Module-level state + a tiny publish/subscribe pattern keeps the surface
 // familiar to anyone who's worked with the other mock stores.
 
-/** A single (customer → company) link. */
+/** A single (customer → company) link. Status lives here — block/unblock
+ *  is done per-company, so a single customer can be Active for one company
+ *  and Blocked for another (e.g. unpaid dues against one brand). */
 export interface CompanyLink {
   companyId: string;
   companyName: string;
@@ -12,6 +14,8 @@ export interface CompanyLink {
    *  the customer auto-registers the moment they place an order
    *  with a given seller-linked company. ISO date string. */
   registeredAt: string;
+  /** Per-company status — Active / Blocked. */
+  status: "Active" | "Blocked";
 }
 
 export interface DemoCustomer {
@@ -31,7 +35,6 @@ export interface DemoCustomer {
   longitude: number;
   /** Optional GSTIN — only filled for Wholesaler / Modern Trade in seed. */
   gstNumber?: string;
-  classType: "Wholesaler" | "Kirana" | "Modern Trade" | "HoReCa";
   /** First-order auto-registration date (drives the Registered On column). */
   registeredDate: string;
   totalOrders: number;
@@ -39,7 +42,6 @@ export interface DemoCustomer {
   totalRevenue?: number;
   /** Companies the customer buys from. Length ≥ 1. */
   companies: CompanyLink[];
-  status: "Active" | "Blocked";
 }
 
 // ---------- Seed ----------
@@ -58,15 +60,13 @@ const SEED: DemoCustomer[] = [
     pincode: "560038",
     latitude: 12.9719,
     longitude: 77.6412,
-    classType: "Kirana",
     registeredDate: "2026-04-12",
     totalOrders: 14,
     totalRevenue: 145600,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-12" },
-      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-18" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-12", status: "Active" },
+      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-18", status: "Active" },
     ],
-    status: "Active",
   },
   {
     customerId: "c2",
@@ -82,14 +82,12 @@ const SEED: DemoCustomer[] = [
     latitude: 17.4399,
     longitude: 78.4983,
     gstNumber: "36ABCDE1234F1Z5",
-    classType: "Wholesaler",
     registeredDate: "2026-04-08",
     totalOrders: 47,
     totalRevenue: 612400,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-08" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-08", status: "Active" },
     ],
-    status: "Active",
   },
   {
     customerId: "c3",
@@ -104,7 +102,6 @@ const SEED: DemoCustomer[] = [
     pincode: "400058",
     latitude: 19.1340,
     longitude: 72.8270,
-    classType: "Kirana",
     registeredDate: "2026-04-22",
     totalOrders: 6,
     totalRevenue: 38600,
@@ -113,9 +110,9 @@ const SEED: DemoCustomer[] = [
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         registeredAt: "2026-04-22",
+        status: "Active",
       },
     ],
-    status: "Active",
   },
   {
     customerId: "c4",
@@ -131,20 +128,19 @@ const SEED: DemoCustomer[] = [
     latitude: 28.6328,
     longitude: 77.2197,
     gstNumber: "07ABCDE5678G1Z9",
-    classType: "Modern Trade",
     registeredDate: "2026-03-30",
     totalOrders: 92,
     totalRevenue: 1480000,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-03-30" },
-      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-05" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-03-30", status: "Active" },
+      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-05", status: "Blocked" },
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         registeredAt: "2026-04-12",
+        status: "Active",
       },
     ],
-    status: "Active",
   },
   {
     customerId: "c5",
@@ -158,14 +154,12 @@ const SEED: DemoCustomer[] = [
     pincode: "500034",
     latitude: 17.4156,
     longitude: 78.4347,
-    classType: "Kirana",
     registeredDate: "2026-04-25",
     totalOrders: 3,
     totalRevenue: 12450,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-25" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-25", status: "Active" },
     ],
-    status: "Active",
   },
   {
     customerId: "c6",
@@ -180,14 +174,12 @@ const SEED: DemoCustomer[] = [
     pincode: "560034",
     latitude: 12.9352,
     longitude: 77.6245,
-    classType: "HoReCa",
     registeredDate: "2026-04-15",
     totalOrders: 21,
     totalRevenue: 256000,
     companies: [
-      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-15" },
+      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-15", status: "Active" },
     ],
-    status: "Active",
   },
   {
     customerId: "c7",
@@ -203,7 +195,6 @@ const SEED: DemoCustomer[] = [
     latitude: 13.0418,
     longitude: 80.2341,
     gstNumber: "33ABCDE9876H1Z3",
-    classType: "Wholesaler",
     registeredDate: "2026-04-02",
     totalOrders: 38,
     totalRevenue: 487000,
@@ -212,9 +203,9 @@ const SEED: DemoCustomer[] = [
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
         registeredAt: "2026-04-02",
+        status: "Blocked",
       },
     ],
-    status: "Blocked",
   },
 ];
 
@@ -239,13 +230,21 @@ export const setDemoCustomers = (next: DemoCustomer[]) => {
   notify();
 };
 
-export const setDemoStatus = (
-  customerIds: string[],
+/** Update the status of a single company link for a single customer. */
+export const setDemoCompanyStatus = (
+  customerId: string,
+  companyId: string,
   status: "Active" | "Blocked",
 ) => {
-  const ids = new Set(customerIds);
   _customers = _customers.map((c) =>
-    ids.has(c.customerId) ? { ...c, status } : c,
+    c.customerId === customerId
+      ? {
+          ...c,
+          companies: c.companies.map((co) =>
+            co.companyId === companyId ? { ...co, status } : co,
+          ),
+        }
+      : c,
   );
   notify();
 };
