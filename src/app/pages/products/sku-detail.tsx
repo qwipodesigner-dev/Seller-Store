@@ -15,6 +15,20 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../../components/ui/command";
+import { cn } from "../../components/ui/utils";
+import {
   ArrowLeft,
   Package,
   Pencil,
@@ -36,8 +50,10 @@ import {
   Flame,
   Star,
   Info,
+  Check,
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
   Clock,
   AlertCircle,
   CheckCircle2,
@@ -137,12 +153,6 @@ const KNOWN_GROUP_NAMES = [
   "Marico Saffola",
   "Classmate Notebooks",
 ];
-
-// Sentinel for the "no group" choice in the Select dropdown. Radix
-// rejects empty-string SelectItem values, so we use this string as
-// the visible label *and* the internal Select value, then translate
-// it to "" when the ondc state writes back.
-const GROUP_NAME_NONE = "— None —";
 
 // validateSKU returns errors keyed by ONDC JSON-paths (e.g.
 // "items[].descriptor.name"). The seller doesn't think in those
@@ -1220,29 +1230,23 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required errorMessage={getError("itemName")} />}
         />
         {/* Group Name clusters variants of the same product family
-            so the My SKU list can render them together. The
-            dropdown is sourced from previously-imported groups
-            (KNOWN_GROUP_NAMES — replace with an API lookup in
-            production). Optional — single-variant SKUs leave it
-            blank. */}
-        {/* Group Name uses the Select primitive's empty-value
-            convention: when `value` is "" the trigger shows the
-            placeholder text. Radix Select rejects empty-string
-            SelectItem values, so the "No group" choice is
-            represented by clicking the chevron and re-selecting
-            None... we route that through a sentinel option. */}
+            so the My SKU list can render them together. Backed by a
+            search-as-you-type combobox so the list scales with
+            previously-imported groups (KNOWN_GROUP_NAMES — replace
+            with an API lookup in production). Optional — leaving it
+            blank is the "no group" choice. */}
         <DualRow
           label="Group Name"
-          help="Cluster variants of the same product family. Pick an existing group from the dropdown."
+          help="Cluster variants of the same product family. Type to search or pick from the list."
           dms={dms.groupName || "—"}
           ondc={
-            <SelectInput
-              value={ondc.groupName || GROUP_NAME_NONE}
-              onChange={(v) =>
-                update("groupName", v === GROUP_NAME_NONE ? "" : v)
-              }
+            <ComboboxInput
+              value={ondc.groupName}
+              onChange={(v) => update("groupName", v)}
               edited={isEdited("groupName")}
-              options={[GROUP_NAME_NONE, ...KNOWN_GROUP_NAMES]}
+              options={KNOWN_GROUP_NAMES}
+              placeholder="Search or pick a group…"
+              clearable
             />
           }
         />
@@ -2315,6 +2319,123 @@ function SelectInput({
           ))}
         </SelectContent>
       </Select>
+      {hasError && (
+        <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
+          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{errorMessage}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Search-as-you-type combobox for picking from a list of strings.
+ * Same external contract as SelectInput (value/onChange/options) so
+ * call sites can swap one for the other when a list grows long
+ * enough that scanning it linearly is painful — e.g. the Group Name
+ * field, which can grow with every imported SKU family.
+ *
+ * Empty string value = nothing selected; the trigger shows the
+ * placeholder. The clearable variant exposes a "Clear selection"
+ * row at the top of the list (used for optional fields like Group
+ * Name where "no group" is a legitimate choice).
+ */
+function ComboboxInput({
+  value,
+  onChange,
+  options,
+  placeholder = "Search or pick one…",
+  clearable,
+  clearLabel = "— None —",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  edited,
+  errorMessage,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+  clearable?: boolean;
+  clearLabel?: string;
+  edited?: boolean;
+  errorMessage?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasError = !!errorMessage;
+  const selectedLabel = value || placeholder;
+  return (
+    <div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between font-normal h-9 px-2.5",
+              !value && "text-muted-foreground",
+              hasError && "border-red-400",
+            )}
+          >
+            <span className="truncate">{selectedLabel}</span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="p-0 w-[var(--radix-popover-trigger-width)]"
+          align="start"
+        >
+          <Command>
+            <CommandInput placeholder={placeholder} />
+            <CommandList className="max-h-64">
+              <CommandEmpty>No match found.</CommandEmpty>
+              <CommandGroup>
+                {clearable && (
+                  <CommandItem
+                    value={clearLabel}
+                    onSelect={() => {
+                      onChange("");
+                      setOpen(false);
+                    }}
+                    className="text-gray-500 italic"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === "" ? "opacity-100 text-blue-600" : "opacity-0",
+                      )}
+                    />
+                    {clearLabel}
+                  </CommandItem>
+                )}
+                {options.map((opt) => {
+                  const isSel = opt === value;
+                  return (
+                    <CommandItem
+                      key={opt}
+                      value={opt}
+                      onSelect={() => {
+                        onChange(opt);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isSel ? "opacity-100 text-blue-600" : "opacity-0",
+                        )}
+                      />
+                      {opt}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
       {hasError && (
         <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
           <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
