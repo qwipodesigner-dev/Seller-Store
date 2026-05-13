@@ -1,16 +1,12 @@
-// Shared store for the Customers 2 demo. The list page (customers-demo.tsx)
-// and the detail page (customer-demo-detail.tsx) both read from here so a
-// delivery-day change made on one is visible on the other without prop
-// drilling. Module-level state + a tiny publish/subscribe pattern keeps the
-// surface familiar to anyone who's worked with the other mock stores.
+// Shared store for the Customers module. The list page (customers-demo.tsx)
+// and the detail page (customer-demo-detail.tsx) both read from here.
+// Module-level state + a tiny publish/subscribe pattern keeps the surface
+// familiar to anyone who's worked with the other mock stores.
 
-import { DeliveryDay, NEXT_DAY } from "./customers-data";
-
-/** A single (company → delivery day) pairing for a customer. */
+/** A single (customer → company) link. */
 export interface CompanyLink {
   companyId: string;
   companyName: string;
-  deliveryDay: DeliveryDay | null;
   /** Date of the customer's FIRST order against this company. We
    *  treat that as the customer's per-company registration date —
    *  the customer auto-registers the moment they place an order
@@ -67,8 +63,8 @@ const SEED: DemoCustomer[] = [
     totalOrders: 14,
     totalRevenue: 145600,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Wednesday", registeredAt: "2026-04-12" },
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Monday", registeredAt: "2026-04-18" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-12" },
+      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-18" },
     ],
     status: "Active",
   },
@@ -91,7 +87,7 @@ const SEED: DemoCustomer[] = [
     totalOrders: 47,
     totalRevenue: 612400,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Friday", registeredAt: "2026-04-08" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-08" },
     ],
     status: "Active",
   },
@@ -116,7 +112,6 @@ const SEED: DemoCustomer[] = [
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        deliveryDay: null,
         registeredAt: "2026-04-22",
       },
     ],
@@ -141,12 +136,11 @@ const SEED: DemoCustomer[] = [
     totalOrders: 92,
     totalRevenue: 1480000,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: "Tuesday", registeredAt: "2026-03-30" },
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Thursday", registeredAt: "2026-04-05" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-03-30" },
+      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-05" },
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        deliveryDay: NEXT_DAY,
         registeredAt: "2026-04-12",
       },
     ],
@@ -169,7 +163,7 @@ const SEED: DemoCustomer[] = [
     totalOrders: 3,
     totalRevenue: 12450,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", deliveryDay: null, registeredAt: "2026-04-25" },
+      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-25" },
     ],
     status: "Active",
   },
@@ -191,7 +185,7 @@ const SEED: DemoCustomer[] = [
     totalOrders: 21,
     totalRevenue: 256000,
     companies: [
-      { companyId: "co-marico", companyName: "Marico", deliveryDay: "Saturday", registeredAt: "2026-04-15" },
+      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-15" },
     ],
     status: "Active",
   },
@@ -217,7 +211,6 @@ const SEED: DemoCustomer[] = [
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        deliveryDay: "Wednesday",
         registeredAt: "2026-04-02",
       },
     ],
@@ -243,41 +236,6 @@ export const getDemoCustomerById = (
 
 export const setDemoCustomers = (next: DemoCustomer[]) => {
   _customers = next;
-  notify();
-};
-
-/** Set the delivery day for one (customer × company) pairing. */
-export const setDemoCompanyDeliveryDay = (
-  customerId: string,
-  companyId: string,
-  day: DeliveryDay | null,
-) => {
-  _customers = _customers.map((c) =>
-    c.customerId === customerId
-      ? {
-          ...c,
-          companies: c.companies.map((co) =>
-            co.companyId === companyId ? { ...co, deliveryDay: day } : co,
-          ),
-        }
-      : c,
-  );
-  notify();
-};
-
-/** Set the delivery day for every company of a customer in one go. */
-export const setDemoAllCompanyDeliveryDays = (
-  customerId: string,
-  day: DeliveryDay,
-) => {
-  _customers = _customers.map((c) =>
-    c.customerId === customerId
-      ? {
-          ...c,
-          companies: c.companies.map((co) => ({ ...co, deliveryDay: day })),
-        }
-      : c,
-  );
   notify();
 };
 

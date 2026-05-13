@@ -691,6 +691,9 @@ export function Orders() {
                 Retailer Name
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                Mobile
+              </th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Order Value
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -741,6 +744,17 @@ export function Orders() {
                       {order.retailerName}
                     </p>
                   </CopyOnHover>
+                </td>
+                <td className="px-4 py-3">
+                  {order.buyerContact ? (
+                    <CopyOnHover value={order.buyerContact} label="Mobile number">
+                      <p className="text-sm text-gray-700 font-mono">
+                        {order.buyerContact}
+                      </p>
+                    </CopyOnHover>
+                  ) : (
+                    <p className="text-sm text-gray-400">—</p>
+                  )}
                 </td>
                 <td className="px-4 py-3">
                   <p className="font-medium text-gray-900">

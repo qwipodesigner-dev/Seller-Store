@@ -5,7 +5,6 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Badge } from "../components/ui/badge";
 import { Label } from "../components/ui/label";
-import { Checkbox } from "../components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -26,11 +25,9 @@ import {
   Filter,
   Download,
   Building2,
-  Calendar,
   Ban,
   CheckCircle2,
   X,
-  AlertCircle,
   ChevronRight,
   Eye,
   Users,
@@ -39,13 +36,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { ListPagination } from "../components/ui/list-pagination";
 import {
-  DELIVERY_DAY_OPTIONS,
-  NEXT_DAY,
-  type DeliveryDay,
-} from "../lib/customers-data";
-import {
   getDemoCustomers,
-  setDemoCustomers,
   subscribeToDemoCustomers,
   type CompanyLink as SharedCompanyLink,
   type DemoCustomer as SharedDemoCustomer,
@@ -55,33 +46,26 @@ import { EmptyState } from "../components/empty-state";
 import { CopyOnHover } from "../components/copy-on-hover";
 
 // =====================================================================
-// Customers 2 — empty-mode demo of the auto-register flow.
+// Customers — auto-register flow.
 //
 // In this model, customers don't go through a Pending → Approved
 // approval queue. They auto-register on their first order and land in
-// the list as Active immediately. The seller's only state changes
-// after that are:
-//
-//   1. Assigning a delivery day per (customer × company), in bulk or
-//      one-by-one. Default delivery is Next Day until set.
-//   2. Blocking a customer so they can't place new orders.
+// the list as Active immediately. The only post-registration state
+// change is Block / Unblock, handled on the detail page.
 //
 // Each row represents ONE customer. Customers who buy across multiple
 // companies surface a count badge ("2 companies" / "3 companies") in
 // the Company column — clicking the badge opens a Linked Companies
-// popup that shows each company name with its delivery day inline.
+// popup that shows each company name + per-company registration date.
 // Brands no longer render in the row (they were noisy at row scale);
-// the company is the identity that matters for delivery scheduling.
+// the company is the identity that matters for scheduling.
 //
-// Self-contained: no shared state with the canonical customers.tsx
-// page. All data is mock-state local to this component. Routed under
-// /customers-demo and surfaced only on the empty-mode sidebar.
+// Routed at /customers. The legacy Pending/Approved/Rejected flow is
+// preserved at /customers-demo for empty-mode reviewers.
 // =====================================================================
 
 // Types and seed live in lib/customers-demo-data.ts so the list page and
-// the new detail page (customer-demo-detail.tsx) share the same store —
-// a delivery-day change made on either surface is immediately visible
-// on the other.
+// the detail page (customer-demo-detail.tsx) share the same store.
 type CompanyLink = SharedCompanyLink;
 type DemoCustomer = SharedDemoCustomer;
 
@@ -108,34 +92,6 @@ const escapeCsv = (v: string | number) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-/**
- * Summarise a customer's per-company delivery days into the right
- * thing to show in the table cell:
- *   - all unassigned → "Unassigned"
- *   - one company → that day (or "Unassigned")
- *   - all same → that day
- *   - mixed → "Mixed (N)" — popup carries the breakdown
- */
-type DaySummary =
-  | { kind: "none" }
-  | { kind: "single"; day: DeliveryDay }
-  | { kind: "mixed"; count: number };
-
-const summariseDays = (companies: CompanyLink[]): DaySummary => {
-  const days = companies.map((c) => c.deliveryDay);
-  const assigned = days.filter((d): d is DeliveryDay => d !== null);
-  if (assigned.length === 0) return { kind: "none" };
-  const unique = Array.from(new Set(assigned));
-  if (unique.length === 1 && assigned.length === companies.length) {
-    return { kind: "single", day: unique[0] };
-  }
-  if (unique.length === 1 && assigned.length < companies.length) {
-    // partial — at least one is unassigned
-    return { kind: "mixed", count: companies.length };
-  }
-  return { kind: "mixed", count: companies.length };
-};
-
 export function CustomersDemo() {
   const navigate = useNavigate();
   // Source of truth lives in lib/customers-demo-data.ts. We mirror it
@@ -156,42 +112,18 @@ export function CustomersDemo() {
       setCustomersState([...getDemoCustomers()]),
     );
   }, [isEmpty]);
-  // Keep the existing `setCustomers(prev => …)` call sites working by
-  // routing them through the shared store. Plain replacement saves
-  // touching every site below.
-  const setCustomers = (
-    updater:
-      | ((prev: DemoCustomer[]) => DemoCustomer[])
-      | DemoCustomer[],
-  ) => {
-    const next =
-      typeof updater === "function" ? updater(getDemoCustomers()) : updater;
-    setDemoCustomers(next);
-  };
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [companyFilter, setCompanyFilter] = useState<string>("all");
-  const [dayFilter, setDayFilter] = useState<string>("all");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // Per-row checkbox + bulk-action strip were retired in this
-  // sweep. With Assign Delivery Day / Block moved to the detail
-  // page, the list has no bulk actions left, so the leading
-  // checkbox column was pure noise. Keeping the state names out
-  // of the file entirely is the cleanest signal that the
-  // surface is read-only at the list level.
+  // Per-row checkbox + bulk-action strip were retired in earlier
+  // sweeps. The list is read-only at the row level; row-level
+  // mutations (Block / Unblock) live on the detail page now.
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-
-  // Bulk Assign Delivery Day state was retired alongside the row
-  // checkbox column — the dialog was only reachable via the bulk
-  // action strip. Per-company delivery days now live on the
-  // detail page.
-
-  // Block / Unblock has moved to the detail page; the list no longer
-  // needs the dialog target state.
 
   // Linked Companies popup — shows the per-company breakdown for one
   // customer. Triggered by clicking the count badge in the Company
@@ -226,26 +158,9 @@ export function CustomersDemo() {
       const matchesCompany =
         companyFilter === "all" ||
         c.companies.some((co) => co.companyId === companyFilter);
-      const matchesDay =
-        dayFilter === "all" ||
-        (dayFilter === "unassigned"
-          ? c.companies.some((co) => co.deliveryDay === null)
-          : c.companies.some((co) => co.deliveryDay === dayFilter));
-      return matchesSearch && matchesStatus && matchesCompany && matchesDay;
+      return matchesSearch && matchesStatus && matchesCompany;
     });
-  }, [customers, searchQuery, statusFilter, companyFilter, dayFilter]);
-
-  const totalCustomers = customers.length;
-  const activeCount = customers.filter((c) => c.status === "Active").length;
-  const blockedCount = customers.filter((c) => c.status === "Blocked").length;
-  // "Awaiting delivery day" = customers with at least one company
-  // missing a delivery day. They're the ones the seller still needs
-  // to attend to.
-  const unassignedDayCount = customers.filter(
-    (c) =>
-      c.status === "Active" &&
-      c.companies.some((co) => co.deliveryDay === null),
-  ).length;
+  }, [customers, searchQuery, statusFilter, companyFilter]);
 
   // Pagination slice
   const startIndex = (currentPage - 1) * itemsPerPage;
@@ -255,55 +170,14 @@ export function CustomersDemo() {
   );
 
   const filtersActive =
-    statusFilter !== "all" ||
-    companyFilter !== "all" ||
-    dayFilter !== "all";
+    statusFilter !== "all" || companyFilter !== "all";
   const activeFilterCount =
-    (statusFilter !== "all" ? 1 : 0) +
-    (companyFilter !== "all" ? 1 : 0) +
-    (dayFilter !== "all" ? 1 : 0);
+    (statusFilter !== "all" ? 1 : 0) + (companyFilter !== "all" ? 1 : 0);
 
   const handleClearFilters = () => {
     setStatusFilter("all");
     setCompanyFilter("all");
-    setDayFilter("all");
     setCurrentPage(1);
-  };
-
-  // Bulk Assign Delivery Day handler removed alongside the row
-  // checkbox column. Per-company delivery days are now managed
-  // exclusively from the detail page's Linked Companies card.
-
-  // Set delivery day for a single (customer × company) pairing from
-  // the Linked Companies popup.
-  const setCompanyDay = (
-    customerId: string,
-    companyId: string,
-    day: DeliveryDay | null,
-  ) => {
-    setCustomers((prev) =>
-      prev.map((c) =>
-        c.customerId === customerId
-          ? {
-              ...c,
-              companies: c.companies.map((co) =>
-                co.companyId === companyId ? { ...co, deliveryDay: day } : co,
-              ),
-            }
-          : c,
-      ),
-    );
-    // Keep the popup in sync so the user sees their change reflected.
-    setLinkedCustomer((cur) =>
-      cur && cur.customerId === customerId
-        ? {
-            ...cur,
-            companies: cur.companies.map((co) =>
-              co.companyId === companyId ? { ...co, deliveryDay: day } : co,
-            ),
-          }
-        : cur,
-    );
   };
 
   // Block / Unblock now lives on the detail page (lib/customers-demo-
@@ -367,8 +241,7 @@ export function CustomersDemo() {
   return (
     <div className="h-full flex flex-col bg-gray-50">
       {/* KPI tiles removed per Phase 2 spec — the list page now starts
-          directly with the toolbar + table. Delivery Day management
-          moved to the detail page; column removed below too. */}
+          directly with the toolbar + table. */}
 
       {/* Page area — Card stretches; only the rows scroll. */}
       <div className="flex-1 overflow-hidden p-6">
@@ -423,9 +296,8 @@ export function CustomersDemo() {
           </div>
 
           {/* Bulk action bar was removed alongside the row checkbox
-              column — Assign Delivery Day / Block live on the
-              detail page now, so the list has no bulk actions
-              left. */}
+              column — Block lives on the detail page now, so the
+              list has no bulk actions left. */}
 
           {/* Empty-mode short-circuit. The seller (Empty) persona
               should see no table chrome at all — just the search
@@ -541,8 +413,7 @@ export function CustomersDemo() {
                           </Button>
                         </td>
                         {/* Area / PIN cell removed — full address is
-                            on the detail page. Delivery Day was also
-                            moved there. */}
+                            on the detail page. */}
                         <td className="px-4 py-3 text-center">
                           {c.status === "Active" ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
@@ -597,7 +468,7 @@ export function CustomersDemo() {
         </Card>
       </div>
 
-      {/* Filters drawer — Status + Company + Delivery Day */}
+      {/* Filters drawer — Status + Company */}
       <AnimatePresence>
         {isFilterDrawerOpen && (
           <>
@@ -672,31 +543,6 @@ export function CustomersDemo() {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">
-                    Delivery Day
-                  </Label>
-                  <Select
-                    value={dayFilter}
-                    onValueChange={(v) => {
-                      setDayFilter(v);
-                      setCurrentPage(1);
-                    }}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="unassigned">Unassigned</SelectItem>
-                      {DELIVERY_DAY_OPTIONS.map((d) => (
-                        <SelectItem key={d} value={d}>
-                          {d}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
               </div>
               <div className="border-t border-gray-200 p-6 flex gap-3">
                 <Button
@@ -719,10 +565,6 @@ export function CustomersDemo() {
           </>
         )}
       </AnimatePresence>
-
-      {/* The Bulk Assign Delivery Day dialog was retired along
-          with the row checkbox column — per-company delivery days
-          are edited on the customer detail page now. */}
 
       {/* Block / Unblock dialogs are gone from the list page — they
           live on the detail page now. */}

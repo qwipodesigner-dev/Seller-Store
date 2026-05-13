@@ -184,6 +184,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-26",
     status: "Confirmed",
     marketplace: "ONDC",
+    buyerContact: "+91 98765 43211",
   },
   {
     id: "QWI-FLPK-260326-Q4M8YE",
@@ -197,6 +198,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-26",
     status: "Confirmed",
     marketplace: "Flipkart",
+    buyerContact: "+91 98765 43212",
   },
   {
     id: "QWI-AMZN-260325-V6T3HN",
@@ -210,6 +212,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-25",
     status: "Delivered",
     marketplace: "Amazon",
+    buyerContact: "+91 98765 43213",
   },
   {
     id: "QWI-ONDC-260325-J5C9BD",
@@ -223,6 +226,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-25",
     status: "Cancelled",
     marketplace: "ONDC",
+    buyerContact: "+91 98765 43214",
   },
   {
     id: "QWI-AMZN-260324-N7W2XK",
@@ -236,6 +240,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-24",
     status: "Confirmed",
     marketplace: "Amazon",
+    buyerContact: "+91 98765 43215",
   },
   {
     id: "QWI-ONDC-260324-R3F4PT",
@@ -249,6 +254,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-24",
     status: "Confirmed",
     marketplace: "ONDC",
+    buyerContact: "+91 98765 43216",
   },
   {
     id: "QWI-FLPK-260323-A6H8WC",
@@ -262,6 +268,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-23",
     status: "New",
     marketplace: "Flipkart",
+    buyerContact: "+91 98765 43217",
   },
   {
     id: "QWI-AMZN-260323-B9D2MZ",
@@ -275,6 +282,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-23",
     status: "Delivered",
     marketplace: "Amazon",
+    buyerContact: "+91 98765 43218",
   },
   {
     id: "QWI-ONDC-260322-E5G7QY",
@@ -288,6 +296,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-22",
     status: "New",
     marketplace: "ONDC",
+    buyerContact: "+91 98765 43219",
   },
   {
     id: "QWI-FLPK-260322-S4U8VK",
@@ -301,6 +310,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-22",
     status: "Delivered",
     marketplace: "Flipkart",
+    buyerContact: "+91 98765 43220",
   },
   {
     id: "QWI-AMZN-260321-T6Y9NF",
@@ -314,6 +324,7 @@ export const seedOrders: Order[] = [
     orderDate: "2026-03-21",
     status: "Cancelled",
     marketplace: "Amazon",
+    buyerContact: "+91 98765 43221",
   },
 ];
 
