@@ -37,6 +37,7 @@ import { toast } from "sonner";
 import { ListPagination } from "../components/ui/list-pagination";
 import {
   getDemoCustomers,
+  setDemoCompanyStatus,
   subscribeToDemoCustomers,
   type CompanyLink as SharedCompanyLink,
   type DemoCustomer as SharedDemoCustomer,
@@ -127,9 +128,15 @@ export function CustomersDemo() {
 
   // Linked Companies popup — shows the per-company breakdown for one
   // customer. Triggered by clicking the count badge in the Company
-  // column.
-  const [linkedCustomer, setLinkedCustomer] = useState<DemoCustomer | null>(
-    null,
+  // column. Hold only the id so per-company Block / Unblock mutations
+  // re-flow through the latest `customers` state into the open popup.
+  const [linkedCustomerId, setLinkedCustomerId] = useState<string | null>(null);
+  const linkedCustomer = useMemo(
+    () =>
+      linkedCustomerId
+        ? customers.find((c) => c.customerId === linkedCustomerId) ?? null
+        : null,
+    [customers, linkedCustomerId],
   );
 
   // Companies derived from the dataset so the filter dropdown only
@@ -153,8 +160,11 @@ export function CustomersDemo() {
         c.area.toLowerCase().includes(q) ||
         c.pincode.includes(q) ||
         c.companies.some((co) => co.companyName.toLowerCase().includes(q));
+      // Status is per-company now — a customer matches the filter when at
+      // least one of their company links is in the selected state.
       const matchesStatus =
-        statusFilter === "all" || c.status === statusFilter;
+        statusFilter === "all" ||
+        c.companies.some((co) => co.status === statusFilter);
       const matchesCompany =
         companyFilter === "all" ||
         c.companies.some((co) => co.companyId === companyFilter);
@@ -196,7 +206,6 @@ export function CustomersDemo() {
       "Customer Name",
       "Business Name",
       "Mobile",
-      "Class",
       "Area",
       "PIN",
       "Company",
@@ -212,11 +221,10 @@ export function CustomersDemo() {
             c.customerName,
             c.businessName,
             c.mobile,
-            c.classType,
             c.area,
             c.pincode,
             co.companyName,
-            c.status,
+            co.status,
             co.registeredAt ?? c.registeredDate,
           ]
             .map(escapeCsv)
@@ -323,9 +331,6 @@ export function CustomersDemo() {
                     Business Name
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Class
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Mobile
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -345,7 +350,7 @@ export function CustomersDemo() {
                 {paginated.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       className="px-4 py-12 text-center text-sm text-gray-500"
                     >
                       No customers match your search or filters.
@@ -353,11 +358,20 @@ export function CustomersDemo() {
                   </tr>
                 ) : (
                   paginated.map((c) => {
+                    // Status is per-company — roll up for the row badge.
+                    // All-Active and All-Blocked render the single state;
+                    // anything else shows a "Mixed (N/N)" amber badge so
+                    // the seller knows to open the popup for detail.
+                    const activeCount = c.companies.filter(
+                      (co) => co.status === "Active",
+                    ).length;
+                    const blockedCount = c.companies.length - activeCount;
+                    const allBlocked = activeCount === 0 && blockedCount > 0;
                     return (
                       <tr
                         key={c.customerId}
                         className={
-                          (c.status === "Blocked" ? "opacity-70 " : "") +
+                          (allBlocked ? "opacity-70 " : "") +
                           "hover:bg-gray-50 transition-colors"
                         }
                       >
@@ -381,14 +395,6 @@ export function CustomersDemo() {
                           </CopyOnHover>
                         </td>
                         <td className="px-4 py-3">
-                          <Badge
-                            variant="outline"
-                            className="bg-purple-50 text-purple-700 border-purple-200 text-xs"
-                          >
-                            {c.classType}
-                          </Badge>
-                        </td>
-                        <td className="px-4 py-3">
                           <CopyOnHover value={c.mobile} label="Mobile number">
                             <p className="text-sm text-gray-700 font-mono">
                               {c.mobile}
@@ -404,7 +410,7 @@ export function CustomersDemo() {
                             variant="outline"
                             size="sm"
                             className="h-7 gap-1.5 bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100"
-                            onClick={() => setLinkedCustomer(c)}
+                            onClick={() => setLinkedCustomerId(c.customerId)}
                           >
                             <Building2 className="h-3.5 w-3.5" />
                             {c.companies.length}{" "}
@@ -415,15 +421,22 @@ export function CustomersDemo() {
                         {/* Area / PIN cell removed — full address is
                             on the detail page. */}
                         <td className="px-4 py-3 text-center">
-                          {c.status === "Active" ? (
+                          {blockedCount === 0 ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
                               <CheckCircle2 className="h-3 w-3" />
                               Active
                             </Badge>
-                          ) : (
+                          ) : allBlocked ? (
                             <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
                               <Ban className="h-3 w-3" />
                               Blocked
+                            </Badge>
+                          ) : (
+                            <Badge
+                              className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
+                              title={`${activeCount} active · ${blockedCount} blocked`}
+                            >
+                              Mixed ({activeCount}/{c.companies.length})
                             </Badge>
                           )}
                         </td>
@@ -441,11 +454,9 @@ export function CustomersDemo() {
                               <Eye className="h-3.5 w-3.5" />
                               View
                             </Button>
-                            {/* Block / Unblock has moved to the detail
-                                page so the seller acknowledges the
-                                consequence in context, with the full
-                                customer + linked-companies view in
-                                front of them. */}
+                            {/* Block / Unblock has moved to per-company
+                                rows — the seller acts inside the Linked
+                                Companies popup or on the detail page. */}
                           </div>
                         </td>
                       </tr>
@@ -574,7 +585,7 @@ export function CustomersDemo() {
           on the Customers page. */}
       <Dialog
         open={linkedCustomer !== null}
-        onOpenChange={(o) => !o && setLinkedCustomer(null)}
+        onOpenChange={(o) => !o && setLinkedCustomerId(null)}
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
@@ -598,14 +609,16 @@ export function CustomersDemo() {
             <div className="py-2 max-h-[60vh] overflow-y-auto">
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                 {/* Header row */}
-                <div className="grid grid-cols-[1fr_140px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                <div className="grid grid-cols-[1fr_110px_110px_110px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                   <span>Company</span>
-                  <span>Registration Date</span>
+                  <span>Registered</span>
+                  <span className="text-center">Status</span>
+                  <span className="text-right">Action</span>
                 </div>
                 {linkedCustomer.companies.map((co) => (
                   <div
                     key={co.companyId}
-                    className="grid grid-cols-[1fr_140px] gap-3 px-3 py-2.5 items-center"
+                    className="grid grid-cols-[1fr_110px_110px_110px] gap-3 px-3 py-2.5 items-center"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
@@ -616,18 +629,71 @@ export function CustomersDemo() {
                     <p className="text-sm text-gray-700">
                       {formatRegDate(co.registeredAt)}
                     </p>
+                    <div className="flex justify-center">
+                      {co.status === "Active" ? (
+                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                          <CheckCircle2 className="h-3 w-3" />
+                          Active
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                          <Ban className="h-3 w-3" />
+                          Blocked
+                        </Badge>
+                      )}
+                    </div>
+                    <div className="flex justify-end">
+                      {co.status === "Active" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                          onClick={() => {
+                            setDemoCompanyStatus(
+                              linkedCustomer.customerId,
+                              co.companyId,
+                              "Blocked",
+                            );
+                            toast.success(
+                              `${linkedCustomer.businessName} blocked for ${co.companyName}.`,
+                            );
+                          }}
+                        >
+                          <Ban className="h-3.5 w-3.5" />
+                          Block
+                        </Button>
+                      ) : (
+                        <Button
+                          size="sm"
+                          className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                          onClick={() => {
+                            setDemoCompanyStatus(
+                              linkedCustomer.customerId,
+                              co.companyId,
+                              "Active",
+                            );
+                            toast.success(
+                              `${linkedCustomer.businessName} unblocked for ${co.companyName}.`,
+                            );
+                          }}
+                        >
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          Unblock
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
               <p className="text-[11px] text-gray-500 mt-2 px-1">
-                Registration date is the day the customer placed their first
-                order with each company.
+                Status and Block / Unblock are tracked per company —
+                a customer can be Active for one brand and Blocked for another.
               </p>
             </div>
           )}
 
           <DialogFooter>
-            <Button onClick={() => setLinkedCustomer(null)}>Close</Button>
+            <Button onClick={() => setLinkedCustomerId(null)}>Close</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
