@@ -644,20 +644,10 @@ export function MySKU() {
           value: row.upc,
         });
       }
-      if (row.skuWeight) {
-        const w = Number(row.skuWeight);
-        if (!Number.isFinite(w) || w <= 0) {
-          rowErrors.push({
-            row: rowNumber,
-            field: "SKU Weight (kg)",
-            error: "SKU Weight must be a positive number.",
-            skuLabel,
-            skuCode,
-            skuName,
-            value: row.skuWeight,
-          });
-        }
-      }
+      // Weight in KG is no longer user-input — the parser derives it
+      // from Weight Measure × SKU Weight before we get here, so any
+      // value that lands in row.skuWeight is the system-computed kg
+      // figure and doesn't need its own validation rule.
       const minQ = row.minimumOrderQty
         ? Number(row.minimumOrderQty)
         : undefined;
@@ -997,7 +987,7 @@ export function MySKU() {
                       <Plus className="h-4 w-4 text-blue-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Add New SKUs</p>
-                        <p className="text-[11px] text-gray-500">Create SKU stubs (SKU Code + Name)</p>
+                        <p className="text-[11px] text-gray-500">Upload the full SKU template (all fields)</p>
                       </div>
                     </DropdownMenuItem>
                     {/* "Update Price & Stock" needs an existing catalog
@@ -1363,16 +1353,18 @@ export function MySKU() {
         config={{
           title: "Add SKU — Bulk Import",
           description:
-            "Upload a CSV/XLSX with SKU Code and SKU Name. Each valid row creates an SKU stub; the rest of the ONDC fields are filled in from the SKU Detail page.",
+            "Upload the SKU import template (CSV or XLSX). Mandatory columns are starred — Weight in KG is auto-calculated from Weight Measure × SKU Weight and ignored if typed.",
           instructions: (
             <>
-              File must contain <b>SKU Code</b> and <b>SKU Name</b> columns.
-              Both are mandatory. Other ONDC fields are filled later from the
-              SKU Detail page.
+              Download the template below — every mandatory column is starred and
+              dropdown columns (<b>Measure Unit</b>, <b>Weight Measure</b>,{" "}
+              <b>Category</b>, <b>Time to Ship</b>, etc.) enforce the allowed
+              values. <b>Weight in KG</b> is auto-calculated from{" "}
+              <b>Weight Measure</b> × <b>SKU Weight</b> — leave it blank.
             </>
           ),
           sample: {
-            fileName: "SKU_Import_Template.csv",
+            fileName: "SKU_Import_Template.xlsx",
             onDownload: handleDownloadAddSkuSample,
           },
           accept: ".csv,.xlsx,.xls",
