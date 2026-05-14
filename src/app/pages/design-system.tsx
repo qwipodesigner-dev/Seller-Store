@@ -232,6 +232,27 @@ import { EmptyState } from "../components/empty-state";
 import { CopyOnHover } from "../components/copy-on-hover";
 import { motion, AnimatePresence } from "motion/react";
 
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  RadialBarChart,
+  RadialBar,
+  ComposedChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+} from "recharts";
+
 import { useAuth } from "../lib/auth-context";
 import logoImage from "../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
 import logoImageDark from "../../imports/Qwipo_Secondary_Logo_for_Dark_BG.svg";
@@ -342,7 +363,7 @@ const SECTIONS: { group: string; items: SectionDef[] }[] = [
     items: [
       { id: "list-page", title: "List Page Anatomy", icon: FileText },
       { id: "detail-page", title: "Detail Page Anatomy", icon: FileText },
-      { id: "form", title: "Form Anatomy (DMS → ONDC)", icon: FileText },
+      { id: "charts", title: "Charts & Infographics", icon: TrendingUp },
       { id: "filters", title: "Filters & Search", icon: Filter },
       { id: "bulk-actions", title: "Bulk Actions", icon: CheckCircle2 },
       { id: "action-bar", title: "Action Bars & CTAs", icon: ArrowRight },
@@ -575,6 +596,112 @@ const CANONICAL_SCREENS: {
   { name: "Orders", path: "/orders", notes: "Status-tab list with bulk Cancel + Mark Delivered." },
   { name: "Order Detail", path: "/orders/QWI-ONDC-260330-8F3K92", notes: "Status-aware CTAs, QPS impact rows, action bar." },
   { name: "Offers & Schemes", path: "/offers", notes: "Offer Code · SKU · Valid From / Till · Status." },
+];
+
+// ---- Chart data (seeded for the dashboard / analytics patterns) -
+
+const CHART_PALETTE = [
+  "#2563EB", // Blue 600 — primary
+  "#16A34A", // Green 600 — success
+  "#D97706", // Amber 600 — warning
+  "#DC2626", // Red 600 — danger
+  "#9333EA", // Purple 600 — accent
+  "#0891B2", // Cyan 600
+  "#C026D3", // Fuchsia 600
+  "#4F46E5", // Indigo 600
+];
+
+const CHART_SALES_TREND = [
+  { day: "Mon", orders: 24 },
+  { day: "Tue", orders: 32 },
+  { day: "Wed", orders: 28 },
+  { day: "Thu", orders: 45 },
+  { day: "Fri", orders: 52 },
+  { day: "Sat", orders: 38 },
+  { day: "Sun", orders: 30 },
+];
+
+const CHART_MULTI_TREND = [
+  { day: "Mon", new: 12, confirmed: 8, cancelled: 1 },
+  { day: "Tue", new: 14, confirmed: 12, cancelled: 2 },
+  { day: "Wed", new: 11, confirmed: 14, cancelled: 1 },
+  { day: "Thu", new: 18, confirmed: 17, cancelled: 3 },
+  { day: "Fri", new: 22, confirmed: 20, cancelled: 2 },
+  { day: "Sat", new: 16, confirmed: 18, cancelled: 1 },
+  { day: "Sun", new: 14, confirmed: 12, cancelled: 1 },
+];
+
+const CHART_REVENUE_BY_CATEGORY = [
+  { category: "Oil & Ghee", revenue: 4.8 },
+  { category: "Atta", revenue: 3.2 },
+  { category: "Snacks", revenue: 2.6 },
+  { category: "Dairy", revenue: 2.1 },
+  { category: "Beverages", revenue: 1.7 },
+  { category: "Personal Care", revenue: 1.2 },
+];
+
+const CHART_STATUS_BY_WEEK = [
+  { week: "W1", confirmed: 18, delivered: 14, cancelled: 2 },
+  { week: "W2", confirmed: 22, delivered: 17, cancelled: 3 },
+  { week: "W3", confirmed: 26, delivered: 21, cancelled: 1 },
+  { week: "W4", confirmed: 30, delivered: 24, cancelled: 4 },
+];
+
+const CHART_MARKETPLACE_SPLIT = [
+  { name: "ONDC", value: 58 },
+  { name: "Amazon", value: 21 },
+  { name: "Flipkart", value: 14 },
+  { name: "Direct", value: 7 },
+];
+
+const CHART_ORDER_STATUS_SPLIT = [
+  { name: "Delivered", value: 47 },
+  { name: "Confirmed", value: 32 },
+  { name: "New", value: 12 },
+  { name: "Cancelled", value: 9 },
+];
+
+const CHART_RADIAL_KPIS = [
+  { label: "ONDC Compliance", value: 78, color: "#16A34A" },
+  { label: "On-Time Dispatch", value: 92, color: "#2563EB" },
+  { label: "Warehouse Capacity", value: 64, color: "#D97706" },
+];
+
+const CHART_SPARKLINES = [
+  {
+    label: "Orders (7d)",
+    value: "247",
+    color: "#2563EB",
+    data: [24, 32, 28, 45, 52, 38, 30].map((v, i) => ({ i, v })),
+  },
+  {
+    label: "Revenue (7d)",
+    value: "₹4.8L",
+    color: "#16A34A",
+    data: [62, 71, 65, 78, 82, 75, 70].map((v, i) => ({ i, v })),
+  },
+  {
+    label: "Cancellations",
+    value: "9",
+    color: "#DC2626",
+    data: [3, 2, 1, 3, 2, 1, 1].map((v, i) => ({ i, v })),
+  },
+];
+
+const CHART_COMPOSED = [
+  { month: "Jan", revenue: 2.4, aov: 1620 },
+  { month: "Feb", revenue: 2.8, aov: 1690 },
+  { month: "Mar", revenue: 3.4, aov: 1755 },
+  { month: "Apr", revenue: 3.9, aov: 1820 },
+  { month: "May", revenue: 4.2, aov: 1880 },
+  { month: "Jun", revenue: 4.8, aov: 1945 },
+];
+
+const CHART_PROGRESS_BARS = [
+  { label: "Monthly revenue goal", value: 78, target: 100, color: "#2563EB" },
+  { label: "ONDC compliant SKUs", value: 64, target: 100, color: "#16A34A" },
+  { label: "Customer onboarding", value: 45, target: 100, color: "#D97706" },
+  { label: "Cancellation rate (lower = better)", value: 12, target: 100, color: "#DC2626" },
 ];
 
 // ---- Helpers -----------------------------------------------------
@@ -937,7 +1064,6 @@ export function DesignSystem() {
                   {[
                     { title: "Clarity over cleverness", body: "Users manage real money. Plain language, predictable layouts, remove visual noise that doesn't pay rent." },
                     { title: "Status-aware UI", body: "What the user can do should follow from the state of the data. Order is New? Show Confirm + Cancel. Delivered? Show nothing destructive." },
-                    { title: "DMS is reference, ONDC is truth", body: "Every form that touches the catalog shows DMS values read-only on the left, editable ONDC inputs on the right. Forks are visible." },
                     { title: "Empty states do work", body: "An empty list isn't a blank page — it's an opportunity to explain what'll appear there and how." },
                     { title: "Tokens, not hex codes", body: "Use Tailwind utility classes from the approved scale. If a value isn't in the scale, propose adding it before reaching for arbitrary classes." },
                     { title: "Accessibility is non-negotiable", body: "Every interactive must be keyboard-reachable, have a visible focus ring, and pass WCAG AA contrast at every state." },
@@ -3589,46 +3715,252 @@ export function DesignSystem() {
               </div>
             </Section>
 
-            {/* ===== Patterns — Form ===== */}
+            {/* ===== Patterns — Charts & Infographics ===== */}
             <Section
-              id="form"
-              title="Form Anatomy (DMS → ONDC)"
-              description="Catalog forms split each field into two columns: DMS value on the left (read-only reference), ONDC value on the right (editable, becomes the source of truth). Edited cells get an amber 'Edited' indicator."
+              id="charts"
+              title="Charts & Infographics"
+              description="recharts (v2) is the canonical charting library — already used on the Reports pages. Use these patterns when wiring dashboards or analytics panels. Colors come from the brand palette so charts read consistently with the rest of the UI."
             >
-              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr_1fr] bg-gray-50 px-3 py-2 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
-                  <span>Field</span>
-                  <span>DMS (Read-only)</span>
-                  <span>ONDC (Editable)</span>
+              <SubHeader>Line chart — single metric over time</SubHeader>
+              <PreviewBox>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={CHART_SALES_TREND} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={2} dot={{ r: 3, fill: "#2563EB" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                {[
-                  { label: "SKU Name *", dms: "FREEDOM REF. SUNFLOWER OIL 1 LTR…", ondc: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS." },
-                  { label: "Measure Unit *", dms: "litre", ondc: "Liter" },
-                  { label: "SKU Weight *", dms: "1.05", ondc: "1" },
-                  { label: "Weight in KG", dms: "1 kg", ondc: "1 kg · Auto", auto: true },
-                ].map(({ label, dms, ondc, auto }) => (
-                  <div
-                    key={label}
-                    className="grid grid-cols-1 sm:grid-cols-[200px_1fr_1fr] border-t border-gray-100 px-3 py-2 text-xs"
-                  >
-                    <span className="font-medium text-gray-700">{label}</span>
-                    <span className="text-gray-500 font-mono">{dms}</span>
-                    <span className="text-gray-900 font-mono flex items-center gap-2">
-                      {ondc}
-                      {auto && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-                          Auto
-                        </span>
-                      )}
-                    </span>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> daily / weekly trend on a dashboard tile. One color per metric. Limit to ≤ 30 data points before it gets noisy — fall back to a Bar chart for longer ranges.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Multi-series line — comparing metrics</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={CHART_MULTI_TREND} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      <Line type="monotone" dataKey="new" stroke="#2563EB" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="confirmed" stroke="#16A34A" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="cancelled" stroke="#DC2626" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> orders-by-status, revenue-vs-cost, year-over-year compares. Cap at 4 series — past that, switch to small multiples.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Bar chart — categorical breakdown</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={CHART_REVENUE_BY_CATEGORY} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="category" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
+                      <Bar dataKey="revenue" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> revenue by category, units sold by brand, leaderboard tiles. Sort descending unless the x-axis is naturally ordered (days, months).
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Stacked bar — composition over time</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={CHART_STATUS_BY_WEEK} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="confirmed" stackId="s" fill="#16A34A" />
+                      <Bar dataKey="delivered" stackId="s" fill="#2563EB" />
+                      <Bar dataKey="cancelled" stackId="s" fill="#DC2626" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> when each bar's total matters AND the composition matters. Keep stacks to ≤ 4 segments — beyond that, a normalised area chart reads better.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Area chart — cumulative volume</SubHeader>
+              <PreviewBox>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={CHART_SALES_TREND} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="dsAreaFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563EB" stopOpacity={0.32} />
+                          <stop offset="100%" stopColor="#2563EB" stopOpacity={0.04} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <Area type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={2} fill="url(#dsAreaFill)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> emphasising "how much" rather than "how it changes". A line chart is almost always lighter-weight; reach for area only when the filled magnitude carries meaning.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Pie & Donut — part-of-whole</SubHeader>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <PreviewBox>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Pie</p>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={CHART_MARKETPLACE_SPLIT} dataKey="value" nameKey="name" outerRadius={80} label={{ fontSize: 11 }}>
+                          {CHART_MARKETPLACE_SPLIT.map((entry, i) => (
+                            <Cell key={entry.name} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                        <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
+                </PreviewBox>
+                <PreviewBox>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Donut</p>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={CHART_ORDER_STATUS_SPLIT} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                          {CHART_ORDER_STATUS_SPLIT.map((entry, i) => (
+                            <Cell key={entry.name} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                        <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </PreviewBox>
               </div>
-              <ul className="text-xs text-gray-600 space-y-1 list-disc pl-5 leading-relaxed">
-                <li>Required fields end with <span className="text-red-600">*</span>.</li>
-                <li>Inline helper text (gray-600, 11px) lives directly under the input.</li>
-                <li>Errors replace the helper text with red-700 copy + an AlertCircle icon.</li>
-                <li>Auto-calculated fields display the system value with an "Auto" pill — never let the user type into them.</li>
+              <p className="text-[11px] text-gray-600 leading-relaxed -mt-1">
+                <span className="font-semibold">Use:</span> 3–5 slices, one "is meaningfully bigger than the rest" story. For 6+ categories, a horizontal bar reads better. Donuts add headroom for a centered KPI value if the surface is large enough.
+              </p>
+
+              <SubHeader>Radial bar — single-value progress</SubHeader>
+              <PreviewBox>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {CHART_RADIAL_KPIS.map((kpi) => (
+                    <div key={kpi.label} className="flex items-center gap-3">
+                      <div className="h-24 w-24 shrink-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadialBarChart cx="50%" cy="50%" innerRadius="65%" outerRadius="100%" data={[kpi]} startAngle={90} endAngle={-270}>
+                            <RadialBar dataKey="value" cornerRadius={6} fill={kpi.color} background={{ fill: "#F3F4F6" }} />
+                          </RadialBarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900 leading-none">{kpi.value}%</p>
+                        <p className="text-[11px] text-gray-600 mt-1.5">{kpi.label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-3 leading-relaxed">
+                  <span className="font-semibold">Use:</span> KPI tiles where the value is a percentage with a clear ceiling (compliance, fulfilment, capacity). Pair with the raw value so the seller doesn't have to do mental math.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Sparkline — trend in a tile</SubHeader>
+              <PreviewBox>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {CHART_SPARKLINES.map((sp) => (
+                    <Card key={sp.label} className="shadow-sm">
+                      <CardContent className="p-4 space-y-2">
+                        <p className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">{sp.label}</p>
+                        <p className="text-2xl font-bold text-gray-900">{sp.value}</p>
+                        <div className="h-10 -mx-1">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={sp.data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                              <Line type="monotone" dataKey="v" stroke={sp.color} strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> KPI tile that needs a "shape of the last N points" cue without crowding the value. Strip the axes, dots, grid, and tooltip — sparklines are decoration.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Composed — bar + line combo</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={CHART_COMPOSED} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar yAxisId="left" dataKey="revenue" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                      <Line yAxisId="right" type="monotone" dataKey="aov" stroke="#9333EA" strokeWidth={2} dot={{ r: 3, fill: "#9333EA" }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> two metrics that share an x-axis but live on different scales (e.g. revenue ₹ on left, average order value ₹ on right). Use a dual axis or normalised values — never a single axis with mismatched magnitudes.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Progress bars — inline metric reveal</SubHeader>
+              <PreviewBox>
+                <div className="space-y-3 max-w-md">
+                  {CHART_PROGRESS_BARS.map((row) => (
+                    <div key={row.label} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-700">{row.label}</span>
+                        <span className="font-mono text-gray-700">{row.value}% <span className="text-gray-400">/ {row.target}%</span></span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.min(100, (row.value / row.target) * 100)}%`, background: row.color }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-3 leading-relaxed">
+                  <span className="font-semibold">Use:</span> goal-vs-actual cards, multi-metric leaderboards, completion checklists. Color-code by tone (success / warning / danger) when goal-distance is meaningful.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Recipe & rules of thumb</SubHeader>
+              <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-5 leading-relaxed">
+                <li>Use the brand palette (<code className="font-mono text-fuchsia-700">CHART_PALETTE</code> in this file) — Blue, Emerald, Amber, Red, Purple, Cyan, Fuchsia, Indigo. Don't introduce new chart colors per page.</li>
+                <li>Axes / grid in <code className="font-mono text-fuchsia-700">gray-200</code> (<code className="font-mono">#E5E7EB</code>); axis labels in <code className="font-mono text-fuchsia-700">gray-500</code> (<code className="font-mono">#6B7280</code>) at <code className="font-mono">11px</code>.</li>
+                <li>Always wrap recharts in <code className="font-mono text-fuchsia-700">&lt;ResponsiveContainer&gt;</code> with a parent height — recharts won't render without one.</li>
+                <li>Default to <code className="font-mono text-fuchsia-700">type="monotone"</code> for smooth lines and <code className="font-mono text-fuchsia-700">radius=&#123;[4, 4, 0, 0]&#125;</code> for soft-cap bars.</li>
+                <li>For dashboards combine: top-row KPI tiles → mid-row 1–2 trend charts → bottom-row breakdown (bar / donut). Avoid wall-of-charts.</li>
               </ul>
             </Section>
 
