@@ -3042,12 +3042,10 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-700">
               <AlertCircle className="h-5 w-5" />
-              {pendingPIErrors.length} field
-              {pendingPIErrors.length === 1 ? "" : "s"} cannot be saved
+              We couldn't save your changes
             </DialogTitle>
             <DialogDescription>
-              The values below have errors and were not saved. Please fix them
-              and click <b>Save Price & Stock</b> again.
+              We couldn't save your changes. Please try again.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 mt-2">
@@ -3071,7 +3069,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
               onClick={() => setPendingPIErrors([])}
               className=""
             >
-              Got it — I'll fix these
+              Got it, will fix
             </Button>
           </DialogFooter>
         </DialogContent>

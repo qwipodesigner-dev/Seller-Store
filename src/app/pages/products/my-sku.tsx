@@ -615,7 +615,7 @@ export function MySKU() {
         rowErrors.push({
           row: rowNumber,
           field: "SKU Weight",
-          error: "SKU Weight must be a positive whole number.",
+          error: "SKU Weight must be a positive number.",
           skuLabel,
           skuCode,
           skuName,
@@ -864,7 +864,7 @@ export function MySKU() {
         errors.push({
           row: 0,
           field: "SKU Code",
-          error: `SKU "${agg.skuCode}" not found in catalog — row skipped.`,
+          error: "SKU Code not found in your catalog.",
         });
       }
     }
@@ -948,7 +948,7 @@ export function MySKU() {
               <div className="relative flex-1 w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by SKU name, code, or brand..."
+                  placeholder="Search by SKU Code, SKU Name, or Brand..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -965,7 +965,7 @@ export function MySKU() {
                   className="gap-2 flex-1 sm:flex-initial"
                 >
                   <Filter className="h-4 w-4" />
-                  Filters
+                  Filter
                 </Button>
                 )}
                 <DropdownMenu>
@@ -1054,7 +1054,7 @@ export function MySKU() {
                 ))}
                 {ondcFilter !== "all" && (
                   <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-orange-50 text-orange-700 border-orange-200">
-                    ONDC: {ondcFilter === "compliant" ? "Compliant" : "Non-Compliant"}
+                    Compliance: {ondcFilter === "compliant" ? "Compliant" : "Non-compliant"}
                     <button onClick={() => { setOndcFilter("all"); setCurrentPage(1); }} className="ml-1 hover:bg-orange-200 rounded-full p-0.5">
                       <X className="h-3 w-3" />
                     </button>
@@ -1082,7 +1082,7 @@ export function MySKU() {
               <EmptyState
                 icon={PackageSearch}
                 title="No SKUs in your catalog yet"
-                description="Bulk-import your DMS catalog or add SKUs one by one to start publishing them on ONDC."
+                description="No SKUs in your catalog yet — click Bulk Import → Add new SKU to bring in your first products."
               />
             ) : (
             <table className="w-full">
@@ -1121,7 +1121,7 @@ export function MySKU() {
                       <EmptyState
                         icon={PackageSearch}
                         title="No matches"
-                        description="No SKUs match your current search or filters. Try clearing them to see everything."
+                        description="No SKUs match your current filters — try clearing them to see everything."
                       />
                     </td>
                   </tr>
@@ -1181,11 +1181,13 @@ export function MySKU() {
                       <td className="px-4 py-3 text-center">
                         <Button
                           variant="ghost"
-                          size="icon"
-                          title="View Details"
+                          size="sm"
+                          title="Details"
                           onClick={() => handleViewDetails(sku)}
+                          className="gap-1"
                         >
                           <Eye className="h-4 w-4 text-gray-600" />
+                          Details
                         </Button>
                       </td>
                     </tr>
@@ -1308,8 +1310,8 @@ export function MySKU() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="compliant">ONDC Compliant</SelectItem>
-                        <SelectItem value="non-compliant">Non-Compliant</SelectItem>
+                        <SelectItem value="compliant">Compliant</SelectItem>
+                        <SelectItem value="non-compliant">Non-compliant</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1330,7 +1332,7 @@ export function MySKU() {
                     toast.success("All filters cleared");
                   }}
                 >
-                  Clear Filters
+                  Clear
                 </Button>
                 <Button
                   className="flex-1"
@@ -1385,9 +1387,11 @@ export function MySKU() {
             "Upload a Bizom DMS export. Existing SKUs get their MRP, Selling Price, and Stock refreshed; rows whose SKU Code is not in the catalog are skipped.",
           instructions: (
             <>
-              Upload the <b>Bizom DMS</b> Price &amp; Inventory export. Rows whose
-              SKU Code is not in your catalog will be reported as skipped and
-              not imported.
+              Use this to update price and stock on SKUs that already exist in
+              your catalog. Download the sheet — it comes pre-filled with your
+              existing SKUs and current values — edit only the price and stock
+              columns, then re-upload. To add brand-new SKUs, use{" "}
+              <b>Add new SKU</b> instead.
             </>
           ),
           sample: {

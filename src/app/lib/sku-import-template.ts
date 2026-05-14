@@ -229,8 +229,8 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     key: "measureValue",
     header: "SKU Weight",
     mandatory: true,
-    format: "Whole number > 0",
-    rules: "Required. Positive whole number (no decimals). Paired with Weight Measure (e.g. 15 + Kilogram = 15 kg).",
+    format: "Positive number > 0",
+    rules: "Required. Positive number (decimals allowed). Paired with Weight Measure (e.g. 15 + Kilogram = 15 kg).",
     example: "15",
   },
   {

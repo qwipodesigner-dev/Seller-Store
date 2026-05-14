@@ -79,7 +79,7 @@ export function PriceUpdateOffersDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-amber-800">
             <AlertTriangle className="h-5 w-5 text-amber-600" />
-            Active offers mapped to this SKU
+            Active or Inactive offers mapped to this SKU
           </DialogTitle>
           <DialogDescription>
             <span className="font-medium text-gray-900">{skuName}</span>{" "}
