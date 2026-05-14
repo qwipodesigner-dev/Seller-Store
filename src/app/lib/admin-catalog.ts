@@ -10,9 +10,8 @@
 
 // Pre-baked category cover images. Vite turns these into hashed URLs at
 // build time so the admin sees real artwork on the Category Master page
-// without anyone having to upload them. The full 37-entry ONDC taxonomy
-// is covered except "Fruits and Vegetables", which falls back to the
-// upload placeholder.
+// without anyone having to upload them. All 37 ONDC eB2B categories ship
+// with a cover image.
 import imgAttaFloursAndSooji from "../../imports/categories/Atta, Flours and Sooji.png";
 import imgBabyCare from "../../imports/categories/Baby Care.png";
 import imgBakeryCakesDairy from "../../imports/categories/Bakery, Cakes & Dairy.png";
@@ -30,6 +29,7 @@ import imgFoodgrains from "../../imports/categories/Foodgrains.png";
 import imgFrozenSnacks from "../../imports/categories/Frozen Snacks.png";
 import imgFrozenVegetables from "../../imports/categories/Frozen Vegetables.png";
 import imgFruitJuicesAndFruitDrinks from "../../imports/categories/Fruit Juices and Fruit Drinks.png";
+import imgFruitsAndVegetables from "../../imports/categories/Fruits and Vegetables.png";
 import imgGiftVoucher from "../../imports/categories/Gift Voucher.png";
 import imgGourmetWorldFoods from "../../imports/categories/Gourmet & World Foods.png";
 import imgIndianSweets from "../../imports/categories/Indian Sweets.png";
@@ -52,8 +52,8 @@ import imgWater from "../../imports/categories/Water.png";
 
 /**
  * Map of ONDC category-name → cover image. Keys must match ONDC_CATEGORY_NAMES
- * verbatim — anything not listed here falls back to `imageUrl: null` (the
- * upload placeholder), currently only "Fruits and Vegetables".
+ * verbatim — all 37 entries are covered, so no fallback to the upload
+ * placeholder is currently needed.
  */
 const CATEGORY_IMAGES: Record<string, string> = {
   "Atta, Flours and Sooji": imgAttaFloursAndSooji,
@@ -73,6 +73,7 @@ const CATEGORY_IMAGES: Record<string, string> = {
   "Frozen Snacks": imgFrozenSnacks,
   "Frozen Vegetables": imgFrozenVegetables,
   "Fruit Juices and Fruit Drinks": imgFruitJuicesAndFruitDrinks,
+  "Fruits and Vegetables": imgFruitsAndVegetables,
   "Gift Voucher": imgGiftVoucher,
   "Gourmet & World Foods": imgGourmetWorldFoods,
   "Indian Sweets": imgIndianSweets,
