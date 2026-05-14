@@ -196,10 +196,10 @@ export function CustomersDemo() {
   // ---- Export ----
   // CSV stays at line-item resolution (one row per (customer ×
   // company)) so downstream operations teams can still reconcile by
-  // company. Phase 2 column set (locked by spec): Customer ID,
-  // Customer Name, Business Name, Mobile, Class, Area, PIN, Company,
-  // Status, Registered On — where Registered On is the per-company
-  // first-order date, not the customer's overall registration.
+  // company. Locked 9-column shape per spec: Customer ID, Customer
+  // Name, Business Name, Mobile, Area, PIN, Company, Status,
+  // Registered On — where Registered On is the per-company first-
+  // order date, not the customer's overall registration.
   const handleExport = () => {
     const headers = [
       "Customer ID",
@@ -208,8 +208,6 @@ export function CustomersDemo() {
       "Mobile",
       "Area",
       "PIN",
-      "Latitude",
-      "Longitude",
       "Company",
       "Status",
       "Registered On",
@@ -225,8 +223,6 @@ export function CustomersDemo() {
             c.mobile,
             c.area,
             c.pincode,
-            c.latitude ?? "",
-            c.longitude ?? "",
             co.companyName,
             co.status,
             co.registeredAt ?? c.registeredDate,
@@ -440,7 +436,7 @@ export function CustomersDemo() {
                               className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
                               title={`${activeCount} active · ${blockedCount} blocked`}
                             >
-                              Mixed
+                              Mixed ({activeCount}/{c.companies.length})
                             </Badge>
                           )}
                         </td>

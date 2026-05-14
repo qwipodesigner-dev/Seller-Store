@@ -49,7 +49,8 @@ export function Login() {
       const user = validateCredentials(mobile, otp);
       setIsLoading(false);
       if (!user) {
-        setOtpError("Invalid OTP. Use 1234 for demo accounts.");
+        setOtpError("Invalid OTP. Please try again.");
+        setOtp("");
         return;
       }
       setOtpError(null);
@@ -250,7 +251,7 @@ export function Login() {
                       className="w-full"
                       disabled={isLoading || otp.length !== 4}
                     >
-                      {isLoading ? "Verifying..." : "Verify & Sign In"}
+                      {isLoading ? "Verifying..." : "Verify OTP"}
                     </Button>
                   </>
                 )}

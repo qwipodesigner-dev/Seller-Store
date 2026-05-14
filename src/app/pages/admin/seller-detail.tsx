@@ -188,8 +188,8 @@ export function AdminSellerDetail() {
     // Validate first; if anything is missing, surface field-level
     // errors instead of silently no-op'ing.
     const next: { sellerId?: string; apiKey?: string } = {};
-    if (!configSellerId.trim()) next.sellerId = "Seller ID is required";
-    if (!configApiKey.trim()) next.apiKey = "API Key is required";
+    if (!configSellerId.trim()) next.sellerId = "Seller ID is required.";
+    if (!configApiKey.trim()) next.apiKey = "API Key is required.";
     if (Object.keys(next).length > 0) {
       setConfigErrors(next);
       return;
@@ -201,11 +201,11 @@ export function AdminSellerDetail() {
       dataSyncTypes: [], syncFrequencyMinutes: 15, maxRetries: 3, autoRetry: true, autoSyncEnabled: true,
     });
     if (updated) {
-      toast.success("ONDC connector added");
+      toast.success("ONDC connector added.");
       setSeller(updated);
       setConfigDialogOpen(false);
     } else {
-      toast.error("Failed to save connector");
+      toast.error("Could not save the ONDC connector. Please try again.");
     }
   };
 
@@ -219,8 +219,8 @@ export function AdminSellerDetail() {
 
   const saveEditOndc = () => {
     const next: { sellerId?: string; apiKey?: string } = {};
-    if (!editOndcSellerId.trim()) next.sellerId = "Seller ID is required";
-    if (!editOndcApiKey.trim()) next.apiKey = "API Key is required";
+    if (!editOndcSellerId.trim()) next.sellerId = "Seller ID is required.";
+    if (!editOndcApiKey.trim()) next.apiKey = "API Key is required.";
     if (Object.keys(next).length > 0) {
       setEditOndcErrors(next);
       return;
@@ -232,11 +232,11 @@ export function AdminSellerDetail() {
       privateKey: editOndcApiKey.trim(),
     });
     if (updated) {
-      toast.success("ONDC connector updated");
+      toast.success("ONDC connector updated.");
       setSeller(updated);
       setEditOndcOpen(false);
     } else {
-      toast.error("Failed to update connector");
+      toast.error("Could not save the ONDC connector. Please try again.");
     }
   };
 
@@ -404,7 +404,7 @@ export function AdminSellerDetail() {
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
                 >
                   <Plug className="h-4 w-4 mr-2" />
-                  Connectors
+                  Connector
                 </TabsTrigger>
                 <TabsTrigger
                   value="serviceability"
@@ -575,15 +575,16 @@ export function AdminSellerDetail() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">
-                    Connectors
+                    Connector
                   </h3>
                   <p className="text-sm text-gray-500">
-                    Manage this seller's integrations with external systems
+                    Configure the seller's ONDC connector.
                   </p>
                 </div>
                 <Button
                   className="gap-2"
                   onClick={() => setAddConnectorOpen(true)}
+                  disabled={ondcConnected}
                 >
                   <Plus className="h-4 w-4" />
                   Add Connector
@@ -594,11 +595,11 @@ export function AdminSellerDetail() {
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Plug className="h-10 w-10 mx-auto text-gray-300 mb-2" />
                   <p className="font-medium text-gray-600">
-                    No connectors added
+                    ONDC connector not configured yet
                   </p>
                   <p className="text-sm text-gray-500 mt-1 mb-4">
-                    Click "Add Connector" to link this seller to ONDC
-                    (Marketplace). DMS connectors will be available in Phase 2.
+                    Add the Seller ID and API Key shared by ONDC so this seller
+                    can transact on the network.
                   </p>
                   <Button
                     variant="outline"
@@ -825,7 +826,7 @@ export function AdminSellerDetail() {
               Connect ONDC
             </DialogTitle>
             <DialogDescription>
-              Enter the Seller ID and API Key to connect.
+              Enter the Seller ID and API Key shared by ONDC for this seller.
             </DialogDescription>
           </DialogHeader>
 
@@ -896,7 +897,7 @@ export function AdminSellerDetail() {
               Edit ONDC Connector
             </DialogTitle>
             <DialogDescription>
-              Update the stored Seller ID and API Key for this seller's ONDC link.
+              Update the saved Seller ID or API Key for this seller.
             </DialogDescription>
           </DialogHeader>
 
@@ -1001,8 +1002,8 @@ export function AdminSellerDetail() {
                   customers.
                 </li>
                 <li>
-                  You'll be able to link new companies and brands to this
-                  seller.
+                  You'll be able to link new companies and add more brands to
+                  this seller.
                 </li>
               </>
             ) : (
@@ -1013,8 +1014,8 @@ export function AdminSellerDetail() {
                   products.
                 </li>
                 <li>
-                  You will not be able to link new companies or brands to this
-                  seller until they are re-activated.
+                  You will not be able to link new companies or add more brands
+                  to this seller until they are re-activated.
                 </li>
                 <li>Existing data is preserved and can be restored anytime.</li>
               </>
@@ -1032,11 +1033,11 @@ export function AdminSellerDetail() {
                   setSeller(updated);
                   toast.success(
                     pendingActiveValue
-                      ? `${updated.name} is now Active`
-                      : `${updated.name} has been deactivated`,
+                      ? `${updated.name} is now Active.`
+                      : `${updated.name} has been deactivated.`,
                   );
                 } else {
-                  toast.error("Failed to update status");
+                  toast.error("Could not update status. Please try again.");
                 }
                 setPendingActiveValue(null);
               }}

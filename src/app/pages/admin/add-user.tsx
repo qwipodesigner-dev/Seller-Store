@@ -230,42 +230,46 @@ export function AdminAddUser() {
     // valid, but we keep this run-through as the source of truth for the
     // exact error messages.
     const next: FieldErrors = {};
-    if (!fullName.trim()) next.fullName = "Full Name is required";
-    if (!phone.trim()) next.phone = "Mobile Number is required";
-    if (!businessName.trim()) next.businessName = "Business Name is required";
+    if (!fullName.trim()) next.fullName = "Full Name is required.";
+    if (!phone.trim()) {
+      next.phone = "Mobile Number is required.";
+    } else if (!/^\d{10}$/.test(phone.trim())) {
+      next.phone = "Please enter a valid 10-digit mobile number.";
+    }
+    if (!businessName.trim()) next.businessName = "Business Name is required.";
 
     if (!pinCode.trim()) {
-      next.pinCode = "PIN Code is required";
+      next.pinCode = "PIN Code is required.";
     } else if (!/^\d{6}$/.test(pinCode.trim())) {
-      next.pinCode = "PIN Code must be a 6-digit number";
+      next.pinCode = "PIN Code must be a 6-digit number.";
     } else if (!city.trim() || !state.trim()) {
-      next.pinCode = "Couldn't resolve city / state — please use a valid PIN";
+      next.pinCode = "Couldn't resolve this PIN — please double-check.";
     }
 
     if (!latitude.trim()) {
-      next.latitude = "Latitude is required";
+      next.latitude = "Latitude is required.";
     } else {
       const lat = parseFloat(latitude);
       if (isNaN(lat) || lat < -90 || lat > 90)
-        next.latitude = "Latitude must be a number between -90 and 90";
+        next.latitude = "Latitude must be between -90 and 90.";
     }
 
     if (!longitude.trim()) {
-      next.longitude = "Longitude is required";
+      next.longitude = "Longitude is required.";
     } else {
       const lng = parseFloat(longitude);
       if (isNaN(lng) || lng < -180 || lng > 180)
-        next.longitude = "Longitude must be a number between -180 and 180";
+        next.longitude = "Longitude must be between -180 and 180.";
     }
 
-    if (!locality.trim()) next.locality = "Locality is required";
+    if (!locality.trim()) next.locality = "Locality is required.";
     if (!streetAddress.trim()) {
-      next.streetAddress = "Street Address is required";
+      next.streetAddress = "Full Address is required.";
     }
 
     const completeRows = selections.filter((s) => s.companyId !== "");
     if (completeRows.length === 0) {
-      next.companies = "Select at least one company the seller works with";
+      next.companies = "Please add at least one company the seller works with.";
     } else {
       // Each completed row must either pick brands explicitly or use
       // "all brands" (empty-brandIds shortcut). Both valid as long as
@@ -773,8 +777,8 @@ export function AdminAddUser() {
               onClick={handleSave}
               disabled={isSaving}
             >
-              <UserPlus className="h-4 w-4" />
-              {isSaving ? "Creating..." : "Create Seller"}
+              <Plus className="h-4 w-4" />
+              {isSaving ? "Creating..." : "Add Seller"}
             </Button>
           </div>
         </div>

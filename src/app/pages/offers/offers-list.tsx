@@ -494,7 +494,7 @@ export function OffersList() {
               <div className="relative flex-1 sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by SKU code or name..."
+                  placeholder="Search by SKU Code, SKU Name or Scheme Name..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -705,7 +705,7 @@ export function OffersList() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50/50 border-b border-gray-200">
                       <tr className="text-left">
-                        <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Slab</th>
+                        <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Slab #</th>
                         <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Qty Range</th>
                         <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Discount</th>
                         <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase text-right">Customer Pays</th>
@@ -1043,7 +1043,7 @@ export function OffersList() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50/50 border-b border-gray-200">
                     <tr>
-                      <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-16">#</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-16">Slab #</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-24">Min Qty</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-28">Max Qty</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-36">Discount Type</th>

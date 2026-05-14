@@ -165,7 +165,7 @@ export function CustomerDemoDetail() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900 truncate">
-              {customer.businessName}
+              {customer.customerName}
             </h1>
             {(() => {
               const activeCount = customer.companies.filter(
@@ -193,13 +193,13 @@ export function CustomerDemoDetail() {
                   className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
                   title={`${activeCount} active · ${blockedCount} blocked`}
                 >
-                  Mixed
+                  Mixed ({activeCount}/{customer.companies.length})
                 </Badge>
               );
             })()}
           </div>
           <p className="text-sm text-gray-600 truncate">
-            {customer.customerName} · {customer.mobile}
+            {customer.businessName} · {customer.mobile}
           </p>
         </div>
       </div>

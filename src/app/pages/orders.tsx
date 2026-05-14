@@ -329,7 +329,7 @@ export function Orders() {
     );
 
     toast.success(
-      `${selectedOrders.length} order(s) marked as delivered on ${deliveryDate}!`
+      `${selectedOrders.length} order(s) marked as delivered!`
     );
     setSelectedOrders([]);
     setIsDeliverDialogOpen(false);
@@ -638,12 +638,16 @@ export function Orders() {
   // Render order table
   const renderOrderTable = (ordersToRender: Order[]) => {
     if (ordersToRender.length === 0) {
-      const title =
-        activeTab === "all" ? "No orders yet" : `No ${activeTab} orders`;
+      const hasSearch = searchQuery.trim().length > 0;
+      const title = hasSearch
+        ? "No orders match your search"
+        : activeTab === "all"
+          ? "No orders yet"
+          : `No ${activeTab} orders`;
       const description = hasActiveFilters
         ? "No orders match your current filters. Try clearing them to see everything."
         : activeTab === "all"
-          ? "Once retailers start placing orders on ONDC, they'll show up here ready for you to confirm and dispatch."
+          ? "Once retailers start placing orders on ONDC and connected marketplaces, they'll show up here ready for you to confirm and dispatch."
           : `You don't have any ${activeTab} orders right now — new ones will land here automatically.`;
       return (
         <div className="flex-1 flex items-center justify-center min-h-0">
@@ -1142,8 +1146,8 @@ export function Orders() {
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              You are about to confirm {selectedOrders.length} order(s). Please
-              provide dispatch details.
+              Confirm {selectedOrders.length} order(s). Please provide
+              dispatch details.
             </DialogDescription>
           </DialogHeader>
 
@@ -1193,7 +1197,7 @@ export function Orders() {
             </Button>
             <Button onClick={handleConfirmOrders} className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
-              Confirm {selectedOrders.length} Order(s)
+              Confirm Orders
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1208,8 +1212,8 @@ export function Orders() {
               Cancel Orders
             </DialogTitle>
             <DialogDescription>
-              You are about to reject {selectedOrders.length} order(s). Please
-              provide a reason.
+              Cancel {selectedOrders.length} order(s). Please provide a
+              reason for cancellation.
             </DialogDescription>
           </DialogHeader>
 

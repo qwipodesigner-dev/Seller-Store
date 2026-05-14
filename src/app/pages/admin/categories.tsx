@@ -156,7 +156,7 @@ export function AdminCategories() {
     if (siblings.some((s) => s.name.toLowerCase() === name.toLowerCase())) return;
     addMasterCategory({ name, imageUrl: null, parentId: rootId });
     setSubDraft(rootId, "");
-    toast.success(`Subcategory "${name}" added`);
+    toast.success(`Subcategory "${name}" added.`);
   };
 
   return (
@@ -180,7 +180,7 @@ export function AdminCategories() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search category or subcategory..."
+                placeholder="Search category or subcategory…"
                 className="pl-10"
               />
             </div>
@@ -199,12 +199,12 @@ export function AdminCategories() {
                 icon={LayoutGrid}
                 title={
                   rootCount === 0
-                    ? "No categories yet"
-                    : "No categories match your search"
+                    ? "Unable to load Category Master"
+                    : "No categories found"
                 }
                 description={
                   rootCount === 0
-                    ? "The 37 ONDC categories will appear here on the next data refresh."
+                    ? "The 37 ONDC categories haven't been seeded yet. Please try again."
                     : "Try a different search term to find what you're looking for."
                 }
               />
@@ -414,7 +414,7 @@ function CategoryCard({
         </div>
         {isDuplicate && (
           <p className="text-[11px] text-red-600">
-            A subcategory with this name already exists here.
+            A subcategory with this name already exists.
           </p>
         )}
       </CardContent>

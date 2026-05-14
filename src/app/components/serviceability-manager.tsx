@@ -160,11 +160,11 @@ export function ServiceabilityManager() {
     const file = event.target.files?.[0];
     if (!file) return;
     if (!file.name.endsWith(".json") && !file.name.endsWith(".geojson")) {
-      toast.error("Please upload a valid GeoJSON or JSON file");
+      toast.error("Please upload a valid GeoJSON or JSON file.");
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error("File size should not exceed 5MB");
+      toast.error("File size should not exceed 5MB.");
       return;
     }
     const reader = new FileReader();
@@ -302,8 +302,8 @@ export function ServiceabilityManager() {
           <MapPin className="h-10 w-10 mx-auto text-gray-300 mb-2" />
           <p className="font-medium text-gray-600">No companies linked yet</p>
           <p className="text-sm text-gray-500 mt-1">
-            Link Qwipo catalog companies via the Companies &amp; Brands tab
-            first.
+            No companies linked yet — link Qwipo catalog companies via the
+            Companies &amp; Brands tab first.
           </p>
         </div>
       ) : rows.length === 0 ? (
@@ -314,7 +314,7 @@ export function ServiceabilityManager() {
           </p>
           <p className="text-sm text-gray-500 mt-1 mb-4">
             Click <b>Add Company Serviceability</b> to pick a company and
-            upload its delivery polygon.
+            upload its delivery zone polygon.
           </p>
           <Button
             variant="outline"
