@@ -11,9 +11,9 @@ import {
   Wrench,
   Home,
 } from "lucide-react";
-import { Card } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { ErrorState } from "../components/error-state";
+import { Card } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { ErrorState } from "../../components/error-state";
 
 interface ErrorVariant {
   id: string;

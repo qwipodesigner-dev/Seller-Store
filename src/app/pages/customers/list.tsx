@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Badge } from "../components/ui/badge";
-import { Label } from "../components/ui/label";
+import { Card } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Badge } from "../../components/ui/badge";
+import { Label } from "../../components/ui/label";
 import {
   Dialog,
   DialogContent,
@@ -12,14 +12,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
+} from "../../components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "../../components/ui/select";
 import {
   Search,
   Filter,
@@ -34,17 +34,17 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { ListPagination } from "../components/ui/list-pagination";
+import { ListPagination } from "../../components/ui/list-pagination";
 import {
   getDemoCustomers,
   setDemoCompanyStatus,
   subscribeToDemoCustomers,
   type CompanyLink as SharedCompanyLink,
   type DemoCustomer as SharedDemoCustomer,
-} from "../lib/customers-demo-data";
-import { isEmptyMode } from "../lib/data-mode";
-import { EmptyState } from "../components/empty-state";
-import { CopyOnHover } from "../components/copy-on-hover";
+} from "../../lib/customers-demo-data";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
+import { CopyOnHover } from "../../components/copy-on-hover";
 
 // =====================================================================
 // Customers — auto-register flow.

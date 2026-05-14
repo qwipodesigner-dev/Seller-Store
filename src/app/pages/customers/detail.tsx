@@ -12,9 +12,9 @@
 
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Badge } from "../../components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "../components/ui/dialog";
+} from "../../components/ui/dialog";
 import {
   ArrowLeft,
   MapPin,
@@ -41,7 +41,7 @@ import {
   setDemoCompanyStatus,
   subscribeToDemoCustomers,
   type DemoCustomer,
-} from "../lib/customers-demo-data";
+} from "../../lib/customers-demo-data";
 
 export function CustomerDemoDetail() {
   const { customerId } = useParams();

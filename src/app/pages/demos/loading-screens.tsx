@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Loader2, Layers, RotateCw } from "lucide-react";
-import { Card } from "../components/ui/card";
-import { Skeleton } from "../components/ui/skeleton";
-import { PageLoader } from "../components/ui/page-loader";
+import { Card } from "../../components/ui/card";
+import { Skeleton } from "../../components/ui/skeleton";
+import { PageLoader } from "../../components/ui/page-loader";
 
 type Variant = "skeleton" | "center";
 

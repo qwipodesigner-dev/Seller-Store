@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Badge } from "../components/ui/badge";
-import { Label } from "../components/ui/label";
-import { MultiSelect } from "../components/ui/multi-select";
+import { Card, CardContent } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Badge } from "../../components/ui/badge";
+import { Label } from "../../components/ui/label";
+import { MultiSelect } from "../../components/ui/multi-select";
 import {
   Dialog,
   DialogContent,
@@ -13,17 +13,17 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "../components/ui/dialog";
+} from "../../components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
-import { Textarea } from "../components/ui/textarea";
-import { Checkbox } from "../components/ui/checkbox";
+} from "../../components/ui/select";
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
+import { Textarea } from "../../components/ui/textarea";
+import { Checkbox } from "../../components/ui/checkbox";
 import {
   Search,
   Eye,
@@ -53,10 +53,10 @@ import {
   type CompanyApproval,
   type DeliveryDay,
   DELIVERY_DAY_OPTIONS,
-} from "../lib/customers-data";
-import { isEmptyMode } from "../lib/data-mode";
-import { EmptyState } from "../components/empty-state";
-import { ListPagination } from "../components/ui/list-pagination";
+} from "../../lib/customers-data";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
+import { ListPagination } from "../../components/ui/list-pagination";
 
 // Empty-mode sellers see no seeded customers — the inception-day empty state.
 const allCustomers: Customer[] = isEmptyMode() ? [] : customersSeed;

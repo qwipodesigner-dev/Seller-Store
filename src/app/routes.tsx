@@ -3,15 +3,15 @@ import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
 import { Inventory } from "./pages/inventory";
-import { Orders } from "./pages/orders";
-import { OrderDetail } from "./pages/order-detail";
-import { Customers } from "./pages/customers";
-import { CustomerDetail } from "./pages/customer-detail";
-import { CustomersDemo } from "./pages/customers-demo";
-import { CustomerDemoDetail } from "./pages/customer-demo-detail";
+import { Orders } from "./pages/orders/list";
+import { OrderDetail } from "./pages/orders/detail";
+import { Customers } from "./pages/customers/legacy-list";
+import { CustomerDetail } from "./pages/customers/legacy-detail";
+import { CustomersDemo } from "./pages/customers/list";
+import { CustomerDemoDetail } from "./pages/customers/detail";
 import { Profile } from "./pages/profile";
-import { Connectors } from "./pages/connectors";
-import { ConnectorDetail } from "./pages/connector-detail";
+import { Connectors } from "./pages/connectors/list";
+import { ConnectorDetail } from "./pages/connectors/detail";
 import { Support } from "./pages/support";
 import { Settings } from "./pages/settings";
 import { Reports } from "./pages/reports";
@@ -49,8 +49,8 @@ import { AdminAddUser } from "./pages/admin/add-user";
 import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
-import { ErrorScreensDemo } from "./pages/error-screens";
-import { LoadingScreensDemo } from "./pages/loading-screens";
+import { ErrorScreensDemo } from "./pages/demos/error-screens";
+import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
 export const router = createBrowserRouter([
   {

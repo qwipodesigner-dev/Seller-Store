@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Label } from "../components/ui/label";
-import { Badge } from "../components/ui/badge";
-import { Textarea } from "../components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "../components/ui/radio-group";
+import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Label } from "../../components/ui/label";
+import { Badge } from "../../components/ui/badge";
+import { Textarea } from "../../components/ui/textarea";
+import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "../components/ui/dialog";
+} from "../../components/ui/dialog";
 import {
   ArrowLeft,
   Store,
@@ -42,7 +42,7 @@ import {
   synthesizeProducts,
   SELLER_INFO,
   type Order,
-} from "../lib/orders-data";
+} from "../../lib/orders-data";
 
 /** One row in the QPS slab schedule for a SKU. */
 interface QpsSlabDef {

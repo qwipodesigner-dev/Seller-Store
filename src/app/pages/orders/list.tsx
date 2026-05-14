@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent } from "../components/ui/card";
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Badge } from "../components/ui/badge";
-import { Label } from "../components/ui/label";
-import { MultiSelect } from "../components/ui/multi-select";
-import { Textarea } from "../components/ui/textarea";
-import { Checkbox } from "../components/ui/checkbox";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
+import { Card, CardContent } from "../../components/ui/card";
+import { Button } from "../../components/ui/button";
+import { Input } from "../../components/ui/input";
+import { Badge } from "../../components/ui/badge";
+import { Label } from "../../components/ui/label";
+import { MultiSelect } from "../../components/ui/multi-select";
+import { Textarea } from "../../components/ui/textarea";
+import { Checkbox } from "../../components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -16,14 +16,14 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "../components/ui/dialog";
+} from "../../components/ui/dialog";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../components/ui/select";
+} from "../../components/ui/select";
 import {
   Search,
   CheckCircle2,
@@ -44,10 +44,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
-import { isEmptyMode } from "../lib/data-mode";
-import { EmptyState } from "../components/empty-state";
-import { CopyOnHover } from "../components/copy-on-hover";
-import { ListPagination } from "../components/ui/list-pagination";
+import { isEmptyMode } from "../../lib/data-mode";
+import { EmptyState } from "../../components/empty-state";
+import { CopyOnHover } from "../../components/copy-on-hover";
+import { ListPagination } from "../../components/ui/list-pagination";
 // Shared store — seeds + writers live in lib/orders-data so the
 // detail page can read the same orders by id and writes flow both
 // ways. `Order` / `OrderLineItem` / `OrderStatus` are exported from
@@ -60,7 +60,7 @@ import {
   setOrders as setOrdersStore,
   subscribeToOrders,
   updateOrderStatuses,
-} from "../lib/orders-data";
+} from "../../lib/orders-data";
 
 // "rejected" tab label is retired alongside the status rename; the
 // tab now shows Cancelled orders. The TabType value stays as
