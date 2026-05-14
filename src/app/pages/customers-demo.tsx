@@ -208,6 +208,8 @@ export function CustomersDemo() {
       "Mobile",
       "Area",
       "PIN",
+      "Latitude",
+      "Longitude",
       "Company",
       "Status",
       "Registered On",
@@ -223,6 +225,8 @@ export function CustomersDemo() {
             c.mobile,
             c.area,
             c.pincode,
+            c.latitude ?? "",
+            c.longitude ?? "",
             co.companyName,
             co.status,
             co.registeredAt ?? c.registeredDate,
@@ -360,7 +364,7 @@ export function CustomersDemo() {
                   paginated.map((c) => {
                     // Status is per-company — roll up for the row badge.
                     // All-Active and All-Blocked render the single state;
-                    // anything else shows a "Mixed (N/N)" amber badge so
+                    // anything else shows a "Mixed" amber badge so
                     // the seller knows to open the popup for detail.
                     const activeCount = c.companies.filter(
                       (co) => co.status === "Active",
@@ -436,7 +440,7 @@ export function CustomersDemo() {
                               className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
                               title={`${activeCount} active · ${blockedCount} blocked`}
                             >
-                              Mixed ({activeCount}/{c.companies.length})
+                              Mixed
                             </Badge>
                           )}
                         </td>

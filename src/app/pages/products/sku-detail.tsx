@@ -273,8 +273,9 @@ const skuData: Record<string, any> = {
       warehouse: "WH-Mumbai-01",
     },
     tax: {
-      gstRate: "18%",
       hsnCode: "15121900",
+      gstTax: "18%",
+      gstCess: "0%",
     },
   },
   "2": {
@@ -308,8 +309,9 @@ const skuData: Record<string, any> = {
       warehouse: "WH-Delhi-02",
     },
     tax: {
-      gstRate: "12%",
       hsnCode: "19023010",
+      gstTax: "12%",
+      gstCess: "0%",
     },
   },
   // Fully-prefilled ONDC SKU — Aashirvaad Atta 10 kg from ITC Limited.
@@ -346,8 +348,9 @@ const skuData: Record<string, any> = {
       warehouse: "WH-Hyderabad-001",
     },
     tax: {
-      gstRate: "5%",
       hsnCode: "11010000",
+      gstTax: "5%",
+      gstCess: "0%",
     },
     // Pre-populated ONDC values — when present, ProductDetailsTab seeds the
     // ONDC editor with these instead of leaving the form blank.
@@ -983,6 +986,18 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   const isEdited = (key: keyof typeof dms) =>
     JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
 
+  // Tax — HSN Code + GST Tax + GST Cess (all optional, independent of ONDC state)
+  const GST_TAX_OPTIONS = ["0%", "3%", "5%", "12%", "18%", "28%"];
+  const GST_CESS_OPTIONS = ["0%", "1%", "3%", "5%", "12%", "22%"];
+  const dmsTax = {
+    hsnCode: String(sku.tax?.hsnCode ?? ""),
+    gstTax: String(sku.tax?.gstTax ?? ""),
+    gstCess: String(sku.tax?.gstCess ?? ""),
+  };
+  const [ondcTax, setOndcTax] = useState({ ...dmsTax });
+  const updateTax = (key: keyof typeof dmsTax, value: string) =>
+    setOndcTax((prev) => ({ ...prev, [key]: value }));
+
   // The Manufacturer/Packer Name dropdown stores the company name as text
   // (matching the existing string field). We derive the company-id from the
   // saved name so the Brand dropdown can filter to that company's brands.
@@ -1429,6 +1444,49 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           dms={""}
           ondc={<TextInput value={ondc.maximumOrderQty} onChange={(v) => update("maximumOrderQty", v)} edited={isEdited("maximumOrderQty")} required type="number" errorMessage={getError("maximumOrderQty")} />}
+        />
+      </DualSection>
+
+      {/* Tax — HSN Code + GST Tax % + GST Cess % (all optional) */}
+      <DualSection title="Tax" icon={<Percent className="h-5 w-5 text-orange-500" />}>
+        <DualRow
+          label="HSN Code"
+          help="8-digit Harmonised System Nomenclature code for this product"
+          dms={dmsTax.hsnCode || "—"}
+          ondc={
+            <TextInput
+              value={ondcTax.hsnCode}
+              onChange={(v) => updateTax("hsnCode", v)}
+              edited={ondcTax.hsnCode !== dmsTax.hsnCode}
+              placeholder="e.g. 15121900"
+            />
+          }
+        />
+        <DualRow
+          label="GST Tax %"
+          help="GST slab applicable on this product"
+          dms={dmsTax.gstTax || "—"}
+          ondc={
+            <SelectInput
+              value={ondcTax.gstTax}
+              onChange={(v) => updateTax("gstTax", v)}
+              edited={ondcTax.gstTax !== dmsTax.gstTax}
+              options={GST_TAX_OPTIONS}
+            />
+          }
+        />
+        <DualRow
+          label="GST Cess %"
+          help="Additional cess on top of GST, if applicable"
+          dms={dmsTax.gstCess || "—"}
+          ondc={
+            <SelectInput
+              value={ondcTax.gstCess}
+              onChange={(v) => updateTax("gstCess", v)}
+              edited={ondcTax.gstCess !== dmsTax.gstCess}
+              options={GST_CESS_OPTIONS}
+            />
+          }
         />
       </DualSection>
 
@@ -3080,7 +3138,7 @@ function synthSkuFromCatalog(skuId: string) {
       reorderPoint: 0,
       warehouse: "",
     },
-    tax: { gstRate: "", hsnCode: "" },
+    tax: { hsnCode: "", gstTax: "", gstCess: "" },
   };
 }
 

@@ -249,21 +249,6 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Optional. Numeric value.",
     example: "8901234567890",
   },
-  // Weight in KG is not a user input — the importer derives it from
-  // Weight Measure × SKU Weight (Gram/Kilogram convert exactly). The
-  // column is kept on the Main sheet so reviewers can see the converted
-  // kg value alongside their row, but it's greyed-out + the helper row
-  // reads "Auto-calculated".
-  {
-    key: "skuWeight",
-    header: "Weight in KG",
-    mandatory: false,
-    format: "Auto-calculated",
-    rules:
-      "Auto-calculated from Weight Measure × SKU Weight. Read-only — any value typed here is ignored on import.",
-    example: "15",
-    computed: true,
-  },
   {
     key: "minimumOrderQty",
     header: "Min Order Quantity",
@@ -403,6 +388,34 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Active SKUs are visible to buyers; Inactive SKUs are hidden.",
     options: ITEM_STATUS,
     example: "Active",
+  },
+
+  // --- Tax ---
+  {
+    key: "hsnCode",
+    header: "HSN Code",
+    mandatory: false,
+    format: "8-digit code",
+    rules: "Optional. 8-digit Harmonised System Nomenclature code for this product.",
+    example: "15121900",
+  },
+  {
+    key: "gstTax",
+    header: "GST Tax %",
+    mandatory: false,
+    format: "Dropdown",
+    rules: "Optional. GST slab applicable on this product.",
+    options: ["0%", "3%", "5%", "12%", "18%", "28%"],
+    example: "18%",
+  },
+  {
+    key: "gstCess",
+    header: "GST Cess %",
+    mandatory: false,
+    format: "Dropdown",
+    rules: "Optional. Additional cess on top of GST, if applicable.",
+    options: ["0%", "1%", "3%", "5%", "12%", "22%"],
+    example: "0%",
   },
 ];
 

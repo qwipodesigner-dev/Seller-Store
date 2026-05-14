@@ -193,7 +193,7 @@ export function CustomerDemoDetail() {
                   className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
                   title={`${activeCount} active · ${blockedCount} blocked`}
                 >
-                  Mixed ({activeCount}/{customer.companies.length})
+                  Mixed
                 </Badge>
               );
             })()}
@@ -458,13 +458,23 @@ export function CustomerDemoDetail() {
                   title="Customer location map"
                   loading="lazy"
                 />
+                {/* Store name label — floats above the OSM marker (centred) */}
+                <div className="absolute inset-0 z-10 pointer-events-none flex items-center justify-center">
+                  <div className="relative flex flex-col items-center" style={{ marginTop: "-56px" }}>
+                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white border border-green-300 rounded-lg text-xs font-semibold text-green-800 shadow-md whitespace-nowrap">
+                      <Store className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                      {customer.businessName}
+                    </span>
+                    <span className="w-px h-3 bg-green-400 mt-0.5" />
+                  </div>
+                </div>
                 {/* Transparent overlay — captures clicks and redirects
                     to Google Maps so the seller can navigate. */}
                 <a
                   href={openInMapsUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute inset-0 z-10 cursor-pointer group"
+                  className="absolute inset-0 z-20 cursor-pointer group"
                   aria-label="Open in Google Maps"
                 >
                   <span className="absolute bottom-3 right-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs font-medium text-gray-800 shadow-md opacity-90 group-hover:opacity-100 group-hover:shadow-lg transition-all">
