@@ -124,7 +124,7 @@ export function CustomersDemo() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 25;
 
   // Linked Companies popup — shows the per-company breakdown for one
   // customer. Triggered by clicking the count badge in the Company

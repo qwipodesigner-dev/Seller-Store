@@ -213,7 +213,7 @@ export function OffersList() {
   // Pagination — reset to page 1 on any filter / search change so the
   // visible window doesn't fall off the end of a shorter result set.
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 25;
 
   // Create / Edit QPS dialog (shared — editingId=null means create)
   // ---- Offer-type picker (the "Create Offers" entry-point dialog) ----

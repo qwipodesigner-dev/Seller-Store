@@ -109,7 +109,7 @@ export function Orders() {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 25;
 
   // Modals
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
@@ -119,16 +119,7 @@ export function Orders() {
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
 
   // Form data
-  const [estimatedDispatchDate, setEstimatedDispatchDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [estimatedDispatchTime, setEstimatedDispatchTime] = useState("08:00");
-  const [acceptNotes, setAcceptNotes] = useState("");
   const [cancelReason, setCancelReason] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
-  const [deliveryNotes, setDeliveryNotes] = useState("");
 
   // Export form — Start + End date inputs with a 31-day max span.
   // Start Date defaults to 30 days back so the initial pair already
@@ -273,13 +264,9 @@ export function Orders() {
     return currentTabOrders.reduce((sum, order) => sum + order.orderValue, 0);
   }, [currentTabOrders]);
 
-  // Confirm orders (New → Confirmed)
+  // Confirm orders (New → Confirmed). Pure confirmation surface —
+  // dispatch date / time / notes are no longer captured here.
   const handleConfirmOrders = () => {
-    if (!estimatedDispatchDate || !estimatedDispatchTime) {
-      toast.error("Please provide estimated dispatch date and time");
-      return;
-    }
-
     setOrders((prev) =>
       prev.map((order) =>
         selectedOrders.includes(order.id)
@@ -288,12 +275,9 @@ export function Orders() {
       )
     );
 
-    toast.success(
-      `${selectedOrders.length} order(s) confirmed successfully! Dispatch scheduled for ${estimatedDispatchDate} at ${estimatedDispatchTime}`
-    );
+    toast.success(`${selectedOrders.length} order(s) confirmed.`);
     setSelectedOrders([]);
     setIsConfirmDialogOpen(false);
-    setAcceptNotes("");
   };
 
   // Cancel orders. The Cancel verb replaced "Reject" across the
@@ -313,13 +297,9 @@ export function Orders() {
     setCancelReason("");
   };
 
-  // Mark as delivered (Confirmed → Delivered)
+  // Mark as delivered (Confirmed → Delivered). No metadata to capture
+  // — the dialog is purely a confirmation surface.
   const handleDeliverOrders = () => {
-    if (!deliveryDate) {
-      toast.error("Please provide delivery date");
-      return;
-    }
-
     setOrders((prev) =>
       prev.map((order) =>
         selectedOrders.includes(order.id)
@@ -333,7 +313,6 @@ export function Orders() {
     );
     setSelectedOrders([]);
     setIsDeliverDialogOpen(false);
-    setDeliveryNotes("");
   };
 
   // Clear all filters
@@ -1137,7 +1116,8 @@ export function Orders() {
         </div>
       </div>
 
-      {/* Confirm Orders Dialog */}
+      {/* Confirm Orders Dialog — pure confirmation surface, no
+          dispatch metadata captured here. */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1146,47 +1126,11 @@ export function Orders() {
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              Confirm {selectedOrders.length} order(s). Please provide
-              dispatch details.
+              Confirm {selectedOrders.length === 1
+                ? "1 order"
+                : `${selectedOrders.length} orders`}.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="dispatchDate">
-                Estimated Dispatch Date <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="dispatchDate"
-                type="date"
-                value={estimatedDispatchDate}
-                onChange={(e) => setEstimatedDispatchDate(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="dispatchTime">
-                Estimated Dispatch Time <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="dispatchTime"
-                type="time"
-                value={estimatedDispatchTime}
-                onChange={(e) => setEstimatedDispatchTime(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="acceptNotes">Notes (Optional)</Label>
-              <Textarea
-                id="acceptNotes"
-                placeholder="Add any special instructions or notes..."
-                value={acceptNotes}
-                onChange={(e) => setAcceptNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-          </div>
 
           <DialogFooter>
             <Button
@@ -1222,13 +1166,17 @@ export function Orders() {
               <Label htmlFor="cancelReason">
                 Reason for Cancellation <span className="text-red-500">*</span>
               </Label>
-              <Textarea
-                id="cancelReason"
-                placeholder="e.g., Out of stock, Cannot deliver to location, Customer request..."
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                rows={4}
-              />
+              <Select value={cancelReason} onValueChange={setCancelReason}>
+                <SelectTrigger id="cancelReason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+                  <SelectItem value="Delivery Issue">Delivery Issue</SelectItem>
+                  <SelectItem value="Pricing Error">Pricing Error</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
@@ -1260,7 +1208,9 @@ export function Orders() {
         </DialogContent>
       </Dialog>
 
-      {/* Mark as Delivered Dialog */}
+      {/* Mark as Delivered Dialog — pure confirmation surface.
+          No date / notes capture; the timestamp is set server-side
+          when status flips to Delivered. */}
       <Dialog open={isDeliverDialogOpen} onOpenChange={setIsDeliverDialogOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
@@ -1269,41 +1219,11 @@ export function Orders() {
               Mark as Delivered
             </DialogTitle>
             <DialogDescription>
-              Confirm delivery for {selectedOrders.length} order(s).
+              Confirm delivery of {selectedOrders.length === 1
+                ? "1 order"
+                : `${selectedOrders.length} orders`}.
             </DialogDescription>
           </DialogHeader>
-
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="deliveryDate">
-                Delivery Date <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="deliveryDate"
-                type="date"
-                value={deliveryDate}
-                onChange={(e) => setDeliveryDate(e.target.value)}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="deliveryNotes">Delivery Notes (Optional)</Label>
-              <Textarea
-                id="deliveryNotes"
-                placeholder="Add delivery confirmation details..."
-                value={deliveryNotes}
-                onChange={(e) => setDeliveryNotes(e.target.value)}
-                rows={3}
-              />
-            </div>
-
-            <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-              <p className="text-sm text-green-800">
-                <CheckCircle2 className="h-4 w-4 inline mr-1" />
-                Delivery confirmation will be sent to customers.
-              </p>
-            </div>
-          </div>
 
           <DialogFooter>
             <Button
@@ -1317,7 +1237,7 @@ export function Orders() {
               className="gap-2 bg-green-600 hover:bg-green-700"
             >
               <PackageCheck className="h-4 w-4" />
-              Mark {selectedOrders.length} as Delivered
+              Mark Delivered
             </Button>
           </DialogFooter>
         </DialogContent>
