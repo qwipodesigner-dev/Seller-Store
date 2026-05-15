@@ -450,7 +450,7 @@ export function Orders() {
       "Final Price/Unit",
       "Discount Applied",
       "Discount Details",
-      "Order Level Savings",
+      "Order Level Discount",
       "Final Order Value",
     ];
 

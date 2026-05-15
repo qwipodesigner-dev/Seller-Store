@@ -653,7 +653,7 @@ export function OrderDetail() {
                           {totalQpsSaving > 0 && (
                             <tr className="bg-purple-50">
                               <td colSpan={4} className="px-4 py-3 text-right text-[11px] font-semibold text-purple-800">
-                                Total QPS savings on this order
+                                Total QPS discount on this order
                               </td>
                               <td className="px-4 py-3 text-right text-xs font-bold text-purple-700">
                                 −₹{totalQpsSaving.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
