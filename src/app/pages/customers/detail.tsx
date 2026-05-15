@@ -34,6 +34,7 @@ import {
   ExternalLink,
   Ban,
   Calendar,
+  Store,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
