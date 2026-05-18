@@ -1209,46 +1209,102 @@ export function MySKU() {
   const psCurrentAvailability = (s: SKUData): "Yes" | "No" =>
     s.isInfiniteStock || (s.availableStock ?? 0) > 0 ? "Yes" : "No";
 
-  const handleDownloadPsSample = () => {
-    // Pre-fill the sheet with every existing SKU in the seller's
-    // catalog and its current values. This is the "Download current
-    // sheet" step from the story — the file is the seller's own
-    // catalog, not a generic sample.
-    const toCell = (v: string | number) => {
-      const s = String(v);
-      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-    };
-    const rows = skus.map((s) =>
-      [
-        s.sku,
-        s.name,
-        s.brand,
-        s.category,
-        s.mrp ?? "",
-        s.sellingPrice ?? "",
-        psCurrentAvailability(s),
-      ].map(toCell),
-    );
-    const csv = [
-      PS_TEMPLATE_HEADERS.map(toCell).join(","),
-      ...rows.map((r) => r.join(",")),
-    ].join("\r\n");
-    // UTF-8 BOM so Excel opens the file with the correct encoding for
-    // Indian-language SKU names.
-    const blob = new Blob(["﻿" + csv], {
-      type: "text/csv;charset=utf-8;",
-    });
+  /** Build the per-row data for the Price & Stock template (every
+   *  existing SKU in the seller's catalog with its current values).
+   *  Both the CSV and XLSX paths share this. */
+  const buildPsTemplateRows = () =>
+    skus.map((s) => [
+      s.sku,
+      s.name,
+      s.brand,
+      s.category,
+      s.mrp ?? "",
+      s.sellingPrice ?? "",
+      psCurrentAvailability(s),
+    ]);
+
+  const triggerBrowserDownload = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "price_stock_update_template.csv";
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success(
-      `Sheet downloaded with ${rows.length} SKU${rows.length === 1 ? "" : "s"} pre-filled.`,
+  };
+
+  const downloadPsAsCsv = () => {
+    const toCell = (v: string | number) => {
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = buildPsTemplateRows();
+    const csv = [
+      PS_TEMPLATE_HEADERS.map(toCell).join(","),
+      ...rows.map((r) => r.map(toCell).join(",")),
+    ].join("\r\n");
+    // UTF-8 BOM so Excel opens the file with the correct encoding for
+    // Indian-language SKU names.
+    triggerBrowserDownload(
+      new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }),
+      "price_stock_update_template.csv",
     );
+    return rows.length;
+  };
+
+  const downloadPsAsXlsx = async () => {
+    // ExcelJS is a ~900 KB chunk — dynamic-imported so it doesn't ship
+    // on the initial bundle. Matches the pattern already used by
+    // `downloadSkuTemplate` for the Add SKU flow.
+    const ExcelJS = (await import("exceljs")).default;
+    const rows = buildPsTemplateRows();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Qwipo Seller Store";
+    wb.created = new Date();
+    const ws = wb.addWorksheet("Price & Stock");
+    ws.addRow([...PS_TEMPLATE_HEADERS]);
+    rows.forEach((r) => ws.addRow(r));
+    // Header styling — bold + blue background matches the Add SKU
+    // template's chrome so the two downloads feel like siblings.
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1E40AF" },
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "left" };
+    headerRow.height = 22;
+    // Column widths sized to the typical content. Tweak if SKU names
+    // get longer.
+    [16, 60, 18, 18, 12, 14, 18].forEach((w, i) => {
+      ws.getColumn(i + 1).width = w;
+    });
+    ws.views = [{ state: "frozen", ySplit: 1 }];
+    const buffer = await wb.xlsx.writeBuffer();
+    triggerBrowserDownload(
+      new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      "price_stock_update_template.xlsx",
+    );
+    return rows.length;
+  };
+
+  const handleDownloadPsSample = async (format?: string) => {
+    // Default to CSV when the picker isn't enabled (legacy path).
+    const chosen = format ?? "csv";
+    try {
+      const count =
+        chosen === "xlsx" ? await downloadPsAsXlsx() : downloadPsAsCsv();
+      toast.success(
+        `Sheet downloaded with ${count} SKU${count === 1 ? "" : "s"} pre-filled.`,
+      );
+    } catch (err) {
+      console.error("[my-sku] price/stock template download failed", err);
+      toast.error("Couldn't generate the template. Please try again.");
+    }
   };
 
   /** Payload handed off to importPriceStockRows — the validated price
@@ -1995,8 +2051,24 @@ export function MySKU() {
             </>
           ),
           sample: {
-            fileName: "price_stock_update_template.csv",
+            // Multi-format download: the picker dialog opens on Download
+            // and the chosen format ("csv" | "xlsx") is forwarded to
+            // handleDownloadPsSample. Filename is omitted on purpose —
+            // there's no single fixed filename when the seller picks
+            // the format at download time.
             onDownload: handleDownloadPsSample,
+            formats: [
+              {
+                value: "csv",
+                label: "CSV (.csv)",
+                description: "Plain text — opens in Excel, Google Sheets, or any text editor.",
+              },
+              {
+                value: "xlsx",
+                label: "Excel Workbook (.xlsx)",
+                description: "Native Excel format with styled headers and frozen first row.",
+              },
+            ],
           },
           accept: ".csv,.xlsx,.xls",
           validate: validatePriceStockFile,

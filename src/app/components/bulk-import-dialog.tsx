@@ -68,9 +68,25 @@ export interface BulkImportConfig {
   instructions?: ReactNode;
   /** Optional sample template the user can download before uploading. */
   sample?: {
-    /** Click handler — module owns whether this triggers a download or shows a sheet. */
-    onDownload: () => void;
-    fileName: string;
+    /**
+     * Click handler — module owns whether this triggers a download or
+     * shows a sheet. When `formats` is provided, the caller receives the
+     * chosen format value; otherwise it's invoked with no argument.
+     */
+    onDownload: (format?: string) => void | Promise<void>;
+    /**
+     * Optional fixed filename. Shown as a sub-line under "Sample template".
+     * Omit when `formats` is provided — with a format picker there is no
+     * single fixed filename to display.
+     */
+    fileName?: string;
+    /**
+     * Optional list of downloadable formats. When provided, clicking
+     * Download opens a sub-dialog that lets the seller pick a format
+     * (e.g. CSV vs XLSX). The picker passes the chosen `value` back to
+     * `onDownload`. When omitted, Download fires immediately.
+     */
+    formats?: { value: string; label: string; description?: string }[];
   };
   /** File `accept` attribute — defaults to ".csv,.xlsx,.xls". */
   accept?: string;
@@ -355,19 +371,7 @@ function UploadStep({
       )}
 
       {sample && (
-        <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
-            <div>
-              <p className="text-sm font-medium text-gray-900">Sample template</p>
-              <p className="text-[11px] text-gray-500">{sample.fileName}</p>
-            </div>
-          </div>
-          <Button variant="outline" size="sm" onClick={sample.onDownload} className="gap-2">
-            <Download className="h-4 w-4" />
-            Download
-          </Button>
-        </div>
+        <SampleTemplateRow sample={sample} />
       )}
 
       <input
@@ -609,6 +613,160 @@ function SummaryCard({
         {label}
       </p>
     </div>
+  );
+}
+
+/**
+ * "Sample template" row inside the upload step.
+ *
+ * Two flavours:
+ *  - Legacy: a fixed `fileName` is provided. Clicking Download fires
+ *    `onDownload()` immediately.
+ *  - Multi-format: `formats` is provided. The filename line is hidden,
+ *    and clicking Download opens a small picker dialog so the seller
+ *    can choose CSV / XLSX / etc; the chosen format value is then
+ *    forwarded to `onDownload(format)`.
+ */
+function SampleTemplateRow({
+  sample,
+}: {
+  sample: NonNullable<BulkImportConfig["sample"]>;
+}) {
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const hasFormats = !!sample.formats && sample.formats.length > 0;
+
+  const handleClick = async () => {
+    if (hasFormats) {
+      setPickerOpen(true);
+      return;
+    }
+    await sample.onDownload();
+  };
+
+  return (
+    <>
+      <div className="flex items-center justify-between rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <FileSpreadsheet className="h-5 w-5 text-emerald-600" />
+          <div>
+            <p className="text-sm font-medium text-gray-900">Sample template</p>
+            {/* Show the filename only when no format picker is involved.
+                With multi-format downloads there is no single fixed
+                filename to display before the seller picks. */}
+            {!hasFormats && sample.fileName && (
+              <p className="text-[11px] text-gray-500">{sample.fileName}</p>
+            )}
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={handleClick} className="gap-2">
+          <Download className="h-4 w-4" />
+          Download
+        </Button>
+      </div>
+
+      {hasFormats && (
+        <FormatPickerDialog
+          open={pickerOpen}
+          onClose={() => setPickerOpen(false)}
+          formats={sample.formats!}
+          onConfirm={async (format) => {
+            setPickerOpen(false);
+            await sample.onDownload(format);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Sub-dialog that lets the seller pick which file format to download.
+ * Renders each option as a clickable card; the chosen value is sent
+ * back through `onConfirm`.
+ */
+function FormatPickerDialog({
+  open,
+  onClose,
+  formats,
+  onConfirm,
+}: {
+  open: boolean;
+  onClose: () => void;
+  formats: { value: string; label: string; description?: string }[];
+  onConfirm: (format: string) => void | Promise<void>;
+}) {
+  const [picked, setPicked] = useState<string>(formats[0]?.value ?? "");
+  // Reset to the first option each time the dialog re-opens so a
+  // previous session's choice doesn't sticky-carry into the next.
+  useEffect(() => {
+    if (open) setPicked(formats[0]?.value ?? "");
+  }, [open, formats]);
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Download className="h-5 w-5 text-blue-600" />
+            Download Sample Template
+          </DialogTitle>
+          <DialogDescription>
+            Pick the file format you want — the template will download
+            with your existing catalog pre-filled.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-2">
+          {formats.map((f) => {
+            const isSelected = picked === f.value;
+            return (
+              <button
+                key={f.value}
+                type="button"
+                onClick={() => setPicked(f.value)}
+                className={`w-full text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                  isSelected
+                    ? "border-blue-400 bg-blue-50/60"
+                    : "border-gray-200 hover:border-gray-300 bg-white"
+                }`}
+              >
+                <div
+                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    isSelected
+                      ? "border-blue-600"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {isSelected && (
+                    <div className="h-2 w-2 rounded-full bg-blue-600" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {f.label}
+                  </p>
+                  {f.description && (
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      {f.description}
+                    </p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button onClick={() => onConfirm(picked)} disabled={!picked} className="gap-2">
+            <Download className="h-4 w-4" />
+            Download
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
