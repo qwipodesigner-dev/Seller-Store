@@ -208,6 +208,11 @@ export function CustomersDemo() {
       "Mobile",
       "Area",
       "PIN",
+      // Geo coords from the customer record — surface them in the
+      // export so downstream tooling (route planning, beat sheet
+      // generation, etc.) can consume them without a join.
+      "Lat",
+      "Long",
       "Company",
       "Status",
       "Registered On",
@@ -223,6 +228,8 @@ export function CustomersDemo() {
             c.mobile,
             c.area,
             c.pincode,
+            c.latitude,
+            c.longitude,
             co.companyName,
             co.status,
             co.registeredAt ?? c.registeredDate,
@@ -436,7 +443,7 @@ export function CustomersDemo() {
                               className="bg-amber-50 text-amber-700 border-amber-200 gap-1"
                               title={`${activeCount} active · ${blockedCount} blocked`}
                             >
-                              Mixed ({activeCount}/{c.companies.length})
+                              Mixed
                             </Badge>
                           )}
                         </td>
