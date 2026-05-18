@@ -9,16 +9,22 @@ const STORAGE_KEY = "qwipo.logisticsSettings";
 export interface LogisticsSettings {
   /** Master toggle. When false, sub-options are ignored. */
   enabled: boolean;
-  /** Seller's own dispatch + delivery fleet. */
-  selfLogistics: boolean;
-  /** Hand-off to a third-party logistics provider. */
-  thirdPartyLogistics: boolean;
+  /**
+   * "Tech for both Self & 3PL" — Qwipo's tech stack handles dispatch +
+   * delivery for both the seller's own fleet and any 3PL providers.
+   */
+  techForBoth: boolean;
+  /**
+   * "No Tech for Self & Tech for 3PL" — seller's in-house delivery runs
+   * outside Qwipo's tech, only the 3PL leg is technology-tracked.
+   */
+  techForThirdPartyOnly: boolean;
 }
 
 const DEFAULT: LogisticsSettings = {
   enabled: false,
-  selfLogistics: false,
-  thirdPartyLogistics: false,
+  techForBoth: false,
+  techForThirdPartyOnly: false,
 };
 
 const read = (): LogisticsSettings => {

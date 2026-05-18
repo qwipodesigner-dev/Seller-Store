@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
-import { ArrowLeft, Truck, Save, Building2, Boxes } from "lucide-react";
+import { ArrowLeft, Truck, Save, Cpu, Network } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import {
   Card,
@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from "../../components/ui/card";
 import { Switch } from "../../components/ui/switch";
-import { Checkbox } from "../../components/ui/checkbox";
 import { Label } from "../../components/ui/label";
 import {
   Dialog,
@@ -28,46 +27,48 @@ import {
 /**
  * Logistics Settings — master toggle for the sidebar Logistics menu.
  *
- * Off by default. When the seller flips it on they pick at least one of
- * the two modes — Self Logistics, 3PL Logistics, or both — and confirm
- * the save in a follow-up dialog. The persisted state is read by the
- * RootLayout sidebar to decide whether the Logistics menu item is
- * disabled or clickable.
+ * Off by default. When the seller flips it on, two independent mode
+ * switches appear:
+ *   1. "Tech for both Self & 3PL"
+ *   2. "No Tech for Self & Tech for 3PL"
+ * At least one must be on or Save is gated. The persisted state is
+ * read by the RootLayout sidebar to decide whether the Logistics menu
+ * item is disabled or clickable.
  *
  * Page chrome and card density mirror Order Settings / Store Settings:
  * compact icon-only Back, single-line title, Save lives INSIDE the
- * card header (not as a floating footer CTA), and the mode grid is
- * responsive — side-by-side at md+ and stacked on narrow screens.
+ * card header, and the mode grid is responsive — side-by-side at md+
+ * and stacked on narrow screens.
  */
 export function LogisticsSettingsPage() {
   const navigate = useNavigate();
   const initial = getLogisticsSettings();
 
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [selfLogistics, setSelfLogistics] = useState(initial.selfLogistics);
-  const [thirdPartyLogistics, setThirdPartyLogistics] = useState(
-    initial.thirdPartyLogistics,
+  const [techForBoth, setTechForBoth] = useState(initial.techForBoth);
+  const [techForThirdPartyOnly, setTechForThirdPartyOnly] = useState(
+    initial.techForThirdPartyOnly,
   );
   // Track the last saved snapshot so the Save CTA can disable itself
   // when there are no unsaved changes — matches the dirty-flag pattern
   // every other settings card uses.
   const [saved, setSaved] = useState({
     enabled: initial.enabled,
-    selfLogistics: initial.selfLogistics,
-    thirdPartyLogistics: initial.thirdPartyLogistics,
+    techForBoth: initial.techForBoth,
+    techForThirdPartyOnly: initial.techForThirdPartyOnly,
   });
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isDirty =
     enabled !== saved.enabled ||
     (enabled &&
-      (selfLogistics !== saved.selfLogistics ||
-        thirdPartyLogistics !== saved.thirdPartyLogistics));
+      (techForBoth !== saved.techForBoth ||
+        techForThirdPartyOnly !== saved.techForThirdPartyOnly));
 
-  // When enabled, at least one of the two modes must be ticked — Save
+  // When enabled, at least one of the two modes must be on — Save
   // stays disabled otherwise so the seller can't ship an "enabled but
   // empty" configuration.
-  const missingMode = enabled && !selfLogistics && !thirdPartyLogistics;
+  const missingMode = enabled && !techForBoth && !techForThirdPartyOnly;
   const saveDisabled = !isDirty || missingMode;
 
   const handleSaveClick = () => setConfirmOpen(true);
@@ -76,14 +77,14 @@ export function LogisticsSettingsPage() {
     setLogisticsSettings({
       enabled,
       // Clear sub-options when the master is off so the store never
-      // carries stale "self/3PL still on but master off" combinations.
-      selfLogistics: enabled ? selfLogistics : false,
-      thirdPartyLogistics: enabled ? thirdPartyLogistics : false,
+      // carries stale "mode still on but master off" combinations.
+      techForBoth: enabled ? techForBoth : false,
+      techForThirdPartyOnly: enabled ? techForThirdPartyOnly : false,
     });
     setSaved({
       enabled,
-      selfLogistics: enabled ? selfLogistics : false,
-      thirdPartyLogistics: enabled ? thirdPartyLogistics : false,
+      techForBoth: enabled ? techForBoth : false,
+      techForThirdPartyOnly: enabled ? techForThirdPartyOnly : false,
     });
     setConfirmOpen(false);
     toast.success("Logistics settings saved.");
@@ -95,10 +96,10 @@ export function LogisticsSettingsPage() {
       return "Logistics will be disabled. The Logistics menu will not appear in the sidebar.";
     }
     const modes = [
-      selfLogistics ? "Self Logistics" : null,
-      thirdPartyLogistics ? "3PL Logistics" : null,
+      techForBoth ? "Tech for both Self & 3PL" : null,
+      techForThirdPartyOnly ? "No Tech for Self & Tech for 3PL" : null,
     ].filter(Boolean);
-    return `Logistics will be enabled with ${modes.join(" + ")}. The Logistics menu will be available in the sidebar.`;
+    return `Logistics will be enabled with: ${modes.join(" + ")}. The Logistics menu will be available in the sidebar.`;
   })();
 
   return (
@@ -146,9 +147,8 @@ export function LogisticsSettingsPage() {
             </div>
           </CardHeader>
           <CardContent className="pt-0 space-y-3">
-            {/* Master toggle — pulled into the same border-and-bg
-                container Order Settings uses for its Allow Returns
-                row, so density and rhythm match. */}
+            {/* Master toggle — same outlined-row container Order
+                Settings uses for its Allow Returns toggle. */}
             <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-2.5 bg-gray-50/50">
               <div>
                 <Label className="text-sm">Enable Logistics</Label>
@@ -160,10 +160,9 @@ export function LogisticsSettingsPage() {
               <Switch checked={enabled} onCheckedChange={setEnabled} />
             </div>
 
-            {/* Mode selection — only visible when the master is on.
-                Spec: at least one, can be both — checkbox semantics
-                even though the user called them "radio buttons" in
-                passing. Two-column grid at md+ keeps the choices
+            {/* Mode toggles — only visible when the master is on.
+                Independent enable/disable switches; at least one must
+                be on to save. Two-column grid at md+ keeps the choices
                 comparable side-by-side; stacks on narrow screens. */}
             {enabled && (
               <div className="space-y-2">
@@ -172,69 +171,69 @@ export function LogisticsSettingsPage() {
                     Logistics modes
                   </p>
                   <p className="text-[11px] text-gray-500">
-                    Pick at least one — either of these or both.
+                    Enable at least one — either of these or both.
                   </p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <label
-                    className={`flex items-start gap-3 cursor-pointer rounded-md border p-3 transition-colors ${
-                      selfLogistics
+                  {/* Mode 1: Tech for both Self & 3PL */}
+                  <div
+                    className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                      techForBoth
                         ? "border-emerald-300 bg-emerald-50/50"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
+                        : "border-gray-200 bg-white"
                     }`}
                   >
-                    <Checkbox
-                      checked={selfLogistics}
-                      onCheckedChange={(v) => setSelfLogistics(v === true)}
-                      className="mt-0.5"
-                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                        <Cpu className="h-4 w-4 text-emerald-600 flex-shrink-0" />
                         <p className="text-sm font-medium text-gray-900">
-                          Self Logistics
+                          Tech for both Self &amp; 3PL
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                        Your team manages dispatch and delivery on your own
-                        fleet.
+                        Qwipo's logistics tech runs both your own fleet
+                        and any 3PL provider deliveries.
                       </p>
                     </div>
-                  </label>
+                    <Switch
+                      checked={techForBoth}
+                      onCheckedChange={setTechForBoth}
+                      className="mt-0.5"
+                    />
+                  </div>
 
-                  <label
-                    className={`flex items-start gap-3 cursor-pointer rounded-md border p-3 transition-colors ${
-                      thirdPartyLogistics
+                  {/* Mode 2: No Tech for Self & Tech for 3PL */}
+                  <div
+                    className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                      techForThirdPartyOnly
                         ? "border-emerald-300 bg-emerald-50/50"
-                        : "border-gray-200 hover:border-gray-300 bg-white"
+                        : "border-gray-200 bg-white"
                     }`}
                   >
-                    <Checkbox
-                      checked={thirdPartyLogistics}
-                      onCheckedChange={(v) =>
-                        setThirdPartyLogistics(v === true)
-                      }
-                      className="mt-0.5"
-                    />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <Boxes className="h-4 w-4 text-emerald-600 flex-shrink-0" />
+                        <Network className="h-4 w-4 text-emerald-600 flex-shrink-0" />
                         <p className="text-sm font-medium text-gray-900">
-                          3PL Logistics
+                          No Tech for Self &amp; Tech for 3PL
                         </p>
                       </div>
                       <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
-                        Hand off dispatch and delivery to a third-party
-                        logistics provider.
+                        Your in-house dispatch runs outside Qwipo;
+                        only the 3PL leg is technology-tracked.
                       </p>
                     </div>
-                  </label>
+                    <Switch
+                      checked={techForThirdPartyOnly}
+                      onCheckedChange={setTechForThirdPartyOnly}
+                      className="mt-0.5"
+                    />
+                  </div>
                 </div>
 
                 {missingMode && (
                   <p className="text-[11px] text-red-600">
-                    Pick at least one mode before saving.
+                    Enable at least one mode before saving.
                   </p>
                 )}
               </div>
