@@ -22,84 +22,84 @@ import { toast } from "sonner";
 import {
   getLogisticsSettings,
   setLogisticsSettings,
+  type LogisticsMode,
 } from "../../lib/logistics-settings";
 
 /**
  * Logistics Settings — master toggle for the sidebar Logistics menu.
  *
- * Off by default. When the seller flips it on, two independent mode
- * switches appear:
+ * Off by default. When the seller flips the master on, two mutually
+ * exclusive mode switches appear — exactly one must be picked:
  *   1. "Tech for both Self & 3PL"
  *   2. "No Tech for Self & Tech for 3PL"
- * At least one must be on or Save is gated. The persisted state is
- * read by the RootLayout sidebar to decide whether the Logistics menu
- * item is disabled or clickable.
  *
- * Page chrome and card density mirror Order Settings / Store Settings:
- * compact icon-only Back, single-line title, Save lives INSIDE the
- * card header, and the mode grid is responsive — side-by-side at md+
- * and stacked on narrow screens.
+ * Toggling either mode on automatically turns the other off (radio
+ * semantics in switch clothing — the user asked for switches, but the
+ * two modes are not independent: you pick one or the other, not both).
+ *
+ * The persisted state is read by the RootLayout sidebar to decide
+ * whether the Logistics menu item is disabled or clickable.
  */
 export function LogisticsSettingsPage() {
   const navigate = useNavigate();
   const initial = getLogisticsSettings();
 
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [techForBoth, setTechForBoth] = useState(initial.techForBoth);
-  const [techForThirdPartyOnly, setTechForThirdPartyOnly] = useState(
-    initial.techForThirdPartyOnly,
-  );
+  const [mode, setMode] = useState<LogisticsMode | null>(initial.mode);
   // Track the last saved snapshot so the Save CTA can disable itself
   // when there are no unsaved changes — matches the dirty-flag pattern
   // every other settings card uses.
   const [saved, setSaved] = useState({
     enabled: initial.enabled,
-    techForBoth: initial.techForBoth,
-    techForThirdPartyOnly: initial.techForThirdPartyOnly,
+    mode: initial.mode,
   });
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   const isDirty =
-    enabled !== saved.enabled ||
-    (enabled &&
-      (techForBoth !== saved.techForBoth ||
-        techForThirdPartyOnly !== saved.techForThirdPartyOnly));
+    enabled !== saved.enabled || (enabled && mode !== saved.mode);
 
-  // When enabled, at least one of the two modes must be on — Save
-  // stays disabled otherwise so the seller can't ship an "enabled but
-  // empty" configuration.
-  const missingMode = enabled && !techForBoth && !techForThirdPartyOnly;
+  // When enabled, exactly one mode must be picked — Save stays disabled
+  // until that's true so the seller can't ship an "enabled but empty"
+  // configuration.
+  const missingMode = enabled && mode === null;
   const saveDisabled = !isDirty || missingMode;
+
+  // Mutually-exclusive switch handler. Turning a switch on selects its
+  // mode (and visually flips the other one off); turning the active
+  // switch off clears the selection (Save gates until a mode is
+  // re-picked).
+  const handleModeToggle = (next: LogisticsMode, checked: boolean) => {
+    if (checked) {
+      setMode(next);
+    } else if (mode === next) {
+      setMode(null);
+    }
+  };
 
   const handleSaveClick = () => setConfirmOpen(true);
 
   const handleConfirmSave = () => {
     setLogisticsSettings({
       enabled,
-      // Clear sub-options when the master is off so the store never
-      // carries stale "mode still on but master off" combinations.
-      techForBoth: enabled ? techForBoth : false,
-      techForThirdPartyOnly: enabled ? techForThirdPartyOnly : false,
+      // Clear the mode when the master is off so the store never
+      // carries a stale "mode picked but master off" combination.
+      mode: enabled ? mode : null,
     });
-    setSaved({
-      enabled,
-      techForBoth: enabled ? techForBoth : false,
-      techForThirdPartyOnly: enabled ? techForThirdPartyOnly : false,
-    });
+    setSaved({ enabled, mode: enabled ? mode : null });
     setConfirmOpen(false);
     toast.success("Logistics settings saved.");
   };
 
-  // Build the human-readable summary used in the confirmation dialog.
+  // Human-readable summary for the confirmation dialog.
   const summary = (() => {
     if (!enabled) {
       return "Logistics will be disabled. The Logistics menu will not appear in the sidebar.";
     }
-    const modes = [
-      techForBoth ? "Tech for both Self & 3PL" : null,
-      techForThirdPartyOnly ? "No Tech for Self & Tech for 3PL" : null,
-    ].filter(Boolean);
-    return `Logistics will be enabled with: ${modes.join(" + ")}. The Logistics menu will be available in the sidebar.`;
+    const label =
+      mode === "tech-for-both"
+        ? "Tech for both Self & 3PL"
+        : "No Tech for Self & Tech for 3PL";
+    return `Logistics will be enabled in "${label}" mode. The Logistics menu will be available in the sidebar.`;
   })();
 
   return (
@@ -132,9 +132,7 @@ export function LogisticsSettingsPage() {
                 Logistics Module
               </CardTitle>
               {/* Save lives in the section header, mirroring every other
-                  settings card. Disabled until there's something to
-                  save, or if the seller enabled the master without
-                  picking a mode. */}
+                  settings card. */}
               <Button
                 size="sm"
                 className="h-7 gap-1 text-xs"
@@ -148,7 +146,7 @@ export function LogisticsSettingsPage() {
           </CardHeader>
           <CardContent className="pt-0 space-y-3">
             {/* Master toggle — same outlined-row container Order
-                Settings uses for its Allow Returns toggle. */}
+                Settings uses for its toggle rows. */}
             <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-2.5 bg-gray-50/50">
               <div>
                 <Label className="text-sm">Enable Logistics</Label>
@@ -161,17 +159,17 @@ export function LogisticsSettingsPage() {
             </div>
 
             {/* Mode toggles — only visible when the master is on.
-                Independent enable/disable switches; at least one must
-                be on to save. Two-column grid at md+ keeps the choices
-                comparable side-by-side; stacks on narrow screens. */}
+                Mutually exclusive: turning one on flips the other off.
+                Two-column grid at md+ keeps the choices comparable
+                side-by-side; stacks on narrow screens. */}
             {enabled && (
               <div className="space-y-2">
                 <div>
                   <p className="text-xs font-medium text-gray-900">
-                    Logistics modes
+                    Logistics mode
                   </p>
                   <p className="text-[11px] text-gray-500">
-                    Enable at least one — either of these or both.
+                    Pick one — the two modes are mutually exclusive.
                   </p>
                 </div>
 
@@ -179,7 +177,7 @@ export function LogisticsSettingsPage() {
                   {/* Mode 1: Tech for both Self & 3PL */}
                   <div
                     className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
-                      techForBoth
+                      mode === "tech-for-both"
                         ? "border-emerald-300 bg-emerald-50/50"
                         : "border-gray-200 bg-white"
                     }`}
@@ -197,8 +195,10 @@ export function LogisticsSettingsPage() {
                       </p>
                     </div>
                     <Switch
-                      checked={techForBoth}
-                      onCheckedChange={setTechForBoth}
+                      checked={mode === "tech-for-both"}
+                      onCheckedChange={(v) =>
+                        handleModeToggle("tech-for-both", v)
+                      }
                       className="mt-0.5"
                     />
                   </div>
@@ -206,7 +206,7 @@ export function LogisticsSettingsPage() {
                   {/* Mode 2: No Tech for Self & Tech for 3PL */}
                   <div
                     className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
-                      techForThirdPartyOnly
+                      mode === "tech-for-third-party-only"
                         ? "border-emerald-300 bg-emerald-50/50"
                         : "border-gray-200 bg-white"
                     }`}
@@ -224,8 +224,10 @@ export function LogisticsSettingsPage() {
                       </p>
                     </div>
                     <Switch
-                      checked={techForThirdPartyOnly}
-                      onCheckedChange={setTechForThirdPartyOnly}
+                      checked={mode === "tech-for-third-party-only"}
+                      onCheckedChange={(v) =>
+                        handleModeToggle("tech-for-third-party-only", v)
+                      }
                       className="mt-0.5"
                     />
                   </div>
@@ -233,7 +235,7 @@ export function LogisticsSettingsPage() {
 
                 {missingMode && (
                   <p className="text-[11px] text-red-600">
-                    Enable at least one mode before saving.
+                    Pick a mode before saving.
                   </p>
                 )}
               </div>

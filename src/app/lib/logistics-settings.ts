@@ -6,25 +6,32 @@
 
 const STORAGE_KEY = "qwipo.logisticsSettings";
 
+/**
+ * The two operating modes are mutually exclusive — when Logistics is
+ * enabled the seller picks exactly one. `null` means "no mode picked
+ * yet" (only valid while the master is off; saving with master on +
+ * mode null is blocked in the UI).
+ */
+export type LogisticsMode = "tech-for-both" | "tech-for-third-party-only";
+
 export interface LogisticsSettings {
-  /** Master toggle. When false, sub-options are ignored. */
+  /** Master toggle. When false, the mode is ignored. */
   enabled: boolean;
   /**
-   * "Tech for both Self & 3PL" — Qwipo's tech stack handles dispatch +
-   * delivery for both the seller's own fleet and any 3PL providers.
+   * Single active mode:
+   *  - "tech-for-both"             → "Tech for both Self & 3PL". Qwipo's
+   *    stack handles dispatch and delivery for both the seller's own
+   *    fleet and any 3PL providers.
+   *  - "tech-for-third-party-only" → "No Tech for Self & Tech for 3PL".
+   *    In-house delivery runs outside Qwipo; only the 3PL leg is
+   *    technology-tracked.
    */
-  techForBoth: boolean;
-  /**
-   * "No Tech for Self & Tech for 3PL" — seller's in-house delivery runs
-   * outside Qwipo's tech, only the 3PL leg is technology-tracked.
-   */
-  techForThirdPartyOnly: boolean;
+  mode: LogisticsMode | null;
 }
 
 const DEFAULT: LogisticsSettings = {
   enabled: false,
-  techForBoth: false,
-  techForThirdPartyOnly: false,
+  mode: null,
 };
 
 const read = (): LogisticsSettings => {

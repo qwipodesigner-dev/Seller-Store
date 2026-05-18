@@ -129,8 +129,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // previous Seller + Logistics session.
     setLogisticsSettings(
       u.logisticsAddon
-        ? { enabled: true, techForBoth: true, techForThirdPartyOnly: false }
-        : { enabled: false, techForBoth: false, techForThirdPartyOnly: false },
+        ? { enabled: true, mode: "tech-for-both" }
+        : { enabled: false, mode: null },
     );
     setUser(u);
   };
