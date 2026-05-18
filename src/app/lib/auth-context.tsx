@@ -8,6 +8,7 @@ import {
 import { applyDataMode as applyAdminCatalogDataMode } from "./admin-catalog";
 import { applyDataMode as applyMockStoreDataMode } from "./mock-store";
 import { setDataMode as setGlobalDataMode } from "./data-mode";
+import { setLogisticsSettings } from "./logistics-settings";
 
 // Phase 1 ships three roles:
 //   - admin    → Qwipo Super Admin (admin subtree at /admin)
@@ -36,6 +37,16 @@ export interface AuthUser {
    * Currently used to distinguish the two super-admin demo logins.
    */
   dataMode?: "demo" | "empty";
+  /**
+   * Demo opt-in for the Logistics add-on. When true:
+   *  - the Settings hub surfaces the "Logistics Settings" card,
+   *  - the sidebar surfaces the "Logistics" nav item (gated further on
+   *    the Settings → Logistics master toggle for clickable vs. greyed),
+   *  - login pre-seeds the logistics settings to enabled with both
+   *    modes ticked so the flow is demo-able out of the box.
+   * Existing seller persona keeps this off → zero logistics surface.
+   */
+  logisticsAddon?: boolean;
 }
 
 interface AuthContextValue {
@@ -111,6 +122,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (u: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
     applyDataMode(u.dataMode ?? "demo");
+    // Seed the Logistics settings so the Seller + Logistics persona
+    // demos cleanly from login (enabled + both modes ticked, sidebar
+    // clickable). For every other persona, reset to defaults so a
+    // re-login as the plain seller doesn't carry stale state from a
+    // previous Seller + Logistics session.
+    setLogisticsSettings(
+      u.logisticsAddon
+        ? { enabled: true, selfLogistics: true, thirdPartyLogistics: true }
+        : { enabled: false, selfLogistics: false, thirdPartyLogistics: false },
+    );
     setUser(u);
   };
 

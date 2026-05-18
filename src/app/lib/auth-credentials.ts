@@ -44,6 +44,23 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "demo",
     },
   },
+  // Seller + Logistics — same seller demo data, but with the Logistics
+  // add-on surfaced: Settings hub gets the Logistics Settings card and
+  // the sidebar gets the Logistics nav item. Used to demo the logistics
+  // flow without polluting the vanilla seller persona above.
+  "9911111111": {
+    otp: "1234",
+    user: {
+      id: "seller-logistics",
+      name: "Rajesh Kumar",
+      email: "seller+logistics@qwipo.com",
+      role: "seller",
+      businessName: "ABC Distributors",
+      avatarInitials: "RK",
+      dataMode: "demo",
+      logisticsAddon: true,
+    },
+  },
   // Empty-mode seller — every seller-side page renders its inception-day
   // empty state instead of the seeded mock data. Mirrors the empty super
   // admin login. Useful for screenshots and onboarding demos.

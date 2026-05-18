@@ -64,28 +64,35 @@ const LOGISTICS_PORTAL_URL =
 // Instead it carries `externalUrl` so the NavLinks renderer knows to
 // open it in a new tab, and `requiresLogistics` so the renderer can
 // grey it out when the seller hasn't enabled Logistics in Settings.
-const sellerNavigation: {
+type SellerNavItem = {
   name: string;
   href?: string;
   externalUrl?: string;
   requiresLogistics?: boolean;
   icon: typeof LayoutDashboard;
   subItems?: { href: string; name: string }[];
-}[] = [
+};
+
+const sellerNavigation: SellerNavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
-  {
-    name: "Logistics",
-    externalUrl: LOGISTICS_PORTAL_URL,
-    requiresLogistics: true,
-    icon: Truck,
-  },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Support", href: "/support", icon: HelpCircle },
 ];
+
+// The Logistics nav entry — only spliced into the seller nav when the
+// logged-in persona has the `logisticsAddon` flag (Seller + Logistics).
+// Kept separate from the base array so the vanilla seller's sidebar
+// stays exactly as it was before the add-on existed.
+const sellerLogisticsNav: SellerNavItem = {
+  name: "Logistics",
+  externalUrl: LOGISTICS_PORTAL_URL,
+  requiresLogistics: true,
+  icon: Truck,
+};
 
 const sellerErrorScreensNav = {
   name: "Error Screens",
@@ -159,19 +166,28 @@ export function RootLayout() {
   // so reviewers can browse the error and loading galleries without
   // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
+  // Seller + Logistics persona splices the Logistics entry between
+  // Orders and Settings; every other seller persona keeps the base nav.
+  const baseSellerNav = user?.logisticsAddon
+    ? [
+        ...sellerNavigation.slice(0, 5), // through Orders
+        sellerLogisticsNav,
+        ...sellerNavigation.slice(5), // Settings + Support
+      ]
+    : sellerNavigation;
   const navigation = isAdmin
     ? isEmptyMode
       ? [...adminNavigation, adminErrorScreensNav, adminLoadingScreensNav]
       : adminNavigation
     : isEmptyMode
       ? [
-          ...sellerNavigation,
+          ...baseSellerNav,
           sellerCustomersDemoNav,
           sellerOffersDemoNav,
           sellerErrorScreensNav,
           sellerLoadingScreensNav,
         ]
-      : sellerNavigation;
+      : baseSellerNav;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
     isAdmin ? "User Management" : "Products",

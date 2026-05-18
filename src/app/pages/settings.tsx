@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
+import { useAuth } from "../lib/auth-context";
 import {
   Store,
   ShoppingCart,
@@ -87,6 +88,13 @@ const settingsCards: SettingCard[] = [
 
 export function Settings() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Logistics is a demo add-on persona — hide its hub card for the
+  // vanilla seller. The "Seller + Logistics" login (logisticsAddon: true)
+  // surfaces it; all other sellers see settings without it.
+  const visibleCards = settingsCards.filter(
+    (card) => card.id !== "logistics" || user?.logisticsAddon,
+  );
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
@@ -101,7 +109,7 @@ export function Settings() {
       <div className="flex-1 overflow-y-auto p-6">
         {/* Settings Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {settingsCards.map((card) => (
+          {visibleCards.map((card) => (
             <Card
               key={card.id}
               className={`border border-gray-200 transition-all ${
