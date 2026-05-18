@@ -19,6 +19,8 @@ import {
   HelpCircle,
   Search,
   X,
+  Truck,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -48,13 +50,39 @@ import {
 import { AlertOctagon, Loader2 } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
+import {
+  getLogisticsSettings,
+  subscribeToLogisticsSettings,
+} from "../lib/logistics-settings";
 
-const sellerNavigation = [
+// External target the Logistics menu opens in a new tab once the
+// seller has enabled the module in Settings → Logistics Settings.
+const LOGISTICS_PORTAL_URL =
+  "https://logistics-buyer.test.bms.qwipo.com/auth/login";
+
+// Logistics is an external portal — it doesn't have an internal href.
+// Instead it carries `externalUrl` so the NavLinks renderer knows to
+// open it in a new tab, and `requiresLogistics` so the renderer can
+// grey it out when the seller hasn't enabled Logistics in Settings.
+const sellerNavigation: {
+  name: string;
+  href?: string;
+  externalUrl?: string;
+  requiresLogistics?: boolean;
+  icon: typeof LayoutDashboard;
+  subItems?: { href: string; name: string }[];
+}[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
   { name: "Orders", href: "/orders", icon: ShoppingCart },
+  {
+    name: "Logistics",
+    externalUrl: LOGISTICS_PORTAL_URL,
+    requiresLogistics: true,
+    icon: Truck,
+  },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Support", href: "/support", icon: HelpCircle },
 ];
@@ -150,6 +178,18 @@ export function RootLayout() {
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Track the seller's Logistics master toggle so the sidebar item
+  // can be greyed-out / enabled live without a page reload. Subscribes
+  // to the localStorage-backed settings store; cleans up on unmount.
+  const [logisticsEnabled, setLogisticsEnabled] = useState(
+    () => getLogisticsSettings().enabled,
+  );
+  useEffect(() => {
+    return subscribeToLogisticsSettings(() =>
+      setLogisticsEnabled(getLogisticsSettings().enabled),
+    );
+  }, []);
+
   const handleLogout = () => {
     logout();
     navigate("/login");
@@ -204,6 +244,52 @@ export function RootLayout() {
         const hasSubItems = item.subItems && item.subItems.length > 0;
         const parentActive = hasSubItems && isParentActive(item.subItems);
         const isExpanded = expandedMenu === item.name;
+
+        // External URL items (e.g. Logistics → external portal). Render
+        // as a button — opens the URL in a new tab. Gated on the
+        // Logistics settings toggle when `requiresLogistics` is set.
+        if (item.externalUrl) {
+          const disabled = item.requiresLogistics && !logisticsEnabled;
+          return (
+            <button
+              key={item.name}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                if (disabled) return;
+                window.open(item.externalUrl, "_blank", "noopener,noreferrer");
+              }}
+              title={
+                collapsed
+                  ? disabled
+                    ? `${item.name} (enable in Settings → Logistics)`
+                    : item.name
+                  : disabled
+                    ? "Enable Logistics in Settings first"
+                    : undefined
+              }
+              className={`flex w-full items-center ${
+                collapsed ? "justify-center" : "gap-3"
+              } rounded-lg px-3 py-2.5 transition-all ${
+                disabled
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-700 hover:text-gray-900 hover:bg-blue-50"
+              }`}
+            >
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && (
+                <span className="text-sm flex-1 flex items-center justify-between gap-2">
+                  <span>{item.name}</span>
+                  <ExternalLink
+                    className={`h-3 w-3 ${
+                      disabled ? "opacity-40" : "opacity-60"
+                    }`}
+                  />
+                </span>
+              )}
+            </button>
+          );
+        }
 
         if (hasSubItems) {
           return (
@@ -470,6 +556,44 @@ export function RootLayout() {
                   const hasSubItems = item.subItems && item.subItems.length > 0;
                   const parentActive = hasSubItems && isParentActive(item.subItems);
                   const isExpanded = expandedMenu === item.name;
+
+                  // External URL items — same disabled-gate behavior
+                  // as the desktop sidebar.
+                  if (item.externalUrl) {
+                    const disabled =
+                      item.requiresLogistics && !logisticsEnabled;
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          if (disabled) return;
+                          window.open(
+                            item.externalUrl,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
+                          disabled
+                            ? "text-gray-400 cursor-not-allowed"
+                            : "text-gray-700 hover:text-gray-900 hover:bg-blue-50"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="text-sm flex-1 flex items-center justify-between gap-2">
+                          <span>{item.name}</span>
+                          <ExternalLink
+                            className={`h-3 w-3 ${
+                              disabled ? "opacity-40" : "opacity-60"
+                            }`}
+                          />
+                        </span>
+                      </button>
+                    );
+                  }
 
                   if (hasSubItems) {
                     return (

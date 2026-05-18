@@ -434,10 +434,6 @@ export function ServiceabilityManager() {
                         <p className="font-medium text-sm text-green-900">
                           Existing polygon on file
                         </p>
-                        <p className="text-xs text-green-800 mt-0.5 truncate">
-                          <FileJson className="h-3.5 w-3.5 inline mr-1" />
-                          {configured[editingCompanyId].fileName}
-                        </p>
                         <p className="text-[10px] text-green-700 mt-1">
                           Download to edit offline, then upload the
                           revised file below to replace it.

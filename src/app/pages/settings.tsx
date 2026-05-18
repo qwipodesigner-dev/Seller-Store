@@ -8,6 +8,7 @@ import {
   Wallet,
   ChevronRight,
   MessageCircle,
+  PackageCheck,
 } from "lucide-react";
 
 interface SettingCard {
@@ -52,6 +53,15 @@ const settingsCards: SettingCard[] = [
     path: "/settings/communication",
     iconBg: "bg-cyan-100",
     iconColor: "text-cyan-600",
+  },
+  {
+    id: "logistics",
+    title: "Logistics Settings",
+    description: "Enable Self / 3PL logistics and unlock the Logistics menu",
+    icon: <PackageCheck className="h-6 w-6" />,
+    path: "/settings/logistics",
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
   },
   {
     id: "shipping",
