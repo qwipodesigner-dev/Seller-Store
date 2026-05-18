@@ -166,14 +166,11 @@ export function RootLayout() {
   // so reviewers can browse the error and loading galleries without
   // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
-  // Seller + Logistics persona splices the Logistics entry between
-  // Orders and Settings; every other seller persona keeps the base nav.
+  // Seller + Logistics persona appends the Logistics entry at the end
+  // of the sidebar (below Support) so the core seller menu stays in
+  // its familiar order; every other seller persona keeps the base nav.
   const baseSellerNav = user?.logisticsAddon
-    ? [
-        ...sellerNavigation.slice(0, 5), // through Orders
-        sellerLogisticsNav,
-        ...sellerNavigation.slice(5), // Settings + Support
-      ]
+    ? [...sellerNavigation, sellerLogisticsNav]
     : sellerNavigation;
   const navigation = isAdmin
     ? isEmptyMode
