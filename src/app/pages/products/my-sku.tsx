@@ -1185,8 +1185,11 @@ export function MySKU() {
   // or none.
 
   /** Columns on the downloaded template — read-only identifier columns
-   *  first, then the four editable columns. The header is locked by
-   *  spec; the validator below rejects files with a different header. */
+   *  first, then the three editable columns. The header is locked by
+   *  spec; the validator below rejects files with a different header.
+   *  Available Stock is a Yes/No availability flag (the earlier numeric
+   *  Available Stock + separate Infinite Stock column have been merged
+   *  into a single Yes/No availability toggle). */
   const PS_TEMPLATE_HEADERS = [
     "SKU Code",
     "SKU Name",
@@ -1195,11 +1198,16 @@ export function MySKU() {
     "MRP",
     "Selling Price",
     "Available Stock",
-    "Infinite Stock",
   ] as const;
 
   /** Max number of data rows in one upload (BR-8 of the story). */
   const PS_MAX_ROWS = 500;
+
+  /** Derive the current Yes/No availability of an existing SKU. A SKU is
+   *  available when it's flagged as infinite stock OR has at least one
+   *  unit on hand. */
+  const psCurrentAvailability = (s: SKUData): "Yes" | "No" =>
+    s.isInfiniteStock || (s.availableStock ?? 0) > 0 ? "Yes" : "No";
 
   const handleDownloadPsSample = () => {
     // Pre-fill the sheet with every existing SKU in the seller's
@@ -1218,8 +1226,7 @@ export function MySKU() {
         s.category,
         s.mrp ?? "",
         s.sellingPrice ?? "",
-        s.isInfiniteStock ? "" : (s.availableStock ?? ""),
-        s.isInfiniteStock ? "TRUE" : "FALSE",
+        psCurrentAvailability(s),
       ].map(toCell),
     );
     const csv = [
@@ -1245,15 +1252,14 @@ export function MySKU() {
   };
 
   /** Payload handed off to importPriceStockRows — the validated price
-   *  and stock values plus the matched SKU Code. Read-only columns
-   *  (SKU Name, Brand, Category) are intentionally not carried over;
-   *  the importer reads them from the existing catalog. */
+   *  values + a Yes/No availability flag. Read-only columns (SKU Name,
+   *  Brand, Category) are intentionally not carried over; the importer
+   *  reads them from the existing catalog. */
   type PsValidatedRow = {
     skuCode: string;
     mrp: number;
     sellingPrice: number;
-    availableStock: number;
-    isInfiniteStock: boolean;
+    availability: "Yes" | "No";
   };
 
   const validatePriceStockFile = async (
@@ -1346,8 +1352,7 @@ export function MySKU() {
       const skuName = (cols[1] ?? "").trim();
       const mrpRaw = (cols[4] ?? "").trim();
       const spRaw = (cols[5] ?? "").trim();
-      const stockRaw = (cols[6] ?? "").trim();
-      const infiniteRaw = (cols[7] ?? "").trim().toUpperCase();
+      const availabilityRaw = (cols[6] ?? "").trim();
 
       // VAL-2 — SKU Code must exist in the catalog.
       const existing = byCode.get(skuCode);
@@ -1411,59 +1416,34 @@ export function MySKU() {
         });
       }
 
-      // VAL-6 — Infinite Stock must be exactly TRUE or FALSE.
-      let isInfiniteStock: boolean | null = null;
-      if (infiniteRaw === "TRUE") isInfiniteStock = true;
-      else if (infiniteRaw === "FALSE") isInfiniteStock = false;
+      // VAL-5 — Available Stock must be Yes or No (case-insensitive
+      // after trim).
+      let availability: "Yes" | "No" | null = null;
+      const a = availabilityRaw.toLowerCase();
+      if (a === "yes") availability = "Yes";
+      else if (a === "no") availability = "No";
       else {
         rowErrors.push({
           row: rowNumber,
-          field: "Infinite Stock",
-          error: "Infinite Stock must be TRUE or FALSE.",
+          field: "Available Stock",
+          error: "Available Stock must be Yes or No.",
           skuCode,
           skuName,
-          value: infiniteRaw,
+          value: availabilityRaw,
         });
-      }
-
-      // VAL-5 — Available Stock whole number ≥ 0, but only when
-      // Infinite Stock is FALSE (when TRUE, the stock value is
-      // ignored).
-      let availableStock = 0;
-      if (isInfiniteStock === false) {
-        const stockNum = Number(stockRaw);
-        if (
-          stockRaw === "" ||
-          !Number.isInteger(stockNum) ||
-          stockNum < 0
-        ) {
-          rowErrors.push({
-            row: rowNumber,
-            field: "Available Stock",
-            error:
-              "Available Stock must be a whole number, zero or more.",
-            skuCode,
-            skuName,
-            value: stockRaw,
-          });
-        } else {
-          availableStock = stockNum;
-        }
       }
 
       if (rowErrors.length > 0) {
         errors.push(...rowErrors);
         return;
       }
-      if (isInfiniteStock === null) return; // safety — caught above
+      if (availability === null) return; // safety — caught above
 
       // VAL-9 — silent-skip unchanged rows.
       const unchanged =
         existing.mrp === mrp &&
         existing.sellingPrice === sp &&
-        (existing.isInfiniteStock ?? false) === isInfiniteStock &&
-        (isInfiniteStock ||
-          (existing.availableStock ?? 0) === availableStock);
+        psCurrentAvailability(existing) === availability;
       if (unchanged) {
         noChangeRows += 1;
         return;
@@ -1473,8 +1453,7 @@ export function MySKU() {
         skuCode,
         mrp,
         sellingPrice: sp,
-        availableStock,
-        isInfiniteStock,
+        availability,
       });
     });
 
@@ -1499,15 +1478,19 @@ export function MySKU() {
       prev.map((s) => {
         const r = byCode.get(s.sku);
         if (!r) return s;
+        // Available Stock = Yes → SKU is available (flag the record
+        // as infinite stock so the storefront shows it as in stock).
+        // Available Stock = No → SKU is out of stock (clear infinite
+        // flag and zero out the count). Story 19128 BR-3: only the
+        // price + availability fields change — every other field is
+        // left untouched.
+        const isYes = r.availability === "Yes";
         return {
           ...s,
-          // Story 19128 BR-3: only MRP, Selling Price, Available
-          // Stock and Infinite Stock change on the matched SKUs —
-          // every other field is left untouched.
           mrp: r.mrp,
           sellingPrice: r.sellingPrice,
-          availableStock: r.availableStock,
-          isInfiniteStock: r.isInfiniteStock,
+          isInfiniteStock: isYes,
+          availableStock: isYes ? (s.availableStock ?? 0) : 0,
           lastUpdated: today,
         };
       }),
@@ -1992,23 +1975,23 @@ export function MySKU() {
       {/* Price & Stock — Bulk Import (Story 19128). The downloaded
           sheet is pre-filled with every SKU in the seller's catalog
           and its current values; the seller edits only MRP / Selling
-          Price / Available Stock / Infinite Stock offline and
-          re-uploads. Rows whose SKU Code isn't in the catalog are
-          REJECTED with a row-level error (not silently skipped). */}
+          Price / Available Stock (Yes/No) offline and re-uploads.
+          Rows whose SKU Code isn't in the catalog are REJECTED with a
+          row-level error (not silently skipped). */}
       <BulkImportDialog
         open={isPriceStockBulkOpen}
         onOpenChange={setIsPriceStockBulkOpen}
         config={{
           title: "Update Price & Stock — Bulk Import",
           description:
-            "Download a sheet pre-filled with your existing SKUs, edit only MRP / Selling Price / Available Stock / Infinite Stock offline, then re-upload to apply the changes in bulk.",
+            "Download a sheet pre-filled with your existing SKUs, edit only MRP / Selling Price / Available Stock (Yes/No) offline, then re-upload to apply the changes in bulk.",
           instructions: (
             <>
               Use this to update price and stock on SKUs that already exist in
               your catalog. Download the sheet — it comes pre-filled with your
-              existing SKUs and current values — edit only the price and stock
-              columns, then re-upload. To add brand-new SKUs, use{" "}
-              <b>Add new SKU</b> instead.
+              existing SKUs and current values — edit only the MRP, Selling
+              Price, and Available Stock (Yes/No) columns, then re-upload. To
+              add brand-new SKUs, use <b>Add new SKU</b> instead.
             </>
           ),
           sample: {
