@@ -46,11 +46,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  importBizomCsv,
-  BIZOM_REQUIRED_HEADERS,
-  AggregatedSKU,
-} from "../../lib/bizom-validation";
 import { Layers, PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
@@ -1179,107 +1174,341 @@ export function MySKU() {
     setSkus((prev) => [...newSkus, ...prev]);
   };
 
-  // ---- Price & Stock update (Bizom DMS bulk import) ----
-  // Business rule: SKU Codes from the file that don't exist in the
-  // catalog are silently skipped; only existing SKUs are updated.
+  // ---- Price & Stock update (Story 19128) ----
+  // The seller downloads a sheet pre-filled with their existing catalog
+  // (every SKU + its current MRP / Selling Price / Available Stock /
+  // Infinite Stock), edits only those four columns offline, and
+  // re-uploads. Rows are matched by SKU Code; unknown codes are
+  // REJECTED (not silently skipped — the story is explicit on that).
+  // Unchanged rows are skipped silently. The cap is 500 rows per
+  // upload. Apply is atomic — either every valid row's update saves
+  // or none.
+
+  /** Columns on the downloaded template — read-only identifier columns
+   *  first, then the four editable columns. The header is locked by
+   *  spec; the validator below rejects files with a different header. */
+  const PS_TEMPLATE_HEADERS = [
+    "SKU Code",
+    "SKU Name",
+    "Brand",
+    "Category",
+    "MRP",
+    "Selling Price",
+    "Available Stock",
+    "Infinite Stock",
+  ] as const;
+
+  /** Max number of data rows in one upload (BR-8 of the story). */
+  const PS_MAX_ROWS = 500;
+
   const handleDownloadPsSample = () => {
-    const headers = [
-      ...BIZOM_REQUIRED_HEADERS,
-      "Saleable Stock( Case ),Saleable Stock( Unit )",
-      "Total Non-Saleable Stock( Case ),Total Non-Saleable Stock( Unit )",
-      "In Transit Stock( Case ),In Transit Stock( Unit )",
-      "Total Stock( Case ),Total Stock( Unit )",
-      "Amount/Value",
-      "Stock Turnover Ratio(No. of days stock will last)",
-    ];
-    const sample = [
-      ["2", "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN", "180000005", "26106600284101", "2026-04-06", "2026-07-05", "0.00000", "2810.00000", "5.00", "'1,0", "0,0", "0,0", "'1,0", "2810", "0", ""],
-      ["3", "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN", "180000006", "26106600591101", "2026-04-08", "2026-07-07", "0.00000", "2580.00000", "5.00", "'52,0", "0,0", "0,0", "'52,0", "134160", "3", ""],
-    ];
-    const toCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    // Pre-fill the sheet with every existing SKU in the seller's
+    // catalog and its current values. This is the "Download current
+    // sheet" step from the story — the file is the seller's own
+    // catalog, not a generic sample.
+    const toCell = (v: string | number) => {
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = skus.map((s) =>
+      [
+        s.sku,
+        s.name,
+        s.brand,
+        s.category,
+        s.mrp ?? "",
+        s.sellingPrice ?? "",
+        s.isInfiniteStock ? "" : (s.availableStock ?? ""),
+        s.isInfiniteStock ? "TRUE" : "FALSE",
+      ].map(toCell),
+    );
     const csv = [
-      headers.map(toCell).join(","),
-      ...sample.map((r) => r.map(toCell).join(",")),
+      PS_TEMPLATE_HEADERS.map(toCell).join(","),
+      ...rows.map((r) => r.join(",")),
     ].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    // UTF-8 BOM so Excel opens the file with the correct encoding for
+    // Indian-language SKU names.
+    const blob = new Blob(["﻿" + csv], {
+      type: "text/csv;charset=utf-8;",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Bizom_Price_Stock_Template.csv";
+    a.download = "price_stock_update_template.csv";
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Sample template downloaded");
+    toast.success(
+      `Sheet downloaded with ${rows.length} SKU${rows.length === 1 ? "" : "s"} pre-filled.`,
+    );
   };
 
-  // Validate uploaded Price/Stock file → standardized result for the
-  // shared dialog. Wraps importBizomCsv() and rejects rows whose SKU
-  // Code is not present in the catalog (we don't auto-create on a
-  // price update — that's the Add SKU flow).
+  /** Payload handed off to importPriceStockRows — the validated price
+   *  and stock values plus the matched SKU Code. Read-only columns
+   *  (SKU Name, Brand, Category) are intentionally not carried over;
+   *  the importer reads them from the existing catalog. */
+  type PsValidatedRow = {
+    skuCode: string;
+    mrp: number;
+    sellingPrice: number;
+    availableStock: number;
+    isInfiniteStock: boolean;
+  };
+
   const validatePriceStockFile = async (
     file: File,
   ): Promise<BulkImportValidationResult> => {
     const text = await readFileText(file);
-    const result = importBizomCsv(text);
+    const rows = parseCsv(text);
+
+    // File-level checks — these short-circuit the row pass.
+    if (rows.length === 0) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "The file is empty. Please add SKU updates and re-upload.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    const header = rows[0].map((h) => h.trim());
+    const expected = [...PS_TEMPLATE_HEADERS];
+    const headerMismatch =
+      header.length !== expected.length ||
+      header.some((h, i) => h !== expected[i]);
+    if (headerMismatch) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "This file doesn't match the template. Please download the latest sheet and try again.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    const dataRows = rows.slice(1).filter((r) => r.some((c) => c.trim() !== ""));
+    if (dataRows.length === 0) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "The file is empty. Please add SKU updates and re-upload.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    if (dataRows.length > PS_MAX_ROWS) {
+      return {
+        totalRows: dataRows.length,
+        validRows: 0,
+        invalidRows: dataRows.length,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error: `This file has more than ${PS_MAX_ROWS} rows. Please split it into smaller files and upload again.`,
+          },
+        ],
+        validData: [],
+      };
+    }
+
+    // Index the catalog by SKU Code so the row pass is O(1) per row.
+    const byCode = new Map(skus.map((s) => [s.sku, s]));
+
     const errors: BulkImportErrorRow[] = [];
+    const validData: PsValidatedRow[] = [];
+    let noChangeRows = 0;
 
-    // File-level errors (header missing, completely empty, etc.) — fold
-    // each into a single Row 1 entry so the standardized table renders.
-    for (const fe of result.fileLevelErrors) {
-      errors.push({ row: 1, field: fe.field || "File", error: fe.message });
-    }
+    dataRows.forEach((cols, idx) => {
+      const rowNumber = idx + 2; // header was row 1
+      const skuCode = (cols[0] ?? "").trim();
+      const skuName = (cols[1] ?? "").trim();
+      const mrpRaw = (cols[4] ?? "").trim();
+      const spRaw = (cols[5] ?? "").trim();
+      const stockRaw = (cols[6] ?? "").trim();
+      const infiniteRaw = (cols[7] ?? "").trim().toUpperCase();
 
-    // Per-batch-row validation errors from the Bizom validator.
-    for (const br of result.batchRows) {
-      for (const e of br.errors) {
-        errors.push({ row: br.raw.rowNumber, field: e.field, error: e.message });
-      }
-    }
-
-    // Silent-skip rule for unknown SKU Codes — these aren't validation
-    // errors, they're just rows we ignore. We still expose them in the
-    // error table so the seller can see what was skipped and why.
-    const catalog = new Set(skus.map((s) => s.sku));
-    const matched: AggregatedSKU[] = [];
-    for (const agg of result.aggregated) {
-      if (catalog.has(agg.skuCode)) {
-        matched.push(agg);
-      } else {
+      // VAL-2 — SKU Code must exist in the catalog.
+      const existing = byCode.get(skuCode);
+      if (!skuCode) {
         errors.push({
-          row: 0,
+          row: rowNumber,
+          field: "SKU Code",
+          error: "SKU Code is required.",
+          skuCode,
+          skuName,
+          value: skuCode,
+        });
+        return;
+      }
+      if (!existing) {
+        errors.push({
+          row: rowNumber,
           field: "SKU Code",
           error: "SKU Code not found in your catalog.",
+          skuCode,
+          skuName,
+          value: skuCode,
+        });
+        return;
+      }
+
+      const rowErrors: BulkImportErrorRow[] = [];
+
+      // VAL-3 — MRP > 0.
+      const mrp = Number(mrpRaw);
+      if (mrpRaw === "" || !Number.isFinite(mrp) || mrp <= 0) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "MRP",
+          error: "MRP must be a number greater than zero.",
+          skuCode,
+          skuName,
+          value: mrpRaw,
         });
       }
-    }
+
+      // VAL-4 — Selling Price > 0 and ≤ MRP.
+      const sp = Number(spRaw);
+      if (spRaw === "" || !Number.isFinite(sp) || sp <= 0) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Selling Price",
+          error: "Selling Price must be a number greater than zero.",
+          skuCode,
+          skuName,
+          value: spRaw,
+        });
+      } else if (Number.isFinite(mrp) && mrp > 0 && sp > mrp) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Selling Price",
+          error: "Selling Price cannot be greater than MRP.",
+          skuCode,
+          skuName,
+          value: spRaw,
+        });
+      }
+
+      // VAL-6 — Infinite Stock must be exactly TRUE or FALSE.
+      let isInfiniteStock: boolean | null = null;
+      if (infiniteRaw === "TRUE") isInfiniteStock = true;
+      else if (infiniteRaw === "FALSE") isInfiniteStock = false;
+      else {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Infinite Stock",
+          error: "Infinite Stock must be TRUE or FALSE.",
+          skuCode,
+          skuName,
+          value: infiniteRaw,
+        });
+      }
+
+      // VAL-5 — Available Stock whole number ≥ 0, but only when
+      // Infinite Stock is FALSE (when TRUE, the stock value is
+      // ignored).
+      let availableStock = 0;
+      if (isInfiniteStock === false) {
+        const stockNum = Number(stockRaw);
+        if (
+          stockRaw === "" ||
+          !Number.isInteger(stockNum) ||
+          stockNum < 0
+        ) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "Available Stock",
+            error:
+              "Available Stock must be a whole number, zero or more.",
+            skuCode,
+            skuName,
+            value: stockRaw,
+          });
+        } else {
+          availableStock = stockNum;
+        }
+      }
+
+      if (rowErrors.length > 0) {
+        errors.push(...rowErrors);
+        return;
+      }
+      if (isInfiniteStock === null) return; // safety — caught above
+
+      // VAL-9 — silent-skip unchanged rows.
+      const unchanged =
+        existing.mrp === mrp &&
+        existing.sellingPrice === sp &&
+        (existing.isInfiniteStock ?? false) === isInfiniteStock &&
+        (isInfiniteStock ||
+          (existing.availableStock ?? 0) === availableStock);
+      if (unchanged) {
+        noChangeRows += 1;
+        return;
+      }
+
+      validData.push({
+        skuCode,
+        mrp,
+        sellingPrice: sp,
+        availableStock,
+        isInfiniteStock,
+      });
+    });
+
+    const validRows = validData.length;
+    const invalidRows = dataRows.length - validRows - noChangeRows;
 
     return {
-      totalRows: result.totalRows,
-      validRows: matched.length,
-      invalidRows: result.totalRows - matched.length,
+      totalRows: dataRows.length,
+      validRows,
+      invalidRows,
       errors,
-      validData: matched,
+      validData,
     };
   };
 
-  // Apply validated price/stock rows to the catalog.
   const importPriceStockRows = (rows: unknown[]) => {
-    const matched = rows as AggregatedSKU[];
-    if (matched.length === 0) return;
+    const valid = rows as PsValidatedRow[];
+    if (valid.length === 0) return;
     const today = new Date().toISOString().split("T")[0];
-    const byCode = new Map(matched.map((s) => [s.skuCode, s]));
+    const byCode = new Map(valid.map((r) => [r.skuCode, r]));
     setSkus((prev) =>
       prev.map((s) => {
-        const agg = byCode.get(s.sku);
-        if (!agg) return s;
+        const r = byCode.get(s.sku);
+        if (!r) return s;
         return {
           ...s,
-          mrp: agg.mrp,
-          sellingPrice: agg.sellingPrice,
-          availableStock: agg.totalStock,
+          // Story 19128 BR-3: only MRP, Selling Price, Available
+          // Stock and Infinite Stock change on the matched SKUs —
+          // every other field is left untouched.
+          mrp: r.mrp,
+          sellingPrice: r.sellingPrice,
+          availableStock: r.availableStock,
+          isInfiniteStock: r.isInfiniteStock,
           lastUpdated: today,
-          source: "DMS Sync",
         };
       }),
     );
@@ -1760,16 +1989,19 @@ export function MySKU() {
         }}
       />
 
-      {/* Price & Stock — Bulk Import. Same standardized flow as Add
-          SKU; differs only in copy, sample template, and validator
-          (Bizom DMS export, silent-skip for unknown SKU Codes). */}
+      {/* Price & Stock — Bulk Import (Story 19128). The downloaded
+          sheet is pre-filled with every SKU in the seller's catalog
+          and its current values; the seller edits only MRP / Selling
+          Price / Available Stock / Infinite Stock offline and
+          re-uploads. Rows whose SKU Code isn't in the catalog are
+          REJECTED with a row-level error (not silently skipped). */}
       <BulkImportDialog
         open={isPriceStockBulkOpen}
         onOpenChange={setIsPriceStockBulkOpen}
         config={{
           title: "Update Price & Stock — Bulk Import",
           description:
-            "Upload a Bizom DMS export. Existing SKUs get their MRP, Selling Price, and Stock refreshed; rows whose SKU Code is not in the catalog are skipped.",
+            "Download a sheet pre-filled with your existing SKUs, edit only MRP / Selling Price / Available Stock / Infinite Stock offline, then re-upload to apply the changes in bulk.",
           instructions: (
             <>
               Use this to update price and stock on SKUs that already exist in
@@ -1780,12 +2012,17 @@ export function MySKU() {
             </>
           ),
           sample: {
-            fileName: "Bizom_Price_Stock_Template.csv",
+            fileName: "price_stock_update_template.csv",
             onDownload: handleDownloadPsSample,
           },
           accept: ".csv,.xlsx,.xls",
           validate: validatePriceStockFile,
           onImport: importPriceStockRows,
+          successToast: (result) =>
+            `${result.validRows} SKU${result.validRows === 1 ? "" : "s"} updated.` +
+            (result.invalidRows > 0
+              ? ` ${result.invalidRows} row${result.invalidRows === 1 ? "" : "s"} had errors and were skipped.`
+              : ""),
         }}
       />
     </div>
