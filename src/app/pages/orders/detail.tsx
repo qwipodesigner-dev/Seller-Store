@@ -4,8 +4,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/ca
 import { Button } from "../../components/ui/button";
 import { Label } from "../../components/ui/label";
 import { Badge } from "../../components/ui/badge";
-import { Textarea } from "../../components/ui/textarea";
-import { RadioGroup, RadioGroupItem } from "../../components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
 import {
   Dialog,
   DialogContent,
@@ -28,6 +33,7 @@ import {
   Layers,
   TrendingDown,
   Truck,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -285,9 +291,11 @@ export function OrderDetail() {
 
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [isCancelModalOpen, setIsCancelModalOpen] = useState(false);
+  // Detail page reuses the bulk cancel popup's shape so the seller
+  // sees one consistent cancellation experience regardless of where
+  // they triggered it.
   const [isDeliverModalOpen, setIsDeliverModalOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState("Out of Stock");
-  const [cancelOtherReason, setCancelOtherReason] = useState("");
+  const [cancelReason, setCancelReason] = useState("");
   // Modify Items / edit-mode functionality was retired in this
   // phase. The items table is now strictly read-only — qty and
   // price per unit are whatever the order arrived with, and any
@@ -357,11 +365,10 @@ export function OrderDetail() {
   };
 
   const handleCancel = () => {
-    const reason = cancelReason === "Other" ? cancelOtherReason : cancelReason;
     setOrderData((prev) => ({ ...prev, status: "Cancelled" }));
     if (orderData.orderId) updateOrderStatus(orderData.orderId, "Cancelled");
     setIsCancelModalOpen(false);
-    toast.error(`Order cancelled. Reason: ${reason}`);
+    toast.error(`Order cancelled. Reason: ${cancelReason}`);
     setTimeout(() => {
       navigate("/orders");
     }, 1500);
@@ -724,72 +731,64 @@ export function OrderDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Cancel Order Modal */}
+      {/* Cancel Order Modal — mirrors the bulk Cancel Orders popup on
+          the list page so the seller sees one consistent cancellation
+          surface regardless of where they triggered it. Reason is a
+          single Select (no per-option radios, no "Other" textarea). */}
       <Dialog open={isCancelModalOpen} onOpenChange={setIsCancelModalOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-red-600">
-              <XCircle className="h-5 w-5" />
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-600" />
               Cancel Order
             </DialogTitle>
             <DialogDescription>
-              Please provide a reason for cancelling this order
+              Cancel this order. Please provide a reason for cancellation.
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4 py-4">
-            <div className="space-y-3">
-              <Label>Cancellation Reason</Label>
-              <RadioGroup value={cancelReason} onValueChange={setCancelReason}>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Out of Stock" id="c1" />
-                  <Label htmlFor="c1" className="font-normal cursor-pointer">
-                    Out of Stock
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Delivery Issue" id="c2" />
-                  <Label htmlFor="c2" className="font-normal cursor-pointer">
-                    Delivery Issue
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Pricing Error" id="c3" />
-                  <Label htmlFor="c3" className="font-normal cursor-pointer">
-                    Pricing Error
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="Other" id="c4" />
-                  <Label htmlFor="c4" className="font-normal cursor-pointer">
-                    Other
-                  </Label>
-                </div>
-              </RadioGroup>
-              {cancelReason === "Other" && (
-                <div className="mt-2">
-                  <Textarea
-                    placeholder="Please specify the reason..."
-                    rows={3}
-                    value={cancelOtherReason}
-                    onChange={(e) => setCancelOtherReason(e.target.value)}
-                  />
-                </div>
-              )}
+            <div className="space-y-2">
+              <Label htmlFor="cancelReason">
+                Reason for Cancellation <span className="text-red-500">*</span>
+              </Label>
+              <Select value={cancelReason} onValueChange={setCancelReason}>
+                <SelectTrigger id="cancelReason">
+                  <SelectValue placeholder="Select a reason" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+                  <SelectItem value="Delivery Issue">Delivery Issue</SelectItem>
+                  <SelectItem value="Pricing Error">Pricing Error</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+              <p className="text-sm text-amber-800">
+                <AlertCircle className="h-4 w-4 inline mr-1" />
+                Cancelled orders will be notified to the customer and cannot be
+                undone.
+              </p>
             </div>
           </div>
+
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCancelModalOpen(false)}>
-              Go Back
+            <Button
+              variant="outline"
+              onClick={() => setIsCancelModalOpen(false)}
+            >
+              Cancel
             </Button>
             <Button
               variant="destructive"
               onClick={handleCancel}
-              disabled={
-                !cancelReason ||
-                (cancelReason === "Other" && !cancelOtherReason.trim())
-              }
+              disabled={!cancelReason.trim()}
+              className="gap-2"
             >
-              Confirm Cancellation
+              <XCircle className="h-4 w-4" />
+              Cancel Order
             </Button>
           </DialogFooter>
         </DialogContent>
