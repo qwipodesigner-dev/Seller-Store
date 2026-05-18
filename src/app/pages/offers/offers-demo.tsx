@@ -4,6 +4,7 @@ import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { Switch } from "../../components/ui/switch";
 import { Textarea } from "../../components/ui/textarea";
 import {
   Select,
@@ -26,6 +27,7 @@ import {
   Filter,
   Eye,
   Pencil,
+  Trash2,
   // Per-offer-type icons — match the Create Offers picker.
   Layers,
   IndianRupee,
@@ -37,6 +39,7 @@ import {
   Award,
   Package,
   Clock,
+  Tag,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -49,16 +52,15 @@ import {
 // =====================================================================
 // Empty-mode demo page for "Offers & Schemes 2"
 //
-// Surfaces the SAME table chrome the live page uses, but enables ALL
-// 10 offer types end-to-end (the live page only wires QPS — the rest
-// are "Coming Soon" there). On this page the seller can:
-//   - Create any of the 10 offer types via the "Create Offers" CTA
-//   - View an offer's full configuration (Eye action)
-//   - Edit an existing offer (Pencil action; Expired offers are gated)
+// Lifecycle parity with the live page (same 10-card "Create Offers"
+// picker, per-row View / Edit), but every offer type is wired:
+//   QPS replicates the live slab editor (qty bands × discount %).
+//   Value Slab uses the same shape on order value instead of qty.
+//   BOGO, Case Bonus, Off-Invoice, Display Allowance, Launch
+//   Incentive, Loyalty Rebate, Combo Bundle, Early Payment each get
+//   the structured inputs that match the offer's real-world shape.
 //
-// State is in-memory only — refreshing the page resets to the seed
-// catalogue, which intentionally includes the same SKU appearing under
-// multiple offer types so reviewers see the multi-offer pattern.
+// State is in-memory only — refreshing resets to the seed catalogue.
 // =====================================================================
 
 type OfferKind =
@@ -75,18 +77,75 @@ type OfferKind =
 
 type OfferStatus = "Active" | "Inactive" | "Scheduled" | "Expired";
 
+// ---------------------------------------------------------------------
+// Type-specific config payloads (tagged union — the discriminator is
+// `kind`). Saving an offer goes through one of these, so View and Edit
+// can round-trip the structured state instead of parsing a string.
+// ---------------------------------------------------------------------
+
+interface QpsSlab {
+  minQty: number;
+  maxQty: number | null; // null = ∞
+  discountPct: number;
+}
+
+interface ValueSlabTier {
+  minValue: number;
+  maxValue: number | null; // null = ∞
+  discountPct: number;
+}
+
+type OfferConfig =
+  | { kind: "qps"; sellingPrice: number; slabs: QpsSlab[] }
+  | { kind: "value-slab"; tiers: ValueSlabTier[] }
+  | { kind: "bogo"; buyQty: number; freeQty: number }
+  | { kind: "case-bonus"; buyCases: number; freeCases: number }
+  | {
+      kind: "off-invoice";
+      discountType: "percent" | "flat";
+      value: number;
+    }
+  | {
+      kind: "display-allowance";
+      amountPerStore: number;
+      requirement: string;
+      frequency: "Weekly" | "Fortnightly" | "Monthly";
+    }
+  | {
+      kind: "launch-incentive";
+      discountPerUnit: number;
+      durationDays: number;
+      minQty: number;
+    }
+  | {
+      kind: "loyalty-rebate";
+      rebatePct: number;
+      afterReorders: number;
+      payoutFrequency: "Monthly" | "Quarterly" | "Half-yearly";
+    }
+  | {
+      kind: "combo-bundle";
+      bundleSkuCode: string;
+      bundleSkuName: string;
+      discountType: "percent" | "flat";
+      value: number;
+    }
+  | { kind: "early-payment"; discountPct: number; withinDays: number };
+
 interface DemoOffer {
   id: string;
   skuCode: string;
   skuName: string;
-  offerType: OfferKind;
-  /** Free-text describing the offer. Replaces the per-type detail
-   *  columns the live page exposes (Pricing Rules, MRP/SP, etc.). */
-  details: string;
+  config: OfferConfig;
   startDate: string;
   endDate: string;
   status: OfferStatus;
 }
+
+// ---------------------------------------------------------------------
+// Per-type display metadata: label, description, icon, colours.
+// Used by both the picker dialog and the row badge in the table.
+// ---------------------------------------------------------------------
 
 const OFFER_TYPE_META: Record<
   OfferKind,
@@ -94,222 +153,116 @@ const OFFER_TYPE_META: Record<
     label: string;
     description: string;
     icon: LucideIcon;
+    iconBg: string;
     iconColor: string;
-    bg: string;
-    border: string;
-    placeholder: string;
+    badgeBg: string;
+    badgeText: string;
+    badgeBorder: string;
   }
 > = {
   qps: {
     label: "QPS",
     description: "Quantity-based price slabs with tiered discounts",
     icon: Layers,
-    iconColor: "text-blue-700",
-    bg: "bg-blue-50",
-    border: "border-blue-200",
-    placeholder: "e.g. 3 slabs · 1–11 / 12–47 / 48+ qty · up to 10% off",
+    iconBg: "bg-blue-100",
+    iconColor: "text-blue-600",
+    badgeBg: "bg-blue-50",
+    badgeText: "text-blue-700",
+    badgeBorder: "border-blue-200",
   },
   "value-slab": {
     label: "Value Slab",
     description: "Order value-based discount tiers",
     icon: IndianRupee,
-    iconColor: "text-emerald-700",
-    bg: "bg-emerald-50",
-    border: "border-emerald-200",
-    placeholder:
-      "e.g. Order > ₹50,000 · 3% off · Order > ₹1,00,000 · 5% off",
+    iconBg: "bg-emerald-100",
+    iconColor: "text-emerald-600",
+    badgeBg: "bg-emerald-50",
+    badgeText: "text-emerald-700",
+    badgeBorder: "border-emerald-200",
   },
   bogo: {
     label: "BOGO",
     description: "Buy X quantity, get Y free units",
     icon: Gift,
-    iconColor: "text-pink-700",
-    bg: "bg-pink-50",
-    border: "border-pink-200",
-    placeholder: "e.g. Buy 10, get 1 free unit",
+    iconBg: "bg-pink-100",
+    iconColor: "text-pink-600",
+    badgeBg: "bg-pink-50",
+    badgeText: "text-pink-700",
+    badgeBorder: "border-pink-200",
   },
   "case-bonus": {
     label: "Case Bonus",
     description: "Extra cases free on bulk purchase",
     icon: Boxes,
-    iconColor: "text-amber-700",
-    bg: "bg-amber-50",
-    border: "border-amber-200",
-    placeholder: "e.g. Buy 50 cases, get 3 free",
+    iconBg: "bg-amber-100",
+    iconColor: "text-amber-600",
+    badgeBg: "bg-amber-50",
+    badgeText: "text-amber-700",
+    badgeBorder: "border-amber-200",
   },
   "off-invoice": {
     label: "Off-Invoice",
     description: "Flat discount applied on invoice total",
     icon: Receipt,
-    iconColor: "text-purple-700",
-    bg: "bg-purple-50",
-    border: "border-purple-200",
-    placeholder: "e.g. Flat ₹10 off per unit on invoice",
+    iconBg: "bg-purple-100",
+    iconColor: "text-purple-600",
+    badgeBg: "bg-purple-50",
+    badgeText: "text-purple-700",
+    badgeBorder: "border-purple-200",
   },
   "display-allowance": {
     label: "Display Allowance",
     description: "Incentive for in-store product display",
     icon: StoreIcon,
-    iconColor: "text-cyan-700",
-    bg: "bg-cyan-50",
-    border: "border-cyan-200",
-    placeholder: "e.g. ₹500 per store for end-cap display",
+    iconBg: "bg-cyan-100",
+    iconColor: "text-cyan-600",
+    badgeBg: "bg-cyan-50",
+    badgeText: "text-cyan-700",
+    badgeBorder: "border-cyan-200",
   },
   "launch-incentive": {
     label: "Launch Incentive",
     description: "Special pricing for new product launches",
     icon: Rocket,
-    iconColor: "text-orange-700",
-    bg: "bg-orange-50",
-    border: "border-orange-200",
-    placeholder: "e.g. ₹50 launch discount per unit · first 60 days",
+    iconBg: "bg-orange-100",
+    iconColor: "text-orange-600",
+    badgeBg: "bg-orange-50",
+    badgeText: "text-orange-700",
+    badgeBorder: "border-orange-200",
   },
   "loyalty-rebate": {
     label: "Loyalty Rebate",
     description: "Cashback rebate for repeat purchases",
     icon: Award,
-    iconColor: "text-yellow-700",
-    bg: "bg-yellow-50",
-    border: "border-yellow-200",
-    placeholder: "e.g. 1% cashback on every reorder after 3rd month",
+    iconBg: "bg-yellow-100",
+    iconColor: "text-yellow-600",
+    badgeBg: "bg-yellow-50",
+    badgeText: "text-yellow-700",
+    badgeBorder: "border-yellow-200",
   },
   "combo-bundle": {
     label: "Combo Bundle",
     description: "Bundled products at discounted rate",
     icon: Package,
-    iconColor: "text-indigo-700",
-    bg: "bg-indigo-50",
-    border: "border-indigo-200",
-    placeholder:
-      "e.g. Bundle 1 case Sunflower + 1 case Groundnut · ₹150 off",
+    iconBg: "bg-indigo-100",
+    iconColor: "text-indigo-600",
+    badgeBg: "bg-indigo-50",
+    badgeText: "text-indigo-700",
+    badgeBorder: "border-indigo-200",
   },
   "early-payment": {
     label: "Early Payment",
     description: "Discount for early invoice settlement",
     icon: Clock,
-    iconColor: "text-teal-700",
-    bg: "bg-teal-50",
-    border: "border-teal-200",
-    placeholder: "e.g. 2% off if invoice settled within 7 days",
+    iconBg: "bg-teal-100",
+    iconColor: "text-teal-600",
+    badgeBg: "bg-teal-50",
+    badgeText: "text-teal-700",
+    badgeBorder: "border-teal-200",
   },
 };
 
 const OFFER_KINDS: OfferKind[] = Object.keys(OFFER_TYPE_META) as OfferKind[];
-
-// Seed data — three SKUs each carrying multiple offer types so the
-// table actively shows the "same SKU, different rows" pattern.
-const SEED_OFFERS: DemoOffer[] = [
-  {
-    id: "QPS-180000008",
-    skuCode: "180000008",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
-    offerType: "qps",
-    details: "3 slabs · 1–11 / 12–47 / 48+ qty · up to 10% off",
-    startDate: "2026-04-01",
-    endDate: "2026-05-31",
-    status: "Active",
-  },
-  {
-    id: "BOGO-180000008",
-    skuCode: "180000008",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
-    offerType: "bogo",
-    details: "Buy 10, get 1 free unit",
-    startDate: "2026-04-15",
-    endDate: "2026-06-15",
-    status: "Active",
-  },
-  {
-    id: "OFF-180000008",
-    skuCode: "180000008",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
-    offerType: "off-invoice",
-    details: "Flat ₹10 off per unit on invoice",
-    startDate: "2026-05-01",
-    endDate: "2026-05-31",
-    status: "Scheduled",
-  },
-  {
-    id: "VS-180000005",
-    skuCode: "180000005",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
-    offerType: "value-slab",
-    details: "Order > ₹50,000 · 3% off · > ₹1,00,000 · 5% off",
-    startDate: "2026-04-01",
-    endDate: "2026-07-31",
-    status: "Active",
-  },
-  {
-    id: "EP-180000005",
-    skuCode: "180000005",
-    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
-    offerType: "early-payment",
-    details: "2% off if invoice settled within 7 days",
-    startDate: "2026-04-01",
-    endDate: "2026-12-31",
-    status: "Active",
-  },
-  {
-    id: "QPS-180000249",
-    skuCode: "180000249",
-    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    offerType: "qps",
-    details: "3 slabs · 1–4 / 5–19 / 20+ jars",
-    startDate: "2026-04-15",
-    endDate: "2026-06-30",
-    status: "Inactive",
-  },
-  {
-    id: "CB-180000249",
-    skuCode: "180000249",
-    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    offerType: "case-bonus",
-    details: "Buy 50 cases, get 3 free",
-    startDate: "2026-04-15",
-    endDate: "2026-06-30",
-    status: "Active",
-  },
-  {
-    id: "DA-180000249",
-    skuCode: "180000249",
-    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    offerType: "display-allowance",
-    details: "₹500 incentive per store for end-cap display",
-    startDate: "2026-04-15",
-    endDate: "2026-06-30",
-    status: "Active",
-  },
-  {
-    id: "LR-180000249",
-    skuCode: "180000249",
-    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    offerType: "loyalty-rebate",
-    details: "1% cashback on every reorder after 3rd month",
-    startDate: "2026-04-15",
-    endDate: "2026-12-31",
-    status: "Scheduled",
-  },
-  {
-    id: "LI-180000179",
-    skuCode: "180000179",
-    skuName: "FREEDOM REF.SUNFLOWER OIL 2 LTR X 6 PET",
-    offerType: "launch-incentive",
-    details: "₹50 launch discount per unit · first 60 days",
-    startDate: "2026-03-01",
-    endDate: "2026-04-30",
-    status: "Expired",
-  },
-  {
-    id: "CB-180000076",
-    skuCode: "180000076",
-    skuName: "FREEDOM REF.SUNFLOWER OIL 1 LTR X 12PET",
-    offerType: "combo-bundle",
-    details: "Bundle 1 case Sunflower + 1 case Groundnut · ₹150 off",
-    startDate: "2026-04-20",
-    endDate: "2026-05-20",
-    status: "Active",
-  },
-];
 
 const STATUS_TONES: Record<OfferStatus, string> = {
   Active: "bg-emerald-50 text-emerald-700 border-emerald-200",
@@ -325,8 +278,6 @@ const STATUS_OPTIONS: OfferStatus[] = [
   "Expired",
 ];
 
-// Type-aware id prefix for fresh offer ids. Helps reviewers see at a
-// glance which row carries which offer kind when they reorder.
 const ID_PREFIX: Record<OfferKind, string> = {
   qps: "QPS",
   "value-slab": "VS",
@@ -347,25 +298,206 @@ const plusDays = (iso: string, days: number) => {
   return d.toISOString().slice(0, 10);
 };
 
-interface OfferDraft {
-  skuCode: string;
-  skuName: string;
-  offerType: OfferKind;
-  details: string;
-  startDate: string;
-  endDate: string;
-  status: OfferStatus;
+// ---------------------------------------------------------------------
+// describeConfig — converts a structured OfferConfig into the
+// short human-readable string the table's Details column shows.
+// Same pattern the live page uses for QPS slabs.
+// ---------------------------------------------------------------------
+
+const fmtCurrency = (n: number) => `₹${n.toLocaleString("en-IN")}`;
+const fmtRange = (min: number, max: number | null, suffix = "") =>
+  max === null ? `${min}${suffix}+` : `${min}–${max}${suffix}`;
+
+function describeConfig(c: OfferConfig): string {
+  switch (c.kind) {
+    case "qps": {
+      const top = Math.max(...c.slabs.map((s) => s.discountPct), 0);
+      const bands = c.slabs.map((s) => fmtRange(s.minQty, s.maxQty)).join(" / ");
+      return `${c.slabs.length} slabs · ${bands} qty · up to ${top}% off`;
+    }
+    case "value-slab":
+      return c.tiers
+        .map(
+          (t) =>
+            `${fmtCurrency(t.minValue)}${
+              t.maxValue === null ? "+" : `–${fmtCurrency(t.maxValue)}`
+            } · ${t.discountPct}% off`,
+        )
+        .join(" · ");
+    case "bogo":
+      return `Buy ${c.buyQty}, get ${c.freeQty} free unit${c.freeQty === 1 ? "" : "s"}`;
+    case "case-bonus":
+      return `Buy ${c.buyCases} cases, get ${c.freeCases} free`;
+    case "off-invoice":
+      return c.discountType === "percent"
+        ? `${c.value}% off on invoice total`
+        : `Flat ${fmtCurrency(c.value)} off per unit on invoice`;
+    case "display-allowance":
+      return `${fmtCurrency(c.amountPerStore)} per store · ${c.requirement} · verified ${c.frequency.toLowerCase()}`;
+    case "launch-incentive":
+      return `${fmtCurrency(c.discountPerUnit)} off per unit · first ${c.durationDays} days · min ${c.minQty} qty`;
+    case "loyalty-rebate":
+      return `${c.rebatePct}% cashback after ${c.afterReorders} reorder${c.afterReorders === 1 ? "" : "s"} · ${c.payoutFrequency.toLowerCase()} payout`;
+    case "combo-bundle":
+      return `Bundle ${c.bundleSkuCode}${c.bundleSkuName ? ` (${c.bundleSkuName})` : ""} · ${c.discountType === "percent" ? `${c.value}% off` : `${fmtCurrency(c.value)} off`}`;
+    case "early-payment":
+      return `${c.discountPct}% off if settled within ${c.withinDays} days`;
+  }
 }
 
-const emptyDraft = (): OfferDraft => ({
-  skuCode: "",
-  skuName: "",
-  offerType: "qps",
-  details: "",
-  startDate: todayISO(),
-  endDate: plusDays(todayISO(), 30),
-  status: "Scheduled",
-});
+// ---------------------------------------------------------------------
+// Seed catalogue — same SKUs across multiple offer types so the demo
+// shows the multi-offer-per-SKU pattern.
+// ---------------------------------------------------------------------
+
+const SEED_OFFERS: DemoOffer[] = [
+  {
+    id: "QPS-180000008-seed",
+    skuCode: "180000008",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
+    config: {
+      kind: "qps",
+      sellingPrice: 1850,
+      slabs: [
+        { minQty: 1, maxQty: 11, discountPct: 0 },
+        { minQty: 12, maxQty: 47, discountPct: 5 },
+        { minQty: 48, maxQty: null, discountPct: 10 },
+      ],
+    },
+    startDate: "2026-04-01",
+    endDate: "2026-05-31",
+    status: "Active",
+  },
+  {
+    id: "BOGO-180000008-seed",
+    skuCode: "180000008",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
+    config: { kind: "bogo", buyQty: 10, freeQty: 1 },
+    startDate: "2026-04-15",
+    endDate: "2026-06-15",
+    status: "Active",
+  },
+  {
+    id: "OFF-180000008-seed",
+    skuCode: "180000008",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
+    config: { kind: "off-invoice", discountType: "flat", value: 10 },
+    startDate: "2026-05-01",
+    endDate: "2026-05-31",
+    status: "Scheduled",
+  },
+  {
+    id: "VS-180000005-seed",
+    skuCode: "180000005",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
+    config: {
+      kind: "value-slab",
+      tiers: [
+        { minValue: 50000, maxValue: 99999, discountPct: 3 },
+        { minValue: 100000, maxValue: null, discountPct: 5 },
+      ],
+    },
+    startDate: "2026-04-01",
+    endDate: "2026-07-31",
+    status: "Active",
+  },
+  {
+    id: "EP-180000005-seed",
+    skuCode: "180000005",
+    skuName: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
+    config: { kind: "early-payment", discountPct: 2, withinDays: 7 },
+    startDate: "2026-04-01",
+    endDate: "2026-12-31",
+    status: "Active",
+  },
+  {
+    id: "QPS-180000249-seed",
+    skuCode: "180000249",
+    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
+    config: {
+      kind: "qps",
+      sellingPrice: 2400,
+      slabs: [
+        { minQty: 1, maxQty: 4, discountPct: 0 },
+        { minQty: 5, maxQty: 19, discountPct: 4 },
+        { minQty: 20, maxQty: null, discountPct: 8 },
+      ],
+    },
+    startDate: "2026-04-15",
+    endDate: "2026-06-30",
+    status: "Inactive",
+  },
+  {
+    id: "CB-180000249-seed",
+    skuCode: "180000249",
+    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
+    config: { kind: "case-bonus", buyCases: 50, freeCases: 3 },
+    startDate: "2026-04-15",
+    endDate: "2026-06-30",
+    status: "Active",
+  },
+  {
+    id: "DA-180000249-seed",
+    skuCode: "180000249",
+    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
+    config: {
+      kind: "display-allowance",
+      amountPerStore: 500,
+      requirement: "End-cap display for 4 weeks",
+      frequency: "Fortnightly",
+    },
+    startDate: "2026-04-15",
+    endDate: "2026-06-30",
+    status: "Active",
+  },
+  {
+    id: "LR-180000249-seed",
+    skuCode: "180000249",
+    skuName: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
+    config: {
+      kind: "loyalty-rebate",
+      rebatePct: 1,
+      afterReorders: 3,
+      payoutFrequency: "Monthly",
+    },
+    startDate: "2026-04-15",
+    endDate: "2026-12-31",
+    status: "Scheduled",
+  },
+  {
+    id: "LI-180000179-seed",
+    skuCode: "180000179",
+    skuName: "FREEDOM REF.SUNFLOWER OIL 2 LTR X 6 PET",
+    config: {
+      kind: "launch-incentive",
+      discountPerUnit: 50,
+      durationDays: 60,
+      minQty: 24,
+    },
+    startDate: "2026-03-01",
+    endDate: "2026-04-30",
+    status: "Expired",
+  },
+  {
+    id: "CMB-180000076-seed",
+    skuCode: "180000076",
+    skuName: "FREEDOM REF.SUNFLOWER OIL 1 LTR X 12PET",
+    config: {
+      kind: "combo-bundle",
+      bundleSkuCode: "180000200",
+      bundleSkuName: "FREEDOM REF.GROUNDNUT OIL 1 LTR X 12PET",
+      discountType: "flat",
+      value: 150,
+    },
+    startDate: "2026-04-20",
+    endDate: "2026-05-20",
+    status: "Active",
+  },
+];
+
+// ---------------------------------------------------------------------
+// Main page
+// ---------------------------------------------------------------------
 
 export function OffersDemo() {
   const [offers, setOffers] = useState<DemoOffer[]>(SEED_OFFERS);
@@ -376,10 +508,15 @@ export function OffersDemo() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 25;
 
-  // Dialog state — exactly one of these may be set at a time.
-  const [createOpen, setCreateOpen] = useState(false);
-  const [viewing, setViewing] = useState<DemoOffer | null>(null);
+  // Picker → form pipeline:
+  //   1. seller clicks Create Offers → pickerOpen = true
+  //   2. seller picks a type card → pickerOpen = false, creatingKind = X
+  //   3. seller submits or cancels → creatingKind = null
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [creatingKind, setCreatingKind] = useState<OfferKind | null>(null);
+
   const [editing, setEditing] = useState<DemoOffer | null>(null);
+  const [viewing, setViewing] = useState<DemoOffer | null>(null);
 
   const offerTypeOptions = useMemo<OfferTypeOption[]>(
     () =>
@@ -400,7 +537,7 @@ export function OffersDemo() {
       const matchesStatus =
         statusFilter === "all" || o.status === statusFilter;
       const matchesType =
-        offerTypeFilter === "all" || o.offerType === offerTypeFilter;
+        offerTypeFilter === "all" || o.config.kind === offerTypeFilter;
       return matchesSearch && matchesStatus && matchesType;
     });
   }, [offers, searchQuery, statusFilter, offerTypeFilter]);
@@ -411,35 +548,26 @@ export function OffersDemo() {
   const filtersActive =
     statusFilter !== "all" || offerTypeFilter !== "all";
 
-  const handleCreateSubmit = (draft: OfferDraft) => {
-    const id = `${ID_PREFIX[draft.offerType]}-${draft.skuCode || Date.now()}-${Math.random()
-      .toString(36)
-      .slice(2, 6)
-      .toUpperCase()}`;
-    const newOffer: DemoOffer = { id, ...draft };
-    setOffers((prev) => [newOffer, ...prev]);
-    setCreateOpen(false);
+  const handleCreated = (offer: DemoOffer) => {
+    setOffers((prev) => [offer, ...prev]);
+    setCreatingKind(null);
     setCurrentPage(1);
     toast.success(
-      `Created ${OFFER_TYPE_META[draft.offerType].label} offer for ${draft.skuCode}.`,
+      `Created ${OFFER_TYPE_META[offer.config.kind].label} offer for ${offer.skuCode}.`,
     );
   };
 
-  const handleEditSubmit = (draft: OfferDraft) => {
-    if (!editing) return;
-    setOffers((prev) =>
-      prev.map((o) => (o.id === editing.id ? { ...o, ...draft } : o)),
-    );
+  const handleEdited = (offer: DemoOffer) => {
+    setOffers((prev) => prev.map((o) => (o.id === offer.id ? offer : o)));
     setEditing(null);
-    toast.success(`Updated offer ${editing.id}.`);
+    toast.success(`Updated ${OFFER_TYPE_META[offer.config.kind].label} offer.`);
   };
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
       <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
-          {/* Header — search left, Filters + Create Offers right.
-              Same toolbar shape as the live offers list. */}
+          {/* Header — search left, Filters + Create Offers right. */}
           <div className="border-b border-gray-200 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 flex-wrap flex-shrink-0">
             <div className="flex items-center gap-2 flex-1 w-full sm:w-auto flex-wrap">
               <div className="relative flex-1 sm:max-w-xs">
@@ -474,7 +602,7 @@ export function OffersDemo() {
               <Button
                 size="sm"
                 className="gap-2"
-                onClick={() => setCreateOpen(true)}
+                onClick={() => setPickerOpen(true)}
               >
                 <Plus className="h-4 w-4" />
                 Create Offers
@@ -522,7 +650,7 @@ export function OffersDemo() {
                   </tr>
                 ) : (
                   paginated.map((o) => {
-                    const meta = OFFER_TYPE_META[o.offerType];
+                    const meta = OFFER_TYPE_META[o.config.kind];
                     const Icon = meta.icon;
                     return (
                       <tr
@@ -538,7 +666,7 @@ export function OffersDemo() {
                         <td className="px-4 py-3">
                           <Badge
                             variant="outline"
-                            className={`gap-1 ${meta.bg} ${meta.iconColor} ${meta.border}`}
+                            className={`gap-1 ${meta.badgeBg} ${meta.badgeText} ${meta.badgeBorder}`}
                           >
                             <Icon className="h-3 w-3" />
                             {meta.label}
@@ -546,7 +674,7 @@ export function OffersDemo() {
                         </td>
                         <td className="px-4 py-3">
                           <p className="text-xs text-gray-700 leading-snug max-w-md">
-                            {o.details}
+                            {describeConfig(o.config)}
                           </p>
                         </td>
                         <td className="px-4 py-3">
@@ -628,273 +756,298 @@ export function OffersDemo() {
         }}
       />
 
-      {/* Create dialog — fresh draft, all 10 types selectable. */}
-      <OfferFormDialog
-        open={createOpen}
-        mode="create"
-        onClose={() => setCreateOpen(false)}
-        onSubmit={handleCreateSubmit}
+      {/* 10-card offer-type picker (same shape as the live page). */}
+      <OfferTypePickerDialog
+        open={pickerOpen}
+        onClose={() => setPickerOpen(false)}
+        onPick={(kind) => {
+          setPickerOpen(false);
+          setCreatingKind(kind);
+        }}
       />
 
-      {/* Edit dialog — pre-filled from the row, same form shape. */}
-      <OfferFormDialog
-        open={!!editing}
-        mode="edit"
-        initial={editing}
-        onClose={() => setEditing(null)}
-        onSubmit={handleEditSubmit}
-      />
+      {/* Create form — routed per type. */}
+      {creatingKind && (
+        <OfferEditorDialog
+          mode="create"
+          kind={creatingKind}
+          onCancel={() => setCreatingKind(null)}
+          onSubmit={handleCreated}
+        />
+      )}
 
-      {/* View dialog — read-only display. */}
+      {/* Edit form — re-opens the same per-type editor pre-filled. */}
+      {editing && (
+        <OfferEditorDialog
+          mode="edit"
+          kind={editing.config.kind}
+          initial={editing}
+          onCancel={() => setEditing(null)}
+          onSubmit={handleEdited}
+        />
+      )}
+
+      {/* Read-only View. */}
       <OfferViewDialog
         offer={viewing}
         onClose={() => setViewing(null)}
         onEdit={(o) => {
           setViewing(null);
-          setEditing(o);
+          if (o.status !== "Expired") setEditing(o);
         }}
       />
     </div>
   );
 }
 
-// ---------------------------------------------------------------------
-// Subcomponents — kept in this file because they're purpose-built for
-// the demo flow and not reused anywhere else.
-// ---------------------------------------------------------------------
+// =====================================================================
+// Offer-type picker — opens from the Create Offers CTA.
+// 10 cards, all enabled. Picking one closes this dialog and the parent
+// opens the matching editor.
+// =====================================================================
 
-interface OfferFormDialogProps {
-  open: boolean;
-  mode: "create" | "edit";
-  initial?: DemoOffer | null;
-  onClose: () => void;
-  onSubmit: (draft: OfferDraft) => void;
-}
-
-function OfferFormDialog({
+function OfferTypePickerDialog({
   open,
-  mode,
-  initial,
   onClose,
-  onSubmit,
-}: OfferFormDialogProps) {
-  // Re-key on the row id (or "new") so the form resets between opens.
+  onPick,
+}: {
+  open: boolean;
+  onClose: () => void;
+  onPick: (kind: OfferKind) => void;
+}) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-2xl">
-        <OfferForm
-          key={initial?.id ?? "new"}
-          mode={mode}
-          initial={initial}
-          onCancel={onClose}
-          onSubmit={onSubmit}
-        />
+      <DialogContent className="!max-w-[min(95vw,1100px)] w-[min(95vw,1100px)]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-xl">
+            <Tag className="h-5 w-5 text-blue-600" />
+            Create Offers
+          </DialogTitle>
+          <DialogDescription>
+            Pick the type of offer you want to set up for your catalog. All 10
+            offer types are available on this page.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 py-2">
+          {OFFER_KINDS.map((kind) => {
+            const meta = OFFER_TYPE_META[kind];
+            const Icon = meta.icon;
+            return (
+              <button
+                key={kind}
+                type="button"
+                onClick={() => onPick(kind)}
+                className="relative text-left rounded-xl border p-4 transition-all min-h-[140px] bg-white border-gray-200 hover:border-blue-400 hover:shadow-md hover:-translate-y-0.5 cursor-pointer"
+              >
+                <div
+                  className={`${meta.iconBg} ${meta.iconColor} p-2 rounded-lg w-fit`}
+                >
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="text-sm font-semibold text-gray-900 mt-3 leading-tight">
+                  {meta.label}
+                </p>
+                <p className="text-[11px] text-gray-600 leading-snug mt-1">
+                  {meta.description}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
 }
 
-interface OfferFormProps {
+// =====================================================================
+// OfferEditorDialog — routes to the per-type form. The wide dialog
+// width is used for QPS and Value Slab (slab tables need horizontal
+// room); the others use the default 2xl width.
+// =====================================================================
+
+interface EditorProps {
   mode: "create" | "edit";
-  initial?: DemoOffer | null;
+  kind: OfferKind;
+  initial?: DemoOffer;
   onCancel: () => void;
-  onSubmit: (draft: OfferDraft) => void;
+  onSubmit: (offer: DemoOffer) => void;
 }
 
-function OfferForm({ mode, initial, onCancel, onSubmit }: OfferFormProps) {
-  const [draft, setDraft] = useState<OfferDraft>(() =>
-    initial
-      ? {
-          skuCode: initial.skuCode,
-          skuName: initial.skuName,
-          offerType: initial.offerType,
-          details: initial.details,
-          startDate: initial.startDate,
-          endDate: initial.endDate,
-          status: initial.status,
+function OfferEditorDialog(props: EditorProps) {
+  const isWide = props.kind === "qps" || props.kind === "value-slab";
+  return (
+    <Dialog open onOpenChange={(o) => !o && props.onCancel()}>
+      <DialogContent
+        className={
+          isWide
+            ? "!max-w-[min(95vw,1150px)] w-[min(95vw,1150px)] max-h-[92vh] overflow-y-auto"
+            : "max-w-2xl max-h-[92vh] overflow-y-auto"
         }
-      : emptyDraft(),
+      >
+        <OfferEditorBody {...props} />
+      </DialogContent>
+    </Dialog>
   );
-  const [errors, setErrors] = useState<Partial<Record<keyof OfferDraft, string>>>(
-    {},
-  );
+}
 
-  const update = <K extends keyof OfferDraft>(key: K, value: OfferDraft[K]) => {
-    setDraft((d) => ({ ...d, [key]: value }));
-    if (errors[key]) setErrors((e) => ({ ...e, [key]: undefined }));
-  };
-
-  const meta = OFFER_TYPE_META[draft.offerType];
-  const TypeIcon = meta.icon;
-
-  const handleSubmit = () => {
-    const errs: Partial<Record<keyof OfferDraft, string>> = {};
-    if (!draft.skuCode.trim()) errs.skuCode = "SKU code is required";
-    if (!draft.skuName.trim()) errs.skuName = "SKU name is required";
-    if (!draft.details.trim()) errs.details = "Details are required";
-    if (!draft.startDate) errs.startDate = "Start date is required";
-    if (!draft.endDate) errs.endDate = "End date is required";
-    if (draft.startDate && draft.endDate && draft.endDate < draft.startDate) {
-      errs.endDate = "End date must be on or after the start date";
-    }
-    if (Object.keys(errs).length > 0) {
-      setErrors(errs);
-      return;
-    }
-    onSubmit(draft);
-  };
-
+function OfferEditorBody({ mode, kind, initial, onCancel, onSubmit }: EditorProps) {
+  const meta = OFFER_TYPE_META[kind];
+  const Icon = meta.icon;
   return (
     <>
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          {mode === "create" ? "Create Offer" : "Edit Offer"}
+      <DialogHeader className="pb-2">
+        <DialogTitle className="flex items-center gap-2 text-xl">
+          <Icon className={`h-5 w-5 ${meta.iconColor}`} />
+          {mode === "edit" ? "Edit" : "Create"} {meta.label} Offer
         </DialogTitle>
-        <DialogDescription>
-          {mode === "create"
-            ? "Pick an offer type and configure the details. All 10 offer types are available on this page."
-            : "Update the offer's configuration. Saving overwrites the current row."}
-        </DialogDescription>
+        <DialogDescription>{meta.description}</DialogDescription>
       </DialogHeader>
 
-      <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
-        {/* Offer type — full-width selector at the top so the rest of
-            the form's helper text adapts to the picked type. */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">
-            Offer Type <span className="text-red-500">*</span>
-          </Label>
-          <Select
-            value={draft.offerType}
-            onValueChange={(v) => update("offerType", v as OfferKind)}
-          >
-            <SelectTrigger className="h-9 text-sm">
-              <SelectValue>
-                <span className="inline-flex items-center gap-2">
-                  <TypeIcon className={`h-4 w-4 ${meta.iconColor}`} />
-                  {meta.label}
-                </span>
-              </SelectValue>
-            </SelectTrigger>
-            <SelectContent>
-              {OFFER_KINDS.map((kind) => {
-                const m = OFFER_TYPE_META[kind];
-                const Icon = m.icon;
-                return (
-                  <SelectItem key={kind} value={kind}>
-                    <span className="inline-flex items-center gap-2">
-                      <Icon className={`h-4 w-4 ${m.iconColor}`} />
-                      <span className="font-medium">{m.label}</span>
-                      <span className="text-xs text-gray-500">
-                        — {m.description}
-                      </span>
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <p className="text-[11px] text-gray-500">{meta.description}</p>
-        </div>
+      {kind === "qps" && (
+        <QpsForm mode={mode} initial={initial} onCancel={onCancel} onSubmit={onSubmit} />
+      )}
+      {kind === "value-slab" && (
+        <ValueSlabForm mode={mode} initial={initial} onCancel={onCancel} onSubmit={onSubmit} />
+      )}
+      {kind === "bogo" && (
+        <BogoForm mode={mode} initial={initial} onCancel={onCancel} onSubmit={onSubmit} />
+      )}
+      {kind === "case-bonus" && (
+        <CaseBonusForm mode={mode} initial={initial} onCancel={onCancel} onSubmit={onSubmit} />
+      )}
+      {kind === "off-invoice" && (
+        <OffInvoiceForm mode={mode} initial={initial} onCancel={onCancel} onSubmit={onSubmit} />
+      )}
+      {kind === "display-allowance" && (
+        <DisplayAllowanceForm
+          mode={mode}
+          initial={initial}
+          onCancel={onCancel}
+          onSubmit={onSubmit}
+        />
+      )}
+      {kind === "launch-incentive" && (
+        <LaunchIncentiveForm
+          mode={mode}
+          initial={initial}
+          onCancel={onCancel}
+          onSubmit={onSubmit}
+        />
+      )}
+      {kind === "loyalty-rebate" && (
+        <LoyaltyRebateForm
+          mode={mode}
+          initial={initial}
+          onCancel={onCancel}
+          onSubmit={onSubmit}
+        />
+      )}
+      {kind === "combo-bundle" && (
+        <ComboBundleForm
+          mode={mode}
+          initial={initial}
+          onCancel={onCancel}
+          onSubmit={onSubmit}
+        />
+      )}
+      {kind === "early-payment" && (
+        <EarlyPaymentForm
+          mode={mode}
+          initial={initial}
+          onCancel={onCancel}
+          onSubmit={onSubmit}
+        />
+      )}
+    </>
+  );
+}
 
-        {/* SKU pair */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              SKU Code <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              value={draft.skuCode}
-              onChange={(e) => update("skuCode", e.target.value)}
-              placeholder="e.g. 180000008"
-              className="h-9 text-sm font-mono"
-              aria-invalid={!!errors.skuCode}
-            />
-            {errors.skuCode && (
-              <p className="text-[11px] text-red-600">{errors.skuCode}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              SKU Name <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              value={draft.skuName}
-              onChange={(e) => update("skuName", e.target.value)}
-              placeholder="e.g. FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS."
-              className="h-9 text-sm"
-              aria-invalid={!!errors.skuName}
-            />
-            {errors.skuName && (
-              <p className="text-[11px] text-red-600">{errors.skuName}</p>
-            )}
-          </div>
-        </div>
+// =====================================================================
+// Common form scaffolding — shared across all 10 forms.
+// =====================================================================
 
-        {/* Type-aware details — placeholder reflects the picked type so
-            the seller sees a working template for the offer they're
-            building. */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">
-            Details <span className="text-red-500">*</span>
-          </Label>
-          <Textarea
-            value={draft.details}
-            onChange={(e) => update("details", e.target.value)}
-            placeholder={meta.placeholder}
-            className="text-sm min-h-[80px]"
-            aria-invalid={!!errors.details}
+interface CommonDraft {
+  skuCode: string;
+  skuName: string;
+  startDate: string;
+  endDate: string;
+  status: OfferStatus;
+}
+
+const initialCommon = (initial?: DemoOffer): CommonDraft => ({
+  skuCode: initial?.skuCode ?? "",
+  skuName: initial?.skuName ?? "",
+  startDate: initial?.startDate ?? todayISO(),
+  endDate: initial?.endDate ?? plusDays(todayISO(), 30),
+  status: initial?.status ?? "Scheduled",
+});
+
+function CommonFields({
+  draft,
+  setDraft,
+  errors,
+}: {
+  draft: CommonDraft;
+  setDraft: (d: CommonDraft) => void;
+  errors: Partial<Record<keyof CommonDraft, string>>;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="SKU Code" required error={errors.skuCode}>
+          <Input
+            value={draft.skuCode}
+            onChange={(e) => setDraft({ ...draft, skuCode: e.target.value })}
+            placeholder="e.g. 180000008"
+            className="h-9 text-sm font-mono"
+            aria-invalid={!!errors.skuCode}
           />
-          {errors.details ? (
-            <p className="text-[11px] text-red-600">{errors.details}</p>
-          ) : (
-            <p className="text-[11px] text-gray-500">
-              How the {meta.label} rule reads to a buyer. Free text — use the
-              placeholder pattern as a guide.
-            </p>
-          )}
-        </div>
+        </Field>
+        <Field label="SKU Name" required error={errors.skuName}>
+          <Input
+            value={draft.skuName}
+            onChange={(e) => setDraft({ ...draft, skuName: e.target.value })}
+            placeholder="e.g. FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS."
+            className="h-9 text-sm"
+            aria-invalid={!!errors.skuName}
+          />
+        </Field>
+      </div>
 
-        {/* Dates */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              Start Date <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="date"
-              value={draft.startDate}
-              onChange={(e) => update("startDate", e.target.value)}
-              className="h-9 text-sm"
-              aria-invalid={!!errors.startDate}
-            />
-            {errors.startDate && (
-              <p className="text-[11px] text-red-600">{errors.startDate}</p>
-            )}
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">
-              End Date <span className="text-red-500">*</span>
-            </Label>
-            <Input
-              type="date"
-              value={draft.endDate}
-              onChange={(e) => update("endDate", e.target.value)}
-              className="h-9 text-sm"
-              aria-invalid={!!errors.endDate}
-            />
-            {errors.endDate && (
-              <p className="text-[11px] text-red-600">{errors.endDate}</p>
-            )}
-          </div>
-        </div>
-
-        {/* Status */}
-        <div className="space-y-1.5">
-          <Label className="text-xs">Status</Label>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Field label="Start Date" required error={errors.startDate}>
+          <Input
+            type="date"
+            value={draft.startDate}
+            onChange={(e) =>
+              setDraft({ ...draft, startDate: e.target.value })
+            }
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field label="End Date" required error={errors.endDate}>
+          <Input
+            type="date"
+            value={draft.endDate}
+            onChange={(e) =>
+              setDraft({ ...draft, endDate: e.target.value })
+            }
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field label="Status">
           <Select
             value={draft.status}
-            onValueChange={(v) => update("status", v as OfferStatus)}
+            onValueChange={(v) =>
+              setDraft({ ...draft, status: v as OfferStatus })
+            }
           >
             <SelectTrigger className="h-9 text-sm">
               <SelectValue />
@@ -907,40 +1060,1234 @@ function OfferForm({ mode, initial, onCancel, onSubmit }: OfferFormProps) {
               ))}
             </SelectContent>
           </Select>
-        </div>
+        </Field>
       </div>
-
-      <DialogFooter className="mt-2">
-        <Button variant="outline" onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button onClick={handleSubmit}>
-          {mode === "create" ? "Create Offer" : "Save Changes"}
-        </Button>
-      </DialogFooter>
-    </>
+    </div>
   );
 }
 
-interface OfferViewDialogProps {
+function Field({
+  label,
+  required,
+  error,
+  hint,
+  children,
+}: {
+  label: string;
+  required?: boolean;
+  error?: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label className="text-xs font-medium text-gray-700">
+        {label} {required && <span className="text-red-500">*</span>}
+      </Label>
+      {children}
+      {error ? (
+        <p className="text-[11px] text-red-600">{error}</p>
+      ) : hint ? (
+        <p className="text-[11px] text-gray-500">{hint}</p>
+      ) : null}
+    </div>
+  );
+}
+
+const validateCommon = (
+  draft: CommonDraft,
+): Partial<Record<keyof CommonDraft, string>> => {
+  const errs: Partial<Record<keyof CommonDraft, string>> = {};
+  if (!draft.skuCode.trim()) errs.skuCode = "SKU code is required";
+  if (!draft.skuName.trim()) errs.skuName = "SKU name is required";
+  if (!draft.startDate) errs.startDate = "Start date is required";
+  if (!draft.endDate) errs.endDate = "End date is required";
+  if (draft.startDate && draft.endDate && draft.endDate < draft.startDate) {
+    errs.endDate = "End date must be on or after the start date";
+  }
+  return errs;
+};
+
+const buildOffer = (
+  draft: CommonDraft,
+  config: OfferConfig,
+  initial?: DemoOffer,
+): DemoOffer => ({
+  id:
+    initial?.id ??
+    `${ID_PREFIX[config.kind]}-${draft.skuCode || "NEW"}-${Math.random()
+      .toString(36)
+      .slice(2, 6)
+      .toUpperCase()}`,
+  skuCode: draft.skuCode,
+  skuName: draft.skuName,
+  config,
+  startDate: draft.startDate,
+  endDate: draft.endDate,
+  status: draft.status,
+});
+
+interface FormProps {
+  mode: "create" | "edit";
+  initial?: DemoOffer;
+  onCancel: () => void;
+  onSubmit: (offer: DemoOffer) => void;
+}
+
+function FormFooter({ mode, onCancel, onSubmit }: { mode: "create" | "edit"; onCancel: () => void; onSubmit: () => void }) {
+  return (
+    <DialogFooter className="mt-3">
+      <Button variant="outline" onClick={onCancel}>
+        Cancel
+      </Button>
+      <Button onClick={onSubmit}>
+        {mode === "create" ? "Create Offer" : "Save Changes"}
+      </Button>
+    </DialogFooter>
+  );
+}
+
+// =====================================================================
+// 1. QPS — replicates the live slab editor (qty bands × discount %).
+// =====================================================================
+
+function QpsForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seedConfig =
+    initial?.config.kind === "qps"
+      ? initial.config
+      : { kind: "qps" as const, sellingPrice: 100, slabs: [{ minQty: 1, maxQty: 5, discountPct: 0 }] };
+
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [sellingPrice, setSellingPrice] = useState<number>(
+    seedConfig.sellingPrice,
+  );
+  const [slabs, setSlabs] = useState<QpsSlab[]>(seedConfig.slabs);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "slabs" | "sellingPrice", string>>
+  >({});
+
+  const updateSlab = (idx: number, patch: Partial<QpsSlab>) =>
+    setSlabs((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  const lastSlab = slabs[slabs.length - 1];
+  const lastIsInfinite =
+    !lastSlab || lastSlab.maxQty === null || lastSlab.maxQty === undefined;
+  const addSlab = () =>
+    setSlabs((prev) => [
+      ...prev,
+      {
+        minQty: (prev[prev.length - 1]?.maxQty ?? prev[prev.length - 1]?.minQty ?? 0) + 1,
+        maxQty: null,
+        discountPct: 0,
+      },
+    ]);
+  const removeSlab = (idx: number) =>
+    setSlabs((prev) => prev.filter((_, i) => i !== idx));
+
+  const slabErrors = useMemo(() => {
+    const errs: { index: number; msg: string }[] = [];
+    slabs.forEach((s, i) => {
+      if (s.minQty <= 0) errs.push({ index: i, msg: "Min Qty must be ≥ 1" });
+      if (s.maxQty !== null && s.maxQty <= s.minQty)
+        errs.push({ index: i, msg: "Max Qty must be > Min Qty" });
+      if (s.discountPct < 0 || s.discountPct >= 100)
+        errs.push({ index: i, msg: "Discount must be 0–99%" });
+      if (i > 0) {
+        const prev = slabs[i - 1];
+        if (prev.maxQty === null)
+          errs.push({ index: i, msg: "Previous slab covers ∞ — cannot add another" });
+        else if (s.minQty <= prev.maxQty)
+          errs.push({ index: i, msg: "Min Qty must be greater than previous Max Qty" });
+      }
+    });
+    return errs;
+  }, [slabs]);
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (sellingPrice <= 0) errs.sellingPrice = "Selling price must be greater than 0";
+    if (slabErrors.length > 0) errs.slabs = `Fix ${slabErrors.length} slab error${slabErrors.length === 1 ? "" : "s"}`;
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(common, { kind: "qps", sellingPrice, slabs }, initial),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Field
+          label="Selling Price (₹)"
+          required
+          error={errors.sellingPrice}
+          hint="Base per-unit price before slab discount."
+        >
+          <Input
+            type="number"
+            value={sellingPrice || ""}
+            onChange={(e) => setSellingPrice(parseFloat(e.target.value) || 0)}
+            placeholder="e.g. 1850"
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-900">Pricing Slabs</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addSlab}
+            disabled={lastIsInfinite}
+            title={
+              lastIsInfinite
+                ? "Set a Max Qty on the last slab before adding a new one."
+                : "Add another slab"
+            }
+            className="gap-1 h-7 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Slab
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50/50 border-b border-gray-200">
+              <tr>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-16">Slab #</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-24">Min Qty</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-28">Max Qty</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-32">Discount %</th>
+                <th className="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase">Customer Pays</th>
+                <th className="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase">Saving</th>
+                <th className="px-3 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {slabs.map((s, i) => {
+                const rowErrors = slabErrors.filter((e) => e.index === i);
+                const isError = rowErrors.length > 0;
+                const eff = sellingPrice * (1 - s.discountPct / 100);
+                const saving = sellingPrice - eff;
+                return (
+                  <tr key={i} className={isError ? "bg-red-50/60" : ""}>
+                    <td className="px-3 py-2 text-xs font-medium text-gray-700">Slab {i + 1}</td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        value={s.minQty}
+                        onChange={(e) =>
+                          updateSlab(i, { minQty: parseInt(e.target.value) || 0 })
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="∞"
+                        value={s.maxQty ?? ""}
+                        onChange={(e) =>
+                          updateSlab(i, {
+                            maxQty: e.target.value === "" ? null : parseInt(e.target.value),
+                          })
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={99}
+                        step={0.5}
+                        value={s.discountPct}
+                        onChange={(e) =>
+                          updateSlab(i, { discountPct: parseFloat(e.target.value) || 0 })
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-right text-sm font-medium text-gray-900">
+                      {fmtCurrency(+eff.toFixed(2))}
+                    </td>
+                    <td className="px-3 py-2 text-right text-sm text-emerald-700 font-medium">
+                      {fmtCurrency(+saving.toFixed(2))}
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => removeSlab(i)}
+                        disabled={slabs.length === 1}
+                        title={slabs.length === 1 ? "At least one slab required" : "Remove slab"}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {slabErrors.length > 0 && (
+          <div className="border-t border-red-200 bg-red-50 px-3 py-2">
+            <ul className="text-[11px] text-red-700 list-disc list-inside space-y-0.5">
+              {slabErrors.map((e, i) => (
+                <li key={i}>
+                  Slab {e.index + 1}: {e.msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 2. Value Slab — same shape as QPS but tiers are on order value.
+// =====================================================================
+
+function ValueSlabForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seedConfig =
+    initial?.config.kind === "value-slab"
+      ? initial.config
+      : {
+          kind: "value-slab" as const,
+          tiers: [{ minValue: 10000, maxValue: null, discountPct: 0 }],
+        };
+
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [tiers, setTiers] = useState<ValueSlabTier[]>(seedConfig.tiers);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "tiers", string>>
+  >({});
+
+  const updateTier = (idx: number, patch: Partial<ValueSlabTier>) =>
+    setTiers((prev) => prev.map((t, i) => (i === idx ? { ...t, ...patch } : t)));
+  const lastTier = tiers[tiers.length - 1];
+  const lastIsInfinite = !lastTier || lastTier.maxValue === null;
+  const addTier = () =>
+    setTiers((prev) => [
+      ...prev,
+      {
+        minValue: (prev[prev.length - 1]?.maxValue ?? prev[prev.length - 1]?.minValue ?? 0) + 1,
+        maxValue: null,
+        discountPct: 0,
+      },
+    ]);
+  const removeTier = (idx: number) =>
+    setTiers((prev) => prev.filter((_, i) => i !== idx));
+
+  const tierErrors = useMemo(() => {
+    const errs: { index: number; msg: string }[] = [];
+    tiers.forEach((t, i) => {
+      if (t.minValue < 0) errs.push({ index: i, msg: "Min value must be ≥ 0" });
+      if (t.maxValue !== null && t.maxValue <= t.minValue)
+        errs.push({ index: i, msg: "Max must be greater than Min" });
+      if (t.discountPct < 0 || t.discountPct >= 100)
+        errs.push({ index: i, msg: "Discount must be 0–99%" });
+      if (i > 0) {
+        const prev = tiers[i - 1];
+        if (prev.maxValue === null)
+          errs.push({ index: i, msg: "Previous tier covers ∞ — cannot add another" });
+        else if (t.minValue <= prev.maxValue)
+          errs.push({ index: i, msg: "Min must be greater than previous Max" });
+      }
+    });
+    return errs;
+  }, [tiers]);
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (tierErrors.length > 0) errs.tiers = `Fix ${tierErrors.length} tier error${tierErrors.length === 1 ? "" : "s"}`;
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(buildOffer(common, { kind: "value-slab", tiers }, initial));
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+
+      <div className="border border-gray-200 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 border-b border-gray-200 px-3 py-2 flex items-center justify-between">
+          <p className="text-sm font-semibold text-gray-900">Order Value Tiers</p>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={addTier}
+            disabled={lastIsInfinite}
+            className="gap-1 h-7 text-xs"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add Tier
+          </Button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50/50 border-b border-gray-200">
+              <tr>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-16">Tier</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Min Value (₹)</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Max Value (₹)</th>
+                <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Discount %</th>
+                <th className="px-3 py-2 w-10"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {tiers.map((t, i) => {
+                const rowErrors = tierErrors.filter((e) => e.index === i);
+                return (
+                  <tr key={i} className={rowErrors.length ? "bg-red-50/60" : ""}>
+                    <td className="px-3 py-2 text-xs font-medium text-gray-700">Tier {i + 1}</td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        value={t.minValue}
+                        onChange={(e) =>
+                          updateTier(i, { minValue: parseFloat(e.target.value) || 0 })
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="∞"
+                        value={t.maxValue ?? ""}
+                        onChange={(e) =>
+                          updateTier(i, {
+                            maxValue: e.target.value === "" ? null : parseFloat(e.target.value),
+                          })
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Input
+                        type="number"
+                        min={0}
+                        max={99}
+                        step={0.5}
+                        value={t.discountPct}
+                        onChange={(e) =>
+                          updateTier(i, { discountPct: parseFloat(e.target.value) || 0 })
+                        }
+                        className="h-8 text-sm"
+                      />
+                    </td>
+                    <td className="px-3 py-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => removeTier(i)}
+                        disabled={tiers.length === 1}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                      </Button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        {tierErrors.length > 0 && (
+          <div className="border-t border-red-200 bg-red-50 px-3 py-2">
+            <ul className="text-[11px] text-red-700 list-disc list-inside space-y-0.5">
+              {tierErrors.map((e, i) => (
+                <li key={i}>
+                  Tier {e.index + 1}: {e.msg}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 3. BOGO — Buy X, get Y free.
+// =====================================================================
+
+function BogoForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "bogo"
+      ? initial.config
+      : { kind: "bogo" as const, buyQty: 10, freeQty: 1 };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [buyQty, setBuyQty] = useState(seed.buyQty);
+  const [freeQty, setFreeQty] = useState(seed.freeQty);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "buyQty" | "freeQty", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (buyQty <= 0) errs.buyQty = "Buy quantity must be greater than 0";
+    if (freeQty <= 0) errs.freeQty = "Free quantity must be greater than 0";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(buildOffer(common, { kind: "bogo", buyQty, freeQty }, initial));
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field
+          label="Buy Quantity"
+          required
+          error={errors.buyQty}
+          hint="How many units the buyer must purchase."
+        >
+          <Input
+            type="number"
+            min={1}
+            value={buyQty || ""}
+            onChange={(e) => setBuyQty(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 10"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field
+          label="Free Quantity"
+          required
+          error={errors.freeQty}
+          hint="How many units are added free."
+        >
+          <Input
+            type="number"
+            min={1}
+            value={freeQty || ""}
+            onChange={(e) => setFreeQty(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 1"
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <PreviewLine>
+        Buy {buyQty || "—"}, get {freeQty || "—"} free unit
+        {freeQty === 1 ? "" : "s"}
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 4. Case Bonus — Buy N cases, get M free.
+// =====================================================================
+
+function CaseBonusForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "case-bonus"
+      ? initial.config
+      : { kind: "case-bonus" as const, buyCases: 50, freeCases: 3 };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [buyCases, setBuyCases] = useState(seed.buyCases);
+  const [freeCases, setFreeCases] = useState(seed.freeCases);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "buyCases" | "freeCases", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (buyCases <= 0) errs.buyCases = "Buy cases must be greater than 0";
+    if (freeCases <= 0) errs.freeCases = "Free cases must be greater than 0";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(common, { kind: "case-bonus", buyCases, freeCases }, initial),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field
+          label="Buy Cases"
+          required
+          error={errors.buyCases}
+          hint="Trigger threshold in cases."
+        >
+          <Input
+            type="number"
+            min={1}
+            value={buyCases || ""}
+            onChange={(e) => setBuyCases(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 50"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field
+          label="Free Cases"
+          required
+          error={errors.freeCases}
+          hint="Cases added free at the threshold."
+        >
+          <Input
+            type="number"
+            min={1}
+            value={freeCases || ""}
+            onChange={(e) => setFreeCases(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 3"
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <PreviewLine>
+        Buy {buyCases || "—"} cases, get {freeCases || "—"} free
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 5. Off-Invoice — % off or flat ₹ off per unit on the invoice.
+// =====================================================================
+
+function OffInvoiceForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "off-invoice"
+      ? initial.config
+      : { kind: "off-invoice" as const, discountType: "flat" as const, value: 10 };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [discountType, setDiscountType] = useState<"percent" | "flat">(
+    seed.discountType,
+  );
+  const [value, setValue] = useState(seed.value);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "value", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (value <= 0) errs.value = "Discount value must be greater than 0";
+    if (discountType === "percent" && value >= 100)
+      errs.value = "Percentage must be less than 100";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(common, { kind: "off-invoice", discountType, value }, initial),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Discount Type" required>
+          <Select
+            value={discountType}
+            onValueChange={(v) => setDiscountType(v as "percent" | "flat")}
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="flat">Flat ₹ off per unit</SelectItem>
+              <SelectItem value="percent">% off invoice total</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field
+          label={discountType === "percent" ? "Discount (%)" : "Amount per unit (₹)"}
+          required
+          error={errors.value}
+        >
+          <Input
+            type="number"
+            min={0}
+            step={discountType === "percent" ? 0.5 : 1}
+            value={value || ""}
+            onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
+            placeholder={discountType === "percent" ? "e.g. 5" : "e.g. 10"}
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <PreviewLine>
+        {discountType === "percent"
+          ? `${value || "—"}% off on invoice total`
+          : `Flat ${fmtCurrency(value || 0)} off per unit on invoice`}
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 6. Display Allowance — incentive for in-store display.
+// =====================================================================
+
+function DisplayAllowanceForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "display-allowance"
+      ? initial.config
+      : {
+          kind: "display-allowance" as const,
+          amountPerStore: 500,
+          requirement: "End-cap display for 4 weeks",
+          frequency: "Fortnightly" as const,
+        };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [amountPerStore, setAmountPerStore] = useState(seed.amountPerStore);
+  const [requirement, setRequirement] = useState(seed.requirement);
+  const [frequency, setFrequency] = useState<
+    "Weekly" | "Fortnightly" | "Monthly"
+  >(seed.frequency);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "amountPerStore" | "requirement", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (amountPerStore <= 0) errs.amountPerStore = "Amount must be greater than 0";
+    if (!requirement.trim())
+      errs.requirement = "Describe what counts as a qualifying display";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(
+        common,
+        {
+          kind: "display-allowance",
+          amountPerStore,
+          requirement,
+          frequency,
+        },
+        initial,
+      ),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field
+          label="Amount per Store (₹)"
+          required
+          error={errors.amountPerStore}
+        >
+          <Input
+            type="number"
+            min={1}
+            value={amountPerStore || ""}
+            onChange={(e) => setAmountPerStore(parseFloat(e.target.value) || 0)}
+            placeholder="e.g. 500"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field label="Verification Frequency" required>
+          <Select
+            value={frequency}
+            onValueChange={(v) =>
+              setFrequency(v as "Weekly" | "Fortnightly" | "Monthly")
+            }
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Weekly">Weekly</SelectItem>
+              <SelectItem value="Fortnightly">Fortnightly</SelectItem>
+              <SelectItem value="Monthly">Monthly</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+      <Field
+        label="Display Requirement"
+        required
+        error={errors.requirement}
+        hint="What the buyer needs to display, where, and for how long."
+      >
+        <Textarea
+          value={requirement}
+          onChange={(e) => setRequirement(e.target.value)}
+          placeholder="e.g. End-cap display for 4 weeks · 3 SKU facings minimum"
+          className="text-sm min-h-[70px]"
+        />
+      </Field>
+      <PreviewLine>
+        {fmtCurrency(amountPerStore || 0)} per store · {requirement || "—"} ·
+        verified {frequency.toLowerCase()}
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 7. Launch Incentive — special pricing for new launches.
+// =====================================================================
+
+function LaunchIncentiveForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "launch-incentive"
+      ? initial.config
+      : {
+          kind: "launch-incentive" as const,
+          discountPerUnit: 50,
+          durationDays: 60,
+          minQty: 24,
+        };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [discountPerUnit, setDiscountPerUnit] = useState(seed.discountPerUnit);
+  const [durationDays, setDurationDays] = useState(seed.durationDays);
+  const [minQty, setMinQty] = useState(seed.minQty);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "discountPerUnit" | "durationDays" | "minQty", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (discountPerUnit <= 0)
+      errs.discountPerUnit = "Discount must be greater than 0";
+    if (durationDays <= 0)
+      errs.durationDays = "Launch period must be greater than 0";
+    if (minQty < 0) errs.minQty = "Min qty must be 0 or more";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(
+        common,
+        { kind: "launch-incentive", discountPerUnit, durationDays, minQty },
+        initial,
+      ),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Field
+          label="Discount per Unit (₹)"
+          required
+          error={errors.discountPerUnit}
+        >
+          <Input
+            type="number"
+            min={0}
+            value={discountPerUnit || ""}
+            onChange={(e) => setDiscountPerUnit(parseFloat(e.target.value) || 0)}
+            placeholder="e.g. 50"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field
+          label="Launch Period (days)"
+          required
+          error={errors.durationDays}
+        >
+          <Input
+            type="number"
+            min={1}
+            value={durationDays || ""}
+            onChange={(e) => setDurationDays(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 60"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field
+          label="Min Qty to Qualify"
+          error={errors.minQty}
+          hint="0 means no minimum."
+        >
+          <Input
+            type="number"
+            min={0}
+            value={minQty}
+            onChange={(e) => setMinQty(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 24"
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <PreviewLine>
+        {fmtCurrency(discountPerUnit || 0)} off per unit · first{" "}
+        {durationDays || "—"} days · min {minQty} qty
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 8. Loyalty Rebate — cashback for repeat purchases.
+// =====================================================================
+
+function LoyaltyRebateForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "loyalty-rebate"
+      ? initial.config
+      : {
+          kind: "loyalty-rebate" as const,
+          rebatePct: 1,
+          afterReorders: 3,
+          payoutFrequency: "Monthly" as const,
+        };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [rebatePct, setRebatePct] = useState(seed.rebatePct);
+  const [afterReorders, setAfterReorders] = useState(seed.afterReorders);
+  const [payoutFrequency, setPayoutFrequency] = useState<
+    "Monthly" | "Quarterly" | "Half-yearly"
+  >(seed.payoutFrequency);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "rebatePct" | "afterReorders", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (rebatePct <= 0 || rebatePct >= 100)
+      errs.rebatePct = "Rebate must be between 0 and 100";
+    if (afterReorders < 0) errs.afterReorders = "Must be 0 or more";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(
+        common,
+        { kind: "loyalty-rebate", rebatePct, afterReorders, payoutFrequency },
+        initial,
+      ),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <Field label="Rebate (%)" required error={errors.rebatePct}>
+          <Input
+            type="number"
+            min={0}
+            max={99}
+            step={0.5}
+            value={rebatePct || ""}
+            onChange={(e) => setRebatePct(parseFloat(e.target.value) || 0)}
+            placeholder="e.g. 1"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field
+          label="After N Reorders"
+          required
+          error={errors.afterReorders}
+          hint="0 = from the first reorder."
+        >
+          <Input
+            type="number"
+            min={0}
+            value={afterReorders}
+            onChange={(e) => setAfterReorders(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 3"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field label="Payout Frequency" required>
+          <Select
+            value={payoutFrequency}
+            onValueChange={(v) =>
+              setPayoutFrequency(v as "Monthly" | "Quarterly" | "Half-yearly")
+            }
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Monthly">Monthly</SelectItem>
+              <SelectItem value="Quarterly">Quarterly</SelectItem>
+              <SelectItem value="Half-yearly">Half-yearly</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </div>
+      <PreviewLine>
+        {rebatePct || "—"}% cashback after {afterReorders} reorder
+        {afterReorders === 1 ? "" : "s"} · {payoutFrequency.toLowerCase()} payout
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 9. Combo Bundle — bundle two SKUs for a discount.
+// =====================================================================
+
+function ComboBundleForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "combo-bundle"
+      ? initial.config
+      : {
+          kind: "combo-bundle" as const,
+          bundleSkuCode: "",
+          bundleSkuName: "",
+          discountType: "flat" as const,
+          value: 100,
+        };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [bundleSkuCode, setBundleSkuCode] = useState(seed.bundleSkuCode);
+  const [bundleSkuName, setBundleSkuName] = useState(seed.bundleSkuName);
+  const [discountType, setDiscountType] = useState<"percent" | "flat">(
+    seed.discountType,
+  );
+  const [value, setValue] = useState(seed.value);
+  const [errors, setErrors] = useState<
+    Partial<
+      Record<
+        keyof CommonDraft | "bundleSkuCode" | "bundleSkuName" | "value",
+        string
+      >
+    >
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (!bundleSkuCode.trim()) errs.bundleSkuCode = "Bundle SKU code is required";
+    if (!bundleSkuName.trim()) errs.bundleSkuName = "Bundle SKU name is required";
+    if (value <= 0) errs.value = "Discount value must be greater than 0";
+    if (discountType === "percent" && value >= 100)
+      errs.value = "Percentage must be less than 100";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(
+        common,
+        { kind: "combo-bundle", bundleSkuCode, bundleSkuName, discountType, value },
+        initial,
+      ),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field
+          label="Bundle SKU Code"
+          required
+          error={errors.bundleSkuCode}
+          hint="The second SKU in the bundle."
+        >
+          <Input
+            value={bundleSkuCode}
+            onChange={(e) => setBundleSkuCode(e.target.value)}
+            placeholder="e.g. 180000200"
+            className="h-9 text-sm font-mono"
+          />
+        </Field>
+        <Field
+          label="Bundle SKU Name"
+          required
+          error={errors.bundleSkuName}
+        >
+          <Input
+            value={bundleSkuName}
+            onChange={(e) => setBundleSkuName(e.target.value)}
+            placeholder="e.g. FREEDOM REF. GROUNDNUT OIL 1 LTR X 12PET"
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Discount Type" required>
+          <Select
+            value={discountType}
+            onValueChange={(v) => setDiscountType(v as "percent" | "flat")}
+          >
+            <SelectTrigger className="h-9 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="flat">Flat ₹ off the bundle</SelectItem>
+              <SelectItem value="percent">% off the bundle total</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field
+          label={discountType === "percent" ? "Discount (%)" : "Amount (₹)"}
+          required
+          error={errors.value}
+        >
+          <Input
+            type="number"
+            min={0}
+            step={discountType === "percent" ? 0.5 : 1}
+            value={value || ""}
+            onChange={(e) => setValue(parseFloat(e.target.value) || 0)}
+            placeholder={discountType === "percent" ? "e.g. 10" : "e.g. 150"}
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <PreviewLine>
+        Bundle {bundleSkuCode || "—"}
+        {bundleSkuName ? ` (${bundleSkuName})` : ""} ·{" "}
+        {discountType === "percent"
+          ? `${value || "—"}% off`
+          : `${fmtCurrency(value || 0)} off`}
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// 10. Early Payment — discount for early invoice settlement.
+// =====================================================================
+
+function EarlyPaymentForm({ mode, initial, onCancel, onSubmit }: FormProps) {
+  const seed =
+    initial?.config.kind === "early-payment"
+      ? initial.config
+      : { kind: "early-payment" as const, discountPct: 2, withinDays: 7 };
+  const [common, setCommon] = useState<CommonDraft>(initialCommon(initial));
+  const [discountPct, setDiscountPct] = useState(seed.discountPct);
+  const [withinDays, setWithinDays] = useState(seed.withinDays);
+  const [errors, setErrors] = useState<
+    Partial<Record<keyof CommonDraft | "discountPct" | "withinDays", string>>
+  >({});
+
+  const handleSubmit = () => {
+    const commonErrs = validateCommon(common);
+    const errs: typeof errors = { ...commonErrs };
+    if (discountPct <= 0 || discountPct >= 100)
+      errs.discountPct = "Discount must be between 0 and 100";
+    if (withinDays <= 0)
+      errs.withinDays = "Settlement window must be greater than 0";
+    if (Object.keys(errs).length > 0) {
+      setErrors(errs);
+      return;
+    }
+    onSubmit(
+      buildOffer(common, { kind: "early-payment", discountPct, withinDays }, initial),
+    );
+  };
+
+  return (
+    <div className="space-y-4">
+      <CommonFields draft={common} setDraft={setCommon} errors={errors} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Field label="Discount (%)" required error={errors.discountPct}>
+          <Input
+            type="number"
+            min={0}
+            max={99}
+            step={0.5}
+            value={discountPct || ""}
+            onChange={(e) => setDiscountPct(parseFloat(e.target.value) || 0)}
+            placeholder="e.g. 2"
+            className="h-9 text-sm"
+          />
+        </Field>
+        <Field
+          label="Settle Within (days)"
+          required
+          error={errors.withinDays}
+        >
+          <Input
+            type="number"
+            min={1}
+            value={withinDays || ""}
+            onChange={(e) => setWithinDays(parseInt(e.target.value) || 0)}
+            placeholder="e.g. 7"
+            className="h-9 text-sm"
+          />
+        </Field>
+      </div>
+      <PreviewLine>
+        {discountPct || "—"}% off if settled within {withinDays || "—"} days
+      </PreviewLine>
+      <FormFooter mode={mode} onCancel={onCancel} onSubmit={handleSubmit} />
+    </div>
+  );
+}
+
+// =====================================================================
+// Helpers
+// =====================================================================
+
+function PreviewLine({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="bg-blue-50/60 border border-blue-200 rounded-md p-3">
+      <p className="text-[11px] uppercase tracking-wider text-blue-700 mb-1">
+        Preview
+      </p>
+      <p className="text-sm text-gray-800">{children}</p>
+    </div>
+  );
+}
+
+// =====================================================================
+// View dialog — renders the description string + type-specific
+// structured breakdown (slab/tier tables, key values, etc.).
+// =====================================================================
+
+function OfferViewDialog({
+  offer,
+  onClose,
+  onEdit,
+}: {
   offer: DemoOffer | null;
   onClose: () => void;
   onEdit: (offer: DemoOffer) => void;
-}
-
-function OfferViewDialog({ offer, onClose, onEdit }: OfferViewDialogProps) {
-  if (!offer) {
-    return (
-      <Dialog open={false} onOpenChange={() => onClose()}>
-        <DialogContent />
-      </Dialog>
-    );
-  }
-  const meta = OFFER_TYPE_META[offer.offerType];
+}) {
+  if (!offer) return null;
+  const meta = OFFER_TYPE_META[offer.config.kind];
   const Icon = meta.icon;
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-2xl max-h-[92vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Icon className={`h-5 w-5 ${meta.iconColor}`} />
@@ -948,7 +2295,8 @@ function OfferViewDialog({ offer, onClose, onEdit }: OfferViewDialogProps) {
           </DialogTitle>
           <DialogDescription>
             Offer ID&nbsp;
-            <span className="font-mono text-gray-700">{offer.id}</span>
+            <span className="font-mono text-gray-700">{offer.id}</span> ·{" "}
+            {meta.label}
           </DialogDescription>
         </DialogHeader>
 
@@ -969,14 +2317,7 @@ function OfferViewDialog({ offer, onClose, onEdit }: OfferViewDialogProps) {
               {offer.status}
             </Badge>
           </div>
-          <div>
-            <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">
-              Details
-            </p>
-            <p className="text-sm text-gray-800 leading-relaxed bg-gray-50 border border-gray-200 rounded-md p-3">
-              {offer.details}
-            </p>
-          </div>
+          <ConfigDetails config={offer.config} />
         </div>
 
         <DialogFooter>
@@ -1015,13 +2356,173 @@ function ViewField({
       <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">
         {label}
       </p>
-      <p
-        className={`text-sm text-gray-900 ${
-          mono ? "font-mono" : ""
-        }`}
-      >
+      <p className={`text-sm text-gray-900 ${mono ? "font-mono" : ""}`}>
         {value}
       </p>
     </div>
   );
+}
+
+function ConfigDetails({ config }: { config: OfferConfig }) {
+  switch (config.kind) {
+    case "qps":
+      return (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">
+            QPS Slabs · Selling Price {fmtCurrency(config.sellingPrice)}
+          </p>
+          <div className="border border-gray-200 rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Slab</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Min Qty</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Max Qty</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Discount</th>
+                  <th className="px-3 py-2 text-right text-[11px] font-semibold text-gray-600 uppercase">Customer Pays</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {config.slabs.map((s, i) => {
+                  const eff = config.sellingPrice * (1 - s.discountPct / 100);
+                  return (
+                    <tr key={i}>
+                      <td className="px-3 py-2 text-xs">Slab {i + 1}</td>
+                      <td className="px-3 py-2 text-xs">{s.minQty}</td>
+                      <td className="px-3 py-2 text-xs">
+                        {s.maxQty === null ? "∞" : s.maxQty}
+                      </td>
+                      <td className="px-3 py-2 text-xs">{s.discountPct}%</td>
+                      <td className="px-3 py-2 text-xs text-right font-medium">
+                        {fmtCurrency(+eff.toFixed(2))}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    case "value-slab":
+      return (
+        <div>
+          <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">
+            Order-Value Tiers
+          </p>
+          <div className="border border-gray-200 rounded-md overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Tier</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Min Value</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Max Value</th>
+                  <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase">Discount</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {config.tiers.map((t, i) => (
+                  <tr key={i}>
+                    <td className="px-3 py-2 text-xs">Tier {i + 1}</td>
+                    <td className="px-3 py-2 text-xs">{fmtCurrency(t.minValue)}</td>
+                    <td className="px-3 py-2 text-xs">
+                      {t.maxValue === null ? "∞" : fmtCurrency(t.maxValue)}
+                    </td>
+                    <td className="px-3 py-2 text-xs">{t.discountPct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    case "bogo":
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <ViewField label="Buy Quantity" value={String(config.buyQty)} />
+          <ViewField label="Free Quantity" value={String(config.freeQty)} />
+        </div>
+      );
+    case "case-bonus":
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <ViewField label="Buy Cases" value={String(config.buyCases)} />
+          <ViewField label="Free Cases" value={String(config.freeCases)} />
+        </div>
+      );
+    case "off-invoice":
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <ViewField
+            label="Discount Type"
+            value={config.discountType === "percent" ? "% off invoice" : "Flat ₹ per unit"}
+          />
+          <ViewField
+            label="Value"
+            value={
+              config.discountType === "percent"
+                ? `${config.value}%`
+                : fmtCurrency(config.value)
+            }
+          />
+        </div>
+      );
+    case "display-allowance":
+      return (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <ViewField label="Amount per Store" value={fmtCurrency(config.amountPerStore)} />
+            <ViewField label="Verification" value={config.frequency} />
+          </div>
+          <div>
+            <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-1">
+              Display Requirement
+            </p>
+            <p className="text-sm text-gray-800 leading-relaxed bg-gray-50 border border-gray-200 rounded-md p-3">
+              {config.requirement}
+            </p>
+          </div>
+        </div>
+      );
+    case "launch-incentive":
+      return (
+        <div className="grid grid-cols-3 gap-3">
+          <ViewField label="Discount per Unit" value={fmtCurrency(config.discountPerUnit)} />
+          <ViewField label="Launch Period" value={`${config.durationDays} days`} />
+          <ViewField label="Min Qty" value={String(config.minQty)} />
+        </div>
+      );
+    case "loyalty-rebate":
+      return (
+        <div className="grid grid-cols-3 gap-3">
+          <ViewField label="Rebate" value={`${config.rebatePct}%`} />
+          <ViewField label="After N Reorders" value={String(config.afterReorders)} />
+          <ViewField label="Payout" value={config.payoutFrequency} />
+        </div>
+      );
+    case "combo-bundle":
+      return (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <ViewField label="Bundle SKU Code" value={config.bundleSkuCode} mono />
+            <ViewField
+              label="Bundle Discount"
+              value={
+                config.discountType === "percent"
+                  ? `${config.value}% off`
+                  : `${fmtCurrency(config.value)} off`
+              }
+            />
+          </div>
+          <ViewField label="Bundle SKU Name" value={config.bundleSkuName} />
+        </div>
+      );
+    case "early-payment":
+      return (
+        <div className="grid grid-cols-2 gap-3">
+          <ViewField label="Discount" value={`${config.discountPct}%`} />
+          <ViewField label="Settle Within" value={`${config.withinDays} days`} />
+        </div>
+      );
+  }
 }
