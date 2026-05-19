@@ -2038,18 +2038,6 @@ function LogisticsTab({ sellerId }: { sellerId: string }) {
   return (
     <>
       <div className="max-w-3xl space-y-4">
-        <div>
-          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-            <Truck className="h-4 w-4 text-emerald-600" />
-            Logistics Module
-          </h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            Enable the Logistics module for this seller and pick how their
-            logistics stack runs. The seller's sidebar surfaces a Logistics
-            shortcut while this is on.
-          </p>
-        </div>
-
         {/* Master toggle — same outlined-row container the Profile tab
             uses for the Active / Inactive row. */}
         <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-3 bg-gray-50/50">
