@@ -488,18 +488,22 @@ export function OffersList() {
 
   const viewScheme = viewSchemeId ? qpsSchemes.find((s) => s.id === viewSchemeId) : null;
 
-  // ---- Export Offers — Excel workbook with one row per scheme ----
-  // The seller picks an Offer Type (currently only QPS has data; the
-  // other 9 are "Coming Soon" so they yield zero rows but are still
-  // selectable for parity with the picker UI), plus a Valid From /
-  // Valid Till window. Any scheme whose [startDate, endDate] OVERLAPS
-  // with the requested window is included.
+  // ---- Export Offers — Excel workbook, one row per slab ----
+  // Previous shape extended the worksheet *horizontally* with
+  // {Slab N / Discount % / Discounted SP} column triples — that
+  // scaled poorly and was hard to read. The new shape flattens the
+  // structure: each slab becomes its own row, with the parent offer's
+  // identifying columns (SKU Code, SKU Name, Offer Type, Offer Code,
+  // Valid From, Valid Till) repeated alongside the slab-specific
+  // values (Min Qty, Max Qty, Discount Type, Discount Percentage,
+  // Discounted Selling Price).
   //
-  // Columns per row: SKU Code, SKU Name, Offer Type, Offer Code, MRP,
-  // Selling Price, Valid From, Valid Till, then a {Slab N, Discount %,
-  // Discounted SP} triple for each slab in the scheme. The header row
-  // is padded to the max slab count across the exported set so every
-  // row uses the same column count.
+  // Discount Type is always "Percentage" in the export. Flat-price
+  // slabs (a legacy authoring option) are back-calculated to the
+  // equivalent % off the Selling Price so the column reads
+  // consistently. Discount Percentage is stored as a raw number with
+  // no `%` symbol so downstream tools can sort / filter / sum it
+  // straight away.
   const handleExportOffers = async () => {
     if (!exportValidFrom || !exportValidTill) {
       toast.error("Please set both Valid From and Valid Till.");
@@ -536,33 +540,21 @@ export function OffersList() {
       wb.created = new Date();
       const ws = wb.addWorksheet("Offers");
 
-      // Header — common columns + a {Slab N / Discount % / Discounted
-      // Selling price} triple repeated for each slab position up to the
-      // max-slab-count across the exported set.
-      const maxSlabs = sourceSchemes.reduce(
-        (n, s) => Math.max(n, s.slabs.length),
-        1,
-      );
-      const baseHeaders = [
+      const headers = [
         "SKU Code",
         "SKU Name",
         "Offer Type",
         "Offer Code",
-        "MRP",
-        "Selling Price",
+        "Min Quantity",
+        "Max Quantity",
+        "Discount Type",
+        "Discount Percentage",
+        "Discounted Selling Price",
         "Valid From",
         "Valid Till",
       ];
-      const slabHeaders: string[] = [];
-      for (let i = 1; i <= maxSlabs; i++) {
-        slabHeaders.push(`Slab ${i}`, "Discount %", "Discounted Selling price");
-      }
-      ws.addRow([...baseHeaders, ...slabHeaders]);
+      ws.addRow(headers);
 
-      const formatSlabRange = (s: QpsSlab) =>
-        s.maxQty === null || s.maxQty === undefined
-          ? `${s.minQty}+`
-          : `${s.minQty} - ${s.maxQty}`;
       const slabDiscountPct = (s: QpsSlab, sellingPrice: number) => {
         if (s.discountType === "percent" && typeof s.slabPercent === "number") {
           return s.slabPercent;
@@ -579,32 +571,28 @@ export function OffersList() {
         return 0;
       };
 
+      // Row-per-slab: parent offer fields repeat for every slab; only
+      // Min Qty / Max Qty / Discount Percentage / Discounted Selling
+      // Price change between slabs.
       sourceSchemes.forEach((scheme) => {
-        const row: (string | number)[] = [
-          scheme.skuCode,
-          scheme.skuName,
-          "QPS",
-          scheme.id,
-          scheme.mrp,
-          scheme.sellingPrice,
-          scheme.startDate,
-          scheme.endDate,
-        ];
-        // One slab triple per slab; pad with blanks so every row lines
-        // up to the maxSlabs-derived column count.
-        for (let i = 0; i < maxSlabs; i++) {
-          const slab = scheme.slabs[i];
-          if (slab) {
-            row.push(
-              formatSlabRange(slab),
-              slabDiscountPct(slab, scheme.sellingPrice),
-              slab.effectivePrice,
-            );
-          } else {
-            row.push("", "", "");
-          }
-        }
-        ws.addRow(row);
+        scheme.slabs.forEach((slab) => {
+          ws.addRow([
+            scheme.skuCode,
+            scheme.skuName,
+            "QPS",
+            scheme.id,
+            slab.minQty,
+            // Unbounded upper slab (∞) renders as a blank Max Quantity
+            // cell — leaving the cell empty is the most predictable
+            // representation in Excel.
+            slab.maxQty === null || slab.maxQty === undefined ? "" : slab.maxQty,
+            "Percentage",
+            slabDiscountPct(slab, scheme.sellingPrice),
+            slab.effectivePrice,
+            scheme.startDate,
+            scheme.endDate,
+          ]);
+        });
       });
 
       // Header styling matches the Price & Stock / Add SKU templates so
@@ -619,16 +607,15 @@ export function OffersList() {
       };
       headerRow.alignment = { vertical: "middle", horizontal: "left" };
       headerRow.height = 22;
-      // Column widths: SKU Name wider, Slab triples narrower.
-      const baseWidths = [16, 60, 12, 22, 10, 14, 12, 12];
-      baseWidths.forEach((w, i) => {
+      // Column widths sized to typical content.
+      const widths = [16, 60, 12, 22, 14, 14, 16, 20, 22, 12, 12];
+      widths.forEach((w, i) => {
         ws.getColumn(i + 1).width = w;
       });
-      for (let i = 0; i < maxSlabs; i++) {
-        ws.getColumn(baseWidths.length + i * 3 + 1).width = 12; // Slab N
-        ws.getColumn(baseWidths.length + i * 3 + 2).width = 12; // Discount %
-        ws.getColumn(baseWidths.length + i * 3 + 3).width = 16; // Discounted SP
-      }
+      // Ensure Discount Percentage + Discounted SP read as plain
+      // numbers (no %, two-decimal grouping).
+      ws.getColumn(8).numFmt = "0.##"; // Discount Percentage
+      ws.getColumn(9).numFmt = "0.00"; // Discounted Selling Price
       ws.views = [{ state: "frozen", ySplit: 1 }];
 
       const buffer = await wb.xlsx.writeBuffer();
@@ -645,8 +632,12 @@ export function OffersList() {
       URL.revokeObjectURL(url);
 
       setIsExportOpen(false);
+      const totalSlabs = sourceSchemes.reduce(
+        (n, s) => n + s.slabs.length,
+        0,
+      );
       toast.success(
-        `Exported ${sourceSchemes.length} offer${sourceSchemes.length === 1 ? "" : "s"} to Excel.`,
+        `Exported ${sourceSchemes.length} offer${sourceSchemes.length === 1 ? "" : "s"} (${totalSlabs} slab row${totalSlabs === 1 ? "" : "s"}) to Excel.`,
       );
     } catch (err) {
       console.error("[offers-list] export failed", err);
