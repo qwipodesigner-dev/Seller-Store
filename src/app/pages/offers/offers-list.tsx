@@ -1085,11 +1085,28 @@ export function OffersList() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All offer types</SelectItem>
-                  {OFFER_TYPES.map((t) => (
-                    <SelectItem key={t.id} value={t.id}>
-                      {t.label}
-                    </SelectItem>
-                  ))}
+                  {OFFER_TYPES.map((t) => {
+                    // Phase 1: QPS is the only offer type with real data.
+                    // The other 9 stay greyed-out in the dropdown — same
+                    // parity treatment they get on the Create Offers
+                    // picker, so the menu matches what the seller can
+                    // actually act on.
+                    const enabled = t.id === "qps";
+                    return (
+                      <SelectItem
+                        key={t.id}
+                        value={t.id}
+                        disabled={!enabled}
+                      >
+                        {t.label}
+                        {!enabled && (
+                          <span className="ml-2 text-[10px] uppercase tracking-wider text-gray-400">
+                            Coming Soon
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
