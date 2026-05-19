@@ -135,6 +135,39 @@ const MEASURE_UNITS = ["Gram", "Kilogram", "Liter", "Milliliter"];
 // importer uses the value here to compute the read-only Weight in KG
 // column. Volume measures stay on Measure Unit alone.
 const WEIGHT_MEASURES = ["Gram", "Kilogram"];
+// Package Type — the physical container the SKU ships in. Paired
+// with Package Type Value (a numeric companion column) so the seller
+// can say e.g. "Bottle × 12". Free-text would let sellers spell the
+// same container three different ways, so this is a closed dropdown.
+const PACKAGE_TYPES = [
+  "Piece / Pieces (Pc/Pcs)",
+  "Pouch",
+  "Pack",
+  "Sachet",
+  "Bag",
+  "Lamination Bag",
+  "Bottle",
+  "Pet Bottle",
+  "Jar",
+  "Pet Jar",
+  "Box",
+  "Tin",
+  "Can",
+  "Case",
+  "Tube",
+  "Tetra Pack",
+  "Sheet",
+  "Set",
+  "Pads",
+  "Refill",
+  "Nons",
+  "Ladi",
+  "Bundle",
+  "Loose",
+  "Glass Jar",
+  "Plastic Jar",
+  "Container",
+];
 const COUNTRIES = ["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"];
 const TIME_TO_SHIP = ["24 hours", "36 hours", "48 hours"];
 const YES_NO = ["Yes", "No"];
@@ -240,6 +273,28 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Whole number ≥ 1",
     rules: "Optional. Positive whole number when filled.",
     example: "1",
+  },
+  // Package Type + Package Type Value go side-by-side so the seller
+  // can describe the physical container (Pouch, Bottle, Jar, …) and
+  // the numeric count for it (e.g. Bottle × 12) in one shot.
+  {
+    key: "packageType",
+    header: "Package Type",
+    mandatory: false,
+    format: "Dropdown",
+    rules:
+      "Optional. Pick the physical container the SKU ships in (Pouch, Bottle, Tin, etc.).",
+    options: PACKAGE_TYPES,
+    example: "Bottle",
+  },
+  {
+    key: "packageTypeValue",
+    header: "Package Type Value",
+    mandatory: false,
+    format: "Positive number",
+    rules:
+      "Optional. Numeric value paired with Package Type (e.g. 12 for a 12-bottle case). Decimals allowed.",
+    example: "12",
   },
   {
     key: "upc",

@@ -1024,6 +1024,20 @@ export function MySKU() {
           value: row.upc,
         });
       }
+      if (row.packageTypeValue) {
+        const n = Number(row.packageTypeValue);
+        if (!Number.isFinite(n) || n <= 0) {
+          rowErrors.push({
+            row: rowNumber,
+            field: "Package Type Value",
+            error: "Package Type Value must be a positive number.",
+            skuLabel,
+            skuCode,
+            skuName,
+            value: row.packageTypeValue,
+          });
+        }
+      }
       // Weight in KG is no longer user-input — the parser derives it
       // from Weight Measure × SKU Weight before we get here, so any
       // value that lands in row.skuWeight is the system-computed kg
