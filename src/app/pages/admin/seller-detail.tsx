@@ -2004,14 +2004,11 @@ function LogisticsTab({ sellerId }: { sellerId: string }) {
   const missingMode = enabled && mode === null;
   const saveDisabled = !isDirty || missingMode;
 
-  // Mutually-exclusive switch handler — turning one mode on flips the
-  // other off; toggling the active mode off clears the selection.
-  const handleModeToggle = (next: LogisticsMode, checked: boolean) => {
-    if (checked) {
-      setMode(next);
-    } else if (mode === next) {
-      setMode(null);
-    }
+  // Radio semantics — picking a mode replaces the previous one;
+  // there's no "deselect" affordance (the master toggle turning off
+  // is how the seller clears the mode entirely).
+  const handleModeSelect = (next: LogisticsMode) => {
+    setMode(next);
   };
 
   const summary = (() => {
@@ -2062,54 +2059,81 @@ function LogisticsTab({ sellerId }: { sellerId: string }) {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div
-                className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+            {/* Radio-style picker — the dot sits before the heading on
+                the left so the card reads "[ ○ ] Heading / Description"
+                top-to-bottom. The whole card is the click target. */}
+            <div
+              role="radiogroup"
+              aria-label="Logistics mode"
+              className="grid grid-cols-1 md:grid-cols-2 gap-3"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === "tech-for-both"}
+                onClick={() => handleModeSelect("tech-for-both")}
+                className={`text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
                   mode === "tech-for-both"
                     ? "border-emerald-300 bg-emerald-50/50"
-                    : "border-gray-200 bg-white"
+                    : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">
+                <span
+                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    mode === "tech-for-both"
+                      ? "border-emerald-600"
+                      : "border-gray-300"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {mode === "tech-for-both" && (
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  )}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-gray-900">
                     Tech for both Self &amp; 3PL
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                  </span>
+                  <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">
                     Qwipo's logistics tech runs both the seller's own fleet
                     and any 3PL provider deliveries.
-                  </p>
-                </div>
-                <Switch
-                  checked={mode === "tech-for-both"}
-                  onCheckedChange={(v) => handleModeToggle("tech-for-both", v)}
-                  className="mt-0.5"
-                />
-              </div>
+                  </span>
+                </span>
+              </button>
 
-              <div
-                className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === "tech-for-third-party-only"}
+                onClick={() => handleModeSelect("tech-for-third-party-only")}
+                className={`text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
                   mode === "tech-for-third-party-only"
                     ? "border-emerald-300 bg-emerald-50/50"
-                    : "border-gray-200 bg-white"
+                    : "border-gray-200 bg-white hover:border-gray-300"
                 }`}
               >
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-900">
+                <span
+                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    mode === "tech-for-third-party-only"
+                      ? "border-emerald-600"
+                      : "border-gray-300"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {mode === "tech-for-third-party-only" && (
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  )}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-gray-900">
                     No Tech for Self &amp; Tech for 3PL
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                  </span>
+                  <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">
                     The seller's in-house dispatch runs outside Qwipo; only
                     the 3PL leg is technology-tracked.
-                  </p>
-                </div>
-                <Switch
-                  checked={mode === "tech-for-third-party-only"}
-                  onCheckedChange={(v) =>
-                    handleModeToggle("tech-for-third-party-only", v)
-                  }
-                  className="mt-0.5"
-                />
-              </div>
+                  </span>
+                </span>
+              </button>
             </div>
 
             {missingMode && (
