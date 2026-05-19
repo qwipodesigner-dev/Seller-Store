@@ -42,6 +42,7 @@ import {
   Rocket,
   Award,
   Clock,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -221,6 +222,21 @@ export function OffersList() {
   // active in Phase 1; the rest render with a "Coming Soon" badge.
   // Picking QPS closes this dialog and opens the existing QPS editor.
   const [isOfferTypeOpen, setIsOfferTypeOpen] = useState(false);
+
+  // Export dialog — seller picks Offer Type + a Valid From / Valid Till
+  // window, the matching schemes are written to an Excel workbook with
+  // one column triple per slab (Slab N range / Discount % / Discounted
+  // Selling Price). Defaults: type=all, window covers the next year so
+  // any currently-valid scheme falls inside.
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportOfferType, setExportOfferType] = useState<string>("all");
+  const [exportValidFrom, setExportValidFrom] = useState<string>(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [exportValidTill, setExportValidTill] = useState<string>(
+    new Date(Date.now() + 365 * 86400 * 1000).toISOString().slice(0, 10),
+  );
+  const [isExporting, setIsExporting] = useState(false);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -472,6 +488,174 @@ export function OffersList() {
 
   const viewScheme = viewSchemeId ? qpsSchemes.find((s) => s.id === viewSchemeId) : null;
 
+  // ---- Export Offers — Excel workbook with one row per scheme ----
+  // The seller picks an Offer Type (currently only QPS has data; the
+  // other 9 are "Coming Soon" so they yield zero rows but are still
+  // selectable for parity with the picker UI), plus a Valid From /
+  // Valid Till window. Any scheme whose [startDate, endDate] OVERLAPS
+  // with the requested window is included.
+  //
+  // Columns per row: SKU Code, SKU Name, Offer Type, Offer Code, MRP,
+  // Selling Price, Valid From, Valid Till, then a {Slab N, Discount %,
+  // Discounted SP} triple for each slab in the scheme. The header row
+  // is padded to the max slab count across the exported set so every
+  // row uses the same column count.
+  const handleExportOffers = async () => {
+    if (!exportValidFrom || !exportValidTill) {
+      toast.error("Please set both Valid From and Valid Till.");
+      return;
+    }
+    if (exportValidFrom > exportValidTill) {
+      toast.error("Valid From must be on or before Valid Till.");
+      return;
+    }
+
+    // Source rows = QPS schemes whose date range overlaps the window.
+    // When other offer types ship they can be unioned here.
+    const matchesType =
+      exportOfferType === "all" || exportOfferType === "qps";
+    const sourceSchemes = matchesType
+      ? qpsSchemes.filter(
+          (s) =>
+            s.endDate >= exportValidFrom && s.startDate <= exportValidTill,
+        )
+      : [];
+
+    if (sourceSchemes.length === 0) {
+      toast.error(
+        "No offers match the selected type and validity window. Try a wider date range.",
+      );
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Qwipo Seller Store";
+      wb.created = new Date();
+      const ws = wb.addWorksheet("Offers");
+
+      // Header — common columns + a {Slab N / Discount % / Discounted
+      // Selling price} triple repeated for each slab position up to the
+      // max-slab-count across the exported set.
+      const maxSlabs = sourceSchemes.reduce(
+        (n, s) => Math.max(n, s.slabs.length),
+        1,
+      );
+      const baseHeaders = [
+        "SKU Code",
+        "SKU Name",
+        "Offer Type",
+        "Offer Code",
+        "MRP",
+        "Selling Price",
+        "Valid From",
+        "Valid Till",
+      ];
+      const slabHeaders: string[] = [];
+      for (let i = 1; i <= maxSlabs; i++) {
+        slabHeaders.push(`Slab ${i}`, "Discount %", "Discounted Selling price");
+      }
+      ws.addRow([...baseHeaders, ...slabHeaders]);
+
+      const formatSlabRange = (s: QpsSlab) =>
+        s.maxQty === null || s.maxQty === undefined
+          ? `${s.minQty}+`
+          : `${s.minQty} - ${s.maxQty}`;
+      const slabDiscountPct = (s: QpsSlab, sellingPrice: number) => {
+        if (s.discountType === "percent" && typeof s.slabPercent === "number") {
+          return s.slabPercent;
+        }
+        if (
+          s.discountType === "flat" &&
+          typeof s.slabPrice === "number" &&
+          sellingPrice > 0
+        ) {
+          return +(((sellingPrice - s.slabPrice) / sellingPrice) * 100).toFixed(
+            2,
+          );
+        }
+        return 0;
+      };
+
+      sourceSchemes.forEach((scheme) => {
+        const row: (string | number)[] = [
+          scheme.skuCode,
+          scheme.skuName,
+          "QPS",
+          scheme.id,
+          scheme.mrp,
+          scheme.sellingPrice,
+          scheme.startDate,
+          scheme.endDate,
+        ];
+        // One slab triple per slab; pad with blanks so every row lines
+        // up to the maxSlabs-derived column count.
+        for (let i = 0; i < maxSlabs; i++) {
+          const slab = scheme.slabs[i];
+          if (slab) {
+            row.push(
+              formatSlabRange(slab),
+              slabDiscountPct(slab, scheme.sellingPrice),
+              slab.effectivePrice,
+            );
+          } else {
+            row.push("", "", "");
+          }
+        }
+        ws.addRow(row);
+      });
+
+      // Header styling matches the Price & Stock / Add SKU templates so
+      // the three exports feel like siblings: bold white text on blue,
+      // first row frozen.
+      const headerRow = ws.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1E40AF" },
+      };
+      headerRow.alignment = { vertical: "middle", horizontal: "left" };
+      headerRow.height = 22;
+      // Column widths: SKU Name wider, Slab triples narrower.
+      const baseWidths = [16, 60, 12, 22, 10, 14, 12, 12];
+      baseWidths.forEach((w, i) => {
+        ws.getColumn(i + 1).width = w;
+      });
+      for (let i = 0; i < maxSlabs; i++) {
+        ws.getColumn(baseWidths.length + i * 3 + 1).width = 12; // Slab N
+        ws.getColumn(baseWidths.length + i * 3 + 2).width = 12; // Discount %
+        ws.getColumn(baseWidths.length + i * 3 + 3).width = 16; // Discounted SP
+      }
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `offers_export_${exportValidFrom}_to_${exportValidTill}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setIsExportOpen(false);
+      toast.success(
+        `Exported ${sourceSchemes.length} offer${sourceSchemes.length === 1 ? "" : "s"} to Excel.`,
+      );
+    } catch (err) {
+      console.error("[offers-list] export failed", err);
+      toast.error("Couldn't generate the export. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Inception-day: when the seller has no QPS schemes at all, hide
   // only the toolbar chrome (search, status filter, Create CTA) and
   // the pagination footer. KPI summary stays visible (showing 0s) and
@@ -504,9 +688,10 @@ export function OffersList() {
                 />
               </div>
             </div>
-            {/* Right-aligned actions: Filters (right-side drawer) +
-                Create Offers. Matches the My SKU / Customers pattern
-                so the toolbar reads consistently across list pages. */}
+            {/* Right-aligned actions: Filters (right-side drawer) →
+                Export (xlsx download) → Create Offers. Matches the
+                My SKU / Customers pattern so the toolbar reads
+                consistently across list pages. */}
             <div className="flex items-center gap-2">
               {!isEmpty && (
                 <Button
@@ -523,6 +708,17 @@ export function OffersList() {
                         (offerTypeFilter !== "all" ? 1 : 0)}
                     </Badge>
                   )}
+                </Button>
+              )}
+              {!isEmpty && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsExportOpen(true)}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export
                 </Button>
               )}
               <Button
@@ -855,6 +1051,103 @@ export function OffersList() {
               onClick={() => setIsOfferTypeOpen(false)}
             >
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ====================== Export Offers Dialog ====================== */}
+      <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-blue-600" />
+              Export Offers
+            </DialogTitle>
+            <DialogDescription>
+              Pick the offer type and validity window. Matching offers
+              download as an Excel workbook with one column triple per
+              slab.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="exportOfferType" className="text-xs">
+                Offer Type
+              </Label>
+              <Select
+                value={exportOfferType}
+                onValueChange={setExportOfferType}
+              >
+                <SelectTrigger id="exportOfferType" className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All offer types</SelectItem>
+                  {OFFER_TYPES.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="exportValidFrom" className="text-xs">
+                  Valid From <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="exportValidFrom"
+                  type="date"
+                  value={exportValidFrom}
+                  onChange={(e) => setExportValidFrom(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="exportValidTill" className="text-xs">
+                  Valid Till <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="exportValidTill"
+                  type="date"
+                  value={exportValidTill}
+                  min={exportValidFrom || undefined}
+                  onChange={(e) => setExportValidTill(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              Any offer whose date range overlaps with this window is
+              included.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsExportOpen(false)}
+              disabled={isExporting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleExportOffers}
+              disabled={
+                isExporting ||
+                !exportValidFrom ||
+                !exportValidTill ||
+                exportValidFrom > exportValidTill
+              }
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {isExporting ? "Exporting…" : "Download Excel"}
             </Button>
           </DialogFooter>
         </DialogContent>
