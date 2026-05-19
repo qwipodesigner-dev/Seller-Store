@@ -44,14 +44,16 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "demo",
     },
   },
-  // Seller + Logistics — same seller demo data, but with the Logistics
-  // add-on surfaced: Settings hub gets the Logistics Settings card and
-  // the sidebar gets the Logistics nav item. Used to demo the logistics
-  // flow without polluting the vanilla seller persona above.
+  // Seller + Logistics — same seller as the vanilla persona above
+  // (id: "seller-1"), just with the Logistics add-on surfaced so the
+  // sidebar shows the Logistics nav item. The enable/disable state is
+  // owned by the Super Admin's Manage Seller → Logistics tab, keyed
+  // on the same seller id; both logins share the admin record so the
+  // admin's edits are reflected when the seller logs in.
   "9911111111": {
     otp: "1234",
     user: {
-      id: "seller-logistics",
+      id: "seller-1",
       name: "Rajesh Kumar",
       email: "seller+logistics@qwipo.com",
       role: "seller",

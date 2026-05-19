@@ -192,16 +192,26 @@ export function RootLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // Track the seller's Logistics master toggle so the sidebar item
-  // can be greyed-out / enabled live without a page reload. Subscribes
-  // to the localStorage-backed settings store; cleans up on unmount.
-  const [logisticsEnabled, setLogisticsEnabled] = useState(
-    () => getLogisticsSettings().enabled,
+  // can be greyed-out / enabled live without a page reload. Settings
+  // are keyed by seller id — the Super Admin manages the state from
+  // the Manage Seller → Logistics tab, and the seller's sidebar reads
+  // the same key here. Falls back to defaults for non-seller roles
+  // (admin / designer) since they don't render the logistics nav at
+  // all.
+  const sellerId = user?.id ?? "";
+  const [logisticsEnabled, setLogisticsEnabled] = useState(() =>
+    sellerId ? getLogisticsSettings(sellerId).enabled : false,
   );
   useEffect(() => {
-    return subscribeToLogisticsSettings(() =>
-      setLogisticsEnabled(getLogisticsSettings().enabled),
+    if (!sellerId) {
+      setLogisticsEnabled(false);
+      return;
+    }
+    setLogisticsEnabled(getLogisticsSettings(sellerId).enabled);
+    return subscribeToLogisticsSettings(sellerId, () =>
+      setLogisticsEnabled(getLogisticsSettings(sellerId).enabled),
     );
-  }, []);
+  }, [sellerId]);
 
   const handleLogout = () => {
     logout();

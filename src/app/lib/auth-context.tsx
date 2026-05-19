@@ -8,7 +8,6 @@ import {
 import { applyDataMode as applyAdminCatalogDataMode } from "./admin-catalog";
 import { applyDataMode as applyMockStoreDataMode } from "./mock-store";
 import { setDataMode as setGlobalDataMode } from "./data-mode";
-import { setLogisticsSettings } from "./logistics-settings";
 
 // Phase 1 ships three roles:
 //   - admin    → Qwipo Super Admin (admin subtree at /admin)
@@ -122,16 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (u: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
     applyDataMode(u.dataMode ?? "demo");
-    // Seed the Logistics settings so the Seller + Logistics persona
-    // demos cleanly from login (enabled + both modes ticked, sidebar
-    // clickable). For every other persona, reset to defaults so a
-    // re-login as the plain seller doesn't carry stale state from a
-    // previous Seller + Logistics session.
-    setLogisticsSettings(
-      u.logisticsAddon
-        ? { enabled: true, mode: "tech-for-both" }
-        : { enabled: false, mode: null },
-    );
+    // Note: logistics settings are NOT seeded here. The Super Admin's
+    // Manage Seller → Logistics tab is now the single source of truth
+    // for the seller's logistics state; whatever the admin saved
+    // persists across logins and tabs.
     setUser(u);
   };
 

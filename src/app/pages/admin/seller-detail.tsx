@@ -15,6 +15,12 @@ import {
 } from "../../components/ui/tabs";
 import { ServiceabilityManager } from "../../components/serviceability-manager";
 import {
+  getLogisticsSettings,
+  setLogisticsSettings,
+  subscribeToLogisticsSettings,
+  type LogisticsMode,
+} from "../../lib/logistics-settings";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -37,6 +43,8 @@ import {
   ArrowRight,
   Pencil,
   MapPin,
+  Truck,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -413,6 +421,13 @@ export function AdminSellerDetail() {
                   <MapPin className="h-4 w-4 mr-2" />
                   Serviceability
                 </TabsTrigger>
+                <TabsTrigger
+                  value="logistics"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  Logistics
+                </TabsTrigger>
               </TabsList>
             </div>
 
@@ -760,6 +775,14 @@ export function AdminSellerDetail() {
                 zones for any seller from a single place. */}
             <TabsContent value="serviceability" className="p-6 mt-0">
               <ServiceabilityManager />
+            </TabsContent>
+
+            {/* Logistics — moved here from the seller-side Settings
+                hub. The admin owns enable/disable + mode for each
+                seller; the seller's sidebar reads the same per-seller
+                state and gates the Logistics nav accordingly. */}
+            <TabsContent value="logistics" className="p-6 mt-0">
+              {sellerId && <LogisticsTab sellerId={sellerId} />}
             </TabsContent>
           </Tabs>
         </Card>
@@ -1942,5 +1965,199 @@ function ConnectorCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// =====================================================================
+// Logistics tab — admin controls the seller's logistics master toggle
+// + mode pick. Mirrors the visual rhythm of the other Manage Seller
+// tabs (Profile / Companies & Brands / Connector / Serviceability):
+// padded section header, an outlined master-toggle row, and a Save
+// button confined to the tab body.
+// =====================================================================
+
+function LogisticsTab({ sellerId }: { sellerId: string }) {
+  const initial = getLogisticsSettings(sellerId);
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [mode, setMode] = useState<LogisticsMode | null>(initial.mode);
+  const [saved, setSaved] = useState({
+    enabled: initial.enabled,
+    mode: initial.mode,
+  });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Re-sync when the admin switches sellers — the tab state belongs to
+  // sellerId, not to the component instance.
+  useEffect(() => {
+    const fresh = getLogisticsSettings(sellerId);
+    setEnabled(fresh.enabled);
+    setMode(fresh.mode);
+    setSaved({ enabled: fresh.enabled, mode: fresh.mode });
+    return subscribeToLogisticsSettings(sellerId, () => {
+      const next = getLogisticsSettings(sellerId);
+      setSaved({ enabled: next.enabled, mode: next.mode });
+    });
+  }, [sellerId]);
+
+  const isDirty =
+    enabled !== saved.enabled || (enabled && mode !== saved.mode);
+  const missingMode = enabled && mode === null;
+  const saveDisabled = !isDirty || missingMode;
+
+  // Mutually-exclusive switch handler — turning one mode on flips the
+  // other off; toggling the active mode off clears the selection.
+  const handleModeToggle = (next: LogisticsMode, checked: boolean) => {
+    if (checked) {
+      setMode(next);
+    } else if (mode === next) {
+      setMode(null);
+    }
+  };
+
+  const summary = (() => {
+    if (!enabled) {
+      return "Logistics will be disabled for this seller. The Logistics menu will not appear in their sidebar.";
+    }
+    const label =
+      mode === "tech-for-both"
+        ? "Tech for both Self & 3PL"
+        : "No Tech for Self & Tech for 3PL";
+    return `Logistics will be enabled for this seller in "${label}" mode. The Logistics menu will be available in their sidebar.`;
+  })();
+
+  const handleSave = () => {
+    setLogisticsSettings(sellerId, {
+      enabled,
+      mode: enabled ? mode : null,
+    });
+    setSaved({ enabled, mode: enabled ? mode : null });
+    setConfirmOpen(false);
+    toast.success("Logistics settings saved for this seller.");
+  };
+
+  return (
+    <>
+      <div className="max-w-3xl space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
+            <Truck className="h-4 w-4 text-emerald-600" />
+            Logistics Module
+          </h3>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Enable the Logistics module for this seller and pick how their
+            logistics stack runs. The seller's sidebar surfaces a Logistics
+            shortcut while this is on.
+          </p>
+        </div>
+
+        {/* Master toggle — same outlined-row container the Profile tab
+            uses for the Active / Inactive row. */}
+        <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-3 bg-gray-50/50">
+          <div>
+            <Label className="text-sm">Enable Logistics</Label>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Off by default. Turn this on to make the Logistics shortcut
+              clickable in the seller's sidebar.
+            </p>
+          </div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+
+        {enabled && (
+          <div className="space-y-2">
+            <div>
+              <p className="text-xs font-medium text-gray-900">
+                Logistics mode
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Pick one — the two modes are mutually exclusive.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div
+                className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                  mode === "tech-for-both"
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    Tech for both Self &amp; 3PL
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                    Qwipo's logistics tech runs both the seller's own fleet
+                    and any 3PL provider deliveries.
+                  </p>
+                </div>
+                <Switch
+                  checked={mode === "tech-for-both"}
+                  onCheckedChange={(v) => handleModeToggle("tech-for-both", v)}
+                  className="mt-0.5"
+                />
+              </div>
+
+              <div
+                className={`flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                  mode === "tech-for-third-party-only"
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : "border-gray-200 bg-white"
+                }`}
+              >
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    No Tech for Self &amp; Tech for 3PL
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+                    The seller's in-house dispatch runs outside Qwipo; only
+                    the 3PL leg is technology-tracked.
+                  </p>
+                </div>
+                <Switch
+                  checked={mode === "tech-for-third-party-only"}
+                  onCheckedChange={(v) =>
+                    handleModeToggle("tech-for-third-party-only", v)
+                  }
+                  className="mt-0.5"
+                />
+              </div>
+            </div>
+
+            {missingMode && (
+              <p className="text-[11px] text-red-600">
+                Pick a mode before saving.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <Button
+            onClick={() => setConfirmOpen(true)}
+            disabled={saveDisabled}
+            className="gap-2"
+          >
+            <Save className="h-4 w-4" />
+            Save
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Save logistics settings?</DialogTitle>
+            <DialogDescription>{summary}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

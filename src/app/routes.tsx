@@ -34,7 +34,6 @@ import { ShippingSettings } from "./pages/settings/shipping-settings";
 import { PaymentSettings } from "./pages/settings/payment-settings";
 import { CustomerSettings } from "./pages/settings/customer-settings";
 import { CommunicationSettings } from "./pages/settings/communication-settings";
-import { LogisticsSettingsPage } from "./pages/settings/logistics-settings";
 import { SalesOrdersReport } from "./pages/reports/sales-orders";
 import { InventoryInsightsReport } from "./pages/reports/inventory-insights";
 import { ProductPerformanceReport } from "./pages/reports/product-performance";
@@ -157,7 +156,6 @@ export const router = createBrowserRouter([
       { path: "settings/payment", Component: PaymentSettings },
       { path: "settings/customer", Component: CustomerSettings },
       { path: "settings/communication", Component: CommunicationSettings },
-      { path: "settings/logistics", Component: LogisticsSettingsPage },
       { path: "reports", Component: Reports },
       { path: "reports/sales-orders", Component: SalesOrdersReport },
       { path: "reports/inventory", Component: InventoryInsightsReport },
