@@ -129,18 +129,18 @@ const CATEGORY_OPTIONS: string[] = [
   "Tinned & Processed Foods",
 ];
 
-const MEASURE_UNITS = ["Gram", "Kilogram", "Liter", "Milliliter"];
-// Weight Measure is intentionally narrower than Measure Unit — the
-// physical weight only ever rolls up to grams or kilograms, and the
-// importer uses the value here to compute the read-only Weight in KG
-// column. Volume measures stay on Measure Unit alone.
-const WEIGHT_MEASURES = ["Gram", "Kilogram"];
-// Package Type — the physical container the SKU ships in. Paired
-// with Package Type Value (a numeric companion column) so the seller
-// can say e.g. "Bottle × 12". Free-text would let sellers spell the
-// same container three different ways, so this is a closed dropdown.
-const PACKAGE_TYPES = [
-  "Piece / Pieces (Pc/Pcs)",
+// Measure Unit covers mass (Gram/Kilogram), volume (Liter/Milliliter),
+// count-based packaging (Pc, Pcs, Pouch, Bottle, …) and apparel sizes
+// (New Born → Medium). Only Gram/Kilogram/Liter/Milliliter feed the
+// Weight in KG conversion in measureToKg — every other unit returns
+// null there and surfaces as "—" in the computed column.
+const MEASURE_UNITS = [
+  "Gram",
+  "Kilogram",
+  "Liter",
+  "Milliliter",
+  "Pc",
+  "Pcs",
   "Pouch",
   "Pack",
   "Sachet",
@@ -158,15 +158,64 @@ const PACKAGE_TYPES = [
   "Tetra Pack",
   "Sheet",
   "Set",
-  "Pads",
+  "Pad",
   "Refill",
   "Nons",
   "Ladi",
   "Bundle",
   "Loose",
-  "Glass Jar",
   "Plastic Jar",
   "Container",
+  "Glass Jar",
+  "New Born",
+  "Small",
+  "Medium",
+];
+// Weight Measure is intentionally narrower than Measure Unit — the
+// physical weight only ever rolls up to grams or kilograms, and the
+// importer uses the value here to compute the read-only Weight in KG
+// column. Volume measures stay on Measure Unit alone.
+const WEIGHT_MEASURES = ["Gram", "Kilogram"];
+// Package Type — the physical container the SKU ships in. Paired
+// with Package Type Value (a numeric companion column) so the seller
+// can say e.g. "Bottle × 12". Free-text would let sellers spell the
+// same container three different ways, so this is a closed dropdown.
+const PACKAGE_TYPES = [
+  "Pc",
+  "Pcs",
+  "Pouch",
+  "Pack",
+  "Sachet",
+  "Bag",
+  "Lamination Bag",
+  "Bottle",
+  "Pet Bottle",
+  "Jar",
+  "Pet Jar",
+  "Box",
+  "Tin",
+  "Can",
+  "Case",
+  "Tube",
+  "Tetra Pack",
+  "Sheet",
+  "Set",
+  "Pad",
+  "Refill",
+  "Nons",
+  "Ladi",
+  "Bundle",
+  "Loose",
+  "Plastic Jar",
+  "Container",
+  "Glass Jar",
+  "New Born",
+  "Small",
+  "Medium",
+  "Large",
+  "Extra Large",
+  "XXL",
+  "XXXL",
 ];
 const COUNTRIES = ["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"];
 const TIME_TO_SHIP = ["24 hours", "36 hours", "48 hours"];
