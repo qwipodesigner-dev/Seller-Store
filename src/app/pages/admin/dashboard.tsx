@@ -20,19 +20,19 @@ export function AdminDashboard() {
   const phase1Modules = [
     {
       label: "Sellers",
-      description: "Approve new requests, manage sellers and their company links",
+      description: "Onboard, view and manage Seller Admin accounts.",
       href: "/admin/users",
       icon: Store,
     },
     {
       label: "Companies & Brands",
-      description: "Master catalog with per-company brands and ONDC categories",
+      description: "Maintain the canonical company → brand catalog with ONDC categories.",
       href: "/admin/companies",
       icon: Building2,
     },
     {
       label: "Connectors",
-      description: "DMS / ONDC connector configuration",
+      description: "View and configure ONDC connectors (per-seller).",
       href: "/admin/connectors",
       icon: Plug,
     },

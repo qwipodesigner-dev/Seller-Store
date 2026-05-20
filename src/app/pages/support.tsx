@@ -19,78 +19,56 @@ export function Support() {
       {/* Scrollable content */}
       <div className="flex-1 overflow-y-auto p-6">
         <div className="max-w-4xl mx-auto space-y-4">
-          {/* Phone Lines (top row) — entire card is a tel: deep link
-              so the seller can tap anywhere on the card to dial. */}
+          {/* All four cards share the same anatomy: icon-left, content-
+              right, content stack = Title → Value → Caption. `h-full`
+              + a `flex` content body means cards in the same row are
+              the same height regardless of caption length. */}
+
+          {/* Row 1 — active contact channels (Phone + Email). Both wrap
+              tel:/mailto: deep links so the whole card is tappable. */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <a
-              href="tel:12345"
+              href="tel:+919121222836"
               className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-lg"
             >
-              <Card className="border border-gray-200 group-hover:shadow-md group-hover:border-blue-300 transition-all">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-blue-100 text-blue-600 p-2.5 rounded-lg">
-                      <Phone className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Support Line 1</p>
-                      <p className="text-lg font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
-                        12345
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    General queries and order support
-                  </p>
-                </CardContent>
-              </Card>
-            </a>
-
-            <a
-              href="tel:23456"
-              className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 rounded-lg"
-            >
-              <Card className="border border-gray-200 group-hover:shadow-md group-hover:border-green-300 transition-all">
-                <CardContent className="p-5">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="bg-green-100 text-green-600 p-2.5 rounded-lg">
-                      <Phone className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500">Support Line 2</p>
-                      <p className="text-lg font-semibold text-gray-900 group-hover:text-green-600 transition-colors">
-                        23456
-                      </p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    Technical support and integrations
-                  </p>
-                </CardContent>
-              </Card>
-            </a>
-          </div>
-
-          {/* Email + Working Hours (second row). Email is a mailto:
-              deep link wrapping the whole card; Working Hours is
-              read-only. */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a
-              href="mailto:support@qwipo.com"
-              className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
-            >
-              <Card className="border border-gray-200 group-hover:shadow-md group-hover:border-amber-300 transition-all">
+              <Card className="h-full border border-gray-200 group-hover:shadow-md group-hover:border-blue-300 transition-all">
                 <CardContent className="p-5">
                   <div className="flex items-start gap-3">
-                    <div className="bg-amber-100 text-amber-600 p-2.5 rounded-lg">
+                    <div className="bg-blue-100 text-blue-600 p-2.5 rounded-lg flex-shrink-0">
+                      <Phone className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-gray-900 text-sm">
+                        Phone Support
+                      </p>
+                      <p className="text-base font-semibold text-gray-900 group-hover:text-blue-600 transition-colors truncate">
+                        +91 91212 22836
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        General queries and order support
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </a>
+
+            <a
+              href="mailto:info@qwipo.com"
+              className="block group focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 rounded-lg"
+            >
+              <Card className="h-full border border-gray-200 group-hover:shadow-md group-hover:border-amber-300 transition-all">
+                <CardContent className="p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="bg-amber-100 text-amber-600 p-2.5 rounded-lg flex-shrink-0">
                       <Mail className="h-5 w-5" />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="font-medium text-gray-900 text-sm">
                         Email Support
                       </p>
-                      <p className="text-sm text-blue-600 group-hover:underline truncate">
-                        support@qwipo.com
+                      <p className="text-base font-semibold text-gray-900 group-hover:text-amber-600 transition-colors truncate">
+                        info@qwipo.com
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
                         We typically respond within 24 hours
@@ -100,18 +78,24 @@ export function Support() {
                 </CardContent>
               </Card>
             </a>
+          </div>
 
-            <Card className="border border-gray-200">
+          {/* Row 2 — passive info (Working Hours + FAQ). Same anatomy
+              so the four cards form an aligned 2 × 2 grid. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="h-full border border-gray-200">
               <CardContent className="p-5">
                 <div className="flex items-start gap-3">
-                  <div className="bg-teal-100 text-teal-600 p-2.5 rounded-lg">
+                  <div className="bg-teal-100 text-teal-600 p-2.5 rounded-lg flex-shrink-0">
                     <Clock className="h-5 w-5" />
                   </div>
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="font-medium text-gray-900 text-sm">
                       Working Hours
                     </p>
-                    <p className="text-sm text-gray-700">Monday to Friday</p>
+                    <p className="text-base font-semibold text-gray-900">
+                      Monday – Friday
+                    </p>
                     <p className="text-xs text-gray-500 mt-1">
                       9:00 AM – 6:00 PM IST
                     </p>
@@ -119,28 +103,28 @@ export function Support() {
                 </div>
               </CardContent>
             </Card>
-          </div>
 
-          {/* FAQ — informational only; no link out (BR-6). */}
-          <Card className="border border-gray-200">
-            <CardContent className="p-5">
-              <div className="flex items-start gap-3">
-                <div className="bg-blue-100 text-blue-600 p-2 rounded-lg">
-                  <HelpCircle className="h-5 w-5" />
+            <Card className="h-full border border-gray-200">
+              <CardContent className="p-5">
+                <div className="flex items-start gap-3">
+                  <div className="bg-indigo-100 text-indigo-600 p-2.5 rounded-lg flex-shrink-0">
+                    <HelpCircle className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-gray-900 text-sm">
+                      Frequently Asked Questions
+                    </p>
+                    <p className="text-base font-semibold text-gray-900">
+                      How-to &amp; common queries
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1 truncate">
+                      Catalog, orders, connectors, ONDC.
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="font-medium text-gray-900 text-sm">
-                    Frequently Asked Questions
-                  </p>
-                  <p className="text-sm text-gray-600 mt-1">
-                    For common queries about catalog sync, order management,
-                    connector setup, and ONDC publishing, check our knowledge
-                    base or reach out to the support team above.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     </div>

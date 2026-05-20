@@ -15,6 +15,12 @@ import {
 } from "../../components/ui/tabs";
 import { ServiceabilityManager } from "../../components/serviceability-manager";
 import {
+  getLogisticsSettings,
+  setLogisticsSettings,
+  subscribeToLogisticsSettings,
+  type LogisticsMode,
+} from "../../lib/logistics-settings";
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -37,6 +43,8 @@ import {
   ArrowRight,
   Pencil,
   MapPin,
+  Truck,
+  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -188,8 +196,8 @@ export function AdminSellerDetail() {
     // Validate first; if anything is missing, surface field-level
     // errors instead of silently no-op'ing.
     const next: { sellerId?: string; apiKey?: string } = {};
-    if (!configSellerId.trim()) next.sellerId = "Seller ID is required";
-    if (!configApiKey.trim()) next.apiKey = "API Key is required";
+    if (!configSellerId.trim()) next.sellerId = "Seller ID is required.";
+    if (!configApiKey.trim()) next.apiKey = "API Key is required.";
     if (Object.keys(next).length > 0) {
       setConfigErrors(next);
       return;
@@ -201,11 +209,11 @@ export function AdminSellerDetail() {
       dataSyncTypes: [], syncFrequencyMinutes: 15, maxRetries: 3, autoRetry: true, autoSyncEnabled: true,
     });
     if (updated) {
-      toast.success("ONDC connector added");
+      toast.success("ONDC connector added.");
       setSeller(updated);
       setConfigDialogOpen(false);
     } else {
-      toast.error("Failed to save connector");
+      toast.error("Could not save the ONDC connector. Please try again.");
     }
   };
 
@@ -219,8 +227,8 @@ export function AdminSellerDetail() {
 
   const saveEditOndc = () => {
     const next: { sellerId?: string; apiKey?: string } = {};
-    if (!editOndcSellerId.trim()) next.sellerId = "Seller ID is required";
-    if (!editOndcApiKey.trim()) next.apiKey = "API Key is required";
+    if (!editOndcSellerId.trim()) next.sellerId = "Seller ID is required.";
+    if (!editOndcApiKey.trim()) next.apiKey = "API Key is required.";
     if (Object.keys(next).length > 0) {
       setEditOndcErrors(next);
       return;
@@ -232,11 +240,11 @@ export function AdminSellerDetail() {
       privateKey: editOndcApiKey.trim(),
     });
     if (updated) {
-      toast.success("ONDC connector updated");
+      toast.success("ONDC connector updated.");
       setSeller(updated);
       setEditOndcOpen(false);
     } else {
-      toast.error("Failed to update connector");
+      toast.error("Could not save the ONDC connector. Please try again.");
     }
   };
 
@@ -404,7 +412,7 @@ export function AdminSellerDetail() {
                   className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
                 >
                   <Plug className="h-4 w-4 mr-2" />
-                  Connectors
+                  Connector
                 </TabsTrigger>
                 <TabsTrigger
                   value="serviceability"
@@ -412,6 +420,13 @@ export function AdminSellerDetail() {
                 >
                   <MapPin className="h-4 w-4 mr-2" />
                   Serviceability
+                </TabsTrigger>
+                <TabsTrigger
+                  value="logistics"
+                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
+                >
+                  <Truck className="h-4 w-4 mr-2" />
+                  Logistics
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -575,15 +590,16 @@ export function AdminSellerDetail() {
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-base font-semibold text-gray-900">
-                    Connectors
+                    Connector
                   </h3>
                   <p className="text-sm text-gray-500">
-                    Manage this seller's integrations with external systems
+                    Configure the seller's ONDC connector.
                   </p>
                 </div>
                 <Button
                   className="gap-2"
                   onClick={() => setAddConnectorOpen(true)}
+                  disabled={ondcConnected}
                 >
                   <Plus className="h-4 w-4" />
                   Add Connector
@@ -594,11 +610,11 @@ export function AdminSellerDetail() {
                 <div className="text-center py-12 border-2 border-dashed rounded-lg">
                   <Plug className="h-10 w-10 mx-auto text-gray-300 mb-2" />
                   <p className="font-medium text-gray-600">
-                    No connectors added
+                    ONDC connector not configured yet
                   </p>
                   <p className="text-sm text-gray-500 mt-1 mb-4">
-                    Click "Add Connector" to link this seller to ONDC
-                    (Marketplace). DMS connectors will be available in Phase 2.
+                    Add the Seller ID and API Key shared by ONDC so this seller
+                    can transact on the network.
                   </p>
                   <Button
                     variant="outline"
@@ -760,6 +776,14 @@ export function AdminSellerDetail() {
             <TabsContent value="serviceability" className="p-6 mt-0">
               <ServiceabilityManager />
             </TabsContent>
+
+            {/* Logistics — moved here from the seller-side Settings
+                hub. The admin owns enable/disable + mode for each
+                seller; the seller's sidebar reads the same per-seller
+                state and gates the Logistics nav accordingly. */}
+            <TabsContent value="logistics" className="p-6 mt-0">
+              {sellerId && <LogisticsTab sellerId={sellerId} />}
+            </TabsContent>
           </Tabs>
         </Card>
       </div>
@@ -825,7 +849,7 @@ export function AdminSellerDetail() {
               Connect ONDC
             </DialogTitle>
             <DialogDescription>
-              Enter the Seller ID and API Key to connect.
+              Enter the Seller ID and API Key shared by ONDC for this seller.
             </DialogDescription>
           </DialogHeader>
 
@@ -896,7 +920,7 @@ export function AdminSellerDetail() {
               Edit ONDC Connector
             </DialogTitle>
             <DialogDescription>
-              Update the stored Seller ID and API Key for this seller's ONDC link.
+              Update the saved Seller ID or API Key for this seller.
             </DialogDescription>
           </DialogHeader>
 
@@ -1001,8 +1025,8 @@ export function AdminSellerDetail() {
                   customers.
                 </li>
                 <li>
-                  You'll be able to link new companies and brands to this
-                  seller.
+                  You'll be able to link new companies and add more brands to
+                  this seller.
                 </li>
               </>
             ) : (
@@ -1013,8 +1037,8 @@ export function AdminSellerDetail() {
                   products.
                 </li>
                 <li>
-                  You will not be able to link new companies or brands to this
-                  seller until they are re-activated.
+                  You will not be able to link new companies or add more brands
+                  to this seller until they are re-activated.
                 </li>
                 <li>Existing data is preserved and can be restored anytime.</li>
               </>
@@ -1032,11 +1056,11 @@ export function AdminSellerDetail() {
                   setSeller(updated);
                   toast.success(
                     pendingActiveValue
-                      ? `${updated.name} is now Active`
-                      : `${updated.name} has been deactivated`,
+                      ? `${updated.name} is now Active.`
+                      : `${updated.name} has been deactivated.`,
                   );
                 } else {
-                  toast.error("Failed to update status");
+                  toast.error("Could not update status. Please try again.");
                 }
                 setPendingActiveValue(null);
               }}
@@ -1941,5 +1965,211 @@ function ConnectorCard({
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+// =====================================================================
+// Logistics tab — admin controls the seller's logistics master toggle
+// + mode pick. Mirrors the visual rhythm of the other Manage Seller
+// tabs (Profile / Companies & Brands / Connector / Serviceability):
+// padded section header, an outlined master-toggle row, and a Save
+// button confined to the tab body.
+// =====================================================================
+
+function LogisticsTab({ sellerId }: { sellerId: string }) {
+  const initial = getLogisticsSettings(sellerId);
+  const [enabled, setEnabled] = useState(initial.enabled);
+  const [mode, setMode] = useState<LogisticsMode | null>(initial.mode);
+  const [saved, setSaved] = useState({
+    enabled: initial.enabled,
+    mode: initial.mode,
+  });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+
+  // Re-sync when the admin switches sellers — the tab state belongs to
+  // sellerId, not to the component instance.
+  useEffect(() => {
+    const fresh = getLogisticsSettings(sellerId);
+    setEnabled(fresh.enabled);
+    setMode(fresh.mode);
+    setSaved({ enabled: fresh.enabled, mode: fresh.mode });
+    return subscribeToLogisticsSettings(sellerId, () => {
+      const next = getLogisticsSettings(sellerId);
+      setSaved({ enabled: next.enabled, mode: next.mode });
+    });
+  }, [sellerId]);
+
+  const isDirty =
+    enabled !== saved.enabled || (enabled && mode !== saved.mode);
+  const missingMode = enabled && mode === null;
+  const saveDisabled = !isDirty || missingMode;
+
+  // Radio semantics — picking a mode replaces the previous one;
+  // there's no "deselect" affordance (the master toggle turning off
+  // is how the seller clears the mode entirely).
+  const handleModeSelect = (next: LogisticsMode) => {
+    setMode(next);
+  };
+
+  const summary = (() => {
+    if (!enabled) {
+      return "Logistics will be disabled for this seller. The Logistics menu will not appear in their sidebar.";
+    }
+    const label =
+      mode === "tech-for-both"
+        ? "Tech for both Self & 3PL"
+        : "No Tech for Self & Tech for 3PL";
+    return `Logistics will be enabled for this seller in "${label}" mode. The Logistics menu will be available in their sidebar.`;
+  })();
+
+  const handleSave = () => {
+    setLogisticsSettings(sellerId, {
+      enabled,
+      mode: enabled ? mode : null,
+    });
+    setSaved({ enabled, mode: enabled ? mode : null });
+    setConfirmOpen(false);
+    toast.success("Logistics settings saved for this seller.");
+  };
+
+  return (
+    <>
+      <div className="max-w-3xl space-y-4">
+        {/* Master toggle — same outlined-row container the Profile tab
+            uses for the Active / Inactive row. */}
+        <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-3 bg-gray-50/50">
+          <div>
+            <Label className="text-sm">Enable Logistics</Label>
+            <p className="text-[11px] text-gray-500 mt-0.5">
+              Off by default. Turn this on to make the Logistics shortcut
+              clickable in the seller's sidebar.
+            </p>
+          </div>
+          <Switch checked={enabled} onCheckedChange={setEnabled} />
+        </div>
+
+        {enabled && (
+          <div className="space-y-2">
+            <div>
+              <p className="text-xs font-medium text-gray-900">
+                Logistics mode
+              </p>
+              <p className="text-[11px] text-gray-500">
+                Pick one — the two modes are mutually exclusive.
+              </p>
+            </div>
+
+            {/* Radio-style picker — the dot sits before the heading on
+                the left so the card reads "[ ○ ] Heading / Description"
+                top-to-bottom. The whole card is the click target. */}
+            <div
+              role="radiogroup"
+              aria-label="Logistics mode"
+              className="grid grid-cols-1 md:grid-cols-2 gap-3"
+            >
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === "tech-for-both"}
+                onClick={() => handleModeSelect("tech-for-both")}
+                className={`text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                  mode === "tech-for-both"
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    mode === "tech-for-both"
+                      ? "border-emerald-600"
+                      : "border-gray-300"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {mode === "tech-for-both" && (
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  )}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-gray-900">
+                    Tech for both Self &amp; 3PL
+                  </span>
+                  <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">
+                    Qwipo's logistics tech runs both the seller's own fleet
+                    and any 3PL provider deliveries.
+                  </span>
+                </span>
+              </button>
+
+              <button
+                type="button"
+                role="radio"
+                aria-checked={mode === "tech-for-third-party-only"}
+                onClick={() => handleModeSelect("tech-for-third-party-only")}
+                className={`text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
+                  mode === "tech-for-third-party-only"
+                    ? "border-emerald-300 bg-emerald-50/50"
+                    : "border-gray-200 bg-white hover:border-gray-300"
+                }`}
+              >
+                <span
+                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
+                    mode === "tech-for-third-party-only"
+                      ? "border-emerald-600"
+                      : "border-gray-300"
+                  }`}
+                  aria-hidden="true"
+                >
+                  {mode === "tech-for-third-party-only" && (
+                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
+                  )}
+                </span>
+                <span className="flex-1 min-w-0">
+                  <span className="block text-sm font-medium text-gray-900">
+                    No Tech for Self &amp; Tech for 3PL
+                  </span>
+                  <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">
+                    The seller's in-house dispatch runs outside Qwipo; only
+                    the 3PL leg is technology-tracked.
+                  </span>
+                </span>
+              </button>
+            </div>
+
+            {missingMode && (
+              <p className="text-[11px] text-red-600">
+                Pick a mode before saving.
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="flex justify-end pt-2">
+          <Button
+            onClick={() => setConfirmOpen(true)}
+            disabled={saveDisabled}
+            className="gap-2"
+          >
+            <Save className="h-4 w-4" />
+            Save
+          </Button>
+        </div>
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Save logistics settings?</DialogTitle>
+            <DialogDescription>{summary}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave}>Confirm</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

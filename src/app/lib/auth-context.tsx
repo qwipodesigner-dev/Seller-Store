@@ -36,6 +36,16 @@ export interface AuthUser {
    * Currently used to distinguish the two super-admin demo logins.
    */
   dataMode?: "demo" | "empty";
+  /**
+   * Demo opt-in for the Logistics add-on. When true:
+   *  - the Settings hub surfaces the "Logistics Settings" card,
+   *  - the sidebar surfaces the "Logistics" nav item (gated further on
+   *    the Settings → Logistics master toggle for clickable vs. greyed),
+   *  - login pre-seeds the logistics settings to enabled with both
+   *    modes ticked so the flow is demo-able out of the box.
+   * Existing seller persona keeps this off → zero logistics surface.
+   */
+  logisticsAddon?: boolean;
 }
 
 interface AuthContextValue {
@@ -111,6 +121,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (u: AuthUser) => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(u));
     applyDataMode(u.dataMode ?? "demo");
+    // Note: logistics settings are NOT seeded here. The Super Admin's
+    // Manage Seller → Logistics tab is now the single source of truth
+    // for the seller's logistics state; whatever the admin saved
+    // persists across logins and tabs.
     setUser(u);
   };
 

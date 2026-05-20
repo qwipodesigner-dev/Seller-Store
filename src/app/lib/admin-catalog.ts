@@ -10,41 +10,89 @@
 
 // Pre-baked category cover images. Vite turns these into hashed URLs at
 // build time so the admin sees real artwork on the Category Master page
-// without anyone having to upload them. Categories that don't have an
-// image here just keep `imageUrl: null` and fall back to the placeholder.
-import imgAttaFlours from "../../imports/categories/Atta, Flours & Sooji.png";
+// without anyone having to upload them. All 37 ONDC eB2B categories ship
+// with a cover image.
+import imgAttaFloursAndSooji from "../../imports/categories/Atta, Flours and Sooji.png";
+import imgBabyCare from "../../imports/categories/Baby Care.png";
+import imgBakeryCakesDairy from "../../imports/categories/Bakery, Cakes & Dairy.png";
+import imgBeautyHygiene from "../../imports/categories/Beauty & Hygiene.png";
 import imgBeverages from "../../imports/categories/Beverages.png";
-import imgBiscuitsSnacks from "../../imports/categories/Biscuits, Snacks & Namkeen.png";
-import imgCookingOils from "../../imports/categories/Cooking Oils & Ghee.png";
-import imgDalsPulses from "../../imports/categories/Dals & Pulses.png";
-import imgDryFruits from "../../imports/categories/Dry Fruits.png";
-import imgOatsNoodles from "../../imports/categories/Oats & Noodles.png";
-import imgPersonalCare from "../../imports/categories/Personal Care.png";
-import imgPicklesPodis from "../../imports/categories/Pickles & Podis.png";
-import imgReadyToCook from "../../imports/categories/Ready to cook.png";
-import imgRiceProducts from "../../imports/categories/Rice & Rice Products.png";
-import imgSpreadsSauces from "../../imports/categories/Spreads, Sauces & Ketchups.png";
-import imgSugarSpices from "../../imports/categories/Sugar & Spices.png";
+import imgCerealsAndBreakfast from "../../imports/categories/Cereals and Breakfast.png";
+import imgChocolatesAndBiscuits from "../../imports/categories/Chocolates and Biscuits.png";
+import imgCookingAndBakingNeeds from "../../imports/categories/Cooking and Baking Needs.png";
+import imgDairyAndCheese from "../../imports/categories/Dairy and Cheese.png";
+import imgDalsAndPulses from "../../imports/categories/Dals and Pulses.png";
+import imgDetergentsAndDishwash from "../../imports/categories/Detergents and Dishwash.png";
+import imgEggsMeatFish from "../../imports/categories/Eggs, Meat & Fish.png";
+import imgEnergyAndSoftDrinks from "../../imports/categories/Energy and Soft Drinks.png";
+import imgFoodgrains from "../../imports/categories/Foodgrains.png";
+import imgFrozenSnacks from "../../imports/categories/Frozen Snacks.png";
+import imgFrozenVegetables from "../../imports/categories/Frozen Vegetables.png";
+import imgFruitJuicesAndFruitDrinks from "../../imports/categories/Fruit Juices and Fruit Drinks.png";
+import imgFruitsAndVegetables from "../../imports/categories/Fruits and Vegetables.png";
+import imgGiftVoucher from "../../imports/categories/Gift Voucher.png";
+import imgGourmetWorldFoods from "../../imports/categories/Gourmet & World Foods.png";
+import imgIndianSweets from "../../imports/categories/Indian Sweets.png";
+import imgKitchenAccessories from "../../imports/categories/Kitchen Accessories.png";
+import imgMasalaSeasoning from "../../imports/categories/Masala & Seasoning.png";
+import imgOilGhee from "../../imports/categories/Oil & Ghee.png";
+import imgPastaSoupAndNoodles from "../../imports/categories/Pasta, Soup and Noodles.png";
+import imgPetCare from "../../imports/categories/Pet Care.png";
+import imgPicklesAndChutney from "../../imports/categories/Pickles and Chutney.png";
+import imgReadyToCookAndEat from "../../imports/categories/Ready to Cook and Eat.png";
+import imgRiceAndRiceProducts from "../../imports/categories/Rice and Rice Products.png";
+import imgSaltSugarAndJaggery from "../../imports/categories/Salt, Sugar and Jaggery.png";
+import imgSaucesSpreadsAndDips from "../../imports/categories/Sauces, Spreads and Dips.png";
+import imgSnacksBrandedFoods from "../../imports/categories/Snacks & Branded Foods.png";
+import imgSnacksAndNamkeen from "../../imports/categories/Snacks and Namkeen.png";
+import imgSnacksDryFruitsNuts from "../../imports/categories/Snacks, Dry Fruits, Nuts.png";
+import imgTeaAndCoffee from "../../imports/categories/Tea and Coffee.png";
+import imgTinnedAndProcessedFood from "../../imports/categories/Tinned and Processed Food.png";
+import imgWater from "../../imports/categories/Water.png";
 
 /**
- * Map of ONDC category-name → cover image. Image filenames sometimes use
- * "&" while ONDC uses "and" — this map normalises that. Categories not
- * listed here just keep `imageUrl: null` (the upload placeholder).
+ * Map of ONDC category-name → cover image. Keys must match ONDC_CATEGORY_NAMES
+ * verbatim — all 37 entries are covered, so no fallback to the upload
+ * placeholder is currently needed.
  */
 const CATEGORY_IMAGES: Record<string, string> = {
-  "Atta, Flours and Sooji": imgAttaFlours,
+  "Atta, Flours and Sooji": imgAttaFloursAndSooji,
+  "Baby Care": imgBabyCare,
+  "Bakery, Cakes & Dairy": imgBakeryCakesDairy,
+  "Beauty & Hygiene": imgBeautyHygiene,
   "Beverages": imgBeverages,
-  "Snacks and Namkeen": imgBiscuitsSnacks,
-  "Oil & Ghee": imgCookingOils,
-  "Dals and Pulses": imgDalsPulses,
-  "Snacks, Dry Fruits, Nuts": imgDryFruits,
-  "Pasta, Soup and Noodles": imgOatsNoodles,
-  "Beauty & Hygiene": imgPersonalCare,
-  "Pickles and Chutney": imgPicklesPodis,
-  "Ready to Cook and Eat": imgReadyToCook,
-  "Rice and Rice Products": imgRiceProducts,
-  "Sauces, Spreads and Dips": imgSpreadsSauces,
-  "Masala & Seasoning": imgSugarSpices,
+  "Cereals and Breakfast": imgCerealsAndBreakfast,
+  "Chocolates and Biscuits": imgChocolatesAndBiscuits,
+  "Cooking and Baking Needs": imgCookingAndBakingNeeds,
+  "Dairy and Cheese": imgDairyAndCheese,
+  "Dals and Pulses": imgDalsAndPulses,
+  "Detergents and Dishwash": imgDetergentsAndDishwash,
+  "Eggs, Meat & Fish": imgEggsMeatFish,
+  "Energy and Soft Drinks": imgEnergyAndSoftDrinks,
+  "Foodgrains": imgFoodgrains,
+  "Frozen Snacks": imgFrozenSnacks,
+  "Frozen Vegetables": imgFrozenVegetables,
+  "Fruit Juices and Fruit Drinks": imgFruitJuicesAndFruitDrinks,
+  "Fruits and Vegetables": imgFruitsAndVegetables,
+  "Gift Voucher": imgGiftVoucher,
+  "Gourmet & World Foods": imgGourmetWorldFoods,
+  "Indian Sweets": imgIndianSweets,
+  "Kitchen Accessories": imgKitchenAccessories,
+  "Masala & Seasoning": imgMasalaSeasoning,
+  "Oil & Ghee": imgOilGhee,
+  "Pasta, Soup and Noodles": imgPastaSoupAndNoodles,
+  "Pet Care": imgPetCare,
+  "Pickles and Chutney": imgPicklesAndChutney,
+  "Ready to Cook and Eat": imgReadyToCookAndEat,
+  "Rice and Rice Products": imgRiceAndRiceProducts,
+  "Salt, Sugar and Jaggery": imgSaltSugarAndJaggery,
+  "Sauces, Spreads and Dips": imgSaucesSpreadsAndDips,
+  "Snacks & Branded Foods": imgSnacksBrandedFoods,
+  "Snacks and Namkeen": imgSnacksAndNamkeen,
+  "Snacks, Dry Fruits, Nuts": imgSnacksDryFruitsNuts,
+  "Tea and Coffee": imgTeaAndCoffee,
+  "Tinned and Processed Food": imgTinnedAndProcessedFood,
+  "Water": imgWater,
 };
 
 export interface Brand {

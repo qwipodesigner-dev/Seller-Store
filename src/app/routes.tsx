@@ -3,15 +3,15 @@ import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
 import { Inventory } from "./pages/inventory";
-import { Orders } from "./pages/orders";
-import { OrderDetail } from "./pages/order-detail";
-import { Customers } from "./pages/customers";
-import { CustomerDetail } from "./pages/customer-detail";
-import { CustomersDemo } from "./pages/customers-demo";
-import { CustomerDemoDetail } from "./pages/customer-demo-detail";
+import { Orders } from "./pages/orders/list";
+import { OrderDetail } from "./pages/orders/detail";
+import { Customers } from "./pages/customers/legacy-list";
+import { CustomerDetail } from "./pages/customers/legacy-detail";
+import { CustomersDemo } from "./pages/customers/list";
+import { CustomerDemoDetail } from "./pages/customers/detail";
 import { Profile } from "./pages/profile";
-import { Connectors } from "./pages/connectors";
-import { ConnectorDetail } from "./pages/connector-detail";
+import { Connectors } from "./pages/connectors/list";
+import { ConnectorDetail } from "./pages/connectors/detail";
 import { Support } from "./pages/support";
 import { Settings } from "./pages/settings";
 import { Reports } from "./pages/reports";
@@ -22,6 +22,7 @@ import { AddSKU } from "./pages/products/add-sku";
 import { MySKU } from "./pages/products/my-sku";
 import { SKUDetail } from "./pages/products/sku-detail";
 import { AddManually } from "./pages/products/add-sku/manual";
+import { AiCreateSku } from "./pages/products/add-sku/ai-create";
 import { BrandSync } from "./pages/products/add-sku/brand-sync";
 import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-sync";
 import { PriceList } from "./pages/products/price-list";
@@ -49,8 +50,8 @@ import { AdminAddUser } from "./pages/admin/add-user";
 import { AdminConnectors } from "./pages/admin/connectors";
 import { AdminCompanies } from "./pages/admin/companies";
 import { AdminCategories } from "./pages/admin/categories";
-import { ErrorScreensDemo } from "./pages/error-screens";
-import { LoadingScreensDemo } from "./pages/loading-screens";
+import { ErrorScreensDemo } from "./pages/demos/error-screens";
+import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
 export const router = createBrowserRouter([
   {
@@ -123,6 +124,7 @@ export const router = createBrowserRouter([
       { path: "products/add-sku", Component: AddSKU },
       { path: "products/add-sku/central-catalog", Component: CentralCatalogSync },
       { path: "products/add-sku/manual", Component: AddManually },
+      { path: "products/add-sku/ai", Component: AiCreateSku },
       { path: "products/add-sku/brand-sync", Component: BrandSync },
       { path: "products/price-list", Component: PriceList },
       { path: "offers", Component: OffersList },

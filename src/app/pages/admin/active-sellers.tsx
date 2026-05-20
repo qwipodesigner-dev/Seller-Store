@@ -76,7 +76,7 @@ export function AdminActiveSellers() {
             <div className="relative w-64 md:w-80">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
               <Input
-                placeholder="Search by name or business..."
+                placeholder="Search by seller name or business name..."
                 value={searchQuery}
                 onChange={(e) => {
                   setSearchQuery(e.target.value);
@@ -128,9 +128,9 @@ export function AdminActiveSellers() {
                 }
                 description={
                   sellers.length === 0
-                    ? "Add your first seller to start onboarding distributors onto the Qwipo platform."
+                    ? "No sellers yet — click + Add Seller to onboard the first one."
                     : searchQuery
-                      ? "No sellers match that search. Try a different name or business."
+                      ? "No sellers found — try a different search term."
                       : "No sellers match your current filters."
                 }
                 action={
@@ -155,19 +155,19 @@ export function AdminActiveSellers() {
                   <thead className="bg-gray-50 border-b border-gray-200 sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                        Seller
+                        Seller Name
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                        Business
+                        Business Name
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                        Phone
+                        Mobile Number
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                         Status
                       </th>
                       <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
-                        Actions
+                        Action
                       </th>
                     </tr>
                   </thead>

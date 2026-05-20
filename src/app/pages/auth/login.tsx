@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Shield, Store, Phone, KeyRound, Palette } from "lucide-react";
+import { Shield, Store, Phone, KeyRound, Palette, Truck } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
@@ -49,7 +49,8 @@ export function Login() {
       const user = validateCredentials(mobile, otp);
       setIsLoading(false);
       if (!user) {
-        setOtpError("Invalid OTP. Use 1234 for demo accounts.");
+        setOtpError("Invalid OTP. Please try again.");
+        setOtp("");
         return;
       }
       setOtpError(null);
@@ -70,6 +71,7 @@ export function Login() {
       | "admin"
       | "admin-empty"
       | "seller"
+      | "seller-logistics"
       | "seller-empty"
       | "designer",
   ) => {
@@ -77,6 +79,8 @@ export function Login() {
       setMobile("9900000001");
     } else if (role === "admin-empty") {
       setMobile("9999999999");
+    } else if (role === "seller-logistics") {
+      setMobile("9911111111");
     } else if (role === "seller-empty") {
       setMobile("8888888888");
     } else if (role === "designer") {
@@ -250,7 +254,7 @@ export function Login() {
                       className="w-full"
                       disabled={isLoading || otp.length !== 4}
                     >
-                      {isLoading ? "Verifying..." : "Verify & Sign In"}
+                      {isLoading ? "Verifying..." : "Verify OTP"}
                     </Button>
                   </>
                 )}
@@ -321,6 +325,26 @@ export function Login() {
                       </p>
                       <p className="text-[10px] text-gray-500 truncate">
                         8888888888
+                      </p>
+                    </div>
+                  </button>
+                  {/* Seller + Logistics — same seller demo data plus the
+                      Logistics add-on (Settings card + sidebar entry).
+                      Spans both columns so reviewers spot it as a
+                      distinct flow rather than another generic seller. */}
+                  <button
+                    type="button"
+                    onClick={() => fillDemo("seller-logistics")}
+                    className="col-span-2 flex items-start gap-2 p-2 rounded-md bg-white border border-emerald-200 hover:border-emerald-400 transition-all text-left"
+                    title="Seller with the Logistics add-on enabled — Settings → Logistics Settings + the Logistics sidebar entry are surfaced"
+                  >
+                    <Truck className="h-4 w-4 text-emerald-600 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900">
+                        Seller + Logistics
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        9911111111 · adds Logistics module to the seller
                       </p>
                     </div>
                   </button>

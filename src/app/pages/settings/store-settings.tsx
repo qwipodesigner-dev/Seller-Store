@@ -604,26 +604,10 @@ export function StoreSettings() {
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Store Description</Label>
-              <Input
-                readOnly
-                value="Premium FMCG distributor serving Maharashtra"
-                className="bg-gray-100 cursor-not-allowed h-8 text-sm focus-visible:ring-0 focus-visible:border-input"
-              />
-            </div>
-            <div className="space-y-1">
               <Label className="text-xs">Contact Number</Label>
               <Input
                 readOnly
                 value="+91 98765 43210"
-                className="bg-gray-100 cursor-not-allowed h-8 text-sm focus-visible:ring-0 focus-visible:border-input"
-              />
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs">Email</Label>
-              <Input
-                readOnly
-                value="abc@distributors.com"
                 className="bg-gray-100 cursor-not-allowed h-8 text-sm focus-visible:ring-0 focus-visible:border-input"
               />
             </div>

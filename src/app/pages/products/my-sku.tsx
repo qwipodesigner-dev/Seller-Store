@@ -43,14 +43,10 @@ import {
   FileSpreadsheet,
   FileCheck,
   FileWarning,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
-import {
-  importBizomCsv,
-  BIZOM_REQUIRED_HEADERS,
-  AggregatedSKU,
-} from "../../lib/bizom-validation";
 import { Layers, PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
@@ -142,7 +138,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-04-22",
     sku: "180000005",
     mrp: 3091, sellingPrice: 2810, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000006",
@@ -154,7 +150,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-04-22",
     sku: "180000006",
     mrp: 2838, sellingPrice: 2580, availableStock: 252, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000008",
@@ -178,7 +174,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-04-14",
     sku: "180000076",
     mrp: 191, sellingPrice: 174, availableStock: 27, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000179",
@@ -190,7 +186,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-04-08",
     sku: "180000179",
     mrp: 388, sellingPrice: 353, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000248",
@@ -202,7 +198,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-03-20",
     sku: "180000248",
     mrp: 190, sellingPrice: 173, availableStock: 0, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000249",
@@ -226,7 +222,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-04-06",
     sku: "180000260",
     mrp: 194, sellingPrice: 176, availableStock: 12, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000377",
@@ -238,7 +234,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-03-20",
     sku: "180000377",
     mrp: 172, sellingPrice: 156, availableStock: 9, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000419",
@@ -250,7 +246,7 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-04-08",
     sku: "180000419",
     mrp: 190, sellingPrice: 173, availableStock: 28, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
   {
     id: "180000437",
@@ -274,7 +270,392 @@ const sampleSKUs: SKUData[] = [
     lastUpdated: "2026-03-16",
     sku: "180000490",
     mrp: 129, sellingPrice: 117.4, availableStock: 19, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "Unit Value", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+
+  // -------------------------------------------------------------------
+  // Extended catalog — 50 additional SKUs across ITC, Britannia, Nestle,
+  // HUL, Tata, Marico, Mondelez, P&G, beverage majors, and dairy. Mix of
+  // ONDC-compliant + non-compliant so the My SKU list paints all three
+  // statuses against the 25-per-page pagination.
+  // -------------------------------------------------------------------
+
+  // ITC — Aashirvaad
+  {
+    id: "190000002", name: "Aashirvaad Multigrain Atta 5 kg",
+    category: "Atta, Flours and Sooji", brand: "Aashirvaad", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-25", sku: "190000002",
+    mrp: 320, sellingPrice: 298, availableStock: 184, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "190000003", name: "Aashirvaad Salt 1 kg",
+    category: "Salt, Sugar and Jaggery", brand: "Aashirvaad", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-24", sku: "190000003",
+    mrp: 28, sellingPrice: 26, availableStock: 412, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "190000004", name: "Aashirvaad Turmeric Powder 200 g",
+    category: "Masala & Seasoning", brand: "Aashirvaad", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-22", sku: "190000004",
+    mrp: 105, sellingPrice: 96, availableStock: 0, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "190000005", name: "Aashirvaad Chilli Powder 200 g",
+    category: "Masala & Seasoning", brand: "Aashirvaad", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-20", sku: "190000005",
+    mrp: 135, sellingPrice: 124, availableStock: 78, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // ITC — Sunfeast
+  {
+    id: "200000001", name: "Sunfeast Marie Light 200 g",
+    category: "Chocolates and Biscuits", brand: "Sunfeast", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-18", sku: "200000001",
+    mrp: 30, sellingPrice: 27, availableStock: 540, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "200000002", name: "Sunfeast Dark Fantasy Choco Fills 75 g",
+    category: "Chocolates and Biscuits", brand: "Sunfeast", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-17", sku: "200000002",
+    mrp: 50, sellingPrice: 45, availableStock: 320, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "200000003", name: "Sunfeast Mom's Magic Cashew & Almond 200 g",
+    category: "Chocolates and Biscuits", brand: "Sunfeast", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-12", sku: "200000003",
+    mrp: 55, sellingPrice: 50, availableStock: 210, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // ITC — Bingo
+  {
+    id: "210000001", name: "Bingo Mad Angles Achaari Masti 80 g",
+    category: "Snacks and Namkeen", brand: "Bingo", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-15", sku: "210000001",
+    mrp: 30, sellingPrice: 27, availableStock: 480, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "210000002", name: "Bingo Tedhe Medhe Tomato Twist 80 g",
+    category: "Snacks and Namkeen", brand: "Bingo", source: "DMS",
+    status: "Inactive", lastUpdated: "2026-04-10", sku: "210000002",
+    mrp: 30, sellingPrice: 27, availableStock: 12, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+
+  // ITC — Yippee
+  {
+    id: "220000001", name: "Yippee Magic Masala Noodles 4-pack 280 g",
+    category: "Pasta, Soup and Noodles", brand: "Yippee", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-19", sku: "220000001",
+    mrp: 60, sellingPrice: 54, availableStock: 360, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "220000002", name: "Yippee Mood Masala Noodles 8-pack 560 g",
+    category: "Pasta, Soup and Noodles", brand: "Yippee", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-14", sku: "220000002",
+    mrp: 120, sellingPrice: 108, availableStock: 144, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // Britannia
+  {
+    id: "230000001", name: "Britannia Marie Gold 250 g",
+    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-23", sku: "230000001",
+    mrp: 45, sellingPrice: 41, availableStock: 600, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "230000002", name: "Britannia Good Day Cashew 200 g",
+    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-21", sku: "230000002",
+    mrp: 50, sellingPrice: 46, availableStock: 320, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "230000003", name: "Britannia 50-50 Maska Chaska 100 g",
+    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-16", sku: "230000003",
+    mrp: 20, sellingPrice: 18, availableStock: 480, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "230000004", name: "Britannia NutriChoice Digestive 200 g",
+    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-11", sku: "230000004",
+    mrp: 60, sellingPrice: 55, availableStock: 240, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+
+  // Nestle
+  {
+    id: "240000001", name: "Nestle Maggi 2-Minute Noodles 280 g (4-pack)",
+    category: "Pasta, Soup and Noodles", brand: "Nestle", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-26", sku: "240000001",
+    mrp: 64, sellingPrice: 58, availableStock: 800, isInfiniteStock: false, thresholdLevel: 120, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "240000002", name: "Nestle Maggi Hot & Sweet Tomato Sauce 1 kg",
+    category: "Sauces, Spreads and Dips", brand: "Nestle", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-13", sku: "240000002",
+    mrp: 175, sellingPrice: 160, availableStock: 95, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "240000003", name: "Nestle Kit Kat 4-Finger 38 g",
+    category: "Chocolates and Biscuits", brand: "Nestle", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-09", sku: "240000003",
+    mrp: 40, sellingPrice: 36, availableStock: 540, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "240000004", name: "Nestle Munch Chocolate 10 g (Pack of 30)",
+    category: "Chocolates and Biscuits", brand: "Nestle", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-05", sku: "240000004",
+    mrp: 150, sellingPrice: 138, availableStock: 60, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // HUL
+  {
+    id: "250000001", name: "Surf Excel Easy Wash 1 kg",
+    category: "Detergents and Dishwash", brand: "Surf Excel", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-27", sku: "250000001",
+    mrp: 140, sellingPrice: 128, availableStock: 220, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "250000002", name: "Wheel Active 2-in-1 Lemon & Jasmine 4 kg",
+    category: "Detergents and Dishwash", brand: "Wheel", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-24", sku: "250000002",
+    mrp: 240, sellingPrice: 220, availableStock: 88, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "250000003", name: "Lifebuoy Total 10 Soap 100 g (Pack of 4)",
+    category: "Beauty & Hygiene", brand: "Lifebuoy", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-19", sku: "250000003",
+    mrp: 100, sellingPrice: 92, availableStock: 360, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "250000004", name: "Dove Cream Beauty Bar 100 g",
+    category: "Beauty & Hygiene", brand: "Dove", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-16", sku: "250000004",
+    mrp: 80, sellingPrice: 73, availableStock: 450, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "250000005", name: "Lux Soft Touch Soap 150 g (Pack of 3)",
+    category: "Beauty & Hygiene", brand: "Lux", source: "DMS",
+    status: "Inactive", lastUpdated: "2026-04-02", sku: "250000005",
+    mrp: 90, sellingPrice: 82, availableStock: 26, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+
+  // Tata Consumer Products
+  {
+    id: "260000001", name: "Tata Salt 1 kg",
+    category: "Salt, Sugar and Jaggery", brand: "Tata", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-28", sku: "260000001",
+    mrp: 28, sellingPrice: 26, availableStock: 800, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "260000002", name: "Tata Sampann Toor Dal Unpolished 1 kg",
+    category: "Dals and Pulses", brand: "Tata Sampann", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-22", sku: "260000002",
+    mrp: 180, sellingPrice: 165, availableStock: 250, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "260000003", name: "Tata Tea Premium 500 g",
+    category: "Tea and Coffee", brand: "Tata Tea", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-18", sku: "260000003",
+    mrp: 280, sellingPrice: 255, availableStock: 140, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "260000004", name: "Tata Tea Gold 250 g",
+    category: "Tea and Coffee", brand: "Tata Tea", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-14", sku: "260000004",
+    mrp: 175, sellingPrice: 160, availableStock: 0, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+
+  // Marico
+  {
+    id: "270000001", name: "Saffola Gold Refined Oil 1 L",
+    category: "Oil & Ghee", brand: "Saffola", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-26", sku: "270000001",
+    mrp: 210, sellingPrice: 192, availableStock: 360, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "270000002", name: "Saffola Tasty Refined Oil 1 L",
+    category: "Oil & Ghee", brand: "Saffola", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-23", sku: "270000002",
+    mrp: 195, sellingPrice: 178, availableStock: 280, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "270000003", name: "Parachute Coconut Oil 200 ml",
+    category: "Beauty & Hygiene", brand: "Parachute", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-20", sku: "270000003",
+    mrp: 110, sellingPrice: 100, availableStock: 540, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "270000004", name: "Hair & Care Almond Hair Oil 100 ml",
+    category: "Beauty & Hygiene", brand: "Hair & Care", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-12", sku: "270000004",
+    mrp: 75, sellingPrice: 68, availableStock: 320, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // Mondelez
+  {
+    id: "280000001", name: "Cadbury Dairy Milk Silk 60 g",
+    category: "Chocolates and Biscuits", brand: "Cadbury", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-27", sku: "280000001",
+    mrp: 85, sellingPrice: 78, availableStock: 720, isInfiniteStock: false, thresholdLevel: 120, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "280000002", name: "Cadbury 5 Star Chocolate 25 g (Pack of 12)",
+    category: "Chocolates and Biscuits", brand: "Cadbury", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-21", sku: "280000002",
+    mrp: 120, sellingPrice: 110, availableStock: 240, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "280000003", name: "Cadbury Bournvita Health Drink 500 g",
+    category: "Beverages", brand: "Bournvita", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-15", sku: "280000003",
+    mrp: 245, sellingPrice: 225, availableStock: 168, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // P&G
+  {
+    id: "290000001", name: "Tide Plus Extra Power 1 kg",
+    category: "Detergents and Dishwash", brand: "Tide", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-25", sku: "290000001",
+    mrp: 145, sellingPrice: 132, availableStock: 280, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "290000002", name: "Ariel Matic Front Load Detergent 1 kg",
+    category: "Detergents and Dishwash", brand: "Ariel", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-22", sku: "290000002",
+    mrp: 235, sellingPrice: 215, availableStock: 160, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "290000003", name: "Pantene Pro-V Total Damage Care Shampoo 180 ml",
+    category: "Beauty & Hygiene", brand: "Pantene", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-17", sku: "290000003",
+    mrp: 165, sellingPrice: 150, availableStock: 220, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "290000004", name: "Whisper Ultra Choice 7-pack XL",
+    category: "Beauty & Hygiene", brand: "Whisper", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-13", sku: "290000004",
+    mrp: 145, sellingPrice: 132, availableStock: 390, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // Beverage majors
+  {
+    id: "300000001", name: "Coca-Cola PET 600 ml (Case of 24)",
+    category: "Beverages", brand: "Coca-Cola", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-28", sku: "300000001",
+    mrp: 960, sellingPrice: 880, availableStock: 64, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "300000002", name: "Pepsi PET 600 ml (Case of 24)",
+    category: "Beverages", brand: "Pepsi", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-26", sku: "300000002",
+    mrp: 960, sellingPrice: 880, availableStock: 56, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "300000003", name: "Sprite PET 600 ml (Case of 24)",
+    category: "Beverages", brand: "Sprite", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-24", sku: "300000003",
+    mrp: 960, sellingPrice: 880, availableStock: 48, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "300000004", name: "Thumbs Up PET 600 ml (Case of 24)",
+    category: "Beverages", brand: "Thumbs Up", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-19", sku: "300000004",
+    mrp: 960, sellingPrice: 880, availableStock: 40, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+
+  // Dairy & breakfast
+  {
+    id: "310000001", name: "Amul Toned Milk 1 L (Case of 12)",
+    category: "Dairy and Cheese", brand: "Amul", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-27", sku: "310000001",
+    mrp: 720, sellingPrice: 660, availableStock: 35, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "310000002", name: "Mother Dairy Paneer 200 g",
+    category: "Dairy and Cheese", brand: "Mother Dairy", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-25", sku: "310000002",
+    mrp: 95, sellingPrice: 86, availableStock: 168, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+  {
+    id: "310000003", name: "Amul Butter 500 g",
+    category: "Dairy and Cheese", brand: "Amul", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-22", sku: "310000003",
+    mrp: 285, sellingPrice: 262, availableStock: 144, isInfiniteStock: false, thresholdLevel: 25, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "310000004", name: "Kellogg's Corn Flakes Original 475 g",
+    category: "Cereals and Breakfast", brand: "Kellogg's", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-18", sku: "310000004",
+    mrp: 235, sellingPrice: 215, availableStock: 120, isInfiniteStock: false, thresholdLevel: 25, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "310000005", name: "Bagrry's White Oats 1 kg",
+    category: "Cereals and Breakfast", brand: "Bagrry's", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-14", sku: "310000005",
+    mrp: 280, sellingPrice: 255, availableStock: 88, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
+  },
+
+  // Pet care
+  {
+    id: "320000001", name: "Pedigree Chicken & Vegetables 1.2 kg",
+    category: "Pet Care", brand: "Pedigree", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-15", sku: "320000001",
+    mrp: 460, sellingPrice: 420, availableStock: 56, isInfiniteStock: false, thresholdLevel: 12, reservedStock: 0,
+    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+  },
+  {
+    id: "320000002", name: "Whiskas Cat Food Tuna 480 g",
+    category: "Pet Care", brand: "Whiskas", source: "DMS",
+    status: "Active", lastUpdated: "2026-04-08", sku: "320000002",
+    mrp: 320, sellingPrice: 295, availableStock: 32, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
+    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
 ];
 
@@ -614,8 +995,8 @@ export function MySKU() {
       if (row.measureValue && !positiveInt(row.measureValue)) {
         rowErrors.push({
           row: rowNumber,
-          field: "Unit Value",
-          error: "Unit Value must be a positive whole number.",
+          field: "SKU Weight",
+          error: "SKU Weight must be a positive number.",
           skuLabel,
           skuCode,
           skuName,
@@ -644,20 +1025,24 @@ export function MySKU() {
           value: row.upc,
         });
       }
-      if (row.skuWeight) {
-        const w = Number(row.skuWeight);
-        if (!Number.isFinite(w) || w <= 0) {
+      if (row.packageTypeValue) {
+        const n = Number(row.packageTypeValue);
+        if (!Number.isFinite(n) || n <= 0) {
           rowErrors.push({
             row: rowNumber,
-            field: "SKU Weight (kg)",
-            error: "SKU Weight must be a positive number.",
+            field: "Package Type Value",
+            error: "Package Type Value must be a positive number.",
             skuLabel,
             skuCode,
             skuName,
-            value: row.skuWeight,
+            value: row.packageTypeValue,
           });
         }
       }
+      // Weight in KG is no longer user-input — the parser derives it
+      // from Weight Measure × SKU Weight before we get here, so any
+      // value that lands in row.skuWeight is the system-computed kg
+      // figure and doesn't need its own validation rule.
       const minQ = row.minimumOrderQty
         ? Number(row.minimumOrderQty)
         : undefined;
@@ -804,107 +1189,380 @@ export function MySKU() {
     setSkus((prev) => [...newSkus, ...prev]);
   };
 
-  // ---- Price & Stock update (Bizom DMS bulk import) ----
-  // Business rule: SKU Codes from the file that don't exist in the
-  // catalog are silently skipped; only existing SKUs are updated.
-  const handleDownloadPsSample = () => {
-    const headers = [
-      ...BIZOM_REQUIRED_HEADERS,
-      "Saleable Stock( Case ),Saleable Stock( Unit )",
-      "Total Non-Saleable Stock( Case ),Total Non-Saleable Stock( Unit )",
-      "In Transit Stock( Case ),In Transit Stock( Unit )",
-      "Total Stock( Case ),Total Stock( Unit )",
-      "Amount/Value",
-      "Stock Turnover Ratio(No. of days stock will last)",
-    ];
-    const sample = [
-      ["2", "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN", "180000005", "26106600284101", "2026-04-06", "2026-07-05", "0.00000", "2810.00000", "5.00", "'1,0", "0,0", "0,0", "'1,0", "2810", "0", ""],
-      ["3", "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN", "180000006", "26106600591101", "2026-04-08", "2026-07-07", "0.00000", "2580.00000", "5.00", "'52,0", "0,0", "0,0", "'52,0", "134160", "3", ""],
-    ];
-    const toCell = (v: string) => `"${v.replace(/"/g, '""')}"`;
-    const csv = [
-      headers.map(toCell).join(","),
-      ...sample.map((r) => r.map(toCell).join(",")),
-    ].join("\r\n");
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  // ---- Price & Stock update (Story 19128) ----
+  // The seller downloads a sheet pre-filled with their existing catalog
+  // (every SKU + its current MRP / Selling Price / Available Stock /
+  // Infinite Stock), edits only those four columns offline, and
+  // re-uploads. Rows are matched by SKU Code; unknown codes are
+  // REJECTED (not silently skipped — the story is explicit on that).
+  // Unchanged rows are skipped silently. The cap is 500 rows per
+  // upload. Apply is atomic — either every valid row's update saves
+  // or none.
+
+  /** Columns on the downloaded template — read-only identifier columns
+   *  first, then the three editable columns. The header is locked by
+   *  spec; the validator below rejects files with a different header.
+   *  Available Stock is a Yes/No availability flag (the earlier numeric
+   *  Available Stock + separate Infinite Stock column have been merged
+   *  into a single Yes/No availability toggle). */
+  const PS_TEMPLATE_HEADERS = [
+    "SKU Code",
+    "SKU Name",
+    "Brand",
+    "Category",
+    "MRP",
+    "Selling Price",
+    "Available Stock",
+  ] as const;
+
+  /** Max number of data rows in one upload (BR-8 of the story). */
+  const PS_MAX_ROWS = 500;
+
+  /** Derive the current Yes/No availability of an existing SKU. A SKU is
+   *  available when it's flagged as infinite stock OR has at least one
+   *  unit on hand. */
+  const psCurrentAvailability = (s: SKUData): "Yes" | "No" =>
+    s.isInfiniteStock || (s.availableStock ?? 0) > 0 ? "Yes" : "No";
+
+  /** Build the per-row data for the Price & Stock template (every
+   *  existing SKU in the seller's catalog with its current values).
+   *  Both the CSV and XLSX paths share this. */
+  const buildPsTemplateRows = () =>
+    skus.map((s) => [
+      s.sku,
+      s.name,
+      s.brand,
+      s.category,
+      s.mrp ?? "",
+      s.sellingPrice ?? "",
+      psCurrentAvailability(s),
+    ]);
+
+  const triggerBrowserDownload = (blob: Blob, fileName: string) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "Bizom_Price_Stock_Template.csv";
+    a.download = fileName;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
-    toast.success("Sample template downloaded");
   };
 
-  // Validate uploaded Price/Stock file → standardized result for the
-  // shared dialog. Wraps importBizomCsv() and rejects rows whose SKU
-  // Code is not present in the catalog (we don't auto-create on a
-  // price update — that's the Add SKU flow).
+  const downloadPsAsCsv = () => {
+    const toCell = (v: string | number) => {
+      const s = String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const rows = buildPsTemplateRows();
+    const csv = [
+      PS_TEMPLATE_HEADERS.map(toCell).join(","),
+      ...rows.map((r) => r.map(toCell).join(",")),
+    ].join("\r\n");
+    // UTF-8 BOM so Excel opens the file with the correct encoding for
+    // Indian-language SKU names.
+    triggerBrowserDownload(
+      new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" }),
+      "price_stock_update_template.csv",
+    );
+    return rows.length;
+  };
+
+  const downloadPsAsXlsx = async () => {
+    // ExcelJS is a ~900 KB chunk — dynamic-imported so it doesn't ship
+    // on the initial bundle. Matches the pattern already used by
+    // `downloadSkuTemplate` for the Add SKU flow.
+    const ExcelJS = (await import("exceljs")).default;
+    const rows = buildPsTemplateRows();
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Qwipo Seller Store";
+    wb.created = new Date();
+    const ws = wb.addWorksheet("Price & Stock");
+    ws.addRow([...PS_TEMPLATE_HEADERS]);
+    rows.forEach((r) => ws.addRow(r));
+    // Header styling — bold + blue background matches the Add SKU
+    // template's chrome so the two downloads feel like siblings.
+    const headerRow = ws.getRow(1);
+    headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+    headerRow.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF1E40AF" },
+    };
+    headerRow.alignment = { vertical: "middle", horizontal: "left" };
+    headerRow.height = 22;
+    // Column widths sized to the typical content. Tweak if SKU names
+    // get longer.
+    [16, 60, 18, 18, 12, 14, 18].forEach((w, i) => {
+      ws.getColumn(i + 1).width = w;
+    });
+    ws.views = [{ state: "frozen", ySplit: 1 }];
+    const buffer = await wb.xlsx.writeBuffer();
+    triggerBrowserDownload(
+      new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }),
+      "price_stock_update_template.xlsx",
+    );
+    return rows.length;
+  };
+
+  const handleDownloadPsSample = async (format?: string) => {
+    // Default to CSV when the picker isn't enabled (legacy path).
+    const chosen = format ?? "csv";
+    try {
+      const count =
+        chosen === "xlsx" ? await downloadPsAsXlsx() : downloadPsAsCsv();
+      toast.success(
+        `Sheet downloaded with ${count} SKU${count === 1 ? "" : "s"} pre-filled.`,
+      );
+    } catch (err) {
+      console.error("[my-sku] price/stock template download failed", err);
+      toast.error("Couldn't generate the template. Please try again.");
+    }
+  };
+
+  /** Payload handed off to importPriceStockRows — the validated price
+   *  values + a Yes/No availability flag. Read-only columns (SKU Name,
+   *  Brand, Category) are intentionally not carried over; the importer
+   *  reads them from the existing catalog. */
+  type PsValidatedRow = {
+    skuCode: string;
+    mrp: number;
+    sellingPrice: number;
+    availability: "Yes" | "No";
+  };
+
   const validatePriceStockFile = async (
     file: File,
   ): Promise<BulkImportValidationResult> => {
     const text = await readFileText(file);
-    const result = importBizomCsv(text);
+    const rows = parseCsv(text);
+
+    // File-level checks — these short-circuit the row pass.
+    if (rows.length === 0) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "The file is empty. Please add SKU updates and re-upload.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    const header = rows[0].map((h) => h.trim());
+    const expected = [...PS_TEMPLATE_HEADERS];
+    const headerMismatch =
+      header.length !== expected.length ||
+      header.some((h, i) => h !== expected[i]);
+    if (headerMismatch) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "This file doesn't match the template. Please download the latest sheet and try again.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    const dataRows = rows.slice(1).filter((r) => r.some((c) => c.trim() !== ""));
+    if (dataRows.length === 0) {
+      return {
+        totalRows: 0,
+        validRows: 0,
+        invalidRows: 0,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error:
+              "The file is empty. Please add SKU updates and re-upload.",
+          },
+        ],
+        validData: [],
+      };
+    }
+    if (dataRows.length > PS_MAX_ROWS) {
+      return {
+        totalRows: dataRows.length,
+        validRows: 0,
+        invalidRows: dataRows.length,
+        errors: [
+          {
+            row: 1,
+            field: "File",
+            error: `This file has more than ${PS_MAX_ROWS} rows. Please split it into smaller files and upload again.`,
+          },
+        ],
+        validData: [],
+      };
+    }
+
+    // Index the catalog by SKU Code so the row pass is O(1) per row.
+    const byCode = new Map(skus.map((s) => [s.sku, s]));
+
     const errors: BulkImportErrorRow[] = [];
+    const validData: PsValidatedRow[] = [];
+    let noChangeRows = 0;
 
-    // File-level errors (header missing, completely empty, etc.) — fold
-    // each into a single Row 1 entry so the standardized table renders.
-    for (const fe of result.fileLevelErrors) {
-      errors.push({ row: 1, field: fe.field || "File", error: fe.message });
-    }
+    dataRows.forEach((cols, idx) => {
+      const rowNumber = idx + 2; // header was row 1
+      const skuCode = (cols[0] ?? "").trim();
+      const skuName = (cols[1] ?? "").trim();
+      const mrpRaw = (cols[4] ?? "").trim();
+      const spRaw = (cols[5] ?? "").trim();
+      const availabilityRaw = (cols[6] ?? "").trim();
 
-    // Per-batch-row validation errors from the Bizom validator.
-    for (const br of result.batchRows) {
-      for (const e of br.errors) {
-        errors.push({ row: br.raw.rowNumber, field: e.field, error: e.message });
-      }
-    }
-
-    // Silent-skip rule for unknown SKU Codes — these aren't validation
-    // errors, they're just rows we ignore. We still expose them in the
-    // error table so the seller can see what was skipped and why.
-    const catalog = new Set(skus.map((s) => s.sku));
-    const matched: AggregatedSKU[] = [];
-    for (const agg of result.aggregated) {
-      if (catalog.has(agg.skuCode)) {
-        matched.push(agg);
-      } else {
+      // VAL-2 — SKU Code must exist in the catalog.
+      const existing = byCode.get(skuCode);
+      if (!skuCode) {
         errors.push({
-          row: 0,
+          row: rowNumber,
           field: "SKU Code",
-          error: `SKU "${agg.skuCode}" not found in catalog — row skipped.`,
+          error: "SKU Code is required.",
+          skuCode,
+          skuName,
+          value: skuCode,
+        });
+        return;
+      }
+      if (!existing) {
+        errors.push({
+          row: rowNumber,
+          field: "SKU Code",
+          error: "SKU Code not found in your catalog.",
+          skuCode,
+          skuName,
+          value: skuCode,
+        });
+        return;
+      }
+
+      const rowErrors: BulkImportErrorRow[] = [];
+
+      // VAL-3 — MRP > 0.
+      const mrp = Number(mrpRaw);
+      if (mrpRaw === "" || !Number.isFinite(mrp) || mrp <= 0) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "MRP",
+          error: "MRP must be a number greater than zero.",
+          skuCode,
+          skuName,
+          value: mrpRaw,
         });
       }
-    }
+
+      // VAL-4 — Selling Price > 0 and ≤ MRP.
+      const sp = Number(spRaw);
+      if (spRaw === "" || !Number.isFinite(sp) || sp <= 0) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Selling Price",
+          error: "Selling Price must be a number greater than zero.",
+          skuCode,
+          skuName,
+          value: spRaw,
+        });
+      } else if (Number.isFinite(mrp) && mrp > 0 && sp > mrp) {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Selling Price",
+          error: "Selling Price cannot be greater than MRP.",
+          skuCode,
+          skuName,
+          value: spRaw,
+        });
+      }
+
+      // VAL-5 — Available Stock must be Yes or No (case-insensitive
+      // after trim).
+      let availability: "Yes" | "No" | null = null;
+      const a = availabilityRaw.toLowerCase();
+      if (a === "yes") availability = "Yes";
+      else if (a === "no") availability = "No";
+      else {
+        rowErrors.push({
+          row: rowNumber,
+          field: "Available Stock",
+          error: "Available Stock must be Yes or No.",
+          skuCode,
+          skuName,
+          value: availabilityRaw,
+        });
+      }
+
+      if (rowErrors.length > 0) {
+        errors.push(...rowErrors);
+        return;
+      }
+      if (availability === null) return; // safety — caught above
+
+      // VAL-9 — silent-skip unchanged rows.
+      const unchanged =
+        existing.mrp === mrp &&
+        existing.sellingPrice === sp &&
+        psCurrentAvailability(existing) === availability;
+      if (unchanged) {
+        noChangeRows += 1;
+        return;
+      }
+
+      validData.push({
+        skuCode,
+        mrp,
+        sellingPrice: sp,
+        availability,
+      });
+    });
+
+    const validRows = validData.length;
+    const invalidRows = dataRows.length - validRows - noChangeRows;
 
     return {
-      totalRows: result.totalRows,
-      validRows: matched.length,
-      invalidRows: result.totalRows - matched.length,
+      totalRows: dataRows.length,
+      validRows,
+      invalidRows,
       errors,
-      validData: matched,
+      validData,
     };
   };
 
-  // Apply validated price/stock rows to the catalog.
   const importPriceStockRows = (rows: unknown[]) => {
-    const matched = rows as AggregatedSKU[];
-    if (matched.length === 0) return;
+    const valid = rows as PsValidatedRow[];
+    if (valid.length === 0) return;
     const today = new Date().toISOString().split("T")[0];
-    const byCode = new Map(matched.map((s) => [s.skuCode, s]));
+    const byCode = new Map(valid.map((r) => [r.skuCode, r]));
     setSkus((prev) =>
       prev.map((s) => {
-        const agg = byCode.get(s.sku);
-        if (!agg) return s;
+        const r = byCode.get(s.sku);
+        if (!r) return s;
+        // Available Stock = Yes → SKU is available (flag the record
+        // as infinite stock so the storefront shows it as in stock).
+        // Available Stock = No → SKU is out of stock (clear infinite
+        // flag and zero out the count). Story 19128 BR-3: only the
+        // price + availability fields change — every other field is
+        // left untouched.
+        const isYes = r.availability === "Yes";
         return {
           ...s,
-          mrp: agg.mrp,
-          sellingPrice: agg.sellingPrice,
-          availableStock: agg.totalStock,
+          mrp: r.mrp,
+          sellingPrice: r.sellingPrice,
+          isInfiniteStock: isYes,
+          availableStock: isYes ? (s.availableStock ?? 0) : 0,
           lastUpdated: today,
-          source: "DMS Sync",
         };
       }),
     );
@@ -958,7 +1616,7 @@ export function MySKU() {
               <div className="relative flex-1 w-full sm:max-w-md">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by SKU name, code, or brand..."
+                  placeholder="Search by SKU Code, SKU Name, or Brand..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-10"
@@ -975,9 +1633,18 @@ export function MySKU() {
                   className="gap-2 flex-1 sm:flex-initial"
                 >
                   <Filter className="h-4 w-4" />
-                  Filters
+                  Filter
                 </Button>
                 )}
+                <Button
+                  size="sm"
+                  onClick={() => navigate("/products/add-sku/ai")}
+                  className="gap-2 flex-1 sm:flex-initial bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white shadow-sm"
+                  title="Upload product images — AI fills the SKU details"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Create SKU with AI
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -997,7 +1664,7 @@ export function MySKU() {
                       <Plus className="h-4 w-4 text-blue-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Add New SKUs</p>
-                        <p className="text-[11px] text-gray-500">Create SKU stubs (SKU Code + Name)</p>
+                        <p className="text-[11px] text-gray-500">Upload the full SKU template (all fields)</p>
                       </div>
                     </DropdownMenuItem>
                     {/* "Update Price & Stock" needs an existing catalog
@@ -1064,7 +1731,7 @@ export function MySKU() {
                 ))}
                 {ondcFilter !== "all" && (
                   <Badge variant="secondary" className="gap-1 pl-2 pr-1 py-1 text-xs bg-orange-50 text-orange-700 border-orange-200">
-                    ONDC: {ondcFilter === "compliant" ? "Compliant" : "Non-Compliant"}
+                    Compliance: {ondcFilter === "compliant" ? "Compliant" : "Non-compliant"}
                     <button onClick={() => { setOndcFilter("all"); setCurrentPage(1); }} className="ml-1 hover:bg-orange-200 rounded-full p-0.5">
                       <X className="h-3 w-3" />
                     </button>
@@ -1092,7 +1759,7 @@ export function MySKU() {
               <EmptyState
                 icon={PackageSearch}
                 title="No SKUs in your catalog yet"
-                description="Bulk-import your DMS catalog or add SKUs one by one to start publishing them on ONDC."
+                description="No SKUs in your catalog yet — click Bulk Import → Add new SKU to bring in your first products."
               />
             ) : (
             <table className="w-full">
@@ -1131,7 +1798,7 @@ export function MySKU() {
                       <EmptyState
                         icon={PackageSearch}
                         title="No matches"
-                        description="No SKUs match your current search or filters. Try clearing them to see everything."
+                        description="No SKUs match your current filters — try clearing them to see everything."
                       />
                     </td>
                   </tr>
@@ -1191,11 +1858,13 @@ export function MySKU() {
                       <td className="px-4 py-3 text-center">
                         <Button
                           variant="ghost"
-                          size="icon"
-                          title="View Details"
+                          size="sm"
+                          title="Details"
                           onClick={() => handleViewDetails(sku)}
+                          className="gap-1"
                         >
                           <Eye className="h-4 w-4 text-gray-600" />
+                          Details
                         </Button>
                       </td>
                     </tr>
@@ -1318,8 +1987,8 @@ export function MySKU() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="all">All</SelectItem>
-                        <SelectItem value="compliant">ONDC Compliant</SelectItem>
-                        <SelectItem value="non-compliant">Non-Compliant</SelectItem>
+                        <SelectItem value="compliant">Compliant</SelectItem>
+                        <SelectItem value="non-compliant">Non-compliant</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -1340,7 +2009,7 @@ export function MySKU() {
                     toast.success("All filters cleared");
                   }}
                 >
-                  Clear Filters
+                  Clear
                 </Button>
                 <Button
                   className="flex-1"
@@ -1363,16 +2032,18 @@ export function MySKU() {
         config={{
           title: "Add SKU — Bulk Import",
           description:
-            "Upload a CSV/XLSX with SKU Code and SKU Name. Each valid row creates an SKU stub; the rest of the ONDC fields are filled in from the SKU Detail page.",
+            "Upload the SKU import template (CSV or XLSX). Mandatory columns are starred — Weight in KG is auto-calculated from Weight Measure × SKU Weight and ignored if typed.",
           instructions: (
             <>
-              File must contain <b>SKU Code</b> and <b>SKU Name</b> columns.
-              Both are mandatory. Other ONDC fields are filled later from the
-              SKU Detail page.
+              Download the template below — every mandatory column is starred and
+              dropdown columns (<b>Measure Unit</b>, <b>Weight Measure</b>,{" "}
+              <b>Category</b>, <b>Time to Ship</b>, etc.) enforce the allowed
+              values. <b>Weight in KG</b> is auto-calculated from{" "}
+              <b>Weight Measure</b> × <b>SKU Weight</b> — leave it blank.
             </>
           ),
           sample: {
-            fileName: "SKU_Import_Template.csv",
+            fileName: "SKU_Import_Template.xlsx",
             onDownload: handleDownloadAddSkuSample,
           },
           accept: ".csv,.xlsx,.xls",
@@ -1381,30 +2052,56 @@ export function MySKU() {
         }}
       />
 
-      {/* Price & Stock — Bulk Import. Same standardized flow as Add
-          SKU; differs only in copy, sample template, and validator
-          (Bizom DMS export, silent-skip for unknown SKU Codes). */}
+      {/* Price & Stock — Bulk Import (Story 19128). The downloaded
+          sheet is pre-filled with every SKU in the seller's catalog
+          and its current values; the seller edits only MRP / Selling
+          Price / Available Stock (Yes/No) offline and re-uploads.
+          Rows whose SKU Code isn't in the catalog are REJECTED with a
+          row-level error (not silently skipped). */}
       <BulkImportDialog
         open={isPriceStockBulkOpen}
         onOpenChange={setIsPriceStockBulkOpen}
         config={{
           title: "Update Price & Stock — Bulk Import",
           description:
-            "Upload a Bizom DMS export. Existing SKUs get their MRP, Selling Price, and Stock refreshed; rows whose SKU Code is not in the catalog are skipped.",
+            "Download a sheet pre-filled with your existing SKUs, edit only MRP / Selling Price / Available Stock (Yes/No) offline, then re-upload to apply the changes in bulk.",
           instructions: (
             <>
-              Upload the <b>Bizom DMS</b> Price &amp; Inventory export. Rows whose
-              SKU Code is not in your catalog will be reported as skipped and
-              not imported.
+              Use this to update price and stock on SKUs that already exist in
+              your catalog. Download the sheet — it comes pre-filled with your
+              existing SKUs and current values — edit only the MRP, Selling
+              Price, and Available Stock (Yes/No) columns, then re-upload. To
+              add brand-new SKUs, use <b>Add new SKU</b> instead.
             </>
           ),
           sample: {
-            fileName: "Bizom_Price_Stock_Template.csv",
+            // Multi-format download: the picker dialog opens on Download
+            // and the chosen format ("csv" | "xlsx") is forwarded to
+            // handleDownloadPsSample. Filename is omitted on purpose —
+            // there's no single fixed filename when the seller picks
+            // the format at download time.
             onDownload: handleDownloadPsSample,
+            formats: [
+              {
+                value: "csv",
+                label: "CSV (.csv)",
+                description: "Plain text — opens in Excel, Google Sheets, or any text editor.",
+              },
+              {
+                value: "xlsx",
+                label: "Excel Workbook (.xlsx)",
+                description: "Native Excel format with styled headers and frozen first row.",
+              },
+            ],
           },
           accept: ".csv,.xlsx,.xls",
           validate: validatePriceStockFile,
           onImport: importPriceStockRows,
+          successToast: (result) =>
+            `${result.validRows} SKU${result.validRows === 1 ? "" : "s"} updated.` +
+            (result.invalidRows > 0
+              ? ` ${result.invalidRows} row${result.invalidRows === 1 ? "" : "s"} had errors and were skipped.`
+              : ""),
         }}
       />
     </div>

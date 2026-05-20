@@ -227,6 +227,31 @@ import {
   InputOTPSlot,
 } from "../components/ui/input-otp";
 import { MultiSelect } from "../components/ui/multi-select";
+import { ListPagination } from "../components/ui/list-pagination";
+import { EmptyState } from "../components/empty-state";
+import { CopyOnHover } from "../components/copy-on-hover";
+import { motion, AnimatePresence } from "motion/react";
+
+import {
+  ResponsiveContainer,
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
+  RadialBarChart,
+  RadialBar,
+  ComposedChart,
+  CartesianGrid,
+  XAxis,
+  YAxis,
+  Tooltip as RechartsTooltip,
+  Legend as RechartsLegend,
+} from "recharts";
 
 import { useAuth } from "../lib/auth-context";
 import logoImage from "../../imports/Qwipo_Secondary_Logo_for_Light_BG@4x-8.png";
@@ -338,7 +363,7 @@ const SECTIONS: { group: string; items: SectionDef[] }[] = [
     items: [
       { id: "list-page", title: "List Page Anatomy", icon: FileText },
       { id: "detail-page", title: "Detail Page Anatomy", icon: FileText },
-      { id: "form", title: "Form Anatomy (DMS → ONDC)", icon: FileText },
+      { id: "charts", title: "Charts & Infographics", icon: TrendingUp },
       { id: "filters", title: "Filters & Search", icon: Filter },
       { id: "bulk-actions", title: "Bulk Actions", icon: CheckCircle2 },
       { id: "action-bar", title: "Action Bars & CTAs", icon: ArrowRight },
@@ -573,6 +598,112 @@ const CANONICAL_SCREENS: {
   { name: "Offers & Schemes", path: "/offers", notes: "Offer Code · SKU · Valid From / Till · Status." },
 ];
 
+// ---- Chart data (seeded for the dashboard / analytics patterns) -
+
+const CHART_PALETTE = [
+  "#2563EB", // Blue 600 — primary
+  "#16A34A", // Green 600 — success
+  "#D97706", // Amber 600 — warning
+  "#DC2626", // Red 600 — danger
+  "#9333EA", // Purple 600 — accent
+  "#0891B2", // Cyan 600
+  "#C026D3", // Fuchsia 600
+  "#4F46E5", // Indigo 600
+];
+
+const CHART_SALES_TREND = [
+  { day: "Mon", orders: 24 },
+  { day: "Tue", orders: 32 },
+  { day: "Wed", orders: 28 },
+  { day: "Thu", orders: 45 },
+  { day: "Fri", orders: 52 },
+  { day: "Sat", orders: 38 },
+  { day: "Sun", orders: 30 },
+];
+
+const CHART_MULTI_TREND = [
+  { day: "Mon", new: 12, confirmed: 8, cancelled: 1 },
+  { day: "Tue", new: 14, confirmed: 12, cancelled: 2 },
+  { day: "Wed", new: 11, confirmed: 14, cancelled: 1 },
+  { day: "Thu", new: 18, confirmed: 17, cancelled: 3 },
+  { day: "Fri", new: 22, confirmed: 20, cancelled: 2 },
+  { day: "Sat", new: 16, confirmed: 18, cancelled: 1 },
+  { day: "Sun", new: 14, confirmed: 12, cancelled: 1 },
+];
+
+const CHART_REVENUE_BY_CATEGORY = [
+  { category: "Oil & Ghee", revenue: 4.8 },
+  { category: "Atta", revenue: 3.2 },
+  { category: "Snacks", revenue: 2.6 },
+  { category: "Dairy", revenue: 2.1 },
+  { category: "Beverages", revenue: 1.7 },
+  { category: "Personal Care", revenue: 1.2 },
+];
+
+const CHART_STATUS_BY_WEEK = [
+  { week: "W1", confirmed: 18, delivered: 14, cancelled: 2 },
+  { week: "W2", confirmed: 22, delivered: 17, cancelled: 3 },
+  { week: "W3", confirmed: 26, delivered: 21, cancelled: 1 },
+  { week: "W4", confirmed: 30, delivered: 24, cancelled: 4 },
+];
+
+const CHART_MARKETPLACE_SPLIT = [
+  { name: "ONDC", value: 58 },
+  { name: "Amazon", value: 21 },
+  { name: "Flipkart", value: 14 },
+  { name: "Direct", value: 7 },
+];
+
+const CHART_ORDER_STATUS_SPLIT = [
+  { name: "Delivered", value: 47 },
+  { name: "Confirmed", value: 32 },
+  { name: "New", value: 12 },
+  { name: "Cancelled", value: 9 },
+];
+
+const CHART_RADIAL_KPIS = [
+  { label: "ONDC Compliance", value: 78, color: "#16A34A" },
+  { label: "On-Time Dispatch", value: 92, color: "#2563EB" },
+  { label: "Warehouse Capacity", value: 64, color: "#D97706" },
+];
+
+const CHART_SPARKLINES = [
+  {
+    label: "Orders (7d)",
+    value: "247",
+    color: "#2563EB",
+    data: [24, 32, 28, 45, 52, 38, 30].map((v, i) => ({ i, v })),
+  },
+  {
+    label: "Revenue (7d)",
+    value: "₹4.8L",
+    color: "#16A34A",
+    data: [62, 71, 65, 78, 82, 75, 70].map((v, i) => ({ i, v })),
+  },
+  {
+    label: "Cancellations",
+    value: "9",
+    color: "#DC2626",
+    data: [3, 2, 1, 3, 2, 1, 1].map((v, i) => ({ i, v })),
+  },
+];
+
+const CHART_COMPOSED = [
+  { month: "Jan", revenue: 2.4, aov: 1620 },
+  { month: "Feb", revenue: 2.8, aov: 1690 },
+  { month: "Mar", revenue: 3.4, aov: 1755 },
+  { month: "Apr", revenue: 3.9, aov: 1820 },
+  { month: "May", revenue: 4.2, aov: 1880 },
+  { month: "Jun", revenue: 4.8, aov: 1945 },
+];
+
+const CHART_PROGRESS_BARS = [
+  { label: "Monthly revenue goal", value: 78, target: 100, color: "#2563EB" },
+  { label: "ONDC compliant SKUs", value: 64, target: 100, color: "#16A34A" },
+  { label: "Customer onboarding", value: 45, target: 100, color: "#D97706" },
+  { label: "Cancellation rate (lower = better)", value: 12, target: 100, color: "#DC2626" },
+];
+
 // ---- Helpers -----------------------------------------------------
 
 function CodeBlock({ children }: { children: string }) {
@@ -721,6 +852,9 @@ export function DesignSystem() {
   const [otpValue, setOtpValue] = useState("");
   const [multiValue, setMultiValue] = useState<string[]>(["mumbai", "pune"]);
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
+  const [filtersDrawerOpen, setFiltersDrawerOpen] = useState(false);
+  const [sheetDrawerOpen, setSheetDrawerOpen] = useState(false);
+  const [paginationPage, setPaginationPage] = useState(2);
 
   // Land at the top of the handbook on mount unless the URL points
   // at a specific section (#anchor). Two safeguards run together:
@@ -930,7 +1064,6 @@ export function DesignSystem() {
                   {[
                     { title: "Clarity over cleverness", body: "Users manage real money. Plain language, predictable layouts, remove visual noise that doesn't pay rent." },
                     { title: "Status-aware UI", body: "What the user can do should follow from the state of the data. Order is New? Show Confirm + Cancel. Delivered? Show nothing destructive." },
-                    { title: "DMS is reference, ONDC is truth", body: "Every form that touches the catalog shows DMS values read-only on the left, editable ONDC inputs on the right. Forks are visible." },
                     { title: "Empty states do work", body: "An empty list isn't a blank page — it's an opportunity to explain what'll appear there and how." },
                     { title: "Tokens, not hex codes", body: "Use Tailwind utility classes from the approved scale. If a value isn't in the scale, propose adding it before reaching for arbitrary classes." },
                     { title: "Accessibility is non-negotiable", body: "Every interactive must be keyboard-reachable, have a visible focus ring, and pass WCAG AA contrast at every state." },
@@ -1694,11 +1827,25 @@ export function DesignSystem() {
                     <Input disabled defaultValue="Read-only value" />
                   </div>
                   <div className="space-y-1.5">
-                    <Label className="text-xs">With leading icon</Label>
+                    <Label className="text-xs">Search (with leading icon + clear-X)</Label>
                     <div className="relative">
                       <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                      <Input className="pl-9" placeholder="Search by name…" />
+                      <Input
+                        className="pl-10 pr-10"
+                        placeholder="Search by order ID, retailer name…"
+                        defaultValue="Freedom"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        aria-label="Clear search"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
                     </div>
+                    <p className="text-[11px] text-gray-500">
+                      Production search inputs always carry the inline clear-X when there's a value.
+                    </p>
                   </div>
                   <div className="space-y-1.5">
                     <Label className="text-xs">With trailing button</Label>
@@ -2540,43 +2687,80 @@ export function DesignSystem() {
             <Section
               id="dropdown"
               title="Dropdown Menu"
-              description="Action menu anchored to a trigger. Use for row-level actions (overflow `⋯`), account switchers, view options. Supports nested submenus, checkable items, radio groups, keyboard shortcuts."
+              description="Action menu anchored to a trigger. Production uses three patterns: an avatar-led user menu in the top nav (root-layout.tsx), a split CTA menu like Bulk Import on My SKU (gap-2 + ChevronDown / MoreVertical inside the primary button), and a small overflow ⋯ on row-level actions. Destructive items use text-red-600."
             >
+              <SubHeader>User profile menu (top nav)</SubHeader>
+              <PreviewBox>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="flex items-center gap-2 hover:bg-gray-50">
+                      <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white font-medium text-sm">
+                        VM
+                      </div>
+                      <div className="text-left hidden lg:block">
+                        <p className="text-sm font-medium text-gray-900">Vikas Mittapalli</p>
+                        <p className="text-xs text-gray-600">Seller · Acme Distributors</p>
+                      </div>
+                      <ChevronDown className="h-4 w-4 text-gray-600 hidden lg:block" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>
+                      <div>
+                        <p className="font-medium">Vikas Mittapalli</p>
+                        <p className="text-xs font-normal text-gray-600">Seller · Acme Distributors</p>
+                      </div>
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem>
+                      <UserIcon className="h-4 w-4 mr-2" />
+                      Profile
+                    </DropdownMenuItem>
+                    <DropdownMenuItem>
+                      <Settings className="h-4 w-4 mr-2" />
+                      Settings
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem className="text-red-600">
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </PreviewBox>
+
+              <SubHeader>Split CTA menu (My SKU "Bulk Import" pattern)</SubHeader>
+              <PreviewBox>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button size="sm" className="gap-2">
+                      <Upload className="h-4 w-4" />
+                      Bulk Import
+                      <MoreHorizontal className="h-3.5 w-3.5 opacity-80" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    <DropdownMenuItem className="gap-2 cursor-pointer">
+                      <Plus className="h-4 w-4 text-blue-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Add New SKUs</p>
+                        <p className="text-[11px] text-gray-500">Upload the full SKU template (all fields)</p>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem className="gap-2 cursor-pointer">
+                      <FileText className="h-4 w-4 text-purple-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Update Price &amp; Stock</p>
+                        <p className="text-[11px] text-gray-500">Download existing → edit offline → re-upload</p>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </PreviewBox>
+
+              <SubHeader>Row-level overflow + view options (kept for reference)</SubHeader>
               <PreviewBox>
                 <div className="flex flex-wrap gap-3">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        Open menu
-                        <ChevronDown className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56">
-                      <DropdownMenuLabel>Account</DropdownMenuLabel>
-                      <DropdownMenuItem>
-                        <UserIcon className="h-4 w-4" /> Profile
-                        <DropdownMenuShortcut>⌘P</DropdownMenuShortcut>
-                      </DropdownMenuItem>
-                      <DropdownMenuItem>
-                        <Settings className="h-4 w-4" /> Settings
-                        <DropdownMenuShortcut>⌘,</DropdownMenuShortcut>
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuLabel>View</DropdownMenuLabel>
-                      <DropdownMenuCheckboxItem checked>Show sidebar</DropdownMenuCheckboxItem>
-                      <DropdownMenuCheckboxItem>Compact rows</DropdownMenuCheckboxItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuRadioGroup value="list">
-                        <DropdownMenuRadioItem value="list">List</DropdownMenuRadioItem>
-                        <DropdownMenuRadioItem value="grid">Grid</DropdownMenuRadioItem>
-                      </DropdownMenuRadioGroup>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-red-600 focus:text-red-700">
-                        <LogOut className="h-4 w-4" /> Sign out
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon">
@@ -2588,6 +2772,30 @@ export function DesignSystem() {
                       <DropdownMenuItem><Copy className="h-4 w-4" /> Duplicate</DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem className="text-red-600 focus:text-red-700"><Trash2 className="h-4 w-4" /> Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        View options
+                        <ChevronDown className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56">
+                      <DropdownMenuLabel>View</DropdownMenuLabel>
+                      <DropdownMenuCheckboxItem checked>Show sidebar</DropdownMenuCheckboxItem>
+                      <DropdownMenuCheckboxItem>Compact rows</DropdownMenuCheckboxItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuRadioGroup value="list">
+                        <DropdownMenuRadioItem value="list">List</DropdownMenuRadioItem>
+                        <DropdownMenuRadioItem value="grid">Grid</DropdownMenuRadioItem>
+                      </DropdownMenuRadioGroup>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem>
+                        <UserIcon className="h-4 w-4" /> Profile
+                        <DropdownMenuShortcut>⌘P</DropdownMenuShortcut>
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -2619,62 +2827,123 @@ export function DesignSystem() {
             <Section
               id="dialog"
               title="Dialog"
-              description="A modal for focused tasks (Create / Edit forms, multi-field flows). Always include a Title and a Description. Close on Esc + outside-click unless the task is destructive."
+              description="A modal for focused tasks (Create / Edit forms, multi-field flows, status changes that need extra inputs). Production dialogs use max-w-lg, a Title that PAIRS a status-tinted icon with the verb (CheckCircle2 + Confirm Orders, XCircle + Cancel Orders, PackageCheck + Mark as Delivered), and a Description carrying any count or context. The footer keeps the dismiss verb on the left and the action verb — coloured to match the icon — on the right."
             >
               <PreviewBox>
                 <div className="flex flex-wrap gap-3">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button>
-                        <Plus className="h-4 w-4" />
-                        New Customer
+                      <Button className="gap-2">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Confirm Orders
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-lg">
                       <DialogHeader>
-                        <DialogTitle>Add a new customer</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                          <CheckCircle2 className="h-5 w-5 text-green-600" />
+                          Confirm Orders
+                        </DialogTitle>
                         <DialogDescription>
-                          Customers register automatically on first order, but you can also add them manually.
+                          Confirm 3 order(s). Please provide dispatch details.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="space-y-3 py-2">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Mobile</Label>
-                          <Input placeholder="10-digit number" />
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>
+                            Estimated Dispatch Date <span className="text-red-500">*</span>
+                          </Label>
+                          <Input type="date" />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Business name</Label>
-                          <Input placeholder="Acme Distributors" />
+                        <div className="space-y-2">
+                          <Label>
+                            Estimated Dispatch Time <span className="text-red-500">*</span>
+                          </Label>
+                          <Input type="time" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Notes (Optional)</Label>
+                          <Textarea rows={3} placeholder="Add any special instructions or notes…" />
                         </div>
                       </div>
                       <DialogFooter>
                         <Button variant="outline">Cancel</Button>
-                        <Button>Add Customer</Button>
+                        <Button className="gap-2">
+                          <CheckCircle2 className="h-4 w-4" />
+                          Confirm Orders
+                        </Button>
                       </DialogFooter>
                     </DialogContent>
                   </Dialog>
 
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline">
+                      <Button variant="destructive" className="gap-2">
+                        <XCircle className="h-4 w-4" />
+                        Cancel Orders
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-lg">
+                      <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                          <XCircle className="h-5 w-5 text-red-600" />
+                          Cancel Orders
+                        </DialogTitle>
+                        <DialogDescription>
+                          Cancel 3 order(s). Please provide a reason for cancellation.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                          <Label>
+                            Reason for Cancellation <span className="text-red-500">*</span>
+                          </Label>
+                          <Textarea
+                            rows={4}
+                            placeholder="e.g., Out of stock, Cannot deliver to location, Customer request…"
+                          />
+                        </div>
+                        <div className="p-3 bg-amber-50 rounded-lg border border-amber-200">
+                          <p className="text-sm text-amber-800">
+                            <AlertCircle className="h-4 w-4 inline mr-1" />
+                            Cancelled orders will be notified to the customer and cannot be undone.
+                          </p>
+                        </div>
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline">Cancel</Button>
+                        <Button variant="destructive" className="gap-2">
+                          <XCircle className="h-4 w-4" />
+                          Cancel 3 Order(s)
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" className="gap-2">
                         <Download className="h-4 w-4" />
                         Export Orders
                       </Button>
                     </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent className="max-w-lg">
                       <DialogHeader>
-                        <DialogTitle>Export Orders</DialogTitle>
+                        <DialogTitle className="flex items-center gap-2">
+                          <Download className="h-5 w-5 text-blue-600" />
+                          Export Orders
+                        </DialogTitle>
                         <DialogDescription>
                           Pick a date range up to 31 days. Output is a CSV with 23 columns.
                         </DialogDescription>
                       </DialogHeader>
-                      <div className="grid grid-cols-2 gap-3 py-2">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Start date</Label>
+                      <div className="grid grid-cols-2 gap-3 py-4">
+                        <div className="space-y-2">
+                          <Label>Start date</Label>
                           <Input type="date" />
                         </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">End date</Label>
+                        <div className="space-y-2">
+                          <Label>End date</Label>
                           <Input type="date" />
                         </div>
                       </div>
@@ -2686,6 +2955,12 @@ export function DesignSystem() {
                   </Dialog>
                 </div>
               </PreviewBox>
+              <ul className="text-xs text-gray-600 space-y-1 list-disc pl-5 leading-relaxed">
+                <li><span className="font-semibold">Title</span> always wraps an icon in a status-tinted color (<code className="text-fuchsia-700 font-mono">text-green-600</code> for success, <code className="text-fuchsia-700 font-mono">text-red-600</code> for destructive, <code className="text-fuchsia-700 font-mono">text-blue-600</code> for neutral).</li>
+                <li><span className="font-semibold">Width</span> defaults to <code className="text-fuchsia-700 font-mono">max-w-lg</code> for most flows.</li>
+                <li><span className="font-semibold">Destructive warnings</span> live inside the body in an amber-50 alert box, never as a separate banner above the title.</li>
+                <li><span className="font-semibold">Footer</span> primary action mirrors the title verb + icon and disables until required fields are filled.</li>
+              </ul>
             </Section>
 
             {/* ===== Overlays — Alert Dialog ===== */}
@@ -2749,76 +3024,133 @@ export function DesignSystem() {
             {/* ===== Overlays — Sheet ===== */}
             <Section
               id="sheet"
-              title="Sheet (side panel)"
-              description="Side-anchored panel that slides in from the right (default) or left. Use for filter drawers, detail peeks, multi-section forms that wouldn't fit a dialog. Side: right (default), left, top, bottom."
+              title="Side Drawer (filter / detail panel)"
+              description="Production list pages do NOT use the bare shadcn Sheet primitive for filter drawers — they use a 96-wide motion.div panel anchored to the right with a black/50 backdrop, a header carrying the title + X close, and a sticky footer with Clear Filters + Apply (both flex-1). The shadcn Sheet primitive is still available for left-side navigation drawers and the mobile menu — see root-layout.tsx."
             >
+              <SubHeader>Production filter drawer (motion.div, w-96, right)</SubHeader>
               <PreviewBox>
-                <div className="flex flex-wrap gap-3">
-                  <Sheet>
-                    <SheetTrigger asChild>
-                      <Button variant="outline">
-                        <Filter className="h-4 w-4" />
-                        Open Filters
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent>
-                      <SheetHeader>
-                        <SheetTitle>Filter Orders</SheetTitle>
-                        <SheetDescription>Narrow this list by status, marketplace, or date.</SheetDescription>
-                      </SheetHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Status</Label>
-                          <Select>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Any" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {["Any", "New", "Confirmed", "Delivered", "Cancelled"].map((s) => (
-                                <SelectItem key={s} value={s}>{s}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Marketplace</Label>
+                <div className="space-y-2">
+                  <Button onClick={() => setSheetDrawerOpen(true)} variant="outline" className="gap-2">
+                    <Filter className="h-4 w-4" />
+                    Open production drawer
+                  </Button>
+                  <p className="text-[11px] text-gray-500">
+                    Identical to the OffersFilterDrawer / customers-demo / inventory drawer used across every list page.
+                  </p>
+                </div>
+              </PreviewBox>
+
+              <AnimatePresence>
+                {sheetDrawerOpen && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="fixed inset-0 bg-black/50 z-40"
+                      onClick={() => setSheetDrawerOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ x: "100%" }}
+                      animate={{ x: 0 }}
+                      exit={{ x: "100%" }}
+                      transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                      className="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-2xl z-50 flex flex-col"
+                    >
+                      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                        <button
+                          onClick={() => setSheetDrawerOpen(false)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          aria-label="Close filters"
+                        >
+                          <X className="h-5 w-5 text-gray-500" />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-6">
+                        <div className="space-y-6">
                           <div className="space-y-2">
-                            {["ONDC", "Amazon", "Flipkart"].map((m) => (
-                              <label key={m} className="flex items-center gap-2 text-sm">
-                                <Checkbox /> {m}
-                              </label>
-                            ))}
+                            <Label className="text-sm font-medium text-gray-700">
+                              Status
+                            </Label>
+                            <Select defaultValue="all">
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="New">New</SelectItem>
+                                <SelectItem value="Confirmed">Confirmed</SelectItem>
+                                <SelectItem value="Delivered">Delivered</SelectItem>
+                                <SelectItem value="Cancelled">Cancelled</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">
+                              Marketplace
+                            </Label>
+                            <Select defaultValue="all">
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Marketplaces</SelectItem>
+                                <SelectItem value="ondc">ONDC</SelectItem>
+                                <SelectItem value="amazon">Amazon</SelectItem>
+                                <SelectItem value="flipkart">Flipkart</SelectItem>
+                              </SelectContent>
+                            </Select>
                           </div>
                         </div>
                       </div>
-                      <SheetFooter>
-                        <Button variant="outline">Clear all</Button>
-                        <Button>Apply</Button>
-                      </SheetFooter>
-                    </SheetContent>
-                  </Sheet>
+                      <div className="border-t border-gray-200 p-6 flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setSheetDrawerOpen(false)}
+                          className="flex-1"
+                        >
+                          Clear Filters
+                        </Button>
+                        <Button
+                          onClick={() => setSheetDrawerOpen(false)}
+                          className="flex-1"
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
 
-                  <Sheet>
-                    <SheetTrigger asChild>
-                      <Button variant="outline">
-                        <Menu className="h-4 w-4" />
-                        Left Drawer
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent side="left">
-                      <SheetHeader>
-                        <SheetTitle>Navigation</SheetTitle>
-                      </SheetHeader>
-                      <nav className="space-y-1 py-4 text-sm">
-                        {["Dashboard", "My SKU", "Orders", "Customers", "Reports"].map((i) => (
-                          <a key={i} href="#" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100">
-                            {i}
-                          </a>
-                        ))}
-                      </nav>
-                    </SheetContent>
-                  </Sheet>
-                </div>
+              <SubHeader>Left-side navigation Sheet (mobile menu)</SubHeader>
+              <PreviewBox>
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                      <Menu className="h-4 w-4" />
+                      Open menu
+                    </Button>
+                  </SheetTrigger>
+                  <SheetContent side="left">
+                    <SheetHeader>
+                      <SheetTitle>Navigation</SheetTitle>
+                      <SheetDescription>Jump to a section.</SheetDescription>
+                    </SheetHeader>
+                    <nav className="space-y-1 py-4 text-sm">
+                      {["Dashboard", "My SKU", "Orders", "Customers", "Reports"].map((i) => (
+                        <a key={i} href="#" className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100">
+                          {i}
+                        </a>
+                      ))}
+                    </nav>
+                  </SheetContent>
+                </Sheet>
+                <p className="text-[11px] text-gray-500 mt-2">
+                  The shadcn Sheet primitive is reserved for the responsive mobile-nav drawer (see <code className="text-fuchsia-700 font-mono">root-layout.tsx</code>). For filter drawers, use the motion.div pattern above.
+                </p>
               </PreviewBox>
             </Section>
 
@@ -2826,8 +3158,18 @@ export function DesignSystem() {
             <Section
               id="drawer"
               title="Drawer (bottom)"
-              description="Bottom-anchored sheet, mobile-first. Use for actions on a list item, picker flows, or content where the trigger is visually 'pulling up' a tray. Backed by vaul."
+              description="Bottom-anchored sheet, mobile-first. Backed by vaul. NOT currently used anywhere in the live Qwipo app — every drawer in production is the right-side motion.div panel above. Demo retained for completeness; reach for it if you genuinely need an iOS-style pull-up tray, otherwise prefer the side drawer pattern."
             >
+              <div className="rounded-md border border-amber-200 bg-amber-50 p-3 flex gap-2 text-amber-900 text-xs">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>
+                  <span className="font-semibold">Not in production use.</span>{" "}
+                  No page in the live app uses the vaul-backed Drawer. The
+                  demo below shows the primitive in case you need it; before
+                  adding one to a new flow, check whether the right-side
+                  filter / detail drawer would fit instead.
+                </span>
+              </div>
               <PreviewBox>
                 <Drawer>
                   <DrawerTrigger asChild>
@@ -3116,8 +3458,31 @@ export function DesignSystem() {
             <Section
               id="pagination"
               title="Pagination"
-              description="Show page numbers + Previous / Next. Use an ellipsis when total pages > 7. Always show the current page label + total count to the left of the controls."
+              description="Every list page in production uses the shared ListPagination component — a sticky footer carrying a 'Showing N–M of T items' caption on the left and a Previous / Next pair with a 'Page X of Y' pill on the right. It always renders (even with a single page) so each list page has the same visual shape."
             >
+              <SubHeader>ListPagination (production component)</SubHeader>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <ListPagination
+                  page={paginationPage}
+                  total={247}
+                  pageSize={10}
+                  onPageChange={setPaginationPage}
+                  itemLabel="order"
+                />
+              </div>
+
+              <SubHeader>Single page (Previous / Next disabled)</SubHeader>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <ListPagination
+                  page={1}
+                  total={7}
+                  pageSize={10}
+                  onPageChange={() => {}}
+                  itemLabel="customer"
+                />
+              </div>
+
+              <SubHeader>shadcn Pagination primitive (reference only)</SubHeader>
               <PreviewBox>
                 <div className="flex items-center justify-between">
                   <p className="text-xs text-gray-600">Showing 1–10 of 247</p>
@@ -3134,14 +3499,78 @@ export function DesignSystem() {
                   </Pagination>
                 </div>
               </PreviewBox>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Production reaches for <code className="text-fuchsia-700 font-mono">{`<ListPagination />`}</code> on every list page — never the bare shadcn primitive. The shadcn version is kept here purely as an inventory reference.
+              </p>
             </Section>
 
             {/* ===== Data Display — Tables ===== */}
             <Section
               id="tables"
               title="Tables"
-              description="Default text-sm. Headers in gray-50, gray-600 caption case. Sticky header for tables ≥ 20 rows. Numerics right-aligned. Status uses Badge."
+              description="Production list pages (Orders, Customers, My SKU, Offers) render a plain HTML <table> with thead.bg-gray-50 + sticky top-0 + uppercase text-xs font-semibold headers, and tbody.divide-y for row borders. Numerics right-aligned. Status uses Badge. Hover-reveal a CopyOnHover icon next to identity-carrying cells (Business Name, Mobile, SKU)."
             >
+              <SubHeader>Production table (native HTML)</SubHeader>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <div className="overflow-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600 w-10">
+                          <Checkbox />
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          SKU
+                        </th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Name
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Stock
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Price
+                        </th>
+                        <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
+                          Status
+                        </th>
+                        <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600 w-10" />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {[
+                        { sku: "180000008", name: "Freedom Sunflower 1L × 16", stock: 480, price: "₹125", status: "Active" },
+                        { sku: "180000009", name: "Aashirvaad Atta 5KG", stock: 120, price: "₹420", status: "Active" },
+                        { sku: "180000010", name: "Maggi Masala Noodles 70g × 12", stock: 0, price: "₹158", status: "Out of stock" },
+                      ].map((r) => (
+                        <tr key={r.sku} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3"><Checkbox /></td>
+                          <td className="px-4 py-3">
+                            <CopyOnHover value={r.sku} label="SKU">
+                              <span className="font-mono text-xs text-gray-700">{r.sku}</span>
+                            </CopyOnHover>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900">{r.name}</td>
+                          <td className="px-4 py-3 text-right font-mono text-sm">{r.stock}</td>
+                          <td className="px-4 py-3 text-right font-mono text-sm">{r.price}</td>
+                          <td className="px-4 py-3 text-center">
+                            {r.status === "Active" ? (
+                              <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
+                            ) : (
+                              <Badge className="bg-orange-50 text-orange-700 border-orange-200">Out of stock</Badge>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <SubHeader>shadcn Table primitive (reference)</SubHeader>
               <PreviewBox>
                 <Table>
                   <TableHeader>
@@ -3159,7 +3588,6 @@ export function DesignSystem() {
                     {[
                       { sku: "180000008", name: "Freedom Sunflower 1L × 16", stock: 480, price: "₹125", status: "Active" },
                       { sku: "180000009", name: "Aashirvaad Atta 5KG", stock: 120, price: "₹420", status: "Active" },
-                      { sku: "180000010", name: "Maggi Masala Noodles 70g × 12", stock: 0, price: "₹158", status: "Out of stock" },
                     ].map((r) => (
                       <TableRow key={r.sku}>
                         <TableCell><Checkbox /></TableCell>
@@ -3168,11 +3596,7 @@ export function DesignSystem() {
                         <TableCell className="text-right font-mono">{r.stock}</TableCell>
                         <TableCell className="text-right font-mono">{r.price}</TableCell>
                         <TableCell>
-                          {r.status === "Active" ? (
-                            <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
-                          ) : (
-                            <Badge className="bg-orange-50 text-orange-700 border-orange-200">Out of stock</Badge>
-                          )}
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
                         </TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" className="h-7 w-7"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
@@ -3182,6 +3606,9 @@ export function DesignSystem() {
                   </TableBody>
                 </Table>
               </PreviewBox>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                <span className="font-semibold">Pick the native HTML pattern</span> for any new list page that uses sticky headers, CopyOnHover identity cells, or row-level click navigation. The shadcn Table primitive is fine for dense settings-style tables or embedded breakdowns.
+              </p>
             </Section>
 
             {/* ===== Data Display — Scroll Area ===== */}
@@ -3288,46 +3715,252 @@ export function DesignSystem() {
               </div>
             </Section>
 
-            {/* ===== Patterns — Form ===== */}
+            {/* ===== Patterns — Charts & Infographics ===== */}
             <Section
-              id="form"
-              title="Form Anatomy (DMS → ONDC)"
-              description="Catalog forms split each field into two columns: DMS value on the left (read-only reference), ONDC value on the right (editable, becomes the source of truth). Edited cells get an amber 'Edited' indicator."
+              id="charts"
+              title="Charts & Infographics"
+              description="recharts (v2) is the canonical charting library — already used on the Reports pages. Use these patterns when wiring dashboards or analytics panels. Colors come from the brand palette so charts read consistently with the rest of the UI."
             >
-              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
-                <div className="grid grid-cols-1 sm:grid-cols-[200px_1fr_1fr] bg-gray-50 px-3 py-2 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
-                  <span>Field</span>
-                  <span>DMS (Read-only)</span>
-                  <span>ONDC (Editable)</span>
+              <SubHeader>Line chart — single metric over time</SubHeader>
+              <PreviewBox>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={CHART_SALES_TREND} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={2} dot={{ r: 3, fill: "#2563EB" }} />
+                    </LineChart>
+                  </ResponsiveContainer>
                 </div>
-                {[
-                  { label: "SKU Name *", dms: "FREEDOM REF. SUNFLOWER OIL 1 LTR…", ondc: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS." },
-                  { label: "Measure Unit *", dms: "litre", ondc: "Liter" },
-                  { label: "SKU Weight *", dms: "1.05", ondc: "1" },
-                  { label: "Weight in KG", dms: "1 kg", ondc: "1 kg · Auto", auto: true },
-                ].map(({ label, dms, ondc, auto }) => (
-                  <div
-                    key={label}
-                    className="grid grid-cols-1 sm:grid-cols-[200px_1fr_1fr] border-t border-gray-100 px-3 py-2 text-xs"
-                  >
-                    <span className="font-medium text-gray-700">{label}</span>
-                    <span className="text-gray-500 font-mono">{dms}</span>
-                    <span className="text-gray-900 font-mono flex items-center gap-2">
-                      {ondc}
-                      {auto && (
-                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200">
-                          Auto
-                        </span>
-                      )}
-                    </span>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> daily / weekly trend on a dashboard tile. One color per metric. Limit to ≤ 30 data points before it gets noisy — fall back to a Bar chart for longer ranges.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Multi-series line — comparing metrics</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={CHART_MULTI_TREND} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      <Line type="monotone" dataKey="new" stroke="#2563EB" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="confirmed" stroke="#16A34A" strokeWidth={2} dot={false} />
+                      <Line type="monotone" dataKey="cancelled" stroke="#DC2626" strokeWidth={2} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> orders-by-status, revenue-vs-cost, year-over-year compares. Cap at 4 series — past that, switch to small multiples.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Bar chart — categorical breakdown</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={CHART_REVENUE_BY_CATEGORY} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="category" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip cursor={{ fill: "rgba(37,99,235,0.06)" }} />
+                      <Bar dataKey="revenue" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> revenue by category, units sold by brand, leaderboard tiles. Sort descending unless the x-axis is naturally ordered (days, months).
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Stacked bar — composition over time</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={CHART_STATUS_BY_WEEK} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="week" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="confirmed" stackId="s" fill="#16A34A" />
+                      <Bar dataKey="delivered" stackId="s" fill="#2563EB" />
+                      <Bar dataKey="cancelled" stackId="s" fill="#DC2626" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> when each bar's total matters AND the composition matters. Keep stacks to ≤ 4 segments — beyond that, a normalised area chart reads better.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Area chart — cumulative volume</SubHeader>
+              <PreviewBox>
+                <div className="h-56">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={CHART_SALES_TREND} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="dsAreaFill" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#2563EB" stopOpacity={0.32} />
+                          <stop offset="100%" stopColor="#2563EB" stopOpacity={0.04} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="day" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <Area type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={2} fill="url(#dsAreaFill)" />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> emphasising "how much" rather than "how it changes". A line chart is almost always lighter-weight; reach for area only when the filled magnitude carries meaning.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Pie & Donut — part-of-whole</SubHeader>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                <PreviewBox>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Pie</p>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={CHART_MARKETPLACE_SPLIT} dataKey="value" nameKey="name" outerRadius={80} label={{ fontSize: 11 }}>
+                          {CHART_MARKETPLACE_SPLIT.map((entry, i) => (
+                            <Cell key={entry.name} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                        <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
                   </div>
-                ))}
+                </PreviewBox>
+                <PreviewBox>
+                  <p className="text-xs font-semibold text-gray-700 mb-2">Donut</p>
+                  <div className="h-56">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie data={CHART_ORDER_STATUS_SPLIT} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
+                          {CHART_ORDER_STATUS_SPLIT.map((entry, i) => (
+                            <Cell key={entry.name} fill={CHART_PALETTE[i % CHART_PALETTE.length]} />
+                          ))}
+                        </Pie>
+                        <RechartsTooltip />
+                        <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                </PreviewBox>
               </div>
-              <ul className="text-xs text-gray-600 space-y-1 list-disc pl-5 leading-relaxed">
-                <li>Required fields end with <span className="text-red-600">*</span>.</li>
-                <li>Inline helper text (gray-600, 11px) lives directly under the input.</li>
-                <li>Errors replace the helper text with red-700 copy + an AlertCircle icon.</li>
-                <li>Auto-calculated fields display the system value with an "Auto" pill — never let the user type into them.</li>
+              <p className="text-[11px] text-gray-600 leading-relaxed -mt-1">
+                <span className="font-semibold">Use:</span> 3–5 slices, one "is meaningfully bigger than the rest" story. For 6+ categories, a horizontal bar reads better. Donuts add headroom for a centered KPI value if the surface is large enough.
+              </p>
+
+              <SubHeader>Radial bar — single-value progress</SubHeader>
+              <PreviewBox>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {CHART_RADIAL_KPIS.map((kpi) => (
+                    <div key={kpi.label} className="flex items-center gap-3">
+                      <div className="h-24 w-24 shrink-0">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <RadialBarChart cx="50%" cy="50%" innerRadius="65%" outerRadius="100%" data={[kpi]} startAngle={90} endAngle={-270}>
+                            <RadialBar dataKey="value" cornerRadius={6} fill={kpi.color} background={{ fill: "#F3F4F6" }} />
+                          </RadialBarChart>
+                        </ResponsiveContainer>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-gray-900 leading-none">{kpi.value}%</p>
+                        <p className="text-[11px] text-gray-600 mt-1.5">{kpi.label}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-3 leading-relaxed">
+                  <span className="font-semibold">Use:</span> KPI tiles where the value is a percentage with a clear ceiling (compliance, fulfilment, capacity). Pair with the raw value so the seller doesn't have to do mental math.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Sparkline — trend in a tile</SubHeader>
+              <PreviewBox>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {CHART_SPARKLINES.map((sp) => (
+                    <Card key={sp.label} className="shadow-sm">
+                      <CardContent className="p-4 space-y-2">
+                        <p className="text-[11px] uppercase tracking-wider font-semibold text-gray-500">{sp.label}</p>
+                        <p className="text-2xl font-bold text-gray-900">{sp.value}</p>
+                        <div className="h-10 -mx-1">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <LineChart data={sp.data} margin={{ top: 2, right: 2, left: 2, bottom: 2 }}>
+                              <Line type="monotone" dataKey="v" stroke={sp.color} strokeWidth={2} dot={false} />
+                            </LineChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> KPI tile that needs a "shape of the last N points" cue without crowding the value. Strip the axes, dots, grid, and tooltip — sparklines are decoration.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Composed — bar + line combo</SubHeader>
+              <PreviewBox>
+                <div className="h-60">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <ComposedChart data={CHART_COMPOSED} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#E5E7EB" />
+                      <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis yAxisId="left" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <YAxis yAxisId="right" orientation="right" tick={{ fontSize: 11, fill: "#6B7280" }} />
+                      <RechartsTooltip />
+                      <RechartsLegend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar yAxisId="left" dataKey="revenue" fill="#2563EB" radius={[4, 4, 0, 0]} />
+                      <Line yAxisId="right" type="monotone" dataKey="aov" stroke="#9333EA" strokeWidth={2} dot={{ r: 3, fill: "#9333EA" }} />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                </div>
+                <p className="text-[11px] text-gray-600 mt-2 leading-relaxed">
+                  <span className="font-semibold">Use:</span> two metrics that share an x-axis but live on different scales (e.g. revenue ₹ on left, average order value ₹ on right). Use a dual axis or normalised values — never a single axis with mismatched magnitudes.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Progress bars — inline metric reveal</SubHeader>
+              <PreviewBox>
+                <div className="space-y-3 max-w-md">
+                  {CHART_PROGRESS_BARS.map((row) => (
+                    <div key={row.label} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-700">{row.label}</span>
+                        <span className="font-mono text-gray-700">{row.value}% <span className="text-gray-400">/ {row.target}%</span></span>
+                      </div>
+                      <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${Math.min(100, (row.value / row.target) * 100)}%`, background: row.color }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-600 mt-3 leading-relaxed">
+                  <span className="font-semibold">Use:</span> goal-vs-actual cards, multi-metric leaderboards, completion checklists. Color-code by tone (success / warning / danger) when goal-distance is meaningful.
+                </p>
+              </PreviewBox>
+
+              <SubHeader>Recipe & rules of thumb</SubHeader>
+              <ul className="text-xs text-gray-600 space-y-1.5 list-disc pl-5 leading-relaxed">
+                <li>Use the brand palette (<code className="font-mono text-fuchsia-700">CHART_PALETTE</code> in this file) — Blue, Emerald, Amber, Red, Purple, Cyan, Fuchsia, Indigo. Don't introduce new chart colors per page.</li>
+                <li>Axes / grid in <code className="font-mono text-fuchsia-700">gray-200</code> (<code className="font-mono">#E5E7EB</code>); axis labels in <code className="font-mono text-fuchsia-700">gray-500</code> (<code className="font-mono">#6B7280</code>) at <code className="font-mono">11px</code>.</li>
+                <li>Always wrap recharts in <code className="font-mono text-fuchsia-700">&lt;ResponsiveContainer&gt;</code> with a parent height — recharts won't render without one.</li>
+                <li>Default to <code className="font-mono text-fuchsia-700">type="monotone"</code> for smooth lines and <code className="font-mono text-fuchsia-700">radius=&#123;[4, 4, 0, 0]&#125;</code> for soft-cap bars.</li>
+                <li>For dashboards combine: top-row KPI tiles → mid-row 1–2 trend charts → bottom-row breakdown (bar / donut). Avoid wall-of-charts.</li>
               </ul>
             </Section>
 
@@ -3335,71 +3968,137 @@ export function DesignSystem() {
             <Section
               id="filters"
               title="Filters & Search"
-              description="Three layers: free-text search always visible, primary filter chips inline above the table, advanced filters in a Sheet. Selected filters surface as removable chips below the search bar."
+              description="Production pattern: free-text search lives in the page toolbar (with a leading Search icon and an inline clear-X), and a single Filters button opens a right-side drawer carrying every secondary filter. Inside the drawer, section labels stack vertically and Clear Filters + Apply pin to the bottom as flex-1 split buttons."
             >
-              <SubHeader>Filter bar (inline)</SubHeader>
+              <SubHeader>Toolbar (search left, Filters + Export right)</SubHeader>
               <PreviewBox>
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative flex-1 min-w-[200px]">
+                <div className="flex items-center justify-between gap-4">
+                  <div className="relative max-w-md flex-1">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input className="pl-9" placeholder="Search by name, SKU, or order ID…" />
+                    <Input
+                      className="pl-10 pr-10"
+                      placeholder="Search by order ID, retailer name..."
+                      defaultValue=""
+                    />
                   </div>
-                  <Select>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Status" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any</SelectItem>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Date" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="any">Any time</SelectItem>
-                      <SelectItem value="7d">Last 7 days</SelectItem>
-                      <SelectItem value="30d">Last 30 days</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Sheet open={filterPanelOpen} onOpenChange={setFilterPanelOpen}>
-                    <SheetTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Filter className="h-4 w-4" />
-                        More
-                      </Button>
-                    </SheetTrigger>
-                    <SheetContent>
-                      <SheetHeader>
-                        <SheetTitle>Advanced Filters</SheetTitle>
-                      </SheetHeader>
-                      <div className="space-y-4 py-4">
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Brand</Label>
-                          <MultiSelect
-                            options={[{ value: "freedom", label: "Freedom" }, { value: "aashirvaad", label: "Aashirvaad" }]}
-                            selected={[]}
-                            onChange={() => {}}
-                            placeholder="Any brand"
-                          />
-                        </div>
-                        <div className="space-y-1.5">
-                          <Label className="text-xs">Price range (₹)</Label>
-                          <Slider defaultValue={[0, 500]} max={1000} step={50} />
-                        </div>
-                      </div>
-                      <SheetFooter>
-                        <Button variant="outline">Clear all</Button>
-                        <Button>Apply</Button>
-                      </SheetFooter>
-                    </SheetContent>
-                  </Sheet>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFiltersDrawerOpen(true)}
+                      className="gap-2"
+                    >
+                      <Filter className="h-4 w-4" />
+                      Filters
+                    </Button>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <Download className="h-4 w-4" />
+                      Export
+                    </Button>
+                  </div>
                 </div>
               </PreviewBox>
 
-              <SubHeader>Active filter chips</SubHeader>
+              <SubHeader>Right-side Filters drawer (w-96, motion-animated)</SubHeader>
+              <PreviewBox>
+                <div className="space-y-2">
+                  <Button onClick={() => setFiltersDrawerOpen(true)} variant="outline" size="sm" className="gap-2">
+                    <Filter className="h-4 w-4" />
+                    Open Filters drawer
+                  </Button>
+                  <p className="text-[11px] text-gray-500">
+                    96-wide motion.div · backdrop bg-black/50 · header "Filters" + X · sticky footer with Clear Filters + Apply (both flex-1).
+                  </p>
+                </div>
+              </PreviewBox>
+
+              {/* Shared filter drawer rendered once. Mirrors the
+                  production OffersFilterDrawer / customers-demo /
+                  inventory drawer pattern 1:1. */}
+              <AnimatePresence>
+                {filtersDrawerOpen && (
+                  <>
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="fixed inset-0 bg-black/50 z-40"
+                      onClick={() => setFiltersDrawerOpen(false)}
+                    />
+                    <motion.div
+                      initial={{ x: "100%" }}
+                      animate={{ x: 0 }}
+                      exit={{ x: "100%" }}
+                      transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                      className="fixed right-0 top-0 bottom-0 w-96 bg-white shadow-2xl z-50 flex flex-col"
+                    >
+                      <div className="flex items-center justify-between p-6 border-b border-gray-200">
+                        <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+                        <button
+                          onClick={() => setFiltersDrawerOpen(false)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                          aria-label="Close filters"
+                        >
+                          <X className="h-5 w-5 text-gray-500" />
+                        </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-6">
+                        <div className="space-y-6">
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">
+                              Status
+                            </Label>
+                            <Select defaultValue="all">
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Status</SelectItem>
+                                <SelectItem value="Active">Active</SelectItem>
+                                <SelectItem value="Inactive">Inactive</SelectItem>
+                                <SelectItem value="Expired">Expired</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="text-sm font-medium text-gray-700">
+                              Company
+                            </Label>
+                            <Select defaultValue="all">
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="all">All Companies</SelectItem>
+                                <SelectItem value="acme">Acme Distributors</SelectItem>
+                                <SelectItem value="freedom">Freedom Foods</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="border-t border-gray-200 p-6 flex gap-3">
+                        <Button
+                          variant="outline"
+                          onClick={() => setFiltersDrawerOpen(false)}
+                          className="flex-1"
+                        >
+                          Clear Filters
+                        </Button>
+                        <Button
+                          onClick={() => setFiltersDrawerOpen(false)}
+                          className="flex-1"
+                        >
+                          Apply
+                        </Button>
+                      </div>
+                    </motion.div>
+                  </>
+                )}
+              </AnimatePresence>
+
+              <SubHeader>Active filter chips (below the toolbar)</SubHeader>
               <PreviewBox>
                 <div className="flex flex-wrap gap-2 items-center">
                   <span className="text-[11px] text-gray-500">Filters:</span>
@@ -3419,7 +4118,7 @@ export function DesignSystem() {
                 </div>
               </PreviewBox>
               <p className="text-xs text-gray-600 leading-relaxed">
-                <span className="font-semibold">Rule of thumb:</span> ≤ 4 inline filters; the rest live in the "More" sheet. Every active filter must be visible and removable as a chip — invisible filters cause "why am I seeing nothing?" support tickets.
+                <span className="font-semibold">Rule of thumb:</span> in production every list page (Orders, Customers, My SKU, Offers, Inventory) uses the same right-side <code className="text-fuchsia-700 font-mono">motion.div</code> filter drawer rather than an inline filter row. The toolbar carries only Search + Filters + Export. Every active filter must be visible and removable as a chip — invisible filters cause "why am I seeing nothing?" support tickets.
               </p>
             </Section>
 
@@ -3427,8 +4126,37 @@ export function DesignSystem() {
             <Section
               id="bulk-actions"
               title="Bulk Actions"
-              description="When a row checkbox is ticked, the table header transforms into a contextual action bar with the count + verb-only buttons. Destructive actions on the right, separated by a divider."
+              description="When a row checkbox is ticked, the page toolbar grows a count caption and verb-coloured buttons next to the search bar — the table header itself stays put. Action verbs colour-match their consequence: green for Confirm, destructive red for Cancel, blue/green for Mark as Delivered."
             >
+              <SubHeader>Toolbar with selection (Orders pattern)</SubHeader>
+              <PreviewBox>
+                <div className="flex items-center justify-between gap-4">
+                  <div className="relative max-w-md flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input className="pl-10 pr-10" placeholder="Search by order ID, retailer name…" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 mr-2">3 selected</span>
+                    <Button
+                      size="sm"
+                      className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                    >
+                      <CheckCircle2 className="h-4 w-4" />
+                      Confirm
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
+                    >
+                      <XCircle className="h-4 w-4" />
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </PreviewBox>
+
+              <SubHeader>Inline selection bar (legacy / overlay pattern)</SubHeader>
               <PreviewBox>
                 <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 flex items-center justify-between text-sm">
                   <div className="flex items-center gap-3">
@@ -3446,23 +4174,44 @@ export function DesignSystem() {
                   </div>
                 </div>
               </PreviewBox>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                <span className="font-semibold">Live Orders</span> uses the toolbar variant: a gray-600 "<em>N selected</em>" caption followed by status-aware buttons inline with the search. The blue-50 bar is the legacy variant kept here as a reference pattern; new flows should mirror the toolbar.
+              </p>
             </Section>
 
             {/* ===== Patterns — Action bars ===== */}
             <Section
               id="action-bar"
               title="Action Bars & CTAs"
-              description="Primary action sits on the right of the action bar, secondary / destructive to its left. Status-aware: only show actions that apply to the current state."
+              description="Production detail pages (SKU Detail, Order Detail) carry a sticky-top action bar — the page identifier / status sits on the left, the verb buttons on the right. The bar stays glued to the top of the scrolling area so the primary action is always one click away."
             >
+              <SubHeader>Sticky-top detail action bar (sku-detail / order-detail)</SubHeader>
+              <PreviewBox>
+                <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 gap-2 shadow-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium text-gray-700">Item Status</span>
+                    <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200">Active</Badge>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm">Reset</Button>
+                    <Button size="sm">Save</Button>
+                  </div>
+                </div>
+              </PreviewBox>
+
+              <SubHeader>Order detail status-aware actions</SubHeader>
               <PreviewBox>
                 <div className="flex items-center justify-between">
-                  <p className="text-sm text-gray-700">Modify the order before confirming.</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900">Order #QWI-ONDC-260330-8F3K92</p>
+                    <Badge className="bg-blue-50 text-blue-700 border-blue-200">New</Badge>
+                  </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="destructive" size="sm" className="gap-2">
                       <XCircle className="h-3.5 w-3.5" />
                       Cancel
                     </Button>
-                    <Button size="sm">
+                    <Button size="sm" className="gap-2">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       Confirm Order
                     </Button>
@@ -3481,7 +4230,7 @@ export function DesignSystem() {
                 </div>
               </PreviewBox>
               <p className="text-xs text-gray-600 leading-relaxed">
-                When the order moves to <Badge className="bg-green-50 text-green-700 border-green-200 mx-1">Confirmed</Badge> the same bar swaps Confirm Order out for <span className="font-semibold">Mark as Delivered</span>. Cancelled / Delivered orders show <em>no</em> destructive actions — the order is past the seller's hand.
+                When the order moves to <Badge className="bg-green-50 text-green-700 border-green-200 mx-1">Confirmed</Badge> the same bar swaps Confirm Order out for <span className="font-semibold">Mark as Delivered</span>. Cancelled / Delivered orders show <em>no</em> destructive actions — the order is past the seller's hand. Save buttons stay disabled until the page is dirty.
               </p>
             </Section>
 
@@ -3586,49 +4335,44 @@ export function DesignSystem() {
             <Section
               id="empty-states"
               title="Empty States"
-              description="An empty list is an opportunity. Always pair the illustration with a short headline + an explainer that tells the user what'll appear there and how it'll arrive."
+              description="The shared EmptyState component is the production primitive — a soft gradient halo behind a rounded icon tile, 24px semibold title, 16px gray-500 description, optional CTA. Default sizing fills the empty page (min-h-[420px]); compact mode shrinks to ~10px padding for sidebar widgets and embedded cards."
             >
-              <PreviewBox>
-                <div className="flex flex-col items-center justify-center text-center py-8">
-                  <div className="w-16 h-16 rounded-xl bg-fuchsia-50 border border-fuchsia-200 flex items-center justify-center mb-3">
-                    <Users className="h-7 w-7 text-fuchsia-600" />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900">No customers yet</p>
-                  <p className="text-xs text-gray-600 mt-1 max-w-md leading-relaxed">
-                    Once retailers register against your brands from the buyer app,
-                    they'll auto-register as Active here and appear in this list.
-                  </p>
-                </div>
-              </PreviewBox>
+              <SubHeader>Default — fills the empty page</SubHeader>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <EmptyState
+                  icon={Users}
+                  title="No customers yet"
+                  description="Once retailers register against your brands from the buyer app, they'll auto-register as Active here and appear in this list."
+                />
+              </div>
 
               <SubHeader>With primary action</SubHeader>
-              <PreviewBox>
-                <div className="flex flex-col items-center justify-center text-center py-8">
-                  <div className="w-16 h-16 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center mb-3">
-                    <Package className="h-7 w-7 text-blue-600" />
-                  </div>
-                  <p className="text-sm font-semibold text-gray-900">No SKUs in your catalog</p>
-                  <p className="text-xs text-gray-600 mt-1 max-w-md leading-relaxed">
-                    Add your first SKU manually, sync from your DMS, or import in bulk via CSV.
-                  </p>
-                  <div className="flex gap-2 mt-4">
-                    <Button size="sm"><Plus className="h-4 w-4" /> Add SKU</Button>
-                    <Button variant="outline" size="sm"><Upload className="h-4 w-4" /> Import CSV</Button>
-                  </div>
-                </div>
-              </PreviewBox>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <EmptyState
+                  icon={Package}
+                  title="No SKUs in your catalog"
+                  description="Add your first SKU manually, sync from your DMS, or import in bulk via CSV."
+                  action={
+                    <div className="flex gap-2">
+                      <Button size="sm" className="gap-2"><Plus className="h-4 w-4" /> Add SKU</Button>
+                      <Button variant="outline" size="sm" className="gap-2"><Upload className="h-4 w-4" /> Import CSV</Button>
+                    </div>
+                  }
+                />
+              </div>
 
-              <SubHeader>Filtered to nothing</SubHeader>
-              <PreviewBox>
-                <div className="flex flex-col items-center justify-center text-center py-6">
-                  <Search className="h-6 w-6 text-gray-400 mb-2" />
-                  <p className="text-sm font-semibold text-gray-900">No results for "freedmm oil"</p>
-                  <p className="text-xs text-gray-600 mt-1">Check the spelling or clear filters.</p>
-                  <Button variant="link" size="sm" className="mt-2">Clear filters</Button>
-                </div>
-              </PreviewBox>
+              <SubHeader>Compact — for sidebar widgets / nested cards</SubHeader>
+              <div className="rounded-lg border border-gray-200 bg-white overflow-hidden">
+                <EmptyState
+                  compact
+                  icon={Search}
+                  title="No results for &quot;freedmm oil&quot;"
+                  description="Check the spelling or clear filters."
+                  action={<Button variant="link" size="sm">Clear filters</Button>}
+                />
+              </div>
               <p className="text-xs text-gray-600 leading-relaxed">
-                <span className="font-semibold">Recipe:</span> rounded icon tile (h-16 w-16, soft brand fill) → 14px semibold headline → 12px gray-600 explainer, max 60 chars per line. Optional CTA below when there's a useful jump-start action.
+                <span className="font-semibold">Recipe:</span> the EmptyState component carries the layout — gradient halo blur, rounded-2xl icon tile (h-28 w-28 default, h-20 w-20 compact), 24px semibold headline, 16px gray-500 explainer. The lucide icon and copy are the only required props. Use the same primitive when a real list page comes back empty AND when the gallery / preview shows the "no data yet" state.
               </p>
             </Section>
 
@@ -3684,29 +4428,94 @@ export function DesignSystem() {
             <Section
               id="kpi-tiles"
               title="KPI Tiles"
-              description="The dashboard hero. Each tile: small caption · big number · delta or context. Group in rows of 3 or 4. Keep them stable in count and order — the layout itself is meaningful."
+              description="The dashboard hero. Production tiles carry a colored left border (border-l-4), a small label, a 3xl bold number, a trend chip with TrendingUp/Down icon and percentage, plus a soft-fill icon tile on the right. Hover lifts the shadow. Group in rows of 4 on lg screens — keep count + order stable so the layout itself is meaningful."
             >
+              <SubHeader>Production dashboard tile (4-up grid)</SubHeader>
               <PreviewBox>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
-                    { label: "Orders this month", value: "247", delta: "+18%", deltaColor: "text-emerald-600", icon: ShoppingCart, iconColor: "text-blue-600" },
-                    { label: "Revenue", value: "₹4.8L", delta: "+9.2%", deltaColor: "text-emerald-600", icon: TrendingUp, iconColor: "text-emerald-600" },
-                    { label: "Avg order value", value: "₹1,945", delta: "−3.1%", deltaColor: "text-red-600", icon: CreditCard, iconColor: "text-amber-600" },
-                    { label: "Active customers", value: "312", delta: "+24", deltaColor: "text-emerald-600", icon: Users, iconColor: "text-fuchsia-600" },
-                  ].map((k) => (
-                    <Card key={k.label} className="shadow-sm">
-                      <CardContent className="p-4 space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <p className="text-[11px] uppercase font-semibold text-gray-500 tracking-wider">{k.label}</p>
-                          <k.icon className={"h-4 w-4 " + k.iconColor} />
-                        </div>
-                        <p className="text-2xl font-bold text-gray-900">{k.value}</p>
-                        <p className={"text-xs font-medium " + k.deltaColor}>{k.delta} <span className="text-gray-500 font-normal">vs last month</span></p>
-                      </CardContent>
-                    </Card>
-                  ))}
+                    {
+                      label: "Total Orders",
+                      value: "247",
+                      change: "+18.2%",
+                      trend: "up",
+                      icon: ShoppingCart,
+                      borderColor: "border-l-blue-500",
+                      iconBg: "bg-blue-100",
+                      iconColor: "text-blue-600",
+                    },
+                    {
+                      label: "Revenue",
+                      value: "₹4.8L",
+                      change: "+9.2%",
+                      trend: "up",
+                      icon: TrendingUp,
+                      borderColor: "border-l-emerald-500",
+                      iconBg: "bg-emerald-100",
+                      iconColor: "text-emerald-600",
+                    },
+                    {
+                      label: "Avg Order Value",
+                      value: "₹1,945",
+                      change: "−3.1%",
+                      trend: "down",
+                      icon: CreditCard,
+                      borderColor: "border-l-amber-500",
+                      iconBg: "bg-amber-100",
+                      iconColor: "text-amber-600",
+                    },
+                    {
+                      label: "Active Customers",
+                      value: "312",
+                      change: "+24",
+                      trend: "up",
+                      icon: Users,
+                      borderColor: "border-l-fuchsia-500",
+                      iconBg: "bg-fuchsia-100",
+                      iconColor: "text-fuchsia-600",
+                    },
+                  ].map((m) => {
+                    const Icon = m.icon;
+                    return (
+                      <Card
+                        key={m.label}
+                        className={`border-l-4 ${m.borderColor} hover:shadow-lg transition-shadow`}
+                      >
+                        <CardContent className="p-5">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm font-medium text-gray-600 mb-2">{m.label}</p>
+                              <p className="text-3xl font-bold text-gray-900 mb-2">{m.value}</p>
+                              <div className="flex items-center gap-1">
+                                {m.trend === "up" ? (
+                                  <TrendingUp className="h-3 w-3 text-green-600" />
+                                ) : (
+                                  <TrendingUp className="h-3 w-3 text-red-600 rotate-180" />
+                                )}
+                                <span
+                                  className={
+                                    "text-xs font-semibold " +
+                                    (m.trend === "up" ? "text-green-600" : "text-red-600")
+                                  }
+                                >
+                                  {m.change}
+                                </span>
+                                <span className="text-xs text-gray-500">vs last period</span>
+                              </div>
+                            </div>
+                            <div className={`${m.iconBg} ${m.iconColor} p-3 rounded-xl`}>
+                              <Icon className="h-6 w-6" />
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
                 </div>
               </PreviewBox>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                <span className="font-semibold">Recipe:</span> <code className="text-fuchsia-700 font-mono">border-l-4</code> + colored stripe matched to the metric's accent · <code className="text-fuchsia-700 font-mono">p-5</code> · 14px gray-600 label · 30px bold value · trend chip (TrendingUp/Down + percentage) on the bottom-left · soft-fill rounded-xl icon tile (p-3) on the right · hover:shadow-lg. Always 4 across on lg screens.
+              </p>
             </Section>
 
             {/* ===== Patterns — Activity Timeline ===== */}

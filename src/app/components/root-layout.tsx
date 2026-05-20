@@ -19,6 +19,8 @@ import {
   HelpCircle,
   Search,
   X,
+  Truck,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -48,8 +50,30 @@ import {
 import { AlertOctagon, Loader2 } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
+import {
+  getLogisticsSettings,
+  subscribeToLogisticsSettings,
+} from "../lib/logistics-settings";
 
-const sellerNavigation = [
+// External target the Logistics menu opens in a new tab once the
+// seller has enabled the module in Settings → Logistics Settings.
+const LOGISTICS_PORTAL_URL =
+  "https://logistics-buyer.test.bms.qwipo.com/auth/login";
+
+// Logistics is an external portal — it doesn't have an internal href.
+// Instead it carries `externalUrl` so the NavLinks renderer knows to
+// open it in a new tab, and `requiresLogistics` so the renderer can
+// grey it out when the seller hasn't enabled Logistics in Settings.
+type SellerNavItem = {
+  name: string;
+  href?: string;
+  externalUrl?: string;
+  requiresLogistics?: boolean;
+  icon: typeof LayoutDashboard;
+  subItems?: { href: string; name: string }[];
+};
+
+const sellerNavigation: SellerNavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
@@ -58,6 +82,17 @@ const sellerNavigation = [
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Support", href: "/support", icon: HelpCircle },
 ];
+
+// The Logistics nav entry — only spliced into the seller nav when the
+// logged-in persona has the `logisticsAddon` flag (Seller + Logistics).
+// Kept separate from the base array so the vanilla seller's sidebar
+// stays exactly as it was before the add-on existed.
+const sellerLogisticsNav: SellerNavItem = {
+  name: "Logistics",
+  externalUrl: LOGISTICS_PORTAL_URL,
+  requiresLogistics: true,
+  icon: Truck,
+};
 
 const sellerErrorScreensNav = {
   name: "Error Screens",
@@ -131,24 +166,52 @@ export function RootLayout() {
   // so reviewers can browse the error and loading galleries without
   // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
+  // Seller + Logistics persona appends the Logistics entry at the end
+  // of the sidebar (below Support) so the core seller menu stays in
+  // its familiar order; every other seller persona keeps the base nav.
+  const baseSellerNav = user?.logisticsAddon
+    ? [...sellerNavigation, sellerLogisticsNav]
+    : sellerNavigation;
   const navigation = isAdmin
     ? isEmptyMode
       ? [...adminNavigation, adminErrorScreensNav, adminLoadingScreensNav]
       : adminNavigation
     : isEmptyMode
       ? [
-          ...sellerNavigation,
+          ...baseSellerNav,
           sellerCustomersDemoNav,
           sellerOffersDemoNav,
           sellerErrorScreensNav,
           sellerLoadingScreensNav,
         ]
-      : sellerNavigation;
+      : baseSellerNav;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
     isAdmin ? "User Management" : "Products",
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  // Track the seller's Logistics master toggle so the sidebar item
+  // can be greyed-out / enabled live without a page reload. Settings
+  // are keyed by seller id — the Super Admin manages the state from
+  // the Manage Seller → Logistics tab, and the seller's sidebar reads
+  // the same key here. Falls back to defaults for non-seller roles
+  // (admin / designer) since they don't render the logistics nav at
+  // all.
+  const sellerId = user?.id ?? "";
+  const [logisticsEnabled, setLogisticsEnabled] = useState(() =>
+    sellerId ? getLogisticsSettings(sellerId).enabled : false,
+  );
+  useEffect(() => {
+    if (!sellerId) {
+      setLogisticsEnabled(false);
+      return;
+    }
+    setLogisticsEnabled(getLogisticsSettings(sellerId).enabled);
+    return subscribeToLogisticsSettings(sellerId, () =>
+      setLogisticsEnabled(getLogisticsSettings(sellerId).enabled),
+    );
+  }, [sellerId]);
 
   const handleLogout = () => {
     logout();
@@ -204,6 +267,52 @@ export function RootLayout() {
         const hasSubItems = item.subItems && item.subItems.length > 0;
         const parentActive = hasSubItems && isParentActive(item.subItems);
         const isExpanded = expandedMenu === item.name;
+
+        // External URL items (e.g. Logistics → external portal). Render
+        // as a button — opens the URL in a new tab. Gated on the
+        // Logistics settings toggle when `requiresLogistics` is set.
+        if (item.externalUrl) {
+          const disabled = item.requiresLogistics && !logisticsEnabled;
+          return (
+            <button
+              key={item.name}
+              type="button"
+              disabled={disabled}
+              onClick={() => {
+                if (disabled) return;
+                window.open(item.externalUrl, "_blank", "noopener,noreferrer");
+              }}
+              title={
+                collapsed
+                  ? disabled
+                    ? `${item.name} (enable in Settings → Logistics)`
+                    : item.name
+                  : disabled
+                    ? "Enable Logistics in Settings first"
+                    : undefined
+              }
+              className={`flex w-full items-center ${
+                collapsed ? "justify-center" : "gap-3"
+              } rounded-lg px-3 py-2.5 transition-all ${
+                disabled
+                  ? "text-gray-400 cursor-not-allowed"
+                  : "text-gray-700 hover:text-gray-900 hover:bg-blue-50"
+              }`}
+            >
+              <Icon className="h-5 w-5 flex-shrink-0" />
+              {!collapsed && (
+                <span className="text-sm flex-1 flex items-center justify-between gap-2">
+                  <span>{item.name}</span>
+                  <ExternalLink
+                    className={`h-3 w-3 ${
+                      disabled ? "opacity-40" : "opacity-60"
+                    }`}
+                  />
+                </span>
+              )}
+            </button>
+          );
+        }
 
         if (hasSubItems) {
           return (
@@ -470,6 +579,44 @@ export function RootLayout() {
                   const hasSubItems = item.subItems && item.subItems.length > 0;
                   const parentActive = hasSubItems && isParentActive(item.subItems);
                   const isExpanded = expandedMenu === item.name;
+
+                  // External URL items — same disabled-gate behavior
+                  // as the desktop sidebar.
+                  if (item.externalUrl) {
+                    const disabled =
+                      item.requiresLogistics && !logisticsEnabled;
+                    return (
+                      <button
+                        key={item.name}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => {
+                          if (disabled) return;
+                          window.open(
+                            item.externalUrl,
+                            "_blank",
+                            "noopener,noreferrer",
+                          );
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 transition-all ${
+                          disabled
+                            ? "text-gray-400 cursor-not-allowed"
+                            : "text-gray-700 hover:text-gray-900 hover:bg-blue-50"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5 flex-shrink-0" />
+                        <span className="text-sm flex-1 flex items-center justify-between gap-2">
+                          <span>{item.name}</span>
+                          <ExternalLink
+                            className={`h-3 w-3 ${
+                              disabled ? "opacity-40" : "opacity-60"
+                            }`}
+                          />
+                        </span>
+                      </button>
+                    );
+                  }
 
                   if (hasSubItems) {
                     return (

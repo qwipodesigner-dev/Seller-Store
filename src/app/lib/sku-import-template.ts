@@ -44,17 +44,20 @@ export interface SkuFieldDef {
   /** When true the column is rendered greyed-out in the template
    *  and tagged "Auto" on the Validation sheet — the importer
    *  computes the value from other fields (currently used for
-   *  SKU Weight which we derive from Measure Unit × Unit Value). */
+   *  Weight in KG which we derive from Measure Unit × SKU Weight). */
   computed?: boolean;
 }
 
 /**
- * Convert a (measureUnit, value) pair into kilograms. Mass units
- * convert exactly; volume units use a water-density approximation
- * (1 mL ≈ 1 g, 1 L ≈ 1 kg) so the Calculated SKU Weight column has
- * a meaningful kg value for liquids too. Dozen / count units return
- * null because there's no defensible mass mapping — those rows
- * surface "—" in the read-only column.
+ * Convert a (unit, value) pair into kilograms. Used for two callers:
+ *  - Bulk import: Weight Measure (Gram/Kilogram) × SKU Weight, the
+ *    canonical source for Weight in KG since the latest spec gave the
+ *    physical weight its own dedicated dropdown.
+ *  - SKU Detail page (manual form): Measure Unit (Gram/Kilogram/
+ *    Liter/Milliliter) × SKU Weight. Volume units use a water-density
+ *    approximation (1 mL ≈ 1 g, 1 L ≈ 1 kg) so the kg column is still
+ *    meaningful for liquids on that screen.
+ * Unknown units return null and surface "—" in the read-only column.
  */
 export function measureToKg(
   measureUnit: string | undefined | null,
@@ -66,20 +69,16 @@ export function measureToKg(
       return value / 1000;
     case "kilogram":
       return value;
-    case "ton":
-      return value * 1000;
     case "milliliter":
       return value / 1000;
     case "liter":
       return value;
-    case "dozen":
-      return null;
     default:
       return null;
   }
 }
 
-/** Display helper for the computed SKU Weight column: format the
+/** Display helper for the computed Weight in KG column: format the
  *  kg number with sensible decimals or surface "—" for non-mass
  *  units. */
 export function formatKgValue(kg: number | null): string {
@@ -130,12 +129,48 @@ const CATEGORY_OPTIONS: string[] = [
   "Tinned & Processed Foods",
 ];
 
-const MEASURE_UNITS = ["Dozen", "Gram", "Kilogram", "Ton", "Liter", "Milliliter"];
+const MEASURE_UNITS = ["Gram", "Kilogram", "Liter", "Milliliter"];
+// Weight Measure is intentionally narrower than Measure Unit — the
+// physical weight only ever rolls up to grams or kilograms, and the
+// importer uses the value here to compute the read-only Weight in KG
+// column. Volume measures stay on Measure Unit alone.
+const WEIGHT_MEASURES = ["Gram", "Kilogram"];
+// Package Type — the physical container the SKU ships in. Paired
+// with Package Type Value (a numeric companion column) so the seller
+// can say e.g. "Bottle × 12". Free-text would let sellers spell the
+// same container three different ways, so this is a closed dropdown.
+const PACKAGE_TYPES = [
+  "Piece / Pieces (Pc/Pcs)",
+  "Pouch",
+  "Pack",
+  "Sachet",
+  "Bag",
+  "Lamination Bag",
+  "Bottle",
+  "Pet Bottle",
+  "Jar",
+  "Pet Jar",
+  "Box",
+  "Tin",
+  "Can",
+  "Case",
+  "Tube",
+  "Tetra Pack",
+  "Sheet",
+  "Set",
+  "Pads",
+  "Refill",
+  "Nons",
+  "Ladi",
+  "Bundle",
+  "Loose",
+  "Glass Jar",
+  "Plastic Jar",
+  "Container",
+];
 const COUNTRIES = ["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"];
 const TIME_TO_SHIP = ["24 hours", "36 hours", "48 hours"];
 const YES_NO = ["Yes", "No"];
-const FULFILLMENT = ["Store Delivery"];
-const LOCATION = ["Warehouse 1", "Warehouse 2", "Warehouse 3"];
 const ITEM_STATUS = ["Active", "Inactive"];
 
 /** The full schema. Order = column order on the Main sheet. */
@@ -195,16 +230,40 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     header: "Measure Unit",
     mandatory: true,
     format: "Dropdown",
-    rules: "Required. Pick from the dropdown.",
+    rules: "Required. Pick the SKU's measurement unit from the dropdown.",
     options: MEASURE_UNITS,
     example: "Liter",
   },
+  // Free-text companion to Measure Unit. Captures the pack size value
+  // (e.g. "1.5" for a 1.5 L bottle); kept free-text because volume
+  // SKUs can carry fractional values like 0.5 L that a whole-number
+  // rule would reject.
+  {
+    key: "unitValue",
+    header: "Unit value",
+    mandatory: true,
+    format: "Free text",
+    rules: "Required. The pack size value paired with Measure Unit (e.g. 1.5 for a 1.5 L bottle).",
+    example: "1.5",
+  },
+  // Weight Measure + SKU Weight drive the auto-calculated Weight in KG.
+  // Restricted to Gram / Kilogram because the kg conversion is exact
+  // and the seller's actual physical weight only rolls up that way.
+  {
+    key: "weightMeasure",
+    header: "Weight Measure",
+    mandatory: true,
+    format: "Dropdown",
+    rules: "Required. Pick the unit for SKU Weight — Gram or Kilogram.",
+    options: WEIGHT_MEASURES,
+    example: "Kilogram",
+  },
   {
     key: "measureValue",
-    header: "Unit Value",
+    header: "SKU Weight",
     mandatory: true,
-    format: "Whole number > 0",
-    rules: "Required. Positive whole number (no decimals).",
+    format: "Positive number > 0",
+    rules: "Required. Positive number (decimals allowed). Paired with Weight Measure (e.g. 15 + Kilogram = 15 kg).",
     example: "15",
   },
   {
@@ -215,6 +274,28 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Optional. Positive whole number when filled.",
     example: "1",
   },
+  // Package Type + Package Type Value go side-by-side so the seller
+  // can describe the physical container (Pouch, Bottle, Jar, …) and
+  // the numeric count for it (e.g. Bottle × 12) in one shot.
+  {
+    key: "packageType",
+    header: "Package Type",
+    mandatory: false,
+    format: "Dropdown",
+    rules:
+      "Optional. Pick the physical container the SKU ships in (Pouch, Bottle, Tin, etc.).",
+    options: PACKAGE_TYPES,
+    example: "Bottle",
+  },
+  {
+    key: "packageTypeValue",
+    header: "Package Type Value",
+    mandatory: false,
+    format: "Positive number",
+    rules:
+      "Optional. Numeric value paired with Package Type (e.g. 12 for a 12-bottle case). Decimals allowed.",
+    example: "12",
+  },
   {
     key: "upc",
     header: "UPC",
@@ -222,22 +303,6 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Numeric",
     rules: "Optional. Numeric value.",
     example: "8901234567890",
-  },
-  // SKU Weight is no longer a user input — the importer derives it
-  // from Measure Unit × Unit Value (gram/kg/ton → exact; ml/L use a
-  // water-density approximation; dozen has no mass mapping and
-  // surfaces "—"). The column is kept on the Main sheet so reviewers
-  // can see the converted kg value alongside their row, but it's
-  // greyed-out + the helper row reads "Auto-calculated".
-  {
-    key: "skuWeight",
-    header: "SKU Weight (kg)",
-    mandatory: false,
-    format: "Auto-calculated",
-    rules:
-      "Auto-calculated from Measure Unit × Unit Value. Read-only — any value typed here is ignored on import.",
-    example: "0.5",
-    computed: true,
   },
   {
     key: "minimumOrderQty",
@@ -256,7 +321,10 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     example: "100",
   },
 
-  // --- Category & Fulfillment ---
+  // --- Category ---
+  // Fulfillment and Location were removed from the bulk-import flow —
+  // they're managed centrally per seller rather than per SKU and were
+  // forcing every import row to repeat the same value.
   {
     key: "categoryId",
     header: "Category",
@@ -265,24 +333,6 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Pick a category from the admin-managed list.",
     options: CATEGORY_OPTIONS,
     example: "Cooking Oils & Ghee",
-  },
-  {
-    key: "fulfillmentId",
-    header: "Fulfillment",
-    mandatory: true,
-    format: "Dropdown",
-    rules: "Required. Phase 1 supports Store Delivery only.",
-    options: FULFILLMENT,
-    example: "Store Delivery",
-  },
-  {
-    key: "locationId",
-    header: "Location",
-    mandatory: true,
-    format: "Dropdown",
-    rules: "Required. The warehouse this SKU is fulfilled from.",
-    options: LOCATION,
-    example: "Warehouse 1",
   },
 
   // --- ONDC attributes ---
@@ -393,6 +443,34 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. Active SKUs are visible to buyers; Inactive SKUs are hidden.",
     options: ITEM_STATUS,
     example: "Active",
+  },
+
+  // --- Tax ---
+  {
+    key: "hsnCode",
+    header: "HSN Code",
+    mandatory: false,
+    format: "8-digit code",
+    rules: "Optional. 8-digit Harmonised System Nomenclature code for this product.",
+    example: "15121900",
+  },
+  {
+    key: "gstTax",
+    header: "GST Tax %",
+    mandatory: false,
+    format: "Dropdown",
+    rules: "Optional. GST slab applicable on this product.",
+    options: ["0%", "3%", "5%", "12%", "18%", "28%"],
+    example: "18%",
+  },
+  {
+    key: "gstCess",
+    header: "GST Cess %",
+    mandatory: false,
+    format: "Dropdown",
+    rules: "Optional. Additional cess on top of GST, if applicable.",
+    options: ["0%", "1%", "3%", "5%", "12%", "22%"],
+    example: "0%",
   },
 ];
 
@@ -589,7 +667,7 @@ export const downloadSkuTemplate = async () => {
     }
   });
 
-  // Computed columns (currently just SKU Weight) get a grey fill +
+  // Computed columns (currently just Weight in KG) get a grey fill +
   // italic helper text so the seller can see at a glance not to
   // fill them. Cell-level data validation rejects any typed value
   // with the explanatory message — the importer ignores whatever
@@ -620,7 +698,7 @@ export const downloadSkuTemplate = async () => {
         errorStyle: "warning",
         errorTitle: "Auto-calculated",
         error:
-          "This column is auto-calculated by the importer from Measure Unit × Unit Value. Anything you type here is ignored on upload.",
+          "This column is auto-calculated by the importer from Measure Unit × SKU Weight. Anything you type here is ignored on upload.",
       };
     }
   });
@@ -853,16 +931,31 @@ export const parseSkuImportFile = async (
   // Map header → SkuFieldDef.key. We try exact header match first, then
   // a relaxed match (lowercase, strip non-alphanumerics) so users can
   // bring legacy CSVs without the template.
+  //
+  // Two-pass insertion so that user-facing headers always win on a
+  // collision. Without this, normalize("SKU Weight") (the header for
+  // the measureValue field) and normalize("skuWeight") (the key of the
+  // computed Weight in KG field) both produce "skuweight" — and a
+  // single-pass loop lets the later-defined key entry shadow the
+  // earlier header entry, routing CSV "SKU Weight" columns into the
+  // wrong field. Headers reflect what the seller actually typed in the
+  // file, so they take precedence.
   const headerToKey = new Map<string, string>();
   const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
   SKU_FIELDS.forEach((f) => {
-    headerToKey.set(normalize(f.header), f.key);
     headerToKey.set(normalize(f.key), f.key);
   });
-  // Also accept some legacy aliases.
+  SKU_FIELDS.forEach((f) => {
+    headerToKey.set(normalize(f.header), f.key);
+  });
+  // Also accept some legacy aliases — keeps older exported templates
+  // and hand-edited CSVs parseable. Removed columns (Fulfillment /
+  // Location) intentionally have no alias because we want those values
+  // to disappear silently rather than re-enter the payload.
   headerToKey.set(normalize("Item Code"), "skuCode");
   headerToKey.set(normalize("Item Name"), "skuName");
   headerToKey.set(normalize("Name"), "skuName");
+  headerToKey.set(normalize("SKU Weight (kg)"), "skuWeight");
 
   const colKey: (string | undefined)[] = rawHeaders.map((h) =>
     headerToKey.get(normalize(h)),
@@ -880,14 +973,15 @@ export const parseSkuImportFile = async (
       // Auto-fill every computed column from its source fields so
       // downstream validators see the system value rather than
       // whatever the seller may have typed by accident.
-      //   skuWeight ← measureToKg(measureUnit, measureValue)
-      // Other computed columns can be slotted in here as the
-      // schema grows.
+      //   skuWeight ← measureToKg(weightMeasure, measureValue)
+      // The kg conversion is driven by Weight Measure × SKU Weight —
+      // Measure Unit is intentionally NOT used here because the latest
+      // spec gave the physical weight its own dedicated dropdown.
       SKU_FIELDS.forEach((f) => {
         if (!f.computed) return;
         if (f.key === "skuWeight") {
           const numericValue = parseFloat(row.measureValue ?? "");
-          const kg = measureToKg(row.measureUnit, numericValue);
+          const kg = measureToKg(row.weightMeasure, numericValue);
           row.skuWeight = kg === null ? "" : String(kg);
         }
       });

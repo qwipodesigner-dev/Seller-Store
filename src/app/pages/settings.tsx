@@ -77,6 +77,9 @@ const settingsCards: SettingCard[] = [
 
 export function Settings() {
   const navigate = useNavigate();
+  // Logistics has moved out of the seller's Settings hub entirely —
+  // it's now controlled per-seller by the Super Admin from the Manage
+  // Seller → Logistics tab.
 
   return (
     <div className="h-full flex flex-col bg-gray-50">

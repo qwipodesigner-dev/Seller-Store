@@ -42,6 +42,7 @@ import {
   Rocket,
   Award,
   Clock,
+  Download,
   type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -213,7 +214,7 @@ export function OffersList() {
   // Pagination — reset to page 1 on any filter / search change so the
   // visible window doesn't fall off the end of a shorter result set.
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const itemsPerPage = 25;
 
   // Create / Edit QPS dialog (shared — editingId=null means create)
   // ---- Offer-type picker (the "Create Offers" entry-point dialog) ----
@@ -221,6 +222,21 @@ export function OffersList() {
   // active in Phase 1; the rest render with a "Coming Soon" badge.
   // Picking QPS closes this dialog and opens the existing QPS editor.
   const [isOfferTypeOpen, setIsOfferTypeOpen] = useState(false);
+
+  // Export dialog — seller picks Offer Type + a Valid From / Valid Till
+  // window, the matching schemes are written to an Excel workbook with
+  // one column triple per slab (Slab N range / Discount % / Discounted
+  // Selling Price). Defaults: type=all, window covers the next year so
+  // any currently-valid scheme falls inside.
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportOfferType, setExportOfferType] = useState<string>("all");
+  const [exportValidFrom, setExportValidFrom] = useState<string>(
+    new Date().toISOString().slice(0, 10),
+  );
+  const [exportValidTill, setExportValidTill] = useState<string>(
+    new Date(Date.now() + 365 * 86400 * 1000).toISOString().slice(0, 10),
+  );
+  const [isExporting, setIsExporting] = useState(false);
 
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -472,6 +488,165 @@ export function OffersList() {
 
   const viewScheme = viewSchemeId ? qpsSchemes.find((s) => s.id === viewSchemeId) : null;
 
+  // ---- Export Offers — Excel workbook, one row per slab ----
+  // Previous shape extended the worksheet *horizontally* with
+  // {Slab N / Discount % / Discounted SP} column triples — that
+  // scaled poorly and was hard to read. The new shape flattens the
+  // structure: each slab becomes its own row, with the parent offer's
+  // identifying columns (SKU Code, SKU Name, Offer Type, Offer Code,
+  // Valid From, Valid Till) repeated alongside the slab-specific
+  // values (Min Qty, Max Qty, Discount Type, Discount Percentage,
+  // Discounted Selling Price).
+  //
+  // Discount Type is always "Percentage" in the export. Flat-price
+  // slabs (a legacy authoring option) are back-calculated to the
+  // equivalent % off the Selling Price so the column reads
+  // consistently. Discount Percentage is stored as a raw number with
+  // no `%` symbol so downstream tools can sort / filter / sum it
+  // straight away.
+  const handleExportOffers = async () => {
+    if (!exportValidFrom || !exportValidTill) {
+      toast.error("Please set both Valid From and Valid Till.");
+      return;
+    }
+    if (exportValidFrom > exportValidTill) {
+      toast.error("Valid From must be on or before Valid Till.");
+      return;
+    }
+
+    // Source rows = QPS schemes whose date range overlaps the window.
+    // When other offer types ship they can be unioned here.
+    const matchesType =
+      exportOfferType === "all" || exportOfferType === "qps";
+    const sourceSchemes = matchesType
+      ? qpsSchemes.filter(
+          (s) =>
+            s.endDate >= exportValidFrom && s.startDate <= exportValidTill,
+        )
+      : [];
+
+    if (sourceSchemes.length === 0) {
+      toast.error(
+        "No offers match the selected type and validity window. Try a wider date range.",
+      );
+      return;
+    }
+
+    setIsExporting(true);
+    try {
+      const ExcelJS = (await import("exceljs")).default;
+      const wb = new ExcelJS.Workbook();
+      wb.creator = "Qwipo Seller Store";
+      wb.created = new Date();
+      const ws = wb.addWorksheet("Offers");
+
+      const headers = [
+        "SKU Code",
+        "SKU Name",
+        "Offer Type",
+        "Offer Code",
+        "Min Quantity",
+        "Max Quantity",
+        "Discount Type",
+        "Discount Percentage",
+        "Discounted Selling Price",
+        "Valid From",
+        "Valid Till",
+      ];
+      ws.addRow(headers);
+
+      const slabDiscountPct = (s: QpsSlab, sellingPrice: number) => {
+        if (s.discountType === "percent" && typeof s.slabPercent === "number") {
+          return s.slabPercent;
+        }
+        if (
+          s.discountType === "flat" &&
+          typeof s.slabPrice === "number" &&
+          sellingPrice > 0
+        ) {
+          return +(((sellingPrice - s.slabPrice) / sellingPrice) * 100).toFixed(
+            2,
+          );
+        }
+        return 0;
+      };
+
+      // Row-per-slab: parent offer fields repeat for every slab; only
+      // Min Qty / Max Qty / Discount Percentage / Discounted Selling
+      // Price change between slabs.
+      sourceSchemes.forEach((scheme) => {
+        scheme.slabs.forEach((slab) => {
+          ws.addRow([
+            scheme.skuCode,
+            scheme.skuName,
+            "QPS",
+            scheme.id,
+            slab.minQty,
+            // Unbounded upper slab (∞) renders as a blank Max Quantity
+            // cell — leaving the cell empty is the most predictable
+            // representation in Excel.
+            slab.maxQty === null || slab.maxQty === undefined ? "" : slab.maxQty,
+            "Percentage",
+            slabDiscountPct(slab, scheme.sellingPrice),
+            slab.effectivePrice,
+            scheme.startDate,
+            scheme.endDate,
+          ]);
+        });
+      });
+
+      // Header styling matches the Price & Stock / Add SKU templates so
+      // the three exports feel like siblings: bold white text on blue,
+      // first row frozen.
+      const headerRow = ws.getRow(1);
+      headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      headerRow.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1E40AF" },
+      };
+      headerRow.alignment = { vertical: "middle", horizontal: "left" };
+      headerRow.height = 22;
+      // Column widths sized to typical content.
+      const widths = [16, 60, 12, 22, 14, 14, 16, 20, 22, 12, 12];
+      widths.forEach((w, i) => {
+        ws.getColumn(i + 1).width = w;
+      });
+      // Ensure Discount Percentage + Discounted SP read as plain
+      // numbers (no %, two-decimal grouping).
+      ws.getColumn(8).numFmt = "0.##"; // Discount Percentage
+      ws.getColumn(9).numFmt = "0.00"; // Discounted Selling Price
+      ws.views = [{ state: "frozen", ySplit: 1 }];
+
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `offers_export_${exportValidFrom}_to_${exportValidTill}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      setIsExportOpen(false);
+      const totalSlabs = sourceSchemes.reduce(
+        (n, s) => n + s.slabs.length,
+        0,
+      );
+      toast.success(
+        `Exported ${sourceSchemes.length} offer${sourceSchemes.length === 1 ? "" : "s"} (${totalSlabs} slab row${totalSlabs === 1 ? "" : "s"}) to Excel.`,
+      );
+    } catch (err) {
+      console.error("[offers-list] export failed", err);
+      toast.error("Couldn't generate the export. Please try again.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Inception-day: when the seller has no QPS schemes at all, hide
   // only the toolbar chrome (search, status filter, Create CTA) and
   // the pagination footer. KPI summary stays visible (showing 0s) and
@@ -494,7 +669,7 @@ export function OffersList() {
               <div className="relative flex-1 sm:max-w-xs">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
-                  placeholder="Search by SKU code or name..."
+                  placeholder="Search by SKU Code, SKU Name or Scheme Name..."
                   value={searchQuery}
                   onChange={(e) => {
                     setSearchQuery(e.target.value);
@@ -504,9 +679,10 @@ export function OffersList() {
                 />
               </div>
             </div>
-            {/* Right-aligned actions: Filters (right-side drawer) +
-                Create Offers. Matches the My SKU / Customers pattern
-                so the toolbar reads consistently across list pages. */}
+            {/* Right-aligned actions: Filters (right-side drawer) →
+                Export (xlsx download) → Create Offers. Matches the
+                My SKU / Customers pattern so the toolbar reads
+                consistently across list pages. */}
             <div className="flex items-center gap-2">
               {!isEmpty && (
                 <Button
@@ -523,6 +699,17 @@ export function OffersList() {
                         (offerTypeFilter !== "all" ? 1 : 0)}
                     </Badge>
                   )}
+                </Button>
+              )}
+              {!isEmpty && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setIsExportOpen(true)}
+                  className="gap-2"
+                >
+                  <Download className="h-4 w-4" />
+                  Export
                 </Button>
               )}
               <Button
@@ -705,7 +892,7 @@ export function OffersList() {
                   <table className="w-full text-sm">
                     <thead className="bg-gray-50/50 border-b border-gray-200">
                       <tr className="text-left">
-                        <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Slab</th>
+                        <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Slab #</th>
                         <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Qty Range</th>
                         <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase">Discount</th>
                         <th className="px-3 py-2 text-[11px] font-semibold text-gray-600 uppercase text-right">Customer Pays</th>
@@ -855,6 +1042,120 @@ export function OffersList() {
               onClick={() => setIsOfferTypeOpen(false)}
             >
               Cancel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ====================== Export Offers Dialog ====================== */}
+      <Dialog open={isExportOpen} onOpenChange={setIsExportOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Download className="h-5 w-5 text-blue-600" />
+              Export Offers
+            </DialogTitle>
+            <DialogDescription>
+              Pick the offer type and validity window. Matching offers
+              download as an Excel workbook with one column triple per
+              slab.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="exportOfferType" className="text-xs">
+                Offer Type
+              </Label>
+              <Select
+                value={exportOfferType}
+                onValueChange={setExportOfferType}
+              >
+                <SelectTrigger id="exportOfferType" className="h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All offer types</SelectItem>
+                  {OFFER_TYPES.map((t) => {
+                    // Phase 1: QPS is the only offer type with real data.
+                    // The other 9 stay greyed-out in the dropdown — same
+                    // parity treatment they get on the Create Offers
+                    // picker, so the menu matches what the seller can
+                    // actually act on.
+                    const enabled = t.id === "qps";
+                    return (
+                      <SelectItem
+                        key={t.id}
+                        value={t.id}
+                        disabled={!enabled}
+                      >
+                        {t.label}
+                        {!enabled && (
+                          <span className="ml-2 text-[10px] uppercase tracking-wider text-gray-400">
+                            Coming Soon
+                          </span>
+                        )}
+                      </SelectItem>
+                    );
+                  })}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="exportValidFrom" className="text-xs">
+                  Valid From <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="exportValidFrom"
+                  type="date"
+                  value={exportValidFrom}
+                  onChange={(e) => setExportValidFrom(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="exportValidTill" className="text-xs">
+                  Valid Till <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="exportValidTill"
+                  type="date"
+                  value={exportValidTill}
+                  min={exportValidFrom || undefined}
+                  onChange={(e) => setExportValidTill(e.target.value)}
+                  className="h-9 text-sm"
+                />
+              </div>
+            </div>
+
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              Any offer whose date range overlaps with this window is
+              included.
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsExportOpen(false)}
+              disabled={isExporting}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleExportOffers}
+              disabled={
+                isExporting ||
+                !exportValidFrom ||
+                !exportValidTill ||
+                exportValidFrom > exportValidTill
+              }
+              className="gap-2"
+            >
+              <Download className="h-4 w-4" />
+              {isExporting ? "Exporting…" : "Download Excel"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1043,7 +1344,7 @@ export function OffersList() {
                 <table className="w-full text-sm">
                   <thead className="bg-gray-50/50 border-b border-gray-200">
                     <tr>
-                      <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-16">#</th>
+                      <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-16">Slab #</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-24">Min Qty</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-28">Max Qty</th>
                       <th className="px-3 py-2 text-left text-[11px] font-semibold text-gray-600 uppercase w-36">Discount Type</th>

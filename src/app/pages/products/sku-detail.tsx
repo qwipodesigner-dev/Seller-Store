@@ -15,6 +15,20 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "../../components/ui/command";
+import { cn } from "../../components/ui/utils";
+import {
   ArrowLeft,
   Package,
   Pencil,
@@ -36,8 +50,10 @@ import {
   Flame,
   Star,
   Info,
+  Check,
   ChevronDown,
   ChevronUp,
+  ChevronsUpDown,
   Clock,
   AlertCircle,
   CheckCircle2,
@@ -71,7 +87,7 @@ import { useEffect } from "react";
 import { getActiveSchemesForSku } from "../../lib/offers-data";
 import type { QpsScheme } from "../../lib/qps-validation";
 import { PriceUpdateOffersDialog } from "../../components/price-update-offers-dialog";
-// SKU Weight is auto-calculated from Measure Unit × Unit Value;
+// Weight in KG is auto-calculated from Measure Unit × SKU Weight;
 // measureToKg + formatKgValue live with the bulk-import schema so
 // the manual form and the import preview agree on the math.
 import { measureToKg, formatKgValue } from "../../lib/sku-import-template";
@@ -138,12 +154,6 @@ const KNOWN_GROUP_NAMES = [
   "Classmate Notebooks",
 ];
 
-// Sentinel for the "no group" choice in the Select dropdown. Radix
-// rejects empty-string SelectItem values, so we use this string as
-// the visible label *and* the internal Select value, then translate
-// it to "" when the ondc state writes back.
-const GROUP_NAME_NONE = "— None —";
-
 // validateSKU returns errors keyed by ONDC JSON-paths (e.g.
 // "items[].descriptor.name"). The seller doesn't think in those
 // terms, so map the most common paths to the field's display label.
@@ -158,7 +168,7 @@ const FIELD_LABELS: Record<string, string> = {
   "items[].descriptor.images": "Product Images",
   "items[].descriptor.symbol": "Primary Image",
   "items[].quantity.unitized.measure.unit": "Measure Unit",
-  "items[].quantity.unitized.measure.value": "Unit Value",
+  "items[].quantity.unitized.measure.value": "SKU Weight",
   "items[].quantity.unitized.count": "Pack Size",
   "items[].quantity.maximum.count": "Max Order Quantity",
   "items[].quantity.minimum.count": "Min Order Quantity",
@@ -263,8 +273,9 @@ const skuData: Record<string, any> = {
       warehouse: "WH-Mumbai-01",
     },
     tax: {
-      gstRate: "18%",
       hsnCode: "15121900",
+      gstTax: "18%",
+      gstCess: "0%",
     },
   },
   "2": {
@@ -298,8 +309,9 @@ const skuData: Record<string, any> = {
       warehouse: "WH-Delhi-02",
     },
     tax: {
-      gstRate: "12%",
       hsnCode: "19023010",
+      gstTax: "12%",
+      gstCess: "0%",
     },
   },
   // Fully-prefilled ONDC SKU — Aashirvaad Atta 10 kg from ITC Limited.
@@ -336,8 +348,9 @@ const skuData: Record<string, any> = {
       warehouse: "WH-Hyderabad-001",
     },
     tax: {
-      gstRate: "5%",
       hsnCode: "11010000",
+      gstTax: "5%",
+      gstCess: "0%",
     },
     // Pre-populated ONDC values — when present, ProductDetailsTab seeds the
     // ONDC editor with these instead of leaving the form blank.
@@ -353,6 +366,7 @@ const skuData: Record<string, any> = {
       maximumOrderQty: "100",
       minimumOrderQty: "1",
       upc: "8901725100015",
+      weightMeasure: "Kilogram",
       skuWeight: "10",
       // Physical dimensions in cm — drives the volumetric weight read-out.
       productLength: "30",
@@ -880,6 +894,10 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     maximumOrderQty: "100",
     minimumOrderQty: "1",
     upc: "12",
+    // Weight Measure pairs with SKU Weight to give Weight in KG its
+    // canonical source. For a 1L oil seed the bottle is roughly 1.05 kg,
+    // so the demo defaults the weight to Kilogram + 1.05.
+    weightMeasure: "Kilogram",
     skuWeight: "1.05",
     // Physical dimensions in cm. Optional on DMS — left blank by default
     // and surfaced as editable fields under the Dimensions section so
@@ -920,6 +938,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     maximumOrderQty: "",
     minimumOrderQty: "",
     upc: "",
+    weightMeasure: "",
     skuWeight: "",
     productLength: "",
     productWidth: "",
@@ -967,6 +986,18 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   const isEdited = (key: keyof typeof dms) =>
     JSON.stringify(dms[key]) !== JSON.stringify(ondc[key]);
 
+  // Tax — HSN Code + GST Tax + GST Cess (all optional, independent of ONDC state)
+  const GST_TAX_OPTIONS = ["0%", "3%", "5%", "12%", "18%", "28%"];
+  const GST_CESS_OPTIONS = ["0%", "1%", "3%", "5%", "12%", "22%"];
+  const dmsTax = {
+    hsnCode: String(sku.tax?.hsnCode ?? ""),
+    gstTax: String(sku.tax?.gstTax ?? ""),
+    gstCess: String(sku.tax?.gstCess ?? ""),
+  };
+  const [ondcTax, setOndcTax] = useState({ ...dmsTax });
+  const updateTax = (key: keyof typeof dmsTax, value: string) =>
+    setOndcTax((prev) => ({ ...prev, [key]: value }));
+
   // The Manufacturer/Packer Name dropdown stores the company name as text
   // (matching the existing string field). We derive the company-id from the
   // saved name so the Brand dropdown can filter to that company's brands.
@@ -982,10 +1013,45 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     }
   };
 
-  // Inline error catalog — keyed by ondc field name. Populated by the
-  // last Save ONDC Value click; cleared per-field as the seller edits.
-  // Drives the red helper-text under each affected DualRow input.
+  // Inline error catalog — populated on Save with the validator's
+  // output. The post-save popup has been retired in favour of
+  // showing every error inline beneath its owning input.
   const [pendingErrors, setPendingErrors] = useState<ValidationError[]>([]);
+
+  // Map our ondc-state keys → the JSON-path the validator uses so
+  // each TextInput can look up its own error without us threading
+  // the field key through every call site as a separate prop.
+  const STATE_KEY_TO_PATH: Record<string, string> = {
+    itemName: "items[].descriptor.name",
+    itemCode: "items[].descriptor.code",
+    shortDesc: "items[].descriptor.short_desc",
+    longDesc: "items[].descriptor.long_desc",
+    measureUnit: "items[].quantity.unitized.measure.unit",
+    measureValue: "items[].quantity.unitized.measure.value",
+    unitizedCount: "items[].quantity.unitized.count",
+    upc: "items[].tags.upc",
+    minimumOrderQty: "items[].quantity.minimum.count",
+    maximumOrderQty: "items[].quantity.maximum.count",
+    categoryId: "items[].category_id",
+    fulfillmentId: "items[].fulfillment_id",
+    locationId: "items[].location_id",
+    returnable: "items[].@ondc/org/returnable",
+    cancellable: "items[].@ondc/org/cancellable",
+    timeToShip: "items[].@ondc/org/time_to_ship",
+    availableOnCod: "items[].@ondc/org/available_on_cod",
+    consumerCareContactName: "items[].@ondc/org/contact_details_consumer_care",
+    consumerCareContactEmail: "items[].@ondc/org/contact_details_consumer_care",
+    consumerCareContactPhone: "items[].@ondc/org/contact_details_consumer_care",
+    manufacturerName: "items[].tags.manufacturer_or_packer_name",
+    manufacturerAddress: "items[].tags.manufacturer_or_packer_address",
+    countryOfOrigin: "items[].tags.country_of_origin",
+    brandAttribute: "items[].tags.brand",
+  };
+  const getError = (stateKey: string): string | undefined => {
+    const path = STATE_KEY_TO_PATH[stateKey];
+    if (!path) return undefined;
+    return pendingErrors.find((e) => e.field === path)?.message;
+  };
 
   // "Got it, will fix" confirmation surface (BR-7). null → not shown.
   // Captured at save-time so the modal text is stable while open.
@@ -1182,32 +1248,26 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="Display name: brand + variant + pack size (3–100 chars)"
           dms={dms.itemName}
-          ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required />}
+          ondc={<TextInput value={ondc.itemName} onChange={(v) => update("itemName", v)} edited={isEdited("itemName")} required errorMessage={getError("itemName")} />}
         />
         {/* Group Name clusters variants of the same product family
-            so the My SKU list can render them together. The
-            dropdown is sourced from previously-imported groups
-            (KNOWN_GROUP_NAMES — replace with an API lookup in
-            production). Optional — single-variant SKUs leave it
-            blank. */}
-        {/* Group Name uses the Select primitive's empty-value
-            convention: when `value` is "" the trigger shows the
-            placeholder text. Radix Select rejects empty-string
-            SelectItem values, so the "No group" choice is
-            represented by clicking the chevron and re-selecting
-            None... we route that through a sentinel option. */}
+            so the My SKU list can render them together. Backed by a
+            search-as-you-type combobox so the list scales with
+            previously-imported groups (KNOWN_GROUP_NAMES — replace
+            with an API lookup in production). Optional — leaving it
+            blank is the "no group" choice. */}
         <DualRow
           label="Group Name"
-          help="Cluster variants of the same product family. Pick an existing group from the dropdown."
+          help="Cluster variants of the same product family. Type to search or pick from the list."
           dms={dms.groupName || "—"}
           ondc={
-            <SelectInput
-              value={ondc.groupName || GROUP_NAME_NONE}
-              onChange={(v) =>
-                update("groupName", v === GROUP_NAME_NONE ? "" : v)
-              }
+            <ComboboxInput
+              value={ondc.groupName}
+              onChange={(v) => update("groupName", v)}
               edited={isEdited("groupName")}
-              options={[GROUP_NAME_NONE, ...KNOWN_GROUP_NAMES]}
+              options={KNOWN_GROUP_NAMES}
+              placeholder="Search or pick a group…"
+              clearable
             />
           }
         />
@@ -1235,7 +1295,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="10–150 chars, plain text"
           dms={""}
-          ondc={<TextInput value={ondc.shortDesc} onChange={(v) => update("shortDesc", v)} edited={isEdited("shortDesc")} required />}
+          ondc={<TextInput value={ondc.shortDesc} onChange={(v) => update("shortDesc", v)} edited={isEdited("shortDesc")} required errorMessage={getError("shortDesc")} />}
         />
         <DualRow
           label="Long Description"
@@ -1244,7 +1304,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           help="20–1000 chars, plain text"
           dms={""}
           multiline
-          ondc={<TextAreaInput value={ondc.longDesc} onChange={(v) => update("longDesc", v)} edited={isEdited("longDesc")} required />}
+          ondc={<TextAreaInput value={ondc.longDesc} onChange={(v) => update("longDesc", v)} edited={isEdited("longDesc")} required errorMessage={getError("longDesc")} />}
         />
       </DualSection>
 
@@ -1260,8 +1320,55 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               value={ondc.measureUnit}
               onChange={(v) => update("measureUnit", v)}
               edited={isEdited("measureUnit")}
-              // Spec list — exact six options, in business-friendly casing.
-              options={["Dozen", "Gram", "Kilogram", "Ton", "Liter", "Milliliter"]}
+              errorMessage={getError("measureUnit")}
+              // Spec list — four mass / volume options, in business-friendly
+              // casing. Dozen + Ton were dropped because retail SKUs are
+              // virtually never priced at the ton level and Dozen has no
+              // defensible mass mapping for the Weight in KG column.
+              options={["Gram", "Kilogram", "Liter", "Milliliter"]}
+            />
+          }
+        />
+        {/* Unit Value — pairs with Measure Unit to describe pack size
+            (e.g. Measure Unit = "Liter" + Unit Value = "1.5" → 1.5 L
+            bottle). Separate from the physical weight pair below
+            because pack size and weight diverge for liquids. */}
+        <DualRow
+          label="Unit Value"
+          required
+          ondcRequired
+          help="Number paired with Measure Unit (e.g. 1.5 for a 1.5 L bottle)."
+          dms={""}
+          ondc={
+            <TextInput
+              value={ondc.measureValue}
+              onChange={(v) => update("measureValue", v)}
+              edited={isEdited("measureValue")}
+              required
+              type="number"
+              errorMessage={getError("measureValue")}
+              disabled={!ondc.measureUnit}
+              disabledHint="Pick a Measure Unit first."
+            />
+          }
+        />
+        {/* Weight Measure — narrower than Measure Unit (Gram /
+            Kilogram only) because physical weight always rolls up
+            to mass. Paired with SKU Weight below to drive the
+            read-only Weight in KG column. */}
+        <DualRow
+          label="Weight Measure"
+          required
+          ondcRequired
+          help="Gram or Kilogram — drives the auto-calculated Weight in KG."
+          dms={""}
+          ondc={
+            <SelectInput
+              value={ondc.weightMeasure}
+              onChange={(v) => update("weightMeasure", v)}
+              edited={isEdited("weightMeasure")}
+              errorMessage={getError("weightMeasure")}
+              options={["Gram", "Kilogram"]}
             />
           }
         />
@@ -1269,47 +1376,55 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="SKU Weight"
           required
           ondcRequired
-          help="Enter the SKU's weight in the unit picked above (up to 3 decimals)."
+          help="Physical weight in the chosen Weight Measure (up to 3 decimals)."
           dms={""}
-          ondc={<TextInput value={ondc.measureValue} onChange={(v) => update("measureValue", v)} edited={isEdited("measureValue")} required type="number" />}
+          ondc={
+            <TextInput
+              value={ondc.skuWeight}
+              onChange={(v) => update("skuWeight", v)}
+              edited={isEdited("skuWeight")}
+              required
+              type="number"
+              errorMessage={getError("skuWeight")}
+              disabled={!ondc.weightMeasure}
+              disabledHint="Pick a Weight Measure first."
+            />
+          }
         />
         <DualRow
           label="Pack Size (Inner Pack)"
           help="Optional, 1–10,000"
           dms={""}
-          ondc={<TextInput value={ondc.unitizedCount} onChange={(v) => update("unitizedCount", v)} edited={isEdited("unitizedCount")} type="number" />}
+          ondc={<TextInput value={ondc.unitizedCount} onChange={(v) => update("unitizedCount", v)} edited={isEdited("unitizedCount")} type="number" errorMessage={getError("unitizedCount")} />}
         />
         <DualRow
           label="UPC (Unit Per Case)"
           help="Number of units in one case"
           dms={""}
-          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} type="number" />}
+          ondc={<TextInput value={ondc.upc} onChange={(v) => update("upc", v)} edited={isEdited("upc")} type="number" errorMessage={getError("upc")} />}
         />
-        {/* Weight in KG is auto-calculated from Measure Unit ×
-            SKU Weight. Mass units (Gram / Kilogram / Ton) convert
-            exactly; volume units (Milliliter / Liter) use a
-            water-density approximation (1 mL ≈ 1 g) so the kg
-            figure is meaningful for liquids too. Dozen has no
-            mass mapping and surfaces "—". The seller can't edit
-            this — the field is locked to the system value. */}
+        {/* Weight in KG is auto-calculated from Weight Measure ×
+            SKU Weight. Gram and Kilogram convert exactly; the
+            seller can't edit this — the field is locked to the
+            system value. */}
         <DualRow
           label="Weight in KG"
-          help="Auto-calculated from Measure Unit × SKU Weight, expressed in kg."
+          help="Auto-calculated from Weight Measure × SKU Weight, expressed in kg."
           dms={
             formatKgValue(
-              measureToKg(dms.measureUnit, parseFloat(dms.measureValue)),
+              measureToKg(dms.weightMeasure, parseFloat(dms.skuWeight)),
             )
           }
           ondc={
             <div className="flex items-center gap-2">
               <p className="text-sm text-gray-900 font-mono">
                 {formatKgValue(
-                  measureToKg(ondc.measureUnit, parseFloat(ondc.measureValue)),
+                  measureToKg(ondc.weightMeasure, parseFloat(ondc.skuWeight)),
                 )}
               </p>
               <span
                 className="inline-flex items-center shrink-0 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none"
-                title="SKU Weight is auto-calculated from Measure Unit × Unit Value and cannot be edited."
+                title="Weight in KG is auto-calculated from Weight Measure × SKU Weight and cannot be edited."
               >
                 Auto
               </span>
@@ -1321,14 +1436,57 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           required
           ondcRequired
           dms={""}
-          ondc={<TextInput value={ondc.minimumOrderQty} onChange={(v) => update("minimumOrderQty", v)} edited={isEdited("minimumOrderQty")} required type="number" />}
+          ondc={<TextInput value={ondc.minimumOrderQty} onChange={(v) => update("minimumOrderQty", v)} edited={isEdited("minimumOrderQty")} required type="number" errorMessage={getError("minimumOrderQty")} />}
         />
         <DualRow
           label="Max Order Qty"
           required
           ondcRequired
           dms={""}
-          ondc={<TextInput value={ondc.maximumOrderQty} onChange={(v) => update("maximumOrderQty", v)} edited={isEdited("maximumOrderQty")} required type="number" />}
+          ondc={<TextInput value={ondc.maximumOrderQty} onChange={(v) => update("maximumOrderQty", v)} edited={isEdited("maximumOrderQty")} required type="number" errorMessage={getError("maximumOrderQty")} />}
+        />
+      </DualSection>
+
+      {/* Tax — HSN Code + GST Tax % + GST Cess % (all optional) */}
+      <DualSection title="Tax" icon={<Percent className="h-5 w-5 text-orange-500" />}>
+        <DualRow
+          label="HSN Code"
+          help="8-digit Harmonised System Nomenclature code for this product"
+          dms={dmsTax.hsnCode || "—"}
+          ondc={
+            <TextInput
+              value={ondcTax.hsnCode}
+              onChange={(v) => updateTax("hsnCode", v)}
+              edited={ondcTax.hsnCode !== dmsTax.hsnCode}
+              placeholder="e.g. 15121900"
+            />
+          }
+        />
+        <DualRow
+          label="GST Tax %"
+          help="GST slab applicable on this product"
+          dms={dmsTax.gstTax || "—"}
+          ondc={
+            <SelectInput
+              value={ondcTax.gstTax}
+              onChange={(v) => updateTax("gstTax", v)}
+              edited={ondcTax.gstTax !== dmsTax.gstTax}
+              options={GST_TAX_OPTIONS}
+            />
+          }
+        />
+        <DualRow
+          label="GST Cess %"
+          help="Additional cess on top of GST, if applicable"
+          dms={dmsTax.gstCess || "—"}
+          ondc={
+            <SelectInput
+              value={ondcTax.gstCess}
+              onChange={(v) => updateTax("gstCess", v)}
+              edited={ondcTax.gstCess !== dmsTax.gstCess}
+              options={GST_CESS_OPTIONS}
+            />
+          }
         />
       </DualSection>
 
@@ -1341,19 +1499,19 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           label="Length"
           help="Optional · in centimetres"
           dms={""}
-          ondc={<TextInput value={ondc.productLength} onChange={(v) => update("productLength", v)} edited={isEdited("productLength")} type="number" />}
+          ondc={<TextInput value={ondc.productLength} onChange={(v) => update("productLength", v)} edited={isEdited("productLength")} type="number" errorMessage={getError("productLength")} />}
         />
         <DualRow
           label="Width"
           help="Optional · in centimetres"
           dms={""}
-          ondc={<TextInput value={ondc.productWidth} onChange={(v) => update("productWidth", v)} edited={isEdited("productWidth")} type="number" />}
+          ondc={<TextInput value={ondc.productWidth} onChange={(v) => update("productWidth", v)} edited={isEdited("productWidth")} type="number" errorMessage={getError("productWidth")} />}
         />
         <DualRow
           label="Height"
           help="Optional · in centimetres"
           dms={""}
-          ondc={<TextInput value={ondc.productHeight} onChange={(v) => update("productHeight", v)} edited={isEdited("productHeight")} type="number" />}
+          ondc={<TextInput value={ondc.productHeight} onChange={(v) => update("productHeight", v)} edited={isEdited("productHeight")} type="number" errorMessage={getError("productHeight")} />}
         />
         <DualRow
           label="Volumetric Weight"
@@ -1392,6 +1550,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               value={ondc.categoryId}
               onChange={(v) => update("categoryId", v)}
               edited={isEdited("categoryId")}
+              errorMessage={getError("categoryId")}
               options={CATEGORY_OPTIONS}
             />
           }
@@ -1407,6 +1566,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               value={ondc.fulfillmentId}
               onChange={(v) => update("fulfillmentId", v)}
               edited={isEdited("fulfillmentId")}
+              errorMessage={getError("fulfillmentId")}
               // Phase 1: Store Pickup is intentionally NOT exposed.
               options={["Store Delivery"]}
             />
@@ -1423,6 +1583,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               value={ondc.locationId}
               onChange={(v) => update("locationId", v)}
               edited={isEdited("locationId")}
+              errorMessage={getError("locationId")}
               // Spec: dropdown, default Warehouse 1. Future warehouses
               // would be added here (or pulled from the seller record).
               options={["Warehouse 1", "Warehouse 2", "Warehouse 3"]}
@@ -1507,14 +1668,14 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           required
           ondcRequired
           dms={""}
-          ondc={<TextInput value={ondc.consumerCareContactName} onChange={(v) => update("consumerCareContactName", v)} edited={isEdited("consumerCareContactName")} required />}
+          ondc={<TextInput value={ondc.consumerCareContactName} onChange={(v) => update("consumerCareContactName", v)} edited={isEdited("consumerCareContactName")} required errorMessage={getError("consumerCareContactName")} />}
         />
         <DualRow
           label="Consumer Care — Email"
           required
           ondcRequired
           dms={""}
-          ondc={<TextInput value={ondc.consumerCareContactEmail} onChange={(v) => update("consumerCareContactEmail", v)} edited={isEdited("consumerCareContactEmail")} required />}
+          ondc={<TextInput value={ondc.consumerCareContactEmail} onChange={(v) => update("consumerCareContactEmail", v)} edited={isEdited("consumerCareContactEmail")} required errorMessage={getError("consumerCareContactEmail")} />}
         />
         <DualRow
           label="Consumer Care — Phone"
@@ -1522,7 +1683,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           ondcRequired
           help="10–11 digits, numeric only"
           dms={""}
-          ondc={<TextInput value={ondc.consumerCareContactPhone} onChange={(v) => update("consumerCareContactPhone", v)} edited={isEdited("consumerCareContactPhone")} required />}
+          ondc={<TextInput value={ondc.consumerCareContactPhone} onChange={(v) => update("consumerCareContactPhone", v)} edited={isEdited("consumerCareContactPhone")} required errorMessage={getError("consumerCareContactPhone")} />}
         />
       </DualSection>
 
@@ -1615,7 +1776,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
           help="10–250 chars, must include 6-digit PIN"
           dms={""}
           multiline
-          ondc={<TextAreaInput value={ondc.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} edited={isEdited("manufacturerAddress")} />}
+          ondc={<TextAreaInput value={ondc.manufacturerAddress} onChange={(v) => update("manufacturerAddress", v)} edited={isEdited("manufacturerAddress")} errorMessage={getError("manufacturerAddress")} />}
         />
       </DualSection>
 
@@ -1632,6 +1793,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               value={ondc.countryOfOrigin}
               onChange={(v) => update("countryOfOrigin", v)}
               edited={isEdited("countryOfOrigin")}
+              errorMessage={getError("countryOfOrigin")}
               // Spec: dropdown, default India. Add neighbouring sources
               // commonly seen in distributor catalogs.
               options={["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"]}
@@ -1646,11 +1808,13 @@ function ProductDetailsTab({ sku }: { sku: any }) {
         onChange={(imgs) => update("productImages", imgs)}
       />
 
-      {/* Post-save confirmation — "Got it, will fix" surface (BR-7).
-          Shown when a Save round-trip produced any errors. Closing it
-          leaves valid fields saved and invalid fields with their inline
-          errors. The full per-field error catalog is rendered inline
-          beneath each input, so we don't list them here again. */}
+      {/* Post-save summary — surfaces the count of saved fields vs
+          fields that still need fixing. Per-field error detail also
+          renders INLINE beneath each affected input via getError(),
+          so this dialog is purely the high-level "how the save went"
+          summary that lets the seller move on with confidence
+          (incremental save: valid fields are persisted, invalid ones
+          stay editable with their inline red helper text). */}
       <Dialog
         open={postSavePrompt !== null}
         onOpenChange={(o) => !o && setPostSavePrompt(null)}
@@ -2148,11 +2312,18 @@ function ImageUploader({
 function TextInput({
   value,
   onChange,
+  // `edited` is preserved on the prop signature to keep ~25 call
+  // sites compiling; the amber "Edited" outline + pill were retired
+  // because the seller can see their own changes inline.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   edited,
   required,
   type = "text",
   placeholder,
   prefix,
+  errorMessage,
+  disabled,
+  disabledHint,
 }: {
   value: string;
   onChange: (v: string) => void;
@@ -2161,30 +2332,52 @@ function TextInput({
   type?: "text" | "number";
   placeholder?: string;
   prefix?: React.ReactNode;
+  /** When set, paints the field red and shows the message below the
+   *  input. Takes precedence over the "Required" pill. */
+  errorMessage?: string;
+  /** Greys the input out and blocks edits. Used to gate dependent
+   *  fields — e.g. Unit Value waits for Measure Unit, SKU Weight
+   *  waits for Weight Measure. */
+  disabled?: boolean;
+  /** Helper text shown below a disabled input to explain why it's
+   *  blocked. Suppresses the "Required" pill while disabled. */
+  disabledHint?: string;
 }) {
-  const missing = required && (!value || String(value).trim() === "");
-  const borderClass = missing
+  const missing = required && !disabled && (!value || String(value).trim() === "");
+  const hasError = !disabled && !!errorMessage;
+  const borderClass = hasError || missing
     ? "border-red-400 focus:ring-red-500"
-    : edited
-      ? "border-amber-400 focus:ring-amber-500"
-      : "border-gray-300 focus:ring-blue-500";
+    : "border-gray-300 focus:ring-blue-500";
+  const stateClass = disabled
+    ? "bg-gray-50 text-gray-400 cursor-not-allowed"
+    : "bg-white";
   return (
     <div>
       <div className="relative">
         {prefix !== undefined && (
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-sm text-gray-500 pointer-events-none">
+          <span className={`absolute left-2.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none ${disabled ? "text-gray-300" : "text-gray-500"}`}>
             {prefix}
           </span>
         )}
         <input
           type={type}
           value={value}
-          placeholder={placeholder}
+          placeholder={disabled ? "" : placeholder}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full ${prefix !== undefined ? "pl-7 pr-2.5" : "px-2.5"} py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
+          disabled={disabled}
+          className={`w-full ${prefix !== undefined ? "pl-7 pr-2.5" : "px-2.5"} py-1.5 rounded-md border text-sm focus:outline-none focus:ring-2 ${borderClass} ${stateClass}`}
         />
       </div>
-      <FieldStatus edited={edited} missing={missing} />
+      {disabled && disabledHint ? (
+        <p className="mt-1 text-[11px] text-gray-500 italic">{disabledHint}</p>
+      ) : hasError ? (
+        <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
+          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{errorMessage}</span>
+        </p>
+      ) : (
+        <FieldStatus missing={missing} />
+      )}
     </div>
   );
 }
@@ -2192,20 +2385,22 @@ function TextInput({
 function TextAreaInput({
   value,
   onChange,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   edited,
   required,
+  errorMessage,
 }: {
   value: string;
   onChange: (v: string) => void;
   edited?: boolean;
   required?: boolean;
+  errorMessage?: string;
 }) {
   const missing = required && (!value || String(value).trim() === "");
-  const borderClass = missing
+  const hasError = !!errorMessage;
+  const borderClass = hasError || missing
     ? "border-red-400 focus:ring-red-500"
-    : edited
-      ? "border-amber-400 focus:ring-amber-500"
-      : "border-gray-300 focus:ring-blue-500";
+    : "border-gray-300 focus:ring-blue-500";
   return (
     <div>
       <textarea
@@ -2214,7 +2409,14 @@ function TextAreaInput({
         rows={2}
         className={`w-full px-2.5 py-1.5 rounded-md border text-sm bg-white focus:outline-none focus:ring-2 ${borderClass}`}
       />
-      <FieldStatus edited={edited} missing={missing} />
+      {hasError ? (
+        <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
+          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{errorMessage}</span>
+        </p>
+      ) : (
+        <FieldStatus missing={missing} />
+      )}
     </div>
   );
 }
@@ -2223,17 +2425,21 @@ function SelectInput({
   value,
   onChange,
   options,
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   edited,
+  errorMessage,
 }: {
   value: string;
   onChange: (v: string) => void;
   options: string[];
   edited?: boolean;
+  errorMessage?: string;
 }) {
+  const hasError = !!errorMessage;
   return (
     <div>
       <Select value={value} onValueChange={onChange}>
-        <SelectTrigger className={edited ? "border-amber-400" : ""}>
+        <SelectTrigger className={hasError ? "border-red-400" : ""}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -2244,7 +2450,129 @@ function SelectInput({
           ))}
         </SelectContent>
       </Select>
-      <FieldStatus edited={edited} />
+      {hasError && (
+        <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
+          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{errorMessage}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Search-as-you-type combobox for picking from a list of strings.
+ * Same external contract as SelectInput (value/onChange/options) so
+ * call sites can swap one for the other when a list grows long
+ * enough that scanning it linearly is painful — e.g. the Group Name
+ * field, which can grow with every imported SKU family.
+ *
+ * Empty string value = nothing selected; the trigger shows the
+ * placeholder. The clearable variant exposes a "Clear selection"
+ * row at the top of the list (used for optional fields like Group
+ * Name where "no group" is a legitimate choice).
+ */
+function ComboboxInput({
+  value,
+  onChange,
+  options,
+  placeholder = "Search or pick one…",
+  clearable,
+  clearLabel = "— None —",
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  edited,
+  errorMessage,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  placeholder?: string;
+  clearable?: boolean;
+  clearLabel?: string;
+  edited?: boolean;
+  errorMessage?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const hasError = !!errorMessage;
+  const selectedLabel = value || placeholder;
+  return (
+    <div>
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={cn(
+              "w-full justify-between font-normal h-9 px-2.5",
+              !value && "text-muted-foreground",
+              hasError && "border-red-400",
+            )}
+          >
+            <span className="truncate">{selectedLabel}</span>
+            <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent
+          className="p-0 w-[var(--radix-popover-trigger-width)]"
+          align="start"
+        >
+          <Command>
+            <CommandInput placeholder={placeholder} />
+            <CommandList className="max-h-64">
+              <CommandEmpty>No match found.</CommandEmpty>
+              <CommandGroup>
+                {clearable && (
+                  <CommandItem
+                    value={clearLabel}
+                    onSelect={() => {
+                      onChange("");
+                      setOpen(false);
+                    }}
+                    className="text-gray-500 italic"
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === "" ? "opacity-100 text-blue-600" : "opacity-0",
+                      )}
+                    />
+                    {clearLabel}
+                  </CommandItem>
+                )}
+                {options.map((opt) => {
+                  const isSel = opt === value;
+                  return (
+                    <CommandItem
+                      key={opt}
+                      value={opt}
+                      onSelect={() => {
+                        onChange(opt);
+                        setOpen(false);
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isSel ? "opacity-100 text-blue-600" : "opacity-0",
+                        )}
+                      />
+                      {opt}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+      {hasError && (
+        <p className="mt-1 flex items-start gap-1 text-xs text-red-600 leading-snug">
+          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+          <span>{errorMessage}</span>
+        </p>
+      )}
     </div>
   );
 }
@@ -2308,22 +2636,18 @@ function YesNoToggle({
   );
 }
 
-function FieldStatus({ edited, missing }: { edited?: boolean; missing?: boolean }) {
-  if (!edited && !missing) return null;
+// FieldStatus — surfaces inline status under an input. The "Edited"
+// pill was retired (the seller can see their own changes); the
+// "Required" pill stays as a friendlier nudge than a raw red border
+// when an input is empty but mandatory.
+function FieldStatus({ missing }: { missing?: boolean }) {
+  if (!missing) return null;
   return (
     <div className="flex items-center gap-2 mt-1">
-      {edited && (
-        <span className="inline-flex items-center gap-1 text-xs text-amber-700">
-          <Sparkles className="h-3 w-3" />
-          Edited
-        </span>
-      )}
-      {missing && (
-        <span className="inline-flex items-center gap-1 text-xs text-red-600">
-          <AlertCircle className="h-3 w-3" />
-          Required
-        </span>
-      )}
+      <span className="inline-flex items-center gap-1 text-xs text-red-600">
+        <AlertCircle className="h-3 w-3" />
+        Required
+      </span>
     </div>
   );
 }
@@ -2718,12 +3042,10 @@ function PriceInventoryTab({ sku }: { sku: any }) {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-red-700">
               <AlertCircle className="h-5 w-5" />
-              {pendingPIErrors.length} field
-              {pendingPIErrors.length === 1 ? "" : "s"} cannot be saved
+              We couldn't save your changes
             </DialogTitle>
             <DialogDescription>
-              The values below have errors and were not saved. Please fix them
-              and click <b>Save Price & Stock</b> again.
+              We couldn't save your changes. Please try again.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 mt-2">
@@ -2747,7 +3069,7 @@ function PriceInventoryTab({ sku }: { sku: any }) {
               onClick={() => setPendingPIErrors([])}
               className=""
             >
-              Got it — I'll fix these
+              Got it, will fix
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2814,7 +3136,7 @@ function synthSkuFromCatalog(skuId: string) {
       reorderPoint: 0,
       warehouse: "",
     },
-    tax: { gstRate: "", hsnCode: "" },
+    tax: { hsnCode: "", gstTax: "", gstCess: "" },
   };
 }
 

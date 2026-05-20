@@ -191,10 +191,10 @@ export function AdminCompanies() {
 
   const handleSave = () => {
     const nextErrors: { name?: string; brands?: string } = {};
-    if (!name.trim()) nextErrors.name = "Company name is required";
+    if (!name.trim()) nextErrors.name = "Company Name is required.";
     const validBrands = drafts.filter((b) => b.name.trim() !== "");
     if (validBrands.length === 0)
-      nextErrors.brands = "At least one brand is required";
+      nextErrors.brands = "Add at least one brand for this company.";
     if (Object.keys(nextErrors).length > 0) {
       setErrors(nextErrors);
       return;
@@ -250,7 +250,7 @@ export function AdminCompanies() {
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search company or brand..."
+                placeholder="Search by company name or brand name..."
                 className="pl-10"
               />
             </div>
@@ -273,13 +273,13 @@ export function AdminCompanies() {
                 icon={Building2}
                 title={
                   companies.length === 0
-                    ? "No companies & brands yet"
-                    : "No companies match your search"
+                    ? "No companies yet"
+                    : "No companies found"
                 }
                 description={
                   companies.length === 0
-                    ? "Add the FMCG companies (and the brands they own) that distributors will sell on Qwipo."
-                    : "Try a different search term to find the company you're looking for."
+                    ? "No companies yet — click + Add Company to onboard the first one."
+                    : "No companies found — try a different search term."
                 }
                 action={
                   companies.length === 0 ? (
@@ -561,7 +561,7 @@ export function AdminCompanies() {
                     drafts.some((b) => !b.name.trim())
               }
             >
-              {editingId ? "Save Changes" : "Create Company"}
+              {editingId ? "Save Changes" : "Add Company"}
             </Button>
           </DialogFooter>
         </DialogContent>
