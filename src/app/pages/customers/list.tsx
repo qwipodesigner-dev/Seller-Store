@@ -31,6 +31,9 @@ import {
   ChevronRight,
   Eye,
   Users,
+  Route,
+  CalendarClock,
+  Lock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -42,6 +45,7 @@ import {
   type CompanyLink as SharedCompanyLink,
   type DemoCustomer as SharedDemoCustomer,
 } from "../../lib/customers-demo-data";
+import { findBitForCustomer } from "../../lib/serviceability-data";
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { CopyOnHover } from "../../components/copy-on-hover";
@@ -575,7 +579,7 @@ export function CustomersDemo() {
         open={linkedCustomer !== null}
         onOpenChange={(o) => !o && setLinkedCustomerId(null)}
       >
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building2 className="h-5 w-5 text-blue-600" />
@@ -597,77 +601,110 @@ export function CustomersDemo() {
             <div className="py-2 max-h-[60vh] overflow-y-auto">
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                 {/* Header row */}
-                <div className="grid grid-cols-[1fr_110px_110px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                <div className="grid grid-cols-[1fr_140px_120px_90px_100px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                   <span>Company</span>
+                  <span>Beat Name</span>
+                  <span>Delivery Day</span>
                   <span className="text-center">Status</span>
                   <span className="text-right">Action</span>
                 </div>
-                {linkedCustomer.companies.map((co) => (
-                  <div
-                    key={co.companyId}
-                    className="grid grid-cols-[1fr_110px_110px] gap-3 px-3 py-2.5 items-center"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
-                      <p className="text-sm font-medium text-gray-900 truncate">
-                        {co.companyName}
-                      </p>
-                    </div>
-                    <div className="flex justify-center">
-                      {co.status === "Active" ? (
-                        <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          Active
+                {linkedCustomer.companies.map((co) => {
+                  const bit = findBitForCustomer(
+                    {
+                      customerId: linkedCustomer.customerId,
+                      city: linkedCustomer.city,
+                      area: linkedCustomer.area,
+                      pincode: linkedCustomer.pincode,
+                    },
+                    co.companyId,
+                  );
+                  return (
+                    <div
+                      key={co.companyId}
+                      className="grid grid-cols-[1fr_140px_120px_90px_100px] gap-3 px-3 py-2.5 items-center"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {co.companyName}
+                        </p>
+                      </div>
+                      {bit ? (
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <Route className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                          <span className="text-sm text-gray-900 truncate">{bit.beatName}</span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">—</span>
+                      )}
+                      {bit ? (
+                        <Badge className="gap-1 bg-blue-50 text-blue-700 border-blue-200 w-fit">
+                          <CalendarClock className="h-3 w-3" />
+                          {bit.deliveryDay}
+                          <Lock className="h-2.5 w-2.5 ml-0.5 opacity-60" />
                         </Badge>
                       ) : (
-                        <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
-                          <Ban className="h-3 w-3" />
-                          Blocked
+                        <Badge variant="secondary" className="gap-1 bg-gray-100 text-gray-500 border-gray-200 w-fit">
+                          <Lock className="h-3 w-3" />
+                          Not set
                         </Badge>
                       )}
+                      <div className="flex justify-center">
+                        {co.status === "Active" ? (
+                          <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                            <CheckCircle2 className="h-3 w-3" />
+                            Active
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+                            <Ban className="h-3 w-3" />
+                            Blocked
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="flex justify-end">
+                        {co.status === "Active" ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
+                            onClick={() => {
+                              setDemoCompanyStatus(
+                                linkedCustomer.customerId,
+                                co.companyId,
+                                "Blocked",
+                              );
+                              toast.success(
+                                `${linkedCustomer.businessName} blocked for ${co.companyName}.`,
+                              );
+                            }}
+                          >
+                            <Ban className="h-3.5 w-3.5" />
+                            Block
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
+                            onClick={() => {
+                              setDemoCompanyStatus(
+                                linkedCustomer.customerId,
+                                co.companyId,
+                                "Active",
+                              );
+                              toast.success(
+                                `${linkedCustomer.businessName} unblocked for ${co.companyName}.`,
+                              );
+                            }}
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" />
+                            Unblock
+                          </Button>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex justify-end">
-                      {co.status === "Active" ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 gap-1 border-red-300 text-red-700 hover:bg-red-50"
-                          onClick={() => {
-                            setDemoCompanyStatus(
-                              linkedCustomer.customerId,
-                              co.companyId,
-                              "Blocked",
-                            );
-                            toast.success(
-                              `${linkedCustomer.businessName} blocked for ${co.companyName}.`,
-                            );
-                          }}
-                        >
-                          <Ban className="h-3.5 w-3.5" />
-                          Block
-                        </Button>
-                      ) : (
-                        <Button
-                          size="sm"
-                          className="h-7 gap-1 bg-emerald-600 hover:bg-emerald-700"
-                          onClick={() => {
-                            setDemoCompanyStatus(
-                              linkedCustomer.customerId,
-                              co.companyId,
-                              "Active",
-                            );
-                            toast.success(
-                              `${linkedCustomer.businessName} unblocked for ${co.companyName}.`,
-                            );
-                          }}
-                        >
-                          <CheckCircle2 className="h-3.5 w-3.5" />
-                          Unblock
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
               <p className="text-[11px] text-gray-500 mt-2 px-1">
                 Status and Block / Unblock are tracked per company —
