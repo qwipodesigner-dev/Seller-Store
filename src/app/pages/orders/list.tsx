@@ -70,6 +70,7 @@ import {
   updateOrderStatuses,
   getDeliveryBucket,
   deliveryLabelFor,
+  dayOfWeekLabel,
 } from "../../lib/orders-data";
 
 // "rejected" tab label is retired alongside the status rename; the
@@ -699,23 +700,22 @@ export function Orders() {
     }
   };
 
-  // Delivery-type badge — colours match the spec semantics (NDD red /
-  // Sales Beat blue / Non-Sales Beat amber). The label keeps the
-  // copy short so the row stays scannable.
+  // Delivery-type badge — NDD Requested (red), Sales Beat Order (blue),
+  // Non-Sales Beat (amber).
   const getDeliveryTypeBadge = (order: Order) => {
     switch (order.deliveryType) {
       case "NDD":
         return (
           <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
             <Zap className="h-3 w-3" />
-            NDD
+            NDD Requested
           </Badge>
         );
       case "Sales Beat":
         return (
           <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
             <Route className="h-3 w-3" />
-            Sales Beat
+            Sales Beat Order
           </Badge>
         );
       case "Non-Sales Beat":
@@ -730,56 +730,17 @@ export function Orders() {
     }
   };
 
-  // Short date formatter — "Wed, 21 May" / "Mon, 16 May". Strips
-  // the year (always current in the demo data) so dates fit on a
-  // single line in the table. Returns the input unchanged when it's
-  // not a parseable ISO date.
+  // Short date formatter — "20 May 2026". DD MMM YYYY format so
+  // dates are unambiguous and readable at a glance.
   const formatShortDate = (iso: string): string => {
     const t = Date.parse(iso + "T00:00:00Z");
     if (Number.isNaN(t)) return iso;
     return new Date(t).toLocaleDateString("en-GB", {
       day: "2-digit",
       month: "short",
-      weekday: "short",
+      year: "numeric",
       timeZone: "UTC",
     });
-  };
-
-  // Priority badge — drives the at-a-glance "what do I work on next"
-  // signal on each row. Past = red (overdue), today = orange,
-  // tomorrow = amber, beyond = neutral.
-  const getPriorityBadge = (order: Order) => {
-    const bucket = getDeliveryBucket(order);
-    if (bucket === "past") {
-      return (
-        <Badge className="bg-red-100 text-red-800 border-red-300 gap-1">
-          <AlertCircle className="h-3 w-3" />
-          Overdue
-        </Badge>
-      );
-    }
-    if (bucket === "today") {
-      return (
-        <Badge className="bg-orange-100 text-orange-800 border-orange-300 gap-1">
-          <Clock className="h-3 w-3" />
-          Today
-        </Badge>
-      );
-    }
-    if (bucket === "tomorrow") {
-      return (
-        <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1">
-          <CalendarClock className="h-3 w-3" />
-          Tomorrow
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="secondary" className="bg-gray-50 text-gray-700 border-gray-200 gap-1">
-        <CalendarDays className="h-3 w-3" />
-        Future
-      </Badge>
-    );
   };
 
   // Render action buttons based on active tab
@@ -915,7 +876,10 @@ export function Orders() {
                 Delivery Date
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Priority
+                Beat Name
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Delivery Day
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Delivery Type
@@ -994,9 +958,6 @@ export function Orders() {
                     ₹{order.orderValue.toLocaleString()}
                   </p>
                 </td>
-                {/* One value per column — Order Date, Delivery Date,
-                    Priority bucket, and Delivery Type all stand on
-                    their own so each is easy to scan vertically. */}
                 <td
                   className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
                   title={order.orderDate}
@@ -1010,12 +971,19 @@ export function Orders() {
                   {formatShortDate(order.expectedDeliveryDate)}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {getPriorityBadge(order)}
+                  {order.beatName ? (
+                    <div className="flex items-center gap-1.5">
+                      <Route className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <span className="text-sm text-gray-900">{order.beatName}</span>
+                    </div>
+                  ) : (
+                    <span className="text-sm text-gray-400">—</span>
+                  )}
                 </td>
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap"
-                  title={order.beatName ?? undefined}
-                >
+                <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                  {dayOfWeekLabel(order.expectedDeliveryDate)}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   {getDeliveryTypeBadge(order)}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">

@@ -116,6 +116,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "NDD",
+    beatName: "KPHB 1",
     buyerContact: "+91 98765 43210",
     buyerAddress:
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
@@ -266,6 +267,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-19",
     deliveryType: "NDD",
+    beatName: "SR Nagar",
     buyerContact: "+91 98765 43214",
   },
   {
@@ -382,6 +384,7 @@ export const seedOrders: Order[] = [
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-16",
     deliveryType: "NDD",
+    beatName: "Ameerpet",
     buyerContact: "+91 98765 43221",
   },
 ];
