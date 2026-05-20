@@ -346,7 +346,7 @@ export const seedOrders: Order[] = [
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "Sales Beat",
-    beatName: "Bengaluru East",
+    beatName: "KPHB 4",
     buyerContact: "+91 98765 43217",
   },
   {
