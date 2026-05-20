@@ -730,6 +730,21 @@ export function Orders() {
     }
   };
 
+  // Short date formatter — "Wed, 21 May" / "Mon, 16 May". Strips
+  // the year (always current in the demo data) so dates fit on a
+  // single line in the table. Returns the input unchanged when it's
+  // not a parseable ISO date.
+  const formatShortDate = (iso: string): string => {
+    const t = Date.parse(iso + "T00:00:00Z");
+    if (Number.isNaN(t)) return iso;
+    return new Date(t).toLocaleDateString("en-GB", {
+      day: "2-digit",
+      month: "short",
+      weekday: "short",
+      timeZone: "UTC",
+    });
+  };
+
   // Priority badge — drives the at-a-glance "what do I work on next"
   // signal on each row. Past = red (overdue), today = orange,
   // tomorrow = amber, beyond = neutral.
@@ -868,7 +883,7 @@ export function Orders() {
           <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
             <tr>
               {isActionable && (
-                <th className="text-left py-4 px-6 w-12">
+                <th className="text-left py-2.5 px-3 w-10">
                   <Checkbox
                     checked={
                       selectedOrders.length === ordersToRender.length &&
@@ -878,37 +893,37 @@ export function Orders() {
                   />
                 </th>
               )}
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Order ID
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Order
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Company
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Retailer Name
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Retailer
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Mobile
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Order Value
+              <th className="text-right px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Value
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Marketplace
-              </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Date
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
-                Expected Delivery
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Delivery Date
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Priority
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Delivery Type
               </th>
-              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Status
               </th>
-              <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+              <th className="text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Actions
               </th>
             </tr>
@@ -920,7 +935,7 @@ export function Orders() {
                 className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
               >
                 {isActionable && (
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-2.5">
                     <Checkbox
                       checked={selectedOrders.includes(order.id)}
                       onCheckedChange={(checked) =>
@@ -929,76 +944,84 @@ export function Orders() {
                     />
                   </td>
                 )}
-                <td className="px-4 py-3">
+                {/* Order ID + marketplace stacked compactly. Showing
+                    the last 8 chars keeps the chip readable; full
+                    ID is on hover via CopyOnHover. */}
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   <CopyOnHover value={order.id} label="Order ID">
-                    <code className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded font-mono">
-                      {order.id}
+                    <code
+                      className="text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded font-mono"
+                      title={order.id}
+                    >
+                      …{order.id.slice(-8)}
                     </code>
                   </CopyOnHover>
+                  <p className="text-[10px] text-gray-500 mt-0.5">
+                    {order.marketplace}
+                  </p>
                 </td>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-gray-900">
+                <td className="px-3 py-2.5">
+                  <p
+                    className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
+                    title={order.company}
+                  >
                     {order.company}
                   </p>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5">
                   <CopyOnHover value={order.retailerName} label="Retailer name">
-                    <p className="font-medium text-gray-900">
+                    <p
+                      className="text-sm font-medium text-gray-900 truncate max-w-[160px]"
+                      title={order.retailerName}
+                    >
                       {order.retailerName}
                     </p>
                   </CopyOnHover>
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   {order.buyerContact ? (
                     <CopyOnHover value={order.buyerContact} label="Mobile number">
-                      <p className="text-sm text-gray-700 font-mono">
+                      <p className="text-xs text-gray-700 font-mono">
                         {order.buyerContact}
                       </p>
                     </CopyOnHover>
                   ) : (
-                    <p className="text-sm text-gray-400">—</p>
+                    <p className="text-xs text-gray-400">—</p>
                   )}
                 </td>
-                <td className="px-4 py-3">
-                  <p className="font-medium text-gray-900">
+                <td className="px-3 py-2.5 whitespace-nowrap text-right">
+                  <p className="text-sm font-semibold text-gray-900">
                     ₹{order.orderValue.toLocaleString()}
                   </p>
                 </td>
-                <td className="px-4 py-3">
-                  <Badge variant="outline" className="bg-gray-50">
-                    ONDC
-                  </Badge>
+                {/* One value per column — Order Date, Delivery Date,
+                    Priority bucket, and Delivery Type all stand on
+                    their own so each is easy to scan vertically. */}
+                <td
+                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
+                  title={order.orderDate}
+                >
+                  {formatShortDate(order.orderDate)}
                 </td>
-                <td className="px-4 py-3">
-                  <p className="text-sm text-gray-600">{order.orderDate}</p>
+                <td
+                  className="px-3 py-2.5 whitespace-nowrap text-sm font-medium text-gray-900"
+                  title={order.expectedDeliveryDate}
+                >
+                  {formatShortDate(order.expectedDeliveryDate)}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-1.5">
-                      <p className="text-sm font-medium text-gray-900">
-                        {order.expectedDeliveryDate}
-                      </p>
-                      {getPriorityBadge(order)}
-                    </div>
-                    <p className="text-[11px] text-gray-500">
-                      {deliveryLabelFor(order)}
-                    </p>
-                  </div>
+                <td className="px-3 py-2.5 whitespace-nowrap">
+                  {getPriorityBadge(order)}
                 </td>
-                <td className="px-4 py-3">
-                  <div className="flex flex-col gap-1">
-                    {getDeliveryTypeBadge(order)}
-                    {order.beatName && (
-                      <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
-                        {order.beatName}
-                      </span>
-                    )}
-                  </div>
+                <td
+                  className="px-3 py-2.5 whitespace-nowrap"
+                  title={order.beatName ?? undefined}
+                >
+                  {getDeliveryTypeBadge(order)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   {getStatusBadge(order.status)}
                 </td>
-                <td className="px-4 py-3">
+                <td className="px-3 py-2.5 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <Button
                       size="sm"
