@@ -63,6 +63,38 @@ const SAMPLE_FREEDOM_POLYGON = {
 
 const SEED_BITS: ServiceabilityBit[] = [
   {
+    id: "bit-itc-kphb-mon",
+    companyId: "co-itc",
+    companyName: "ITC Limited",
+    beatName: "KPHB 1",
+    deliveryDay: "Monday",
+    createdAt: "2026-04-08T09:00:00Z",
+  },
+  {
+    id: "bit-itc-sr-nagar-wed",
+    companyId: "co-itc",
+    companyName: "ITC Limited",
+    beatName: "SR Nagar",
+    deliveryDay: "Wednesday",
+    createdAt: "2026-04-08T09:00:00Z",
+  },
+  {
+    id: "bit-marico-kphb-mon",
+    companyId: "co-marico",
+    companyName: "Marico",
+    beatName: "KPHB 1",
+    deliveryDay: "Monday",
+    createdAt: "2026-04-09T09:00:00Z",
+  },
+  {
+    id: "bit-marico-ameerpet-thu",
+    companyId: "co-marico",
+    companyName: "Marico",
+    beatName: "Ameerpet",
+    deliveryDay: "Thursday",
+    createdAt: "2026-04-09T09:00:00Z",
+  },
+  {
     id: "bit-freedom-mum-mon",
     companyId: "co-freedom",
     companyName: "Gemini Edibles & Fats India",
