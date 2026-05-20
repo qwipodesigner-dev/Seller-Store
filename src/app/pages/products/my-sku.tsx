@@ -43,6 +43,7 @@ import {
   FileSpreadsheet,
   FileCheck,
   FileWarning,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -1635,6 +1636,15 @@ export function MySKU() {
                   Filter
                 </Button>
                 )}
+                <Button
+                  size="sm"
+                  onClick={() => navigate("/products/add-sku/ai")}
+                  className="gap-2 flex-1 sm:flex-initial bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white shadow-sm"
+                  title="Upload product images — AI fills the SKU details"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Create SKU with AI
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button

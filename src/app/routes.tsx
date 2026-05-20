@@ -22,6 +22,7 @@ import { AddSKU } from "./pages/products/add-sku";
 import { MySKU } from "./pages/products/my-sku";
 import { SKUDetail } from "./pages/products/sku-detail";
 import { AddManually } from "./pages/products/add-sku/manual";
+import { AiCreateSku } from "./pages/products/add-sku/ai-create";
 import { BrandSync } from "./pages/products/add-sku/brand-sync";
 import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-sync";
 import { PriceList } from "./pages/products/price-list";
@@ -123,6 +124,7 @@ export const router = createBrowserRouter([
       { path: "products/add-sku", Component: AddSKU },
       { path: "products/add-sku/central-catalog", Component: CentralCatalogSync },
       { path: "products/add-sku/manual", Component: AddManually },
+      { path: "products/add-sku/ai", Component: AiCreateSku },
       { path: "products/add-sku/brand-sync", Component: BrandSync },
       { path: "products/price-list", Component: PriceList },
       { path: "offers", Component: OffersList },
