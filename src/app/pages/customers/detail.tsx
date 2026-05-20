@@ -24,6 +24,12 @@ import {
   DialogTitle,
 } from "../../components/ui/dialog";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../components/ui/tooltip";
+import {
   ArrowLeft,
   MapPin,
   User as UserIcon,
@@ -34,6 +40,8 @@ import {
   ExternalLink,
   Ban,
   Calendar,
+  CalendarClock,
+  Lock,
   Store,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -43,6 +51,10 @@ import {
   subscribeToDemoCustomers,
   type DemoCustomer,
 } from "../../lib/customers-demo-data";
+import {
+  findBitForCustomer,
+  subscribeToServiceabilityBits,
+} from "../../lib/serviceability-data";
 
 export function CustomerDemoDetail() {
   const { customerId } = useParams();
@@ -60,6 +72,16 @@ export function CustomerDemoDetail() {
       setCustomer(getDemoCustomerById(customerId) ?? null);
     });
   }, [customerId]);
+
+  // Re-render when the serviceability admin changes a bit — the
+  // Delivery Day column below resolves from the live bit list, so a
+  // fresh assignment needs to land here without a page reload.
+  // `bitsRev` is just a tick counter; the bit lookup reads from the
+  // module-level store directly.
+  const [, setBitsRev] = useState(0);
+  useEffect(() => {
+    return subscribeToServiceabilityBits(() => setBitsRev((n) => n + 1));
+  }, []);
 
   // Block / Unblock confirmation — Block lives on a per-company link
   // now (a customer can be Active for one brand and Blocked for
@@ -355,9 +377,10 @@ export function CustomerDemoDetail() {
                 </p>
               ) : (
                 <>
-                  <div className="grid grid-cols-[1fr_120px_110px_120px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                  <div className="grid grid-cols-[1fr_120px_160px_110px_120px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                     <span>Company</span>
                     <span>Registered</span>
+                    <span>Delivery Day</span>
                     <span className="text-center">Status</span>
                     <span className="text-right">Action</span>
                   </div>
@@ -365,7 +388,7 @@ export function CustomerDemoDetail() {
                     {customer.companies.map((co) => (
                       <div
                         key={co.companyId}
-                        className="grid grid-cols-[1fr_120px_110px_120px] gap-3 px-4 py-2.5 items-center"
+                        className="grid grid-cols-[1fr_120px_160px_110px_120px] gap-3 px-4 py-2.5 items-center"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -377,6 +400,66 @@ export function CustomerDemoDetail() {
                           <Calendar className="h-3 w-3 text-gray-400" />
                           {formatRegDate(co.registeredAt)}
                         </p>
+                        {(() => {
+                          const bit = findBitForCustomer(
+                            {
+                              customerId: customer.customerId,
+                              city: customer.city,
+                              area: customer.area,
+                              pincode: customer.pincode,
+                            },
+                            co.companyId,
+                          );
+                          if (!bit) {
+                            return (
+                              <TooltipProvider delayDuration={150}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge
+                                      variant="secondary"
+                                      className="gap-1 bg-gray-100 text-gray-500 border-gray-200 w-fit cursor-help"
+                                    >
+                                      <Lock className="h-3 w-3" />
+                                      Not set
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent className="max-w-xs text-xs">
+                                    No serviceability bit covers this
+                                    customer for {co.companyName}. Configure
+                                    one in Admin → Seller → Serviceability,
+                                    and the delivery day will auto-assign
+                                    here.
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            );
+                          }
+                          return (
+                            <TooltipProvider delayDuration={150}>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="flex flex-col gap-0.5 min-w-0 cursor-help">
+                                    <Badge className="gap-1 bg-blue-50 text-blue-700 border-blue-200 w-fit">
+                                      <CalendarClock className="h-3 w-3" />
+                                      {bit.deliveryDay}
+                                      <Lock className="h-2.5 w-2.5 ml-0.5 opacity-60" />
+                                    </Badge>
+                                    <span className="text-[10px] text-gray-500 truncate">
+                                      {bit.beatName}
+                                    </span>
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs text-xs">
+                                  Auto-assigned from the
+                                  <strong> {bit.beatName} </strong>
+                                  serviceability bit. Read-only — change
+                                  the bit&apos;s delivery day in Admin →
+                                  Seller → Serviceability to update this.
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          );
+                        })()}
                         <div className="flex justify-center">
                           {co.status === "Active" ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
@@ -428,7 +511,11 @@ export function CustomerDemoDetail() {
                   <p className="text-[11px] text-gray-500 px-4 py-2 border-t border-gray-100 bg-gray-50/40">
                     Status and Block / Unblock are tracked per company.
                     Registration date is the day the customer placed
-                    their first order with each company.
+                    their first order with each company. Delivery Day
+                    is auto-assigned from the serviceability bit /
+                    beat the customer&apos;s location maps to — it
+                    can&apos;t be changed here. To override, edit the
+                    bit in Admin → Seller → Serviceability.
                   </p>
                 </>
               )}
