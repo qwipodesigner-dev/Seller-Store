@@ -93,6 +93,33 @@ export const SELLER_INFO = {
   code: "SELLER-ITC-001",
 };
 
+// Beat → configured delivery day registry. Customers mapped to a beat
+// auto-inherit its day. When `expectedDeliveryDate`'s weekday matches
+// the beat's day, the order is a "Sales Beat Order"; when it doesn't
+// and the customer paid for express, it's "NDD Requested"; otherwise
+// "Non-SalesBeat Order". Keep this in sync with the serviceability
+// bits seeded in serviceability-data.ts.
+export const BEAT_DELIVERY_DAYS: Record<string, string> = {
+  "KPHB 1": "Tuesday",
+  "KPHB 2": "Wednesday",
+  "KPHB 3": "Monday",
+  "KPHB 4": "Thursday",
+  "SR Nagar": "Friday",
+  "Ameerpet": "Saturday",
+  "Mumbai Metro — North": "Monday",
+  "Mumbai Metro — South": "Tuesday",
+  "Pune Central": "Wednesday",
+  "Bengaluru East": "Thursday",
+  "Hyderabad North": "Friday",
+};
+
+/** Look up a beat's configured delivery day. Returns null when the
+ *  beat isn't registered above (e.g. order has no beatName). */
+export function getBeatDeliveryDay(beatName: string | undefined): string | null {
+  if (!beatName) return null;
+  return BEAT_DELIVERY_DAYS[beatName] ?? null;
+}
+
 // Seed orders — the same 13 mock orders the list used to inline.
 // Statuses use the new "Cancelled" wording everywhere (was
 // "Rejected"); companies are derived from each order's primary
@@ -217,7 +244,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "Sales Beat",
-    beatName: "KPHB 2",
+    beatName: "KPHB 4",
     buyerContact: "+91 98765 43211",
   },
   {
@@ -234,6 +261,7 @@ export const seedOrders: Order[] = [
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-23",
     deliveryType: "Non-Sales Beat",
+    beatName: "KPHB 1",
     buyerContact: "+91 98765 43212",
   },
   {
@@ -301,6 +329,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-25",
     deliveryType: "Non-Sales Beat",
+    beatName: "KPHB 2",
     buyerContact: "+91 98765 43216",
   },
   {

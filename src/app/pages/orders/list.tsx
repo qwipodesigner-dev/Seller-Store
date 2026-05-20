@@ -71,6 +71,7 @@ import {
   getDeliveryBucket,
   deliveryLabelFor,
   dayOfWeekLabel,
+  getBeatDeliveryDay,
 } from "../../lib/orders-data";
 
 // "rejected" tab label is retired alongside the status rename; the
@@ -889,7 +890,10 @@ export function Orders() {
                 Beat Name
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Delivery Day
+                Beat Delivery Day
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Expected Delivery Day
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Delivery Type
@@ -991,6 +995,11 @@ export function Orders() {
                   )}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700">
+                  {getBeatDeliveryDay(order.beatName) ?? (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </td>
+                <td className="px-3 py-2.5 whitespace-nowrap text-sm font-medium text-gray-900">
                   {dayOfWeekLabel(order.expectedDeliveryDate)}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
