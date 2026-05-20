@@ -1,17 +1,20 @@
 // Real-time Claude Vision implementation of the AI SKU pipeline.
 //
-// Uses Anthropic's API directly from the browser. Set
-// `VITE_ANTHROPIC_API_KEY` in a `.env` (or `.env.local`) file at the
-// project root to enable it; the page falls back to the mock service
-// when the key is unset.
+// Uses Anthropic's API directly from the browser via `fetch` — the
+// official SDK pulls in Node-only agent-toolset helpers (`node:fs`,
+// `node:path`, `node:crypto`) that Rollup can't bundle for the browser,
+// so we hit the wire format directly.
 //
-// IMPORTANT: anything starting with `VITE_` is inlined into the
-// client bundle. Anyone who downloads the JS can read the key. This
-// is fine for local demos / internal seller-store dev builds but
-// must not be deployed to production seller-facing builds — proxy
-// the call through a small backend that holds the key server-side.
+// Set `VITE_ANTHROPIC_API_KEY` in `.env.local` (locally) or in Vercel's
+// Environment Variables (deployed) to enable. The page falls back to
+// the mock service when the key is unset.
+//
+// IMPORTANT: anything starting with `VITE_` is inlined into the client
+// bundle. Anyone who downloads the JS can read the key. This is fine
+// for local demos / internal seller-store dev builds but must not be
+// deployed to production seller-facing builds — proxy the call through
+// a small backend that holds the key server-side.
 
-import Anthropic from "@anthropic-ai/sdk";
 import {
   type AiProductMatch,
   type AiSearchResponse,
@@ -21,6 +24,8 @@ import {
 } from "./ai-sku-service";
 
 const MODEL = "claude-opus-4-7";
+const API_URL = "https://api.anthropic.com/v1/messages";
+const API_VERSION = "2023-06-01";
 
 /** True if a usable API key is present at build time. */
 export function isRealAiAvailable(): boolean {
@@ -28,27 +33,20 @@ export function isRealAiAvailable(): boolean {
     import.meta.env.VITE_ANTHROPIC_API_KEY.trim().length > 0;
 }
 
-/** Lazily-created singleton client. */
-let clientRef: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (clientRef) return clientRef;
-  const apiKey = import.meta.env.VITE_ANTHROPIC_API_KEY;
-  if (!apiKey) {
+function apiKey(): string {
+  const key = import.meta.env.VITE_ANTHROPIC_API_KEY;
+  if (!key) {
     throw new Error(
       "VITE_ANTHROPIC_API_KEY is not set — add it to .env.local to enable real AI.",
     );
   }
-  clientRef = new Anthropic({
-    apiKey,
-    dangerouslyAllowBrowser: true,
-  });
-  return clientRef;
+  return key;
 }
 
 // ---------------------------------------------------------------------------
 // Image preparation — downscale + base64-encode so we stay well under the
 // API request size limit. Opus 4.7 accepts up to 2576px on the long edge;
-// 2048px gives us excellent OCR quality with smaller payloads.
+// 2048px gives excellent OCR quality with smaller payloads.
 // ---------------------------------------------------------------------------
 
 const MAX_LONG_EDGE = 2048;
@@ -56,7 +54,7 @@ const JPEG_QUALITY = 0.85;
 
 interface PreparedImage {
   base64: string;
-  mediaType: "image/jpeg" | "image/png" | "image/webp";
+  mediaType: "image/jpeg";
   fileName: string;
 }
 
@@ -232,7 +230,7 @@ const RESPONSE_SCHEMA = {
 } as const;
 
 // ---------------------------------------------------------------------------
-// System prompt. Stable across calls → cached.
+// System prompt. Stable across calls → cached server-side.
 // ---------------------------------------------------------------------------
 
 const SYSTEM_PROMPT = `You are a product identification engine for an Indian B2B seller catalog (FMCG, grocery, personal care, pharma, general merchandise).
@@ -251,6 +249,25 @@ You are shown 1–4 photos of a single product (front, back, barcode, side). You
 7. NEVER fabricate barcodes or MRPs you can't read. Empty + low confidence is correct.
 
 Respond ONLY with the JSON object matching the provided schema.`;
+
+// ---------------------------------------------------------------------------
+// Wire types — only the bits we actually inspect.
+// ---------------------------------------------------------------------------
+
+interface AnthropicMessageResponse {
+  content: Array<
+    | { type: "text"; text: string }
+    | { type: "tool_use"; name?: string; input?: unknown }
+    | { type: string }
+  >;
+  usage: {
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_input_tokens?: number;
+    cache_creation_input_tokens?: number;
+  };
+  stop_reason?: string;
+}
 
 // ---------------------------------------------------------------------------
 // Main entry point — process all images + identify.
@@ -275,20 +292,17 @@ export async function identifyProductWithClaude(
   }
 
   callbacks.onLog("Sending images to Claude for vision analysis…");
-  const client = getClient();
 
   const imageBlocks = prepared.map((img) => ({
-    type: "image" as const,
+    type: "image",
     source: {
-      type: "base64" as const,
+      type: "base64",
       media_type: img.mediaType,
       data: img.base64,
     },
   }));
 
-  // Use messages.parse() for automatic schema validation. The system prompt
-  // is identical every call, so cache it.
-  const response = await client.messages.parse({
+  const requestBody = {
     model: MODEL,
     max_tokens: 4000,
     system: [
@@ -318,37 +332,82 @@ export async function identifyProductWithClaude(
         schema: RESPONSE_SCHEMA,
       },
     },
+  };
+
+  const response = await fetch(API_URL, {
+    method: "POST",
+    headers: {
+      "content-type": "application/json",
+      "x-api-key": apiKey(),
+      "anthropic-version": API_VERSION,
+      // Required header when calling the API directly from browser code.
+      "anthropic-dangerous-direct-browser-access": "true",
+    },
+    body: JSON.stringify(requestBody),
   });
 
-  callbacks.onLog(
-    `Response received — input ${response.usage.input_tokens} tokens, output ${response.usage.output_tokens} tokens.`,
-  );
-  if (response.usage.cache_read_input_tokens) {
-    callbacks.onLog(
-      `  • Prompt cache hit: ${response.usage.cache_read_input_tokens} tokens read from cache.`,
+  if (!response.ok) {
+    const errText = await response.text().catch(() => "");
+    throw new Error(
+      `Claude API error ${response.status}: ${errText || response.statusText}`,
     );
   }
 
-  // The SDK populates `parsed_output` when the JSON validates. It can be
-  // null if the model refused or returned malformed JSON; treat that as
-  // a no-match.
-  const parsed = response.parsed_output as ClaudeProductResponse | null;
-  if (!parsed) {
-    callbacks.onLog("Claude could not produce a structured response.");
+  const data = (await response.json()) as AnthropicMessageResponse;
+
+  callbacks.onLog(
+    `Response received — input ${data.usage.input_tokens} tokens, output ${data.usage.output_tokens} tokens.`,
+  );
+  if (data.usage.cache_read_input_tokens) {
+    callbacks.onLog(
+      `  • Prompt cache hit: ${data.usage.cache_read_input_tokens} tokens read from cache.`,
+    );
+  }
+
+  // Extract the text block and parse as JSON.
+  const textBlock = data.content.find((b) => b.type === "text") as
+    | { type: "text"; text: string }
+    | undefined;
+  if (!textBlock) {
+    callbacks.onLog("Claude returned no text content.");
     return emptyResponse(files);
   }
+
+  let parsed: ClaudeProductResponse | null = null;
+  try {
+    parsed = JSON.parse(extractJson(textBlock.text)) as ClaudeProductResponse;
+  } catch (err) {
+    callbacks.onLog(
+      `Failed to parse Claude's JSON response: ${err instanceof Error ? err.message : String(err)}`,
+    );
+    return emptyResponse(files);
+  }
+
+  if (!parsed) return emptyResponse(files);
 
   callbacks.onLog(
     `Product identified: ${parsed.brandName.value} ${parsed.productName.value} (${parsed.overallConfidence}% confidence)`,
   );
 
-  // Surface "sources" as queried sources for the UI chips.
   for (const src of parsed.sources.slice(0, 6)) {
     const allowed = matchSource(src);
     if (allowed && callbacks.onSourceQueried) callbacks.onSourceQueried(allowed);
   }
 
   return assembleResponse(parsed, files);
+}
+
+/** Pull out the JSON from text that might be wrapped in code fences. */
+function extractJson(text: string): string {
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenced) return fenced[1].trim();
+  // Otherwise look for the first { … last } slice.
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  if (start !== -1 && end !== -1 && end > start) {
+    return text.slice(start, end + 1);
+  }
+  return text.trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -512,8 +571,6 @@ function matchSource(raw: string): AiSearchSource | null {
   for (const src of KNOWN_SOURCES) {
     if (lower.includes(src.toLowerCase())) return src;
   }
-  // Default any unrecognised source to "Brand Website" so the user still
-  // sees a chip rather than nothing.
   if (lower.includes(".com") || lower.includes("site") || lower.includes("brand")) {
     return "Brand Website";
   }
