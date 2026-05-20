@@ -356,16 +356,21 @@ function CategoryCard({
           {root.name}
         </h3>
 
-        {/* Subcategory chips */}
+        {/* Subcategory chips — long names wrap inside the chip rather
+            than pushing the chip past the card width. `max-w-full` caps
+            each chip at the card's column width, `items-start` keeps the
+            Tag icon aligned with the first line, and `break-words` lets
+            long words break mid-token if a single token exceeds the
+            chip width (e.g. compound words / no spaces). */}
         {subs.length > 0 ? (
           <div className="flex flex-wrap gap-1.5">
             {subs.map((s) => (
               <span
                 key={s.id}
-                className="inline-flex items-center gap-1 bg-pink-50 text-pink-800 border border-pink-200 rounded-full px-2 py-0.5 text-[11px]"
+                className="inline-flex items-start gap-1 bg-pink-50 text-pink-800 border border-pink-200 rounded-full px-2 py-0.5 text-[11px] max-w-full leading-snug"
               >
-                <Tag className="h-2.5 w-2.5 text-pink-500" />
-                {s.name}
+                <Tag className="h-2.5 w-2.5 text-pink-500 flex-shrink-0 mt-[3px]" />
+                <span className="min-w-0 break-words">{s.name}</span>
               </span>
             ))}
           </div>
