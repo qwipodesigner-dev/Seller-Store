@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
@@ -41,6 +41,12 @@ import {
   ChevronLeft,
   Eye,
   Download,
+  Clock,
+  Zap,
+  CalendarClock,
+  Route,
+  MapPin,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -55,11 +61,15 @@ import { ListPagination } from "../../components/ui/list-pagination";
 import {
   type Order,
   type OrderLineItem,
+  type DeliveryType,
+  type DeliveryBucket,
   SELLER_INFO,
   getOrders,
   setOrders as setOrdersStore,
   subscribeToOrders,
   updateOrderStatuses,
+  getDeliveryBucket,
+  deliveryLabelFor,
 } from "../../lib/orders-data";
 
 // "rejected" tab label is retired alongside the status rename; the
@@ -87,6 +97,12 @@ export function Orders() {
     setOrdersStore(next);
   };
   const [activeTab, setActiveTab] = useState<TabType>("all");
+  // Sub-tab inside Confirmed: split deliveries by when they're due.
+  // "all" matches both buckets — the default so existing flows keep
+  // showing everything.
+  const [confirmedDeliveryTab, setConfirmedDeliveryTab] = useState<
+    "all" | "tomorrow" | "beyond"
+  >("all");
   const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [marketplaceFilter, setMarketplaceFilter] = useState<string>("all");
@@ -94,6 +110,13 @@ export function Orders() {
   const [selectedStatusFilters, setSelectedStatusFilters] = useState<string[]>([]);
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  // Delivery filters
+  const [selectedDeliveryTypes, setSelectedDeliveryTypes] = useState<string[]>([]);
+  const [selectedDeliveryBuckets, setSelectedDeliveryBuckets] = useState<string[]>([]);
+  const [deliveryStartDate, setDeliveryStartDate] = useState<string>("");
+  const [deliveryEndDate, setDeliveryEndDate] = useState<string>("");
+  const [tomorrowOnly, setTomorrowOnly] = useState(false);
+  const [nddOnly, setNddOnly] = useState(false);
 
   // Unique brands and statuses for filter options
   const uniqueBrands = useMemo(
@@ -105,6 +128,17 @@ export function Orders() {
     { label: "Confirmed", value: "Confirmed" },
     { label: "Delivered", value: "Delivered" },
     { label: "Cancelled", value: "Cancelled" },
+  ];
+  const deliveryTypeOptions: { label: string; value: DeliveryType }[] = [
+    { label: "Sales Beat", value: "Sales Beat" },
+    { label: "Non-Sales Beat", value: "Non-Sales Beat" },
+    { label: "NDD (Next Day Delivery)", value: "NDD" },
+  ];
+  const deliveryBucketOptions: { label: string; value: DeliveryBucket }[] = [
+    { label: "Today", value: "today" },
+    { label: "Tomorrow", value: "tomorrow" },
+    { label: "Beyond Tomorrow", value: "beyond" },
+    { label: "Overdue", value: "past" },
   ];
 
   // Pagination
@@ -211,21 +245,110 @@ export function Orders() {
         matchesDate = orderDate >= start && orderDate <= end;
       }
 
+      // Delivery filters
+      const bucket = getDeliveryBucket(order);
+      const matchesDeliveryType =
+        selectedDeliveryTypes.length === 0 ||
+        selectedDeliveryTypes.includes(order.deliveryType);
+      const matchesDeliveryBucket =
+        selectedDeliveryBuckets.length === 0 ||
+        selectedDeliveryBuckets.includes(bucket);
+      const matchesNddOnly = !nddOnly || order.deliveryType === "NDD";
+      const matchesTomorrowOnly = !tomorrowOnly || bucket === "tomorrow";
+
+      let matchesDeliveryDateRange = true;
+      if (deliveryStartDate && deliveryEndDate) {
+        matchesDeliveryDateRange =
+          order.expectedDeliveryDate >= deliveryStartDate &&
+          order.expectedDeliveryDate <= deliveryEndDate;
+      }
+
+      // Confirmed sub-tab — only applies when viewing the Confirmed tab.
+      let matchesConfirmedSub = true;
+      if (tab === "confirmed" && confirmedDeliveryTab !== "all") {
+        if (confirmedDeliveryTab === "tomorrow") {
+          matchesConfirmedSub = bucket === "tomorrow";
+        } else if (confirmedDeliveryTab === "beyond") {
+          matchesConfirmedSub = bucket === "beyond";
+        }
+      }
+
       return (
         matchesStatus &&
         matchesSearch &&
         matchesMarketplace &&
         matchesBrand &&
         matchesStatusFilter &&
-        matchesDate
+        matchesDate &&
+        matchesDeliveryType &&
+        matchesDeliveryBucket &&
+        matchesNddOnly &&
+        matchesTomorrowOnly &&
+        matchesDeliveryDateRange &&
+        matchesConfirmedSub
       );
     });
   };
 
   const currentTabOrders = useMemo(
     () => getTabOrders(activeTab),
-    [activeTab, orders, searchQuery, marketplaceFilter, selectedBrandFilters, selectedStatusFilters, startDate, endDate]
+    [
+      activeTab,
+      confirmedDeliveryTab,
+      orders,
+      searchQuery,
+      marketplaceFilter,
+      selectedBrandFilters,
+      selectedStatusFilters,
+      startDate,
+      endDate,
+      selectedDeliveryTypes,
+      selectedDeliveryBuckets,
+      deliveryStartDate,
+      deliveryEndDate,
+      tomorrowOnly,
+      nddOnly,
+    ],
   );
+
+  // Counts for the Confirmed sub-tabs — pre-filtered by everything
+  // except the sub-tab itself so the counts reflect what the user
+  // would actually see when they click.
+  const confirmedBucketCounts = useMemo(() => {
+    const baseConfirmed = orders.filter((o) => {
+      if (o.status !== "Confirmed") return false;
+      const matchesSearch =
+        o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesMarketplace =
+        marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
+      const matchesBrand =
+        selectedBrandFilters.length === 0 ||
+        selectedBrandFilters.includes(o.brand);
+      const matchesDeliveryType =
+        selectedDeliveryTypes.length === 0 ||
+        selectedDeliveryTypes.includes(o.deliveryType);
+      return (
+        matchesSearch &&
+        matchesMarketplace &&
+        matchesBrand &&
+        matchesDeliveryType
+      );
+    });
+    return {
+      all: baseConfirmed.length,
+      tomorrow: baseConfirmed.filter((o) => getDeliveryBucket(o) === "tomorrow")
+        .length,
+      beyond: baseConfirmed.filter((o) => getDeliveryBucket(o) === "beyond")
+        .length,
+    };
+  }, [
+    orders,
+    searchQuery,
+    marketplaceFilter,
+    selectedBrandFilters,
+    selectedDeliveryTypes,
+  ]);
 
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
@@ -250,6 +373,17 @@ export function Orders() {
     setActiveTab(tab as TabType);
     setSelectedOrders([]);
     setCurrentPage(1); // Reset to first page
+    // Reset the Confirmed sub-tab whenever we leave Confirmed so the
+    // user always lands on "All" the next time they open Confirmed.
+    if (tab !== "confirmed") setConfirmedDeliveryTab("all");
+  };
+
+  const handleConfirmedSubTabChange = (
+    sub: "all" | "tomorrow" | "beyond",
+  ) => {
+    setConfirmedDeliveryTab(sub);
+    setSelectedOrders([]);
+    setCurrentPage(1);
   };
 
   // Pagination calculations
@@ -323,6 +457,12 @@ export function Orders() {
     setSelectedStatusFilters([]);
     setStartDate("");
     setEndDate("");
+    setSelectedDeliveryTypes([]);
+    setSelectedDeliveryBuckets([]);
+    setDeliveryStartDate("");
+    setDeliveryEndDate("");
+    setTomorrowOnly(false);
+    setNddOnly(false);
   };
 
   const hasActiveFilters =
@@ -331,7 +471,13 @@ export function Orders() {
     selectedBrandFilters.length > 0 ||
     selectedStatusFilters.length > 0 ||
     startDate ||
-    endDate;
+    endDate ||
+    selectedDeliveryTypes.length > 0 ||
+    selectedDeliveryBuckets.length > 0 ||
+    deliveryStartDate ||
+    deliveryEndDate ||
+    tomorrowOnly ||
+    nddOnly;
 
   // Handle export
   // ---- Export helpers ----
@@ -553,6 +699,74 @@ export function Orders() {
     }
   };
 
+  // Delivery-type badge — colours match the spec semantics (NDD red /
+  // Sales Beat blue / Non-Sales Beat amber). The label keeps the
+  // copy short so the row stays scannable.
+  const getDeliveryTypeBadge = (order: Order) => {
+    switch (order.deliveryType) {
+      case "NDD":
+        return (
+          <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
+            <Zap className="h-3 w-3" />
+            NDD
+          </Badge>
+        );
+      case "Sales Beat":
+        return (
+          <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
+            <Route className="h-3 w-3" />
+            Sales Beat
+          </Badge>
+        );
+      case "Non-Sales Beat":
+        return (
+          <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
+            <MapPin className="h-3 w-3" />
+            Non-Sales Beat
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
+
+  // Priority badge — drives the at-a-glance "what do I work on next"
+  // signal on each row. Past = red (overdue), today = orange,
+  // tomorrow = amber, beyond = neutral.
+  const getPriorityBadge = (order: Order) => {
+    const bucket = getDeliveryBucket(order);
+    if (bucket === "past") {
+      return (
+        <Badge className="bg-red-100 text-red-800 border-red-300 gap-1">
+          <AlertCircle className="h-3 w-3" />
+          Overdue
+        </Badge>
+      );
+    }
+    if (bucket === "today") {
+      return (
+        <Badge className="bg-orange-100 text-orange-800 border-orange-300 gap-1">
+          <Clock className="h-3 w-3" />
+          Today
+        </Badge>
+      );
+    }
+    if (bucket === "tomorrow") {
+      return (
+        <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1">
+          <CalendarClock className="h-3 w-3" />
+          Tomorrow
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="secondary" className="bg-gray-50 text-gray-700 border-gray-200 gap-1">
+        <CalendarDays className="h-3 w-3" />
+        Future
+      </Badge>
+    );
+  };
+
   // Render action buttons based on active tab
   const renderActionButtons = () => {
     if (selectedOrders.length === 0) return null;
@@ -686,6 +900,12 @@ export function Orders() {
                 Order Date
               </th>
               <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                Expected Delivery
+              </th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
+                Delivery Type
+              </th>
+              <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-600">
                 Status
               </th>
               <th className="text-center px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -751,6 +971,29 @@ export function Orders() {
                 </td>
                 <td className="px-4 py-3">
                   <p className="text-sm text-gray-600">{order.orderDate}</p>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-sm font-medium text-gray-900">
+                        {order.expectedDeliveryDate}
+                      </p>
+                      {getPriorityBadge(order)}
+                    </div>
+                    <p className="text-[11px] text-gray-500">
+                      {deliveryLabelFor(order)}
+                    </p>
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex flex-col gap-1">
+                    {getDeliveryTypeBadge(order)}
+                    {order.beatName && (
+                      <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
+                        {order.beatName}
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-4 py-3">
                   {getStatusBadge(order.status)}
@@ -1007,51 +1250,94 @@ export function Orders() {
 
             <TabsContent value="confirmed" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {!isEmpty && (
-              <div className="px-6 py-4 border-b flex-shrink-0">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="relative max-w-md flex-1">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                    <Input
-                      placeholder="Search by order ID, retailer name..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 pr-10"
-                    />
-                    {searchQuery && (
-                      <button
-                        onClick={() => setSearchQuery("")}
-                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
+                <>
+                  {/* Delivery-window sub-tabs — let the distributor
+                      separate tomorrow's workload from later
+                      deliveries in one click. */}
+                  <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+                      Deliveries:
+                    </span>
+                    <button
+                      onClick={() => handleConfirmedSubTabChange("all")}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        confirmedDeliveryTab === "all"
+                          ? "bg-gray-900 text-white border-gray-900"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
+                    >
+                      All ({confirmedBucketCounts.all})
+                    </button>
+                    <button
+                      onClick={() => handleConfirmedSubTabChange("tomorrow")}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+                        confirmedDeliveryTab === "tomorrow"
+                          ? "bg-amber-600 text-white border-amber-600"
+                          : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                      }`}
+                    >
+                      <CalendarClock className="h-3 w-3" />
+                      Tomorrow Deliveries ({confirmedBucketCounts.tomorrow})
+                    </button>
+                    <button
+                      onClick={() => handleConfirmedSubTabChange("beyond")}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+                        confirmedDeliveryTab === "beyond"
+                          ? "bg-gray-700 text-white border-gray-700"
+                          : "bg-gray-50 text-gray-700 border-gray-200 hover:bg-gray-100"
+                      }`}
+                    >
+                      <CalendarDays className="h-3 w-3" />
+                      Beyond Tomorrow ({confirmedBucketCounts.beyond})
+                    </button>
                   </div>
-                  
-                  {/* Bulk Action Buttons */}
-                  {selectedOrders.length > 0 && (
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
-                      <Button
-                        size="sm"
-                        className="bg-green-600 hover:bg-green-700 text-white gap-2"
-                        onClick={() => setIsDeliverDialogOpen(true)}
-                      >
-                        <Truck className="h-4 w-4" />
-                        Mark Delivered
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
-                        onClick={() => setIsCancelDialogOpen(true)}
-                      >
-                        <XCircle className="h-4 w-4" />
-                        Cancel
-                      </Button>
+
+                  <div className="px-6 py-4 border-b flex-shrink-0">
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="relative max-w-md flex-1">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                        <Input
+                          placeholder="Search by order ID, retailer name..."
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          className="pl-10 pr-10"
+                        />
+                        {searchQuery && (
+                          <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Bulk Action Buttons */}
+                      {selectedOrders.length > 0 && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white gap-2"
+                            onClick={() => setIsDeliverDialogOpen(true)}
+                          >
+                            <Truck className="h-4 w-4" />
+                            Mark Delivered
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-red-300 text-red-700 hover:bg-red-50 gap-2"
+                            onClick={() => setIsCancelDialogOpen(true)}
+                          >
+                            <XCircle className="h-4 w-4" />
+                            Cancel
+                          </Button>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              </div>
+                  </div>
+                </>
               )}
 
               {/* Table */}
@@ -1117,20 +1403,124 @@ export function Orders() {
       </div>
 
       {/* Confirm Orders Dialog — pure confirmation surface, no
-          dispatch metadata captured here. */}
+          dispatch metadata captured here. Visually splits the
+          selection into Tomorrow vs Beyond-Tomorrow groups so the
+          distributor knows what's urgent vs what's future-dated
+          before clicking Confirm. */}
       <Dialog open={isConfirmDialogOpen} onOpenChange={setIsConfirmDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-green-600" />
               Confirm Orders
             </DialogTitle>
             <DialogDescription>
-              Confirm {selectedOrders.length === 1
-                ? "1 order"
-                : `${selectedOrders.length} orders`}.
+              Review the delivery windows below, then confirm.
             </DialogDescription>
           </DialogHeader>
+
+          {(() => {
+            const selectedOrderObjects = orders.filter((o) =>
+              selectedOrders.includes(o.id),
+            );
+            const grouped = {
+              tomorrow: selectedOrderObjects.filter(
+                (o) => getDeliveryBucket(o) === "tomorrow",
+              ),
+              beyond: selectedOrderObjects.filter(
+                (o) => getDeliveryBucket(o) === "beyond",
+              ),
+              other: selectedOrderObjects.filter((o) => {
+                const b = getDeliveryBucket(o);
+                return b !== "tomorrow" && b !== "beyond";
+              }),
+            };
+
+            const renderGroup = (
+              title: string,
+              icon: ReactNode,
+              rows: Order[],
+              tone: "tomorrow" | "beyond" | "other",
+            ) => {
+              if (rows.length === 0) return null;
+              const toneClasses =
+                tone === "tomorrow"
+                  ? "border-amber-200 bg-amber-50/70"
+                  : tone === "beyond"
+                    ? "border-gray-200 bg-gray-50/70"
+                    : "border-blue-200 bg-blue-50/70";
+              return (
+                <div className={`rounded-md border p-3 ${toneClasses}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    {icon}
+                    <p className="text-sm font-semibold text-gray-900">
+                      {title}
+                    </p>
+                    <Badge variant="secondary" className="bg-white text-gray-700 border border-gray-200">
+                      {rows.length}
+                    </Badge>
+                  </div>
+                  <ul className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {rows.map((o) => (
+                      <li
+                        key={o.id}
+                        className="flex items-center justify-between gap-2 text-xs bg-white rounded px-2 py-1.5 border border-gray-100"
+                      >
+                        <div className="flex flex-col min-w-0">
+                          <span className="font-medium text-gray-900 truncate">
+                            {o.retailerName}
+                          </span>
+                          <span className="text-[10px] text-gray-500">
+                            {o.id}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {getDeliveryTypeBadge(o)}
+                          <span className="text-[10px] text-gray-600 whitespace-nowrap">
+                            {o.expectedDeliveryDate}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            };
+
+            return (
+              <div className="space-y-3 py-2">
+                {renderGroup(
+                  "Tomorrow Deliveries",
+                  <CalendarClock className="h-4 w-4 text-amber-600" />,
+                  grouped.tomorrow,
+                  "tomorrow",
+                )}
+                {renderGroup(
+                  "Beyond Tomorrow Deliveries",
+                  <CalendarDays className="h-4 w-4 text-gray-600" />,
+                  grouped.beyond,
+                  "beyond",
+                )}
+                {renderGroup(
+                  "Other (Today / Overdue / NDD)",
+                  <Clock className="h-4 w-4 text-blue-600" />,
+                  grouped.other,
+                  "other",
+                )}
+
+                <div className="flex items-start gap-2 p-2.5 rounded border border-blue-100 bg-blue-50/60 text-[11px] text-blue-900">
+                  <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                  <p>
+                    All {selectedOrders.length} order
+                    {selectedOrders.length === 1 ? "" : "s"} will be
+                    confirmed in a single action. The split above is
+                    only to help you plan packing &amp; dispatch — it
+                    doesn&apos;t change what gets confirmed.
+                  </p>
+                </div>
+              </div>
+            );
+          })()}
 
           <DialogFooter>
             <Button
@@ -1141,7 +1531,8 @@ export function Orders() {
             </Button>
             <Button onClick={handleConfirmOrders} className="gap-2">
               <CheckCircle2 className="h-4 w-4" />
-              Confirm Orders
+              Confirm {selectedOrders.length}{" "}
+              {selectedOrders.length === 1 ? "Order" : "Orders"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1438,7 +1829,7 @@ export function Orders() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="dateRange">Date Range</Label>
+                    <Label htmlFor="dateRange">Order Date Range</Label>
                     <div className="flex flex-col gap-2">
                       <Input
                         type="date"
@@ -1454,6 +1845,92 @@ export function Orders() {
                         className="w-full"
                         placeholder="End Date"
                       />
+                    </div>
+                  </div>
+
+                  {/* Delivery filters — anchored on the spec's
+                      operational priorities (Delivery Day, Delivery
+                      Type, Tomorrow / NDD quick toggles). */}
+                  <div className="pt-2 border-t border-gray-100">
+                    <h4 className="text-xs font-semibold uppercase tracking-wide text-gray-700 mb-3">
+                      Delivery
+                    </h4>
+
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Delivery Day</Label>
+                        <MultiSelect
+                          options={deliveryBucketOptions.map((d) => ({
+                            label: d.label,
+                            value: d.value,
+                          }))}
+                          selected={selectedDeliveryBuckets}
+                          onChange={setSelectedDeliveryBuckets}
+                          placeholder="Any day"
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Expected Delivery Date</Label>
+                        <div className="flex flex-col gap-2">
+                          <Input
+                            type="date"
+                            value={deliveryStartDate}
+                            onChange={(e) =>
+                              setDeliveryStartDate(e.target.value)
+                            }
+                            placeholder="From"
+                          />
+                          <Input
+                            type="date"
+                            value={deliveryEndDate}
+                            onChange={(e) =>
+                              setDeliveryEndDate(e.target.value)
+                            }
+                            placeholder="To"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Delivery Type</Label>
+                        <MultiSelect
+                          options={deliveryTypeOptions}
+                          selected={selectedDeliveryTypes}
+                          onChange={setSelectedDeliveryTypes}
+                          placeholder="Sales / Non-Sales / NDD"
+                          className="w-full"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Quick toggles</Label>
+                        <div className="flex flex-col gap-2 rounded-md border border-gray-200 p-3">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox
+                              checked={tomorrowOnly}
+                              onCheckedChange={(v) =>
+                                setTomorrowOnly(Boolean(v))
+                              }
+                            />
+                            <span className="text-sm text-gray-800 flex items-center gap-1.5">
+                              <CalendarClock className="h-3.5 w-3.5 text-amber-600" />
+                              Tomorrow orders only
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <Checkbox
+                              checked={nddOnly}
+                              onCheckedChange={(v) => setNddOnly(Boolean(v))}
+                            />
+                            <span className="text-sm text-gray-800 flex items-center gap-1.5">
+                              <Zap className="h-3.5 w-3.5 text-red-600" />
+                              NDD (Next Day) orders only
+                            </span>
+                          </label>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

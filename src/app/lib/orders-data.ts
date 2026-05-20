@@ -21,6 +21,19 @@
 
 export type OrderStatus = "New" | "Confirmed" | "Delivered" | "Cancelled";
 
+/**
+ * Operational delivery classification for an order. Drives the badge
+ * shown on the row + the filter buckets in the orders page.
+ *
+ *   - "Sales Beat"     — the customer falls inside a serviceability
+ *                        bit/beat the seller already runs, so the
+ *                        order rides the next scheduled beat truck.
+ *   - "Non-Sales Beat" — the customer is outside any active beat;
+ *                        seller dispatches separately (longer lead time).
+ *   - "NDD"            — Next Day Delivery requested (express).
+ */
+export type DeliveryType = "Sales Beat" | "Non-Sales Beat" | "NDD";
+
 export interface OrderLineItem {
   skuCode: string;
   productName: string;
@@ -58,6 +71,18 @@ export interface Order {
   channelOrderId?: string;
   orderTime?: string;
   lineItems?: OrderLineItem[];
+  /**
+   * Date the seller has committed to deliver this order on
+   * (YYYY-MM-DD). Becomes the primary operational reference for the
+   * distributor — orders sort + bucket by this, not by orderDate.
+   * For NDD the value is orderDate + 1 day.
+   */
+  expectedDeliveryDate: string;
+  /** See `DeliveryType` for semantics. */
+  deliveryType: DeliveryType;
+  /** Optional beat name the order belongs to (when deliveryType is
+   *  Sales Beat). Surfaced on the badge and the detail page. */
+  beatName?: string;
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -72,6 +97,9 @@ export const SELLER_INFO = {
 // Statuses use the new "Cancelled" wording everywhere (was
 // "Rejected"); companies are derived from each order's primary
 // line-item company so the list's second column has a real value.
+// `expectedDeliveryDate` + `deliveryType` are tuned around the demo
+// "today" (2026-05-20) so the Tomorrow / Beyond Tomorrow tabs are
+// pre-populated with realistic mixes.
 export const seedOrders: Order[] = [
   {
     id: "QWI-ONDC-260330-8F3K92",
@@ -82,10 +110,12 @@ export const seedOrders: Order[] = [
     itemsSummary: "Sunflower Oil + 5 more",
     orderValue: 12450,
     paymentMode: "COD",
-    orderDate: "2026-03-30",
+    orderDate: "2026-05-20",
     orderTime: "10:30 AM",
     status: "New",
     marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "NDD",
     buyerContact: "+91 98765 43210",
     buyerAddress:
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
@@ -173,7 +203,7 @@ export const seedOrders: Order[] = [
     ],
   },
   {
-    id: "QWI-ONDC-260326-K2P7XR",
+    id: "QWI-ONDC-260519-K2P7XR",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Bizom",
@@ -181,13 +211,16 @@ export const seedOrders: Order[] = [
     itemsSummary: "100 units Mixed SKUs",
     orderValue: 12450,
     paymentMode: "COD",
-    orderDate: "2026-03-26",
+    orderDate: "2026-05-19",
     status: "Confirmed",
     marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Sales Beat",
+    beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43211",
   },
   {
-    id: "QWI-FLPK-260326-Q4M8YE",
+    id: "QWI-FLPK-260519-Q4M8YE",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Botery",
@@ -195,13 +228,15 @@ export const seedOrders: Order[] = [
     itemsSummary: "50 units Britannia Biscuits",
     orderValue: 8750,
     paymentMode: "Prepaid",
-    orderDate: "2026-03-26",
+    orderDate: "2026-05-19",
     status: "Confirmed",
     marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Non-Sales Beat",
     buyerContact: "+91 98765 43212",
   },
   {
-    id: "QWI-AMZN-260325-V6T3HN",
+    id: "QWI-AMZN-260518-V6T3HN",
     brand: "Marico",
     company: "Marico Limited",
     source: "DMS-Bizom",
@@ -209,13 +244,16 @@ export const seedOrders: Order[] = [
     itemsSummary: "200 units Maggi Noodles",
     orderValue: 24000,
     paymentMode: "Prepaid",
-    orderDate: "2026-03-25",
+    orderDate: "2026-05-18",
     status: "Delivered",
     marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-19",
+    deliveryType: "Sales Beat",
+    beatName: "Pune Central",
     buyerContact: "+91 98765 43213",
   },
   {
-    id: "QWI-ONDC-260325-J5C9BD",
+    id: "QWI-ONDC-260518-J5C9BD",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Botery",
@@ -223,13 +261,15 @@ export const seedOrders: Order[] = [
     itemsSummary: "30 units Aashirvaad Atta",
     orderValue: 5400,
     paymentMode: "COD",
-    orderDate: "2026-03-25",
+    orderDate: "2026-05-18",
     status: "Cancelled",
     marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-19",
+    deliveryType: "NDD",
     buyerContact: "+91 98765 43214",
   },
   {
-    id: "QWI-AMZN-260324-N7W2XK",
+    id: "QWI-AMZN-260519-N7W2XK",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Bizom",
@@ -237,13 +277,16 @@ export const seedOrders: Order[] = [
     itemsSummary: "75 units Sunfeast Biscuits",
     orderValue: 6825,
     paymentMode: "Prepaid",
-    orderDate: "2026-03-24",
+    orderDate: "2026-05-19",
     status: "Confirmed",
     marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-22",
+    deliveryType: "Sales Beat",
+    beatName: "Mumbai Metro — South",
     buyerContact: "+91 98765 43215",
   },
   {
-    id: "QWI-ONDC-260324-R3F4PT",
+    id: "QWI-ONDC-260519-R3F4PT",
     brand: "Marico",
     company: "Marico Limited",
     source: "DMS-Botery",
@@ -251,13 +294,15 @@ export const seedOrders: Order[] = [
     itemsSummary: "40 units Surf Excel",
     orderValue: 9200,
     paymentMode: "COD",
-    orderDate: "2026-03-24",
+    orderDate: "2026-05-19",
     status: "Confirmed",
     marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-25",
+    deliveryType: "Non-Sales Beat",
     buyerContact: "+91 98765 43216",
   },
   {
-    id: "QWI-FLPK-260323-A6H8WC",
+    id: "QWI-FLPK-260520-A6H8WC",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Bizom",
@@ -265,13 +310,16 @@ export const seedOrders: Order[] = [
     itemsSummary: "60 units Colgate Toothpaste",
     orderValue: 4320,
     paymentMode: "Prepaid",
-    orderDate: "2026-03-23",
+    orderDate: "2026-05-20",
     status: "New",
     marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Sales Beat",
+    beatName: "Bengaluru East",
     buyerContact: "+91 98765 43217",
   },
   {
-    id: "QWI-AMZN-260323-B9D2MZ",
+    id: "QWI-AMZN-260517-B9D2MZ",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Botery",
@@ -279,13 +327,15 @@ export const seedOrders: Order[] = [
     itemsSummary: "90 units Lizol Floor Cleaner",
     orderValue: 10800,
     paymentMode: "COD",
-    orderDate: "2026-03-23",
+    orderDate: "2026-05-17",
     status: "Delivered",
     marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-18",
+    deliveryType: "Non-Sales Beat",
     buyerContact: "+91 98765 43218",
   },
   {
-    id: "QWI-ONDC-260322-E5G7QY",
+    id: "QWI-ONDC-260520-E5G7QY",
     brand: "Marico",
     company: "Marico Limited",
     source: "DMS-Bizom",
@@ -293,13 +343,16 @@ export const seedOrders: Order[] = [
     itemsSummary: "120 units Tata Tea Gold",
     orderValue: 19800,
     paymentMode: "Prepaid",
-    orderDate: "2026-03-22",
+    orderDate: "2026-05-20",
     status: "New",
     marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-22",
+    deliveryType: "Sales Beat",
+    beatName: "Hyderabad North",
     buyerContact: "+91 98765 43219",
   },
   {
-    id: "QWI-FLPK-260322-S4U8VK",
+    id: "QWI-FLPK-260516-S4U8VK",
     brand: "Pepsi",
     company: "PepsiCo India",
     source: "DMS-Botery",
@@ -307,13 +360,16 @@ export const seedOrders: Order[] = [
     itemsSummary: "80 units Dove Soap",
     orderValue: 6400,
     paymentMode: "COD",
-    orderDate: "2026-03-22",
+    orderDate: "2026-05-16",
     status: "Delivered",
     marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-17",
+    deliveryType: "Sales Beat",
+    beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43220",
   },
   {
-    id: "QWI-AMZN-260321-T6Y9NF",
+    id: "QWI-AMZN-260515-T6Y9NF",
     brand: "Freedom Oil",
     company: "Gemini Edibles & Fats India",
     source: "DMS-Bizom",
@@ -321,9 +377,11 @@ export const seedOrders: Order[] = [
     itemsSummary: "45 units Ariel Detergent",
     orderValue: 13500,
     paymentMode: "Prepaid",
-    orderDate: "2026-03-21",
+    orderDate: "2026-05-15",
     status: "Cancelled",
     marketplace: "Amazon",
+    expectedDeliveryDate: "2026-05-16",
+    deliveryType: "NDD",
     buyerContact: "+91 98765 43221",
   },
 ];
@@ -382,6 +440,77 @@ export function subscribeToOrders(cb: () => void): () => void {
   return () => {
     _listeners.delete(cb);
   };
+}
+
+// ---- Delivery-bucket helpers ----
+//
+// "Today" is what the user is looking at right now. Hard-coding a
+// demo-day baseline keeps the seed data and the bucketing logic in
+// sync across screens — there's no live clock to chase. Override via
+// `OVERRIDE_TODAY` if you ever need a different anchor for QA.
+
+const DEMO_TODAY = "2026-05-20";
+
+/** Resolve "today" for the orders module. */
+export function getOrdersToday(): string {
+  return DEMO_TODAY;
+}
+
+/** Add `n` days to a YYYY-MM-DD string. Returns YYYY-MM-DD. Parses
+ *  and serialises in UTC so the result doesn't drift across the
+ *  client's timezone boundary. */
+function addDays(iso: string, n: number): string {
+  const t = Date.parse(iso + "T00:00:00Z");
+  if (Number.isNaN(t)) return iso;
+  return new Date(t + n * 86400000).toISOString().slice(0, 10);
+}
+
+export type DeliveryBucket = "past" | "today" | "tomorrow" | "beyond";
+
+/**
+ * Classify an order's expected delivery date relative to today.
+ * - past     — already overdue (operationally needs cleanup)
+ * - today    — must dispatch / deliver today
+ * - tomorrow — primary "Tomorrow Deliveries" bucket
+ * - beyond   — anything dated after tomorrow
+ */
+export function getDeliveryBucket(order: Order): DeliveryBucket {
+  const today = getOrdersToday();
+  const tomorrow = addDays(today, 1);
+  if (order.expectedDeliveryDate < today) return "past";
+  if (order.expectedDeliveryDate === today) return "today";
+  if (order.expectedDeliveryDate === tomorrow) return "tomorrow";
+  return "beyond";
+}
+
+/** Day-of-week label for a YYYY-MM-DD date. Used by the
+ *  "Friday Delivery" / "Monday Delivery" callouts on the row. */
+export function dayOfWeekLabel(iso: string): string {
+  const t = Date.parse(iso + "T00:00:00Z");
+  if (Number.isNaN(t)) return iso;
+  // Render in UTC so the weekday matches the date string regardless
+  // of the user's local timezone.
+  return new Date(t).toLocaleDateString("en-US", {
+    weekday: "long",
+    timeZone: "UTC",
+  });
+}
+
+/**
+ * Human-friendly compound label combining the bucket + the delivery
+ * type. Mirrors the spec's examples — "Tomorrow – Sales Beat",
+ * "Friday Delivery", "NDD Requested".
+ */
+export function deliveryLabelFor(order: Order): string {
+  const bucket = getDeliveryBucket(order);
+  if (order.deliveryType === "NDD") return "NDD Requested";
+  if (bucket === "tomorrow") {
+    return `Tomorrow – ${order.deliveryType}`;
+  }
+  if (bucket === "today") return `Today – ${order.deliveryType}`;
+  if (bucket === "past") return `Overdue – ${order.deliveryType}`;
+  // Beyond: surface the weekday so distributors can scan workload.
+  return `${dayOfWeekLabel(order.expectedDeliveryDate)} Delivery`;
 }
 
 // ---- Synthesizer for the detail page ----
