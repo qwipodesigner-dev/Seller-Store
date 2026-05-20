@@ -131,9 +131,9 @@ export function Orders() {
     { label: "Cancelled", value: "Cancelled" },
   ];
   const deliveryTypeOptions: { label: string; value: DeliveryType }[] = [
-    { label: "Sales Beat", value: "Sales Beat" },
-    { label: "Non-Sales Beat", value: "Non-Sales Beat" },
-    { label: "NDD (Next Day Delivery)", value: "NDD" },
+    { label: "SalesBeat Order", value: "Sales Beat" },
+    { label: "Non-SalesBeat Order", value: "Non-Sales Beat" },
+    { label: "NDD Requested", value: "NDD" },
   ];
   const deliveryBucketOptions: { label: string; value: DeliveryBucket }[] = [
     { label: "Today", value: "today" },
@@ -264,13 +264,17 @@ export function Orders() {
           order.expectedDeliveryDate <= deliveryEndDate;
       }
 
-      // Confirmed sub-tab — only applies when viewing the Confirmed tab.
+      // Confirmed sub-tab — Tomorrow: SalesBeat + NDD due tomorrow only.
+      // Beyond: Non-SalesBeat orders due after tomorrow only.
       let matchesConfirmedSub = true;
       if (tab === "confirmed" && confirmedDeliveryTab !== "all") {
         if (confirmedDeliveryTab === "tomorrow") {
-          matchesConfirmedSub = bucket === "tomorrow";
+          matchesConfirmedSub =
+            bucket === "tomorrow" &&
+            (order.deliveryType === "Sales Beat" || order.deliveryType === "NDD");
         } else if (confirmedDeliveryTab === "beyond") {
-          matchesConfirmedSub = bucket === "beyond";
+          matchesConfirmedSub =
+            bucket === "beyond" && order.deliveryType === "Non-Sales Beat";
         }
       }
 
@@ -338,10 +342,16 @@ export function Orders() {
     });
     return {
       all: baseConfirmed.length,
-      tomorrow: baseConfirmed.filter((o) => getDeliveryBucket(o) === "tomorrow")
-        .length,
-      beyond: baseConfirmed.filter((o) => getDeliveryBucket(o) === "beyond")
-        .length,
+      tomorrow: baseConfirmed.filter(
+        (o) =>
+          getDeliveryBucket(o) === "tomorrow" &&
+          (o.deliveryType === "Sales Beat" || o.deliveryType === "NDD"),
+      ).length,
+      beyond: baseConfirmed.filter(
+        (o) =>
+          getDeliveryBucket(o) === "beyond" &&
+          o.deliveryType === "Non-Sales Beat",
+      ).length,
     };
   }, [
     orders,
@@ -715,14 +725,14 @@ export function Orders() {
         return (
           <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
             <Route className="h-3 w-3" />
-            Sales Beat Order
+            SalesBeat Order
           </Badge>
         );
       case "Non-Sales Beat":
         return (
           <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
             <MapPin className="h-3 w-3" />
-            Non-Sales Beat
+            Non-SalesBeat Order
           </Badge>
         );
       default:
