@@ -15,24 +15,30 @@ import {
   Camera,
   CheckCircle2,
   ChevronRight,
-  Eye,
   Image as ImageIcon,
   Info,
   Loader2,
+  Package,
   RotateCcw,
   Save,
   ScanBarcode,
+  Scale,
   Search,
   ShieldCheck,
   Sparkles,
+  Tags,
   Trash2,
   TriangleAlert,
   Upload,
   Wand2,
-  X,
 } from "lucide-react";
 
-import { Card } from "../../../components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "../../../components/ui/card";
 import { Button } from "../../../components/ui/button";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -337,70 +343,60 @@ export function AiCreateSku() {
   // ---------------------------------------------------------------------------
 
   return (
-    <div className="min-h-full bg-gray-50">
-      {/* Header */}
-      <div className="bg-white border-b border-gray-200">
-        <div className="px-6 py-4">
-          <div className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link to="/products/my-sku" className="hover:text-gray-900">
-              SKU Master
-            </Link>
-            <ChevronRight className="h-3 w-3" />
-            <span className="text-gray-700">Create SKU with AI</span>
-          </div>
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-gradient-to-br from-violet-500 to-blue-600 text-white flex items-center justify-center">
-                <Sparkles className="h-5 w-5" />
+    <div className="p-6 bg-gray-50 min-h-full">
+      <div className="max-w-5xl mx-auto space-y-6">
+        {/* Header — matches the canonical Add-SKU sub-page chrome:
+            Back link, h1, single-line subtitle. Mode badge + Start Over
+            sit on the right of the title row instead of duplicating
+            chrome with extra back buttons. */}
+        <div>
+          <Link
+            to="/products/add-sku"
+            className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Add SKU
+          </Link>
+          <div className="flex items-start justify-between gap-3 flex-wrap">
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
+                  <Sparkles className="h-6 w-6 text-blue-600" />
+                  Create SKU with AI
+                </h1>
+                {realAi ? (
+                  <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
+                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    Live — Claude Opus 4.7
+                  </Badge>
+                ) : (
+                  <Badge className="bg-amber-50 text-amber-700 border-amber-200">
+                    Demo mode — mock data
+                  </Badge>
+                )}
               </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h1 className="text-xl font-semibold text-gray-900">
-                    Create SKU with AI
-                  </h1>
-                  {realAi ? (
-                    <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200 text-[10px] gap-1">
-                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      LIVE — Claude Opus 4.7
-                    </Badge>
-                  ) : (
-                    <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[10px]">
-                      DEMO MODE — mock data
-                    </Badge>
-                  )}
-                </div>
-                <p className="text-sm text-gray-600">
-                  {realAi
-                    ? "Upload product images — Claude Vision identifies the SKU and pre-fills the catalog."
-                    : "Live AI is off. Set VITE_ANTHROPIC_API_KEY in .env.local to enable real product identification."}
-                </p>
-              </div>
+              <p className="text-gray-600 mt-1">
+                {realAi
+                  ? "Upload product images — Claude Vision identifies the SKU and pre-fills the catalog."
+                  : "Live AI is off. Set VITE_ANTHROPIC_API_KEY in .env.local to enable real product identification."}
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              {step !== "upload" && (
-                <Button variant="outline" size="sm" onClick={resetAll} className="gap-2">
-                  <RotateCcw className="h-4 w-4" />
-                  Start Over
-                </Button>
-              )}
+            {step !== "upload" && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate("/products/my-sku")}
+                onClick={resetAll}
                 className="gap-2"
               >
-                <ArrowLeft className="h-4 w-4" />
-                Back to SKU Master
+                <RotateCcw className="h-4 w-4" />
+                Start Over
               </Button>
-            </div>
+            )}
           </div>
-
           <Stepper current={step} />
         </div>
-      </div>
 
-      {/* Body */}
-      <div className="p-6 max-w-6xl mx-auto">
+        {/* Body */}
         {step === "upload" && (
           <UploadStep
             images={images}
@@ -472,15 +468,15 @@ function Stepper({ current }: { current: Step }) {
           <div key={s} className="flex items-center gap-2">
             <div
               className={cn(
-                "flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium border",
+                "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium border",
                 done && "bg-emerald-50 text-emerald-700 border-emerald-200",
                 active && "bg-blue-50 text-blue-700 border-blue-200",
-                !done && !active && "bg-gray-50 text-gray-500 border-gray-200",
+                !done && !active && "bg-white text-gray-500 border-gray-200",
               )}
             >
               <span
                 className={cn(
-                  "h-5 w-5 rounded-full flex items-center justify-center text-[10px]",
+                  "h-5 w-5 rounded-full flex items-center justify-center text-xs",
                   done && "bg-emerald-600 text-white",
                   active && "bg-blue-600 text-white",
                   !done && !active && "bg-gray-200 text-gray-600",
@@ -522,183 +518,195 @@ function UploadStep(props: UploadStepProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Drop zone */}
-      <Card className="lg:col-span-2 p-6">
-        <h2 className="text-base font-semibold text-gray-900 mb-1">
-          Upload product images
-        </h2>
-        <p className="text-sm text-gray-600 mb-4">
-          1 to {MAX_IMAGES} images. JPG, PNG, or WEBP, up to 8 MB each. The clearer the
-          label, the better the AI match.
-        </p>
-
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={onDrop}
-          className={cn(
-            "relative rounded-lg border-2 border-dashed transition-colors p-8",
-            dragOver
-              ? "border-blue-500 bg-blue-50"
-              : "border-gray-300 bg-gray-50/40 hover:border-blue-400",
-          )}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={ACCEPTED.join(",")}
-            multiple
-            className="hidden"
-            onChange={onPick}
-          />
-          <div className="flex flex-col items-center text-center">
-            <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
-              <Upload className="h-6 w-6" />
-            </div>
-            <p className="text-sm font-medium text-gray-900">
-              Drag & drop product images here
-            </p>
-            <p className="text-xs text-gray-500 mt-1">
-              or use the buttons below — minimum 1, maximum {MAX_IMAGES} images
-            </p>
-            <div className="flex gap-2 mt-4">
-              <Button
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-                className="gap-2"
-              >
-                <ImageIcon className="h-4 w-4" />
-                Choose files
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  const el = document.createElement("input");
-                  el.type = "file";
-                  el.accept = "image/*";
-                  // @ts-expect-error — non-standard hint for mobile camera.
-                  el.capture = "environment";
-                  el.onchange = () => {
-                    if (el.files) {
-                      const list = el.files;
-                      const evt = { target: { files: list, value: "" } } as unknown as ChangeEvent<HTMLInputElement>;
-                      onPick(evt);
-                    }
-                  };
-                  el.click();
-                }}
-                className="gap-2"
-              >
-                <Camera className="h-4 w-4" />
-                Use camera
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Image previews */}
-        {images.length > 0 && (
-          <div className="mt-6">
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-xs font-medium text-gray-700">
-                {images.length} of {MAX_IMAGES} images added
-              </p>
-              {images.length < MAX_IMAGES && (
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="text-xs text-blue-600 hover:underline"
-                >
-                  + Add another
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {images.map((img) => (
-                <div
-                  key={img.id}
-                  className="relative group rounded-lg border border-gray-200 overflow-hidden bg-white"
-                >
-                  <div className="aspect-square bg-gray-100 overflow-hidden">
-                    <img
-                      src={img.url}
-                      alt={img.label}
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div className="p-2">
-                    <p className="text-[11px] font-medium text-gray-700 truncate">
-                      {img.label}
-                    </p>
-                    <p className="text-[10px] text-gray-500 truncate">{img.file.name}</p>
-                  </div>
-                  <button
-                    onClick={() => removeImage(img.id)}
-                    className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-white/90 hover:bg-white shadow border border-gray-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="Remove image"
-                  >
-                    <Trash2 className="h-3.5 w-3.5 text-red-600" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        <div className="flex justify-end mt-6">
-          <Button
-            onClick={onContinue}
-            disabled={images.length === 0}
-            className="gap-2"
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ImageIcon className="h-5 w-5 text-blue-600" />
+            Upload product images
+          </CardTitle>
+          <p className="text-sm text-gray-600 pt-1">
+            1 to {MAX_IMAGES} images. JPG, PNG, or WEBP, up to 8 MB each. The
+            clearer the label, the better the AI match.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragOver(true);
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            className={cn(
+              "relative rounded-lg border-2 border-dashed transition-colors p-8",
+              dragOver
+                ? "border-blue-500 bg-blue-50"
+                : "border-gray-300 bg-gray-50/40 hover:border-blue-400",
+            )}
           >
-            <Wand2 className="h-4 w-4" />
-            Identify with AI
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={ACCEPTED.join(",")}
+              multiple
+              className="hidden"
+              onChange={onPick}
+            />
+            <div className="flex flex-col items-center text-center">
+              <div className="h-12 w-12 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center mb-3">
+                <Upload className="h-6 w-6" />
+              </div>
+              <p className="text-sm font-medium text-gray-900">
+                Drag &amp; drop product images here
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                or use the buttons below — minimum 1, maximum {MAX_IMAGES} images
+              </p>
+              <div className="flex gap-2 mt-4">
+                <Button
+                  size="sm"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="gap-2"
+                >
+                  <ImageIcon className="h-4 w-4" />
+                  Choose files
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    const el = document.createElement("input");
+                    el.type = "file";
+                    el.accept = "image/*";
+                    // @ts-expect-error — non-standard hint for mobile camera.
+                    el.capture = "environment";
+                    el.onchange = () => {
+                      if (el.files) {
+                        const list = el.files;
+                        const evt = {
+                          target: { files: list, value: "" },
+                        } as unknown as ChangeEvent<HTMLInputElement>;
+                        onPick(evt);
+                      }
+                    };
+                    el.click();
+                  }}
+                  className="gap-2"
+                >
+                  <Camera className="h-4 w-4" />
+                  Use camera
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Image previews */}
+          {images.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-gray-700">
+                  {images.length} of {MAX_IMAGES} images added
+                </p>
+                {images.length < MAX_IMAGES && (
+                  <button
+                    onClick={() => fileInputRef.current?.click()}
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    + Add another
+                  </button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {images.map((img) => (
+                  <div
+                    key={img.id}
+                    className="relative group rounded-lg border border-gray-200 overflow-hidden bg-white"
+                  >
+                    <div className="aspect-square bg-gray-100 overflow-hidden">
+                      <img
+                        src={img.url}
+                        alt={img.label}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div className="p-2">
+                      <p className="text-xs font-medium text-gray-700 truncate">
+                        {img.label}
+                      </p>
+                      <p className="text-[11px] text-gray-500 truncate">
+                        {img.file.name}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => removeImage(img.id)}
+                      className="absolute top-1.5 right-1.5 h-6 w-6 rounded-full bg-white/90 hover:bg-white shadow border border-gray-200 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Remove image"
+                    >
+                      <Trash2 className="h-3.5 w-3.5 text-red-600" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex justify-end pt-2">
+            <Button
+              onClick={onContinue}
+              disabled={images.length === 0}
+              className="gap-2"
+            >
+              <Wand2 className="h-4 w-4" />
+              Identify with AI
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
       </Card>
 
       {/* Tips */}
-      <Card className="p-6 bg-gradient-to-b from-blue-50 to-white border-blue-100">
-        <div className="flex items-center gap-2 mb-3">
-          <Info className="h-4 w-4 text-blue-600" />
-          <h3 className="text-sm font-semibold text-gray-900">Recommended images</h3>
-        </div>
-        <ul className="space-y-2 text-xs text-gray-700">
-          {RECOMMENDED_LABELS.map((label) => (
-            <li key={label} className="flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-              {label}
-            </li>
-          ))}
-        </ul>
-        <div className="mt-4 pt-4 border-t border-blue-100">
-          <p className="text-xs font-semibold text-gray-900 mb-2">
-            The AI looks for
-          </p>
-          <ul className="space-y-1.5 text-xs text-gray-600">
-            <li className="flex items-start gap-2">
-              <ScanBarcode className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
-              Barcode (EAN-13 / UPC-A)
-            </li>
-            <li className="flex items-start gap-2">
-              <Search className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
-              OCR text — pack size, ingredients, MRP
-            </li>
-            <li className="flex items-start gap-2">
-              <ShieldCheck className="h-3.5 w-3.5 text-gray-400 mt-0.5" />
-              Brand logo + label colour
-            </li>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Info className="h-5 w-5 text-blue-600" />
+            Recommended images
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <ul className="space-y-2 text-sm text-gray-700">
+            {RECOMMENDED_LABELS.map((label) => (
+              <li key={label} className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
+                {label}
+              </li>
+            ))}
           </ul>
-        </div>
-        <div className="mt-4 pt-4 border-t border-blue-100">
-          <p className="text-[11px] text-gray-500">
+
+          <div className="pt-4 border-t border-gray-200">
+            <p className="text-sm font-semibold text-gray-900 mb-2">
+              The AI looks for
+            </p>
+            <ul className="space-y-2 text-sm text-gray-600">
+              <li className="flex items-start gap-2">
+                <ScanBarcode className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                Barcode (EAN-13 / UPC-A)
+              </li>
+              <li className="flex items-start gap-2">
+                <Search className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                OCR text — pack size, ingredients, MRP
+              </li>
+              <li className="flex items-start gap-2">
+                <ShieldCheck className="h-4 w-4 text-gray-400 mt-0.5 flex-shrink-0" />
+                Brand logo + label colour
+              </li>
+            </ul>
+          </div>
+
+          <p className="text-xs text-gray-500 pt-4 border-t border-gray-200">
             Powered by OCR + vision search across Amazon, Flipkart, JioMart,
             BigBasket, Blinkit, and brand catalogs.
           </p>
-        </div>
+        </CardContent>
       </Card>
     </div>
   );
@@ -733,91 +741,104 @@ function ProcessingStep({
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      <Card className="lg:col-span-2 p-6">
-        <div className="flex items-center gap-2 mb-1">
-          <Loader2 className="h-4 w-4 text-blue-600 animate-spin" />
-          <h2 className="text-base font-semibold text-gray-900">
+      <Card className="lg:col-span-2">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Loader2 className="h-5 w-5 text-blue-600 animate-spin" />
             AI is identifying the product
-          </h2>
-        </div>
-        <p className="text-sm text-gray-600 mb-4">
-          Running OCR, barcode detection, and cross-checking marketplaces. This usually
-          takes a few seconds.
-        </p>
+          </CardTitle>
+          <p className="text-sm text-gray-600 pt-1">
+            Running OCR, barcode detection, and cross-checking marketplaces.
+            This usually takes a few seconds.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Progress value={progress} className="h-2" />
 
-        <Progress value={progress} className="h-2 mb-4" />
-
-        <div
-          ref={logRef}
-          className="rounded-lg bg-gray-900 text-gray-100 font-mono text-xs p-4 h-64 overflow-y-auto"
-        >
-          {logLines.map((line, i) => (
-            <div key={i} className="whitespace-pre-wrap">
-              <span className="text-gray-500">[{(i + 1).toString().padStart(2, "0")}]</span>{" "}
-              {line}
-            </div>
-          ))}
-          {logLines.length === 0 && (
-            <div className="text-gray-500">Initialising…</div>
-          )}
-        </div>
-
-        <div className="mt-4">
-          <p className="text-xs font-medium text-gray-700 mb-2">Sources queried</p>
-          <div className="flex flex-wrap gap-1.5">
-            {queriedSources.length === 0 ? (
-              <span className="text-xs text-gray-500">Waiting on OCR…</span>
-            ) : (
-              queriedSources.map((s) => (
-                <Badge
-                  key={s}
-                  variant="secondary"
-                  className="bg-blue-50 text-blue-700 border-blue-200 text-[11px]"
-                >
-                  {s}
-                </Badge>
-              ))
+          <div
+            ref={logRef}
+            className="rounded-lg bg-gray-900 text-gray-100 font-mono text-xs p-4 h-64 overflow-y-auto"
+          >
+            {logLines.map((line, i) => (
+              <div key={i} className="whitespace-pre-wrap">
+                <span className="text-gray-500">
+                  [{(i + 1).toString().padStart(2, "0")}]
+                </span>{" "}
+                {line}
+              </div>
+            ))}
+            {logLines.length === 0 && (
+              <div className="text-gray-500">Initialising…</div>
             )}
           </div>
-        </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-gray-700">Sources queried</p>
+            <div className="flex flex-wrap gap-1.5">
+              {queriedSources.length === 0 ? (
+                <span className="text-sm text-gray-500">Waiting on OCR…</span>
+              ) : (
+                queriedSources.map((s) => (
+                  <Badge
+                    key={s}
+                    className="bg-blue-50 text-blue-700 border-blue-200"
+                  >
+                    {s}
+                  </Badge>
+                ))
+              )}
+            </div>
+          </div>
+        </CardContent>
       </Card>
 
-      <Card className="p-6">
-        <h3 className="text-sm font-semibold text-gray-900 mb-3">Per-image extraction</h3>
-        <div className="space-y-3">
-          {images.map((img, idx) => {
-            const result = perImageResults[idx];
-            return (
-              <div
-                key={img.id}
-                className="flex gap-3 p-2 rounded-lg border border-gray-200 bg-white"
-              >
-                <div className="w-14 h-14 rounded overflow-hidden bg-gray-100 shrink-0">
-                  <img src={img.url} alt="" className="w-full h-full object-cover" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-xs font-medium text-gray-800 truncate">
-                    {img.label}
-                  </p>
-                  {result ? (
-                    <>
-                      <p className="text-[11px] text-gray-600 mt-0.5 truncate">
-                        Brand: {result.brandDetected ?? "—"}
-                      </p>
-                      <p className="text-[11px] text-gray-600 truncate">
-                        Barcode: {result.barcodeDetected ?? "not found"}
-                      </p>
-                    </>
-                  ) : (
-                    <p className="text-[11px] text-gray-400 italic mt-0.5">
-                      processing…
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Search className="h-5 w-5 text-blue-600" />
+            Per-image extraction
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {images.map((img, idx) => {
+              const result = perImageResults[idx];
+              return (
+                <div
+                  key={img.id}
+                  className="flex gap-3 p-2 rounded-lg border border-gray-200 bg-white"
+                >
+                  <div className="w-14 h-14 rounded overflow-hidden bg-gray-100 shrink-0">
+                    <img
+                      src={img.url}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {img.label}
                     </p>
-                  )}
+                    {result ? (
+                      <>
+                        <p className="text-xs text-gray-600 mt-0.5 truncate">
+                          Brand: {result.brandDetected ?? "—"}
+                        </p>
+                        <p className="text-xs text-gray-600 truncate">
+                          Barcode: {result.barcodeDetected ?? "not found"}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic mt-0.5">
+                        processing…
+                      </p>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        </CardContent>
       </Card>
     </div>
   );
@@ -837,47 +858,52 @@ interface MatchesStepProps {
 function MatchesStep({ response, onSelect, onManualFallback, onRetry }: MatchesStepProps) {
   if (response.noConfidentMatch) {
     return (
-      <Card className="p-8 text-center">
-        <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
-          <TriangleAlert className="h-6 w-6" />
-        </div>
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">
-          No confident match found
-        </h2>
-        <p className="text-sm text-gray-600 mb-4 max-w-md mx-auto">
-          We extracted what we could from the labels but couldn't pin this to a known
-          product. Please complete the SKU manually — your OCR text is pre-filled.
-        </p>
-        <div className="flex justify-center gap-2">
-          <Button variant="outline" onClick={onRetry} className="gap-2">
-            <RotateCcw className="h-4 w-4" />
-            Retry Search
-          </Button>
-          <Button onClick={onManualFallback} className="gap-2">
-            Continue manually
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </div>
+      <Card>
+        <CardContent className="p-8 text-center">
+          <div className="h-12 w-12 rounded-full bg-amber-100 text-amber-600 flex items-center justify-center mx-auto mb-4">
+            <TriangleAlert className="h-6 w-6" />
+          </div>
+          <h2 className="text-lg font-semibold text-gray-900 mb-1">
+            No confident match found
+          </h2>
+          <p className="text-sm text-gray-600 mb-4 max-w-md mx-auto">
+            We extracted what we could from the labels but couldn't pin this
+            to a known product. Please complete the SKU manually — your OCR
+            text is pre-filled.
+          </p>
+          <div className="flex justify-center gap-2">
+            <Button variant="outline" onClick={onRetry} className="gap-2">
+              <RotateCcw className="h-4 w-4" />
+              Retry Search
+            </Button>
+            <Button onClick={onManualFallback} className="gap-2">
+              Continue manually
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
       </Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      <Card className="p-4 bg-emerald-50/40 border-emerald-200">
-        <div className="flex items-start gap-3">
-          <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
-          <div>
-            <p className="text-sm font-medium text-emerald-900">
-              {response.matches.length} candidate match
-              {response.matches.length === 1 ? "" : "es"} found
-            </p>
-            <p className="text-xs text-emerald-700 mt-0.5">
-              Searched {response.searchedSources.length} sources. Pick the best match —
-              you can edit any field on the next screen.
-            </p>
+      <Card className="bg-emerald-50/40 border-emerald-200">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5 flex-shrink-0" />
+            <div>
+              <p className="text-sm font-medium text-emerald-900">
+                {response.matches.length} candidate match
+                {response.matches.length === 1 ? "" : "es"} found
+              </p>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                Searched {response.searchedSources.length} sources. Pick the
+                best match — you can edit any field on the next screen.
+              </p>
+            </div>
           </div>
-        </div>
+        </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -896,7 +922,11 @@ function MatchesStep({ response, onSelect, onManualFallback, onRetry }: MatchesS
           <RotateCcw className="h-4 w-4" />
           Retry Search
         </Button>
-        <Button variant="ghost" onClick={onManualFallback} className="gap-2 text-gray-600">
+        <Button
+          variant="ghost"
+          onClick={onManualFallback}
+          className="gap-2 text-gray-600"
+        >
           None of these — start manually
         </Button>
       </div>
@@ -916,54 +946,61 @@ function MatchCard({
   return (
     <Card
       className={cn(
-        "p-4 cursor-pointer transition-shadow hover:shadow-md",
+        "cursor-pointer transition-shadow hover:shadow-md",
         primary && "ring-2 ring-blue-500 ring-offset-1",
       )}
       onClick={onSelect}
     >
-      <div className="flex gap-3">
-        <AiThumbnail seed={match.thumbnailSeed} size="lg" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-semibold text-gray-900 truncate">
-                {match.productName.value.toLowerCase().startsWith(match.brandName.value.toLowerCase())
-                  ? match.productName.value
-                  : `${match.brandName.value} — ${match.productName.value}`}
-              </p>
-              <p className="text-xs text-gray-600 mt-0.5">
-                {match.packSize.value} {match.uom.value} · {match.category.value}
-              </p>
+      <CardContent className="p-4">
+        <div className="flex gap-3">
+          <AiThumbnail seed={match.thumbnailSeed} size="lg" />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {match.productName.value
+                    .toLowerCase()
+                    .startsWith(match.brandName.value.toLowerCase())
+                    ? match.productName.value
+                    : `${match.brandName.value} — ${match.productName.value}`}
+                </p>
+                <p className="text-xs text-gray-600 mt-0.5">
+                  {match.packSize.value} {match.uom.value} ·{" "}
+                  {match.category.value}
+                </p>
+              </div>
+              <TierBadge tier={match.tier} score={match.overallConfidence} />
             </div>
-            <TierBadge tier={match.tier} score={match.overallConfidence} />
-          </div>
 
-          <p className="text-[11px] text-gray-500 mt-2 line-clamp-2">
-            {match.matchReason}
-          </p>
+            <p className="text-xs text-gray-500 mt-2 line-clamp-2">
+              {match.matchReason}
+            </p>
 
-          <div className="flex flex-wrap gap-1 mt-2">
-            {match.sources.slice(0, 4).map((s) => (
-              <span
-                key={s}
-                className="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-600 border border-gray-200"
-              >
-                {s}
-              </span>
-            ))}
-          </div>
-
-          <div className="mt-3 flex items-center justify-between">
-            <div className="text-[11px] text-gray-500">
-              MRP ₹{match.mrp.value} · HSN {match.hsnCode.value} · GST {match.gstPercent.value}%
+            <div className="flex flex-wrap gap-1 mt-2">
+              {match.sources.slice(0, 4).map((s) => (
+                <Badge
+                  key={s}
+                  variant="secondary"
+                  className="bg-gray-100 text-gray-600 border-gray-200"
+                >
+                  {s}
+                </Badge>
+              ))}
             </div>
-            <Button size="sm" onClick={onSelect} className="gap-1">
-              Use this
-              <ArrowRight className="h-3.5 w-3.5" />
-            </Button>
+
+            <div className="mt-3 flex items-center justify-between gap-2">
+              <div className="text-xs text-gray-500">
+                MRP ₹{match.mrp.value} · HSN {match.hsnCode.value} · GST{" "}
+                {match.gstPercent.value}%
+              </div>
+              <Button size="sm" onClick={onSelect} className="gap-1">
+                Use this
+                <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }
@@ -1061,37 +1098,46 @@ function PreviewStep(props: PreviewStepProps) {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Main form */}
-      <div className="lg:col-span-2 space-y-4">
+      <div className="lg:col-span-2 space-y-6">
         {manualFallback && (
-          <Card className="p-3 bg-amber-50/60 border-amber-200">
-            <div className="flex items-start gap-2">
-              <TriangleAlert className="h-4 w-4 text-amber-600 mt-0.5" />
-              <p className="text-xs text-amber-900">
-                No confident match. We've pre-filled what we could extract from the
-                labels — please complete the rest manually.
-              </p>
-            </div>
+          <Card className="bg-amber-50/60 border-amber-200">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <TriangleAlert className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-amber-900">
+                  No confident match. We've pre-filled what we could extract
+                  from the labels — please complete the rest manually.
+                </p>
+              </div>
+            </CardContent>
           </Card>
         )}
         {match && (
-          <Card className="p-3 bg-blue-50/60 border-blue-200">
-            <div className="flex items-start gap-2">
-              <Sparkles className="h-4 w-4 text-blue-600 mt-0.5" />
-              <p className="text-xs text-blue-900">
-                Pre-filled from{" "}
-                <strong>
-                  {match.productName.value.toLowerCase().startsWith(match.brandName.value.toLowerCase())
-                    ? match.productName.value
-                    : `${match.brandName.value} ${match.productName.value}`}
-                </strong>{" "}
-                ({match.overallConfidence}% match). Edit any field — your edits override
-                the AI suggestion.
-              </p>
-            </div>
+          <Card className="bg-blue-50/60 border-blue-200">
+            <CardContent className="p-3">
+              <div className="flex items-start gap-2">
+                <Sparkles className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-sm text-blue-900">
+                  Pre-filled from{" "}
+                  <strong>
+                    {match.productName.value
+                      .toLowerCase()
+                      .startsWith(match.brandName.value.toLowerCase())
+                      ? match.productName.value
+                      : `${match.brandName.value} ${match.productName.value}`}
+                  </strong>{" "}
+                  ({match.overallConfidence}% match). Edit any field — your
+                  edits override the AI suggestion.
+                </p>
+              </div>
+            </CardContent>
           </Card>
         )}
 
-        <FormSection title="Identity">
+        <FormSection
+          title="Identity"
+          icon={<Package className="h-5 w-5 text-blue-600" />}
+        >
           <FieldRow
             label="Brand Name"
             required
@@ -1140,7 +1186,10 @@ function PreviewStep(props: PreviewStepProps) {
           </FieldRow>
         </FormSection>
 
-        <FormSection title="Taxonomy">
+        <FormSection
+          title="Taxonomy"
+          icon={<Tags className="h-5 w-5 text-emerald-600" />}
+        >
           <FieldRow
             label="Category"
             required
@@ -1209,7 +1258,10 @@ function PreviewStep(props: PreviewStepProps) {
           </FieldRow>
         </FormSection>
 
-        <FormSection title="Description">
+        <FormSection
+          title="Description"
+          icon={<Info className="h-5 w-5 text-purple-600" />}
+        >
           <FieldRow
             label="Product Description"
             confidence={fieldConfidence("description", match)}
@@ -1240,19 +1292,21 @@ function PreviewStep(props: PreviewStepProps) {
           {match?.nutrition && (
             <div className="rounded-md border border-gray-200 bg-gray-50/60 p-3">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-medium text-gray-700">
+                <p className="text-sm font-medium text-gray-700">
                   Nutrition (per 100 g/ml) — from AI
                 </p>
                 <ConfidenceDot level={match.nutrition.confidence} />
               </div>
-              <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="grid grid-cols-2 gap-2 text-sm">
                 {match.nutrition.value.map((row: NutritionRow) => (
                   <div
                     key={row.label}
                     className="flex justify-between px-2 py-1 bg-white rounded border border-gray-200"
                   >
                     <span className="text-gray-600">{row.label}</span>
-                    <span className="font-medium text-gray-900">{row.value}</span>
+                    <span className="font-medium text-gray-900">
+                      {row.value}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -1260,7 +1314,10 @@ function PreviewStep(props: PreviewStepProps) {
           )}
         </FormSection>
 
-        <FormSection title="Pack & Measurements">
+        <FormSection
+          title="Pack & Measurements"
+          icon={<Scale className="h-5 w-5 text-amber-600" />}
+        >
           <div className="grid grid-cols-2 gap-3">
             <FieldRow
               label="Pack Size"
@@ -1350,7 +1407,10 @@ function PreviewStep(props: PreviewStepProps) {
           </div>
         </FormSection>
 
-        <FormSection title="Compliance & Pricing">
+        <FormSection
+          title="Compliance & Pricing"
+          icon={<ShieldCheck className="h-5 w-5 text-rose-600" />}
+        >
           <div className="grid grid-cols-2 gap-3">
             <FieldRow
               label="Barcode (EAN / UPC)"
@@ -1443,113 +1503,162 @@ function PreviewStep(props: PreviewStepProps) {
           </div>
         </FormSection>
 
-        {/* Actions */}
-        <div className="sticky bottom-0 -mx-6 px-6 py-3 bg-white border-t border-gray-200 flex items-center justify-between gap-2">
-          <Button variant="outline" onClick={onBack} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-          <div className="flex items-center gap-2">
-            {missingMandatory.length > 0 && (
-              <span className="text-xs text-amber-700 flex items-center gap-1">
-                <TriangleAlert className="h-3.5 w-3.5" />
-                {missingMandatory.length} mandatory field
-                {missingMandatory.length === 1 ? "" : "s"} missing
-              </span>
-            )}
-            <Button variant="outline" onClick={onSaveDraft} className="gap-2">
-              <Save className="h-4 w-4" />
-              Save Draft
+        {/* Action footer — full-width card at the bottom of the main
+            column, matching the manual SKU page's action pattern. */}
+        <Card>
+          <CardContent className="p-3 flex items-center justify-between gap-2 flex-wrap">
+            <Button variant="outline" onClick={onBack} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
             </Button>
-            <Button onClick={onCreate} className="gap-2">
-              <CheckCircle2 className="h-4 w-4" />
-              Create SKU
-            </Button>
-          </div>
-        </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {missingMandatory.length > 0 && (
+                <span className="text-sm text-amber-700 flex items-center gap-1">
+                  <TriangleAlert className="h-4 w-4" />
+                  {missingMandatory.length} mandatory field
+                  {missingMandatory.length === 1 ? "" : "s"} missing
+                </span>
+              )}
+              <Button
+                variant="outline"
+                onClick={onSaveDraft}
+                className="gap-2"
+              >
+                <Save className="h-4 w-4" />
+                Save Draft
+              </Button>
+              <Button onClick={onCreate} className="gap-2">
+                <CheckCircle2 className="h-4 w-4" />
+                Create SKU
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Side panel — images + summary */}
-      <div className="space-y-4">
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Uploaded images</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {uploadedImages.map((img) => (
-              <div key={img.id} className="aspect-square rounded overflow-hidden border border-gray-200 bg-gray-100">
-                <img src={img.url} alt="" className="w-full h-full object-cover" />
-              </div>
-            ))}
-          </div>
-        </Card>
-
-        {match && match.fetchedImages.length > 0 && (
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-1">
-              Suggested product images
-            </h3>
-            <p className="text-[11px] text-gray-500 mb-3">From the matched catalog</p>
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ImageIcon className="h-5 w-5 text-blue-600" />
+              Uploaded images
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
             <div className="grid grid-cols-2 gap-2">
-              {match.fetchedImages.map((m) => (
-                <div key={m.seed} className="aspect-square rounded overflow-hidden border border-gray-200">
-                  <AiThumbnail seed={m.seed} size="lg" label={m.label} />
+              {uploadedImages.map((img) => (
+                <div
+                  key={img.id}
+                  className="aspect-square rounded overflow-hidden border border-gray-200 bg-gray-100"
+                >
+                  <img
+                    src={img.url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               ))}
             </div>
+          </CardContent>
+        </Card>
+
+        {match && match.fetchedImages.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-blue-600" />
+                Suggested product images
+              </CardTitle>
+              <p className="text-xs text-gray-500 pt-1">
+                From the matched catalog
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 gap-2">
+                {match.fetchedImages.map((m) => (
+                  <div
+                    key={m.seed}
+                    className="aspect-square rounded overflow-hidden border border-gray-200"
+                  >
+                    <AiThumbnail seed={m.seed} size="lg" label={m.label} />
+                  </div>
+                ))}
+              </div>
+            </CardContent>
           </Card>
         )}
 
-        <Card className="p-4">
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">Confidence summary</h3>
-          {match ? (
-            <>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-xs text-gray-600">Overall</span>
-                <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                  {match.overallConfidence}%
-                </Badge>
-              </div>
-              <Progress value={match.overallConfidence} className="h-2 mb-3" />
-              <div className="space-y-1.5 text-xs">
-                <ConfidenceLegend />
-              </div>
-            </>
-          ) : (
-            <p className="text-xs text-gray-500">Manual entry — no AI confidence score.</p>
-          )}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 text-emerald-600" />
+              Confidence summary
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {match ? (
+              <>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-gray-600">Overall</span>
+                  <Badge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                    {match.overallConfidence}%
+                  </Badge>
+                </div>
+                <Progress value={match.overallConfidence} className="h-2 mb-3" />
+                <div className="space-y-2">
+                  <ConfidenceLegend />
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">
+                Manual entry — no AI confidence score.
+              </p>
+            )}
+          </CardContent>
         </Card>
 
         {match && (
-          <Card className="p-4">
-            <h3 className="text-sm font-semibold text-gray-900 mb-3">Audit trail</h3>
-            <ul className="text-xs text-gray-600 space-y-1.5">
-              <li>
-                <span className="text-gray-400">Source:</span> AI Generated
-              </li>
-              <li>
-                <span className="text-gray-400">Match score:</span>{" "}
-                {match.overallConfidence}%
-              </li>
-              <li>
-                <span className="text-gray-400">Images:</span>{" "}
-                {uploadedImages.length} uploaded
-              </li>
-              <li>
-                <span className="text-gray-400">Sources cross-checked:</span>{" "}
-                {match.sources.length}
-              </li>
-              <li>
-                <span className="text-gray-400">User edits:</span>{" "}
-                {editedFields.size > 0
-                  ? `${editedFields.size} field${editedFields.size === 1 ? "" : "s"}`
-                  : "none"}
-              </li>
-              {perImageResults.some((r) => r.barcodeDetected) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <ShieldCheck className="h-5 w-5 text-gray-600" />
+                Audit trail
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="text-sm text-gray-600 space-y-2">
                 <li>
-                  <span className="text-gray-400">Barcodes parsed:</span>{" "}
-                  {perImageResults.filter((r) => r.barcodeDetected).length}
+                  <span className="text-gray-400">Source:</span> AI Generated
                 </li>
-              )}
-            </ul>
+                <li>
+                  <span className="text-gray-400">Match score:</span>{" "}
+                  {match.overallConfidence}%
+                </li>
+                <li>
+                  <span className="text-gray-400">Images:</span>{" "}
+                  {uploadedImages.length} uploaded
+                </li>
+                <li>
+                  <span className="text-gray-400">Sources cross-checked:</span>{" "}
+                  {match.sources.length}
+                </li>
+                <li>
+                  <span className="text-gray-400">User edits:</span>{" "}
+                  {editedFields.size > 0
+                    ? `${editedFields.size} field${
+                        editedFields.size === 1 ? "" : "s"
+                      }`
+                    : "none"}
+                </li>
+                {perImageResults.some((r) => r.barcodeDetected) && (
+                  <li>
+                    <span className="text-gray-400">Barcodes parsed:</span>{" "}
+                    {perImageResults.filter((r) => r.barcodeDetected).length}
+                  </li>
+                )}
+              </ul>
+            </CardContent>
           </Card>
         )}
       </div>
@@ -1561,11 +1670,24 @@ function PreviewStep(props: PreviewStepProps) {
 // Form helpers
 // ---------------------------------------------------------------------------
 
-function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
+function FormSection({
+  title,
+  icon,
+  children,
+}: {
+  title: string;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <Card className="p-4">
-      <h3 className="text-sm font-semibold text-gray-900 mb-3">{title}</h3>
-      <div className="space-y-3">{children}</div>
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">{children}</CardContent>
     </Card>
   );
 }
@@ -1576,6 +1698,9 @@ interface FieldRowProps {
   confidence?: ConfidenceLevel | null;
   edited?: boolean;
   missing?: boolean;
+  /** When true the row keeps its column layout (useful for textareas
+   *  that need the full row width). Currently always stacks — kept as a
+   *  prop for backward compatibility. */
   stack?: boolean;
   children: React.ReactNode;
 }
@@ -1586,29 +1711,28 @@ function FieldRow({
   confidence,
   edited,
   missing,
-  stack,
   children,
 }: FieldRowProps) {
   return (
-    <div className={cn(stack ? "space-y-1.5" : "space-y-1")}>
-      <div className="flex items-center justify-between">
-        <Label className="text-xs font-medium text-gray-700">
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <Label className="flex items-center gap-1">
           {label}
-          {required && <span className="text-red-500 ml-0.5">*</span>}
+          {required && <span className="text-red-500">*</span>}
         </Label>
         <div className="flex items-center gap-1.5">
           {edited && (
             <Badge
               variant="secondary"
-              className="bg-gray-100 text-gray-600 border-gray-200 text-[9px] px-1.5 py-0"
+              className="bg-gray-100 text-gray-600 border-gray-200"
             >
               edited
             </Badge>
           )}
           {confidence && <ConfidenceDot level={confidence} />}
           {missing && (
-            <Badge className="bg-red-100 text-red-700 border-red-200 text-[9px] px-1.5 py-0">
-              Needs User Input
+            <Badge className="bg-red-50 text-red-700 border-red-200">
+              Needs input
             </Badge>
           )}
         </div>
@@ -1648,16 +1772,17 @@ function ConfidenceDot({ level }: { level: ConfidenceLevel }) {
 function ConfidenceLegend() {
   return (
     <>
-      <div className="flex items-center gap-2 text-xs text-gray-600">
-        <span className="h-2 w-2 rounded-full bg-emerald-500" /> High — verified across
-        multiple sources
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <span className="h-2 w-2 rounded-full bg-emerald-500" /> High —
+        verified across multiple sources
       </div>
-      <div className="flex items-center gap-2 text-xs text-gray-600">
-        <span className="h-2 w-2 rounded-full bg-amber-500" /> Medium — single-source
-        match
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <span className="h-2 w-2 rounded-full bg-amber-500" /> Medium —
+        single-source match
       </div>
-      <div className="flex items-center gap-2 text-xs text-gray-600">
-        <span className="h-2 w-2 rounded-full bg-red-500" /> Low — please verify
+      <div className="flex items-center gap-2 text-sm text-gray-600">
+        <span className="h-2 w-2 rounded-full bg-red-500" /> Low — please
+        verify
       </div>
     </>
   );
@@ -1793,8 +1918,8 @@ function fieldConfidence(
   return field.confidence;
 }
 
-// Force a one-line reference so unused imports don't trigger lint noise.
-// (kept exports tree-shakeable; we reference Eye to satisfy TS in case a
-// future iteration adds an inline-preview button.)
-const __unused = { Eye, FIELD_LABELS };
-void __unused;
+// FIELD_LABELS is imported for potential downstream use (the matches
+// step renders the labels via the AiField objects directly today;
+// keeping the import lets a future iteration switch to label lookups
+// without re-plumbing the type imports).
+void FIELD_LABELS;
