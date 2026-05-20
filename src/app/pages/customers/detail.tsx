@@ -1,13 +1,14 @@
 // =====================================================================
 // Customer Detail (Customers 2)
 // ---------------------------------------------------------------------
-// Mirrors the canonical /customers/:customerId detail layout — header,
-// Linked Companies card, and a 2-column main with Basic Information /
-// Address Details / Business Information on the left and a sticky
-// embedded map on the right. The auto-register demo doesn't have an
-// approval queue, so the per-company row carries an inline delivery-day
-// Select instead of Approve / Reject buttons. All mutations go through
-// the shared store so the list page stays in sync.
+// Two-column layout — Basic Information / Address Details / Business
+// Information / Linked Companies on the left, sticky embedded map on
+// the right. The Linked Companies card lists the customer's brands
+// with the Beat Name and Delivery Day each one resolves to (one beat
+// per company, sourced from the serviceability polygon). There is no
+// per-company registration date — the auto-register flow doesn't
+// track that any more. Block / Unblock is per-company so a customer
+// can be Active for one brand and Blocked for another.
 // =====================================================================
 
 import { useEffect, useState } from "react";
@@ -39,8 +40,8 @@ import {
   AlertCircle,
   ExternalLink,
   Ban,
-  Calendar,
   CalendarClock,
+  Route,
   Lock,
   Store,
 } from "lucide-react";
@@ -142,22 +143,6 @@ export function CustomerDemoDetail() {
     );
   }
 
-  // Delivery-day handler removed alongside the Linked Companies card —
-  // the workflow lives outside the detail page now.
-
-  /** Format an ISO date as "26 Apr 2026". Returns "—" for empty
-   *  values and the raw string when the date can't be parsed. */
-  const formatRegDate = (iso: string | undefined): string => {
-    if (!iso) return "—";
-    const d = new Date(iso + "T00:00:00");
-    if (isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    });
-  };
-
   // Embedded OpenStreetMap iframe centred on the customer's coords; the
   // overlay link redirects to Google Maps (same pattern as the canonical
   // detail page so seller muscle memory stays consistent).
@@ -226,12 +211,6 @@ export function CustomerDemoDetail() {
           </p>
         </div>
       </div>
-
-      {/* Linked Companies card removed per Phase 2 spec — the per-
-          company delivery-day workflow now lives elsewhere; the
-          detail page is profile-only. The list page's Linked
-          Companies popup carries the company × registration date
-          view if the seller needs that breakdown. */}
 
       {/* Main Content Grid — left column (details) + right column (map),
           matching the canonical detail page exactly. */}
@@ -352,17 +331,15 @@ export function CustomerDemoDetail() {
                     </p>
                   )}
                 </div>
-                {/* Registered On (First Order) removed — registration
-                    is per-company now and surfaced in the Linked
-                    Companies card just below. */}
               </div>
             </CardContent>
           </Card>
 
-          {/* Linked Companies — per-company registration date, status,
-              and Block / Unblock control. Status and the block action
-              are per-company: a customer can be Active for one brand
-              and Blocked for another. */}
+          {/* Linked Companies — per-company Beat Name, Delivery Day,
+              status, and Block / Unblock. Beat Name and Delivery Day
+              are resolved from the customer's location against each
+              company's serviceability polygon, so there is exactly
+              one beat (and therefore one delivery day) per company. */}
           <Card>
             <CardHeader className="py-2.5 px-4 border-b border-gray-100">
               <CardTitle className="text-sm flex items-center gap-2">
@@ -377,18 +354,28 @@ export function CustomerDemoDetail() {
                 </p>
               ) : (
                 <>
-                  <div className="grid grid-cols-[1fr_120px_160px_110px_120px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                  <div className="grid grid-cols-[1fr_180px_140px_110px_120px] gap-3 px-4 py-2 bg-gray-50 border-b border-gray-100 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                     <span>Company</span>
-                    <span>Registered</span>
+                    <span>Beat Name</span>
                     <span>Delivery Day</span>
                     <span className="text-center">Status</span>
                     <span className="text-right">Action</span>
                   </div>
                   <div className="divide-y divide-gray-100">
-                    {customer.companies.map((co) => (
+                    {customer.companies.map((co) => {
+                      const bit = findBitForCustomer(
+                        {
+                          customerId: customer.customerId,
+                          city: customer.city,
+                          area: customer.area,
+                          pincode: customer.pincode,
+                        },
+                        co.companyId,
+                      );
+                      return (
                       <div
                         key={co.companyId}
-                        className="grid grid-cols-[1fr_120px_160px_110px_120px] gap-3 px-4 py-2.5 items-center"
+                        className="grid grid-cols-[1fr_180px_140px_110px_120px] gap-3 px-4 py-2.5 items-center"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <Building2 className="h-3.5 w-3.5 text-gray-400 shrink-0" />
@@ -396,70 +383,68 @@ export function CustomerDemoDetail() {
                             {co.companyName}
                           </p>
                         </div>
-                        <p className="text-sm text-gray-700 flex items-center gap-1.5">
-                          <Calendar className="h-3 w-3 text-gray-400" />
-                          {formatRegDate(co.registeredAt)}
-                        </p>
-                        {(() => {
-                          const bit = findBitForCustomer(
-                            {
-                              customerId: customer.customerId,
-                              city: customer.city,
-                              area: customer.area,
-                              pincode: customer.pincode,
-                            },
-                            co.companyId,
-                          );
-                          if (!bit) {
-                            return (
-                              <TooltipProvider delayDuration={150}>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Badge
-                                      variant="secondary"
-                                      className="gap-1 bg-gray-100 text-gray-500 border-gray-200 w-fit cursor-help"
-                                    >
-                                      <Lock className="h-3 w-3" />
-                                      Not set
-                                    </Badge>
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs text-xs">
-                                    No serviceability bit covers this
-                                    customer for {co.companyName}. Configure
-                                    one in Admin → Seller → Serviceability,
-                                    and the delivery day will auto-assign
-                                    here.
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
-                            );
-                          }
-                          return (
-                            <TooltipProvider delayDuration={150}>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <div className="flex flex-col gap-0.5 min-w-0 cursor-help">
-                                    <Badge className="gap-1 bg-blue-50 text-blue-700 border-blue-200 w-fit">
-                                      <CalendarClock className="h-3 w-3" />
-                                      {bit.deliveryDay}
-                                      <Lock className="h-2.5 w-2.5 ml-0.5 opacity-60" />
-                                    </Badge>
-                                    <span className="text-[10px] text-gray-500 truncate">
-                                      {bit.beatName}
-                                    </span>
-                                  </div>
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs text-xs">
-                                  Auto-assigned from the
-                                  <strong> {bit.beatName} </strong>
-                                  serviceability bit. Read-only — change
-                                  the bit&apos;s delivery day in Admin →
-                                  Seller → Serviceability to update this.
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          );
-                        })()}
+                        {bit ? (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1.5 min-w-0 cursor-help">
+                                  <Route className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                                  <span className="text-sm text-gray-900 truncate">
+                                    {bit.beatName}
+                                  </span>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                Auto-assigned from the
+                                <strong> {bit.beatName} </strong>
+                                serviceability polygon for {co.companyName}.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <span className="text-sm text-gray-400 italic">—</span>
+                        )}
+                        {bit ? (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="w-fit cursor-help">
+                                  <Badge className="gap-1 bg-blue-50 text-blue-700 border-blue-200 w-fit">
+                                    <CalendarClock className="h-3 w-3" />
+                                    {bit.deliveryDay}
+                                    <Lock className="h-2.5 w-2.5 ml-0.5 opacity-60" />
+                                  </Badge>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                Read-only — change the polygon&apos;s
+                                delivery day in Admin → Seller →
+                                Serviceability to update this.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        ) : (
+                          <TooltipProvider delayDuration={150}>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="w-fit cursor-help">
+                                  <Badge
+                                    variant="secondary"
+                                    className="gap-1 bg-gray-100 text-gray-500 border-gray-200 w-fit"
+                                  >
+                                    <Lock className="h-3 w-3" />
+                                    Not set
+                                  </Badge>
+                                </span>
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs text-xs">
+                                No serviceability polygon covers this
+                                customer for {co.companyName}. Configure
+                                one in Admin → Seller → Serviceability.
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
                         <div className="flex justify-center">
                           {co.status === "Active" ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
@@ -506,16 +491,16 @@ export function CustomerDemoDetail() {
                           )}
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <p className="text-[11px] text-gray-500 px-4 py-2 border-t border-gray-100 bg-gray-50/40">
                     Status and Block / Unblock are tracked per company.
-                    Registration date is the day the customer placed
-                    their first order with each company. Delivery Day
-                    is auto-assigned from the serviceability bit /
-                    beat the customer&apos;s location maps to — it
-                    can&apos;t be changed here. To override, edit the
-                    bit in Admin → Seller → Serviceability.
+                    Beat Name and Delivery Day are auto-assigned from
+                    the serviceability polygon the customer&apos;s
+                    location maps to — exactly one per company. To
+                    override, edit the polygon in Admin → Seller →
+                    Serviceability.
                   </p>
                 </>
               )}

@@ -74,20 +74,6 @@ type DemoCustomer = SharedDemoCustomer;
 // count badge has interesting cases.
 
 // CSV escape helper (one row per customer, with company list joined).
-/** Format an ISO date as `26 Apr 2026` for the Linked Companies popup
- *  and the detail page. Falls back to the raw value when the input
- *  isn't a valid date so we never render "Invalid Date". */
-const formatRegDate = (iso: string | undefined): string => {
-  if (!iso) return "—";
-  const d = new Date(iso + "T00:00:00");
-  if (isNaN(d.getTime())) return iso;
-  return d.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
-};
-
 const escapeCsv = (v: string | number) => {
   const s = String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
@@ -196,10 +182,7 @@ export function CustomersDemo() {
   // ---- Export ----
   // CSV stays at line-item resolution (one row per (customer ×
   // company)) so downstream operations teams can still reconcile by
-  // company. Locked 9-column shape per spec: Customer ID, Customer
-  // Name, Business Name, Mobile, Area, PIN, Company, Status,
-  // Registered On — where Registered On is the per-company first-
-  // order date, not the customer's overall registration.
+  // company.
   const handleExport = () => {
     const headers = [
       "Customer ID",
@@ -215,7 +198,6 @@ export function CustomersDemo() {
       "Long",
       "Company",
       "Status",
-      "Registered On",
     ];
     const lines = [headers.join(",")];
     filteredCustomers.forEach((c) => {
@@ -232,7 +214,6 @@ export function CustomersDemo() {
             c.longitude,
             co.companyName,
             co.status,
-            co.registeredAt ?? c.registeredDate,
           ]
             .map(escapeCsv)
             .join(","),
@@ -616,16 +597,15 @@ export function CustomersDemo() {
             <div className="py-2 max-h-[60vh] overflow-y-auto">
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
                 {/* Header row */}
-                <div className="grid grid-cols-[1fr_110px_110px_110px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                <div className="grid grid-cols-[1fr_110px_110px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                   <span>Company</span>
-                  <span>Registered</span>
                   <span className="text-center">Status</span>
                   <span className="text-right">Action</span>
                 </div>
                 {linkedCustomer.companies.map((co) => (
                   <div
                     key={co.companyId}
-                    className="grid grid-cols-[1fr_110px_110px_110px] gap-3 px-3 py-2.5 items-center"
+                    className="grid grid-cols-[1fr_110px_110px] gap-3 px-3 py-2.5 items-center"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
@@ -633,9 +613,6 @@ export function CustomersDemo() {
                         {co.companyName}
                       </p>
                     </div>
-                    <p className="text-sm text-gray-700">
-                      {formatRegDate(co.registeredAt)}
-                    </p>
                     <div className="flex justify-center">
                       {co.status === "Active" ? (
                         <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">

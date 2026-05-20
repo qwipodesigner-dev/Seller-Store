@@ -9,11 +9,6 @@
 export interface CompanyLink {
   companyId: string;
   companyName: string;
-  /** Date of the customer's FIRST order against this company. We
-   *  treat that as the customer's per-company registration date —
-   *  the customer auto-registers the moment they place an order
-   *  with a given seller-linked company. ISO date string. */
-  registeredAt: string;
   /** Per-company status — Active / Blocked. */
   status: "Active" | "Blocked";
 }
@@ -35,8 +30,6 @@ export interface DemoCustomer {
   longitude: number;
   /** Optional GSTIN — only filled for Wholesaler / Modern Trade in seed. */
   gstNumber?: string;
-  /** First-order auto-registration date (drives the Registered On column). */
-  registeredDate: string;
   totalOrders: number;
   /** Total revenue in INR — surfaced on the detail page Business card. */
   totalRevenue?: number;
@@ -60,12 +53,11 @@ const SEED: DemoCustomer[] = [
     pincode: "560038",
     latitude: 12.9719,
     longitude: 77.6412,
-    registeredDate: "2026-04-12",
     totalOrders: 14,
     totalRevenue: 145600,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-12", status: "Active" },
-      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-18", status: "Active" },
+      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
+      { companyId: "co-marico", companyName: "Marico", status: "Active" },
     ],
   },
   {
@@ -82,11 +74,10 @@ const SEED: DemoCustomer[] = [
     latitude: 17.4399,
     longitude: 78.4983,
     gstNumber: "36ABCDE1234F1Z5",
-    registeredDate: "2026-04-08",
     totalOrders: 47,
     totalRevenue: 612400,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-08", status: "Active" },
+      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
     ],
   },
   {
@@ -102,14 +93,12 @@ const SEED: DemoCustomer[] = [
     pincode: "400058",
     latitude: 19.1340,
     longitude: 72.8270,
-    registeredDate: "2026-04-22",
     totalOrders: 6,
     totalRevenue: 38600,
     companies: [
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        registeredAt: "2026-04-22",
         status: "Active",
       },
     ],
@@ -128,16 +117,14 @@ const SEED: DemoCustomer[] = [
     latitude: 28.6328,
     longitude: 77.2197,
     gstNumber: "07ABCDE5678G1Z9",
-    registeredDate: "2026-03-30",
     totalOrders: 92,
     totalRevenue: 1480000,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-03-30", status: "Active" },
-      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-05", status: "Blocked" },
+      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
+      { companyId: "co-marico", companyName: "Marico", status: "Blocked" },
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        registeredAt: "2026-04-12",
         status: "Active",
       },
     ],
@@ -154,11 +141,10 @@ const SEED: DemoCustomer[] = [
     pincode: "500034",
     latitude: 17.4156,
     longitude: 78.4347,
-    registeredDate: "2026-04-25",
     totalOrders: 3,
     totalRevenue: 12450,
     companies: [
-      { companyId: "co-itc", companyName: "ITC Limited", registeredAt: "2026-04-25", status: "Active" },
+      { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
     ],
   },
   {
@@ -174,11 +160,10 @@ const SEED: DemoCustomer[] = [
     pincode: "560034",
     latitude: 12.9352,
     longitude: 77.6245,
-    registeredDate: "2026-04-15",
     totalOrders: 21,
     totalRevenue: 256000,
     companies: [
-      { companyId: "co-marico", companyName: "Marico", registeredAt: "2026-04-15", status: "Active" },
+      { companyId: "co-marico", companyName: "Marico", status: "Active" },
     ],
   },
   {
@@ -195,14 +180,12 @@ const SEED: DemoCustomer[] = [
     latitude: 13.0418,
     longitude: 80.2341,
     gstNumber: "33ABCDE9876H1Z3",
-    registeredDate: "2026-04-02",
     totalOrders: 38,
     totalRevenue: 487000,
     companies: [
       {
         companyId: "co-freedom",
         companyName: "Gemini Edibles & Fats India",
-        registeredAt: "2026-04-02",
         status: "Blocked",
       },
     ],
