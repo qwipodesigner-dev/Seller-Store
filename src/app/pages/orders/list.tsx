@@ -47,6 +47,8 @@ import {
   Route,
   MapPin,
   CalendarDays,
+  CalendarPlus,
+  MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -99,7 +101,10 @@ export function Orders() {
   const [activeTab, setActiveTab] = useState<TabType>("all");
   // Sub-tab inside Confirmed: split deliveries by when they're due.
   // "all" matches both buckets — the default so existing flows keep
-  // showing everything.
+  // showing everything. Date-based buckets (computed via
+  // getDeliveryBucket) keep this independent of the Urgent/Regular
+  // DeliveryType — a Regular order due tomorrow still shows under
+  // Tomorrow Deliveries.
   const [confirmedDeliveryTab, setConfirmedDeliveryTab] = useState<
     "all" | "tomorrow" | "beyond"
   >("all");
@@ -116,7 +121,7 @@ export function Orders() {
   const [deliveryStartDate, setDeliveryStartDate] = useState<string>("");
   const [deliveryEndDate, setDeliveryEndDate] = useState<string>("");
   const [tomorrowOnly, setTomorrowOnly] = useState(false);
-  const [nddOnly, setNddOnly] = useState(false);
+  const [urgentOnly, setUrgentOnly] = useState(false);
 
   // Unique brands and statuses for filter options
   const uniqueBrands = useMemo(
@@ -130,9 +135,8 @@ export function Orders() {
     { label: "Cancelled", value: "Cancelled" },
   ];
   const deliveryTypeOptions: { label: string; value: DeliveryType }[] = [
-    { label: "Sales Beat", value: "Sales Beat" },
-    { label: "Non-Sales Beat", value: "Non-Sales Beat" },
-    { label: "NDD (Next Day Delivery)", value: "NDD" },
+    { label: "Urgent", value: "Urgent" },
+    { label: "Regular", value: "Regular" },
   ];
   const deliveryBucketOptions: { label: string; value: DeliveryBucket }[] = [
     { label: "Today", value: "today" },
@@ -151,6 +155,15 @@ export function Orders() {
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  // "Update Expected Delivery Date" bulk action — Confirmed tab.
+  // The seller picks one or more confirmed orders, opens the
+  // dialog, chooses a new date, and on save we mutate
+  // expectedDeliveryDate across the selection. A WhatsApp
+  // notification banner in the success toast tells the seller
+  // their customers were informed about the schedule change.
+  const [isUpdateDeliveryDialogOpen, setIsUpdateDeliveryDialogOpen] =
+    useState(false);
+  const [newExpectedDeliveryDate, setNewExpectedDeliveryDate] = useState("");
 
   // Form data
   const [cancelReason, setCancelReason] = useState("");
@@ -253,7 +266,7 @@ export function Orders() {
       const matchesDeliveryBucket =
         selectedDeliveryBuckets.length === 0 ||
         selectedDeliveryBuckets.includes(bucket);
-      const matchesNddOnly = !nddOnly || order.deliveryType === "NDD";
+      const matchesUrgentOnly = !urgentOnly || order.deliveryType === "Urgent";
       const matchesTomorrowOnly = !tomorrowOnly || bucket === "tomorrow";
 
       let matchesDeliveryDateRange = true;
@@ -282,7 +295,7 @@ export function Orders() {
         matchesDate &&
         matchesDeliveryType &&
         matchesDeliveryBucket &&
-        matchesNddOnly &&
+        matchesUrgentOnly &&
         matchesTomorrowOnly &&
         matchesDeliveryDateRange &&
         matchesConfirmedSub
@@ -307,7 +320,7 @@ export function Orders() {
       deliveryStartDate,
       deliveryEndDate,
       tomorrowOnly,
-      nddOnly,
+      urgentOnly,
     ],
   );
 
@@ -431,6 +444,57 @@ export function Orders() {
     setCancelReason("");
   };
 
+  // Bulk reschedule — Confirmed tab. Rewrites expectedDeliveryDate on
+  // every selected order to the date the seller picked in the
+  // dialog, then surfaces two notifications: a primary toast
+  // confirming the update, and a description line telling the
+  // seller a WhatsApp notification went out to each affected
+  // customer. (The WhatsApp send is mocked at this layer — in
+  // production this would queue against the messaging backend.)
+  const handleUpdateDeliveryDate = () => {
+    if (!newExpectedDeliveryDate) {
+      toast.error("Please pick a new expected delivery date.");
+      return;
+    }
+    // Block past-dated reschedules — picking yesterday makes no
+    // operational sense and would confuse the customer message.
+    const today = new Date().toISOString().slice(0, 10);
+    if (newExpectedDeliveryDate < today) {
+      toast.error("New delivery date can't be in the past.");
+      return;
+    }
+    const count = selectedOrders.length;
+    setOrders((prev) =>
+      prev.map((order) =>
+        selectedOrders.includes(order.id)
+          ? { ...order, expectedDeliveryDate: newExpectedDeliveryDate }
+          : order,
+      ),
+    );
+    // Friendly date for the toast — same format the column uses.
+    const t = Date.parse(newExpectedDeliveryDate + "T00:00:00Z");
+    const friendly = Number.isNaN(t)
+      ? newExpectedDeliveryDate
+      : new Date(t).toLocaleDateString("en-GB", {
+          weekday: "short",
+          day: "2-digit",
+          month: "short",
+          timeZone: "UTC",
+        });
+    toast.success(
+      `${count} order${count === 1 ? "" : "s"} rescheduled to ${friendly}.`,
+      {
+        description:
+          "WhatsApp notification sent to inform customers about the delayed delivery.",
+        icon: <MessageCircle className="h-4 w-4 text-emerald-600" />,
+        duration: 5000,
+      },
+    );
+    setSelectedOrders([]);
+    setIsUpdateDeliveryDialogOpen(false);
+    setNewExpectedDeliveryDate("");
+  };
+
   // Mark as delivered (Confirmed → Delivered). No metadata to capture
   // — the dialog is purely a confirmation surface.
   const handleDeliverOrders = () => {
@@ -462,7 +526,7 @@ export function Orders() {
     setDeliveryStartDate("");
     setDeliveryEndDate("");
     setTomorrowOnly(false);
-    setNddOnly(false);
+    setUrgentOnly(false);
   };
 
   const hasActiveFilters =
@@ -477,7 +541,7 @@ export function Orders() {
     deliveryStartDate ||
     deliveryEndDate ||
     tomorrowOnly ||
-    nddOnly;
+    urgentOnly;
 
   // Handle export
   // ---- Export helpers ----
@@ -699,30 +763,27 @@ export function Orders() {
     }
   };
 
-  // Delivery-type badge — colours match the spec semantics (NDD red /
-  // Sales Beat blue / Non-Sales Beat amber). The label keeps the
-  // copy short so the row stays scannable.
+  // Delivery-type badge — collapsed to two operational classes per
+  // the May 2026 product call. Urgent reads red with a lightning
+  // icon so dispatch staff can spot priority work; Regular is a
+  // muted blue with the route icon so the bulk of the table doesn't
+  // scream for attention. Beat name (when present) shows alongside
+  // as supporting context — the type tells you "how soon", the beat
+  // tells you "which truck".
   const getDeliveryTypeBadge = (order: Order) => {
     switch (order.deliveryType) {
-      case "NDD":
+      case "Urgent":
         return (
           <Badge className="bg-red-50 text-red-700 border-red-200 gap-1">
             <Zap className="h-3 w-3" />
-            NDD
+            Urgent
           </Badge>
         );
-      case "Sales Beat":
+      case "Regular":
         return (
           <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1">
             <Route className="h-3 w-3" />
-            Sales Beat
-          </Badge>
-        );
-      case "Non-Sales Beat":
-        return (
-          <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1">
-            <MapPin className="h-3 w-3" />
-            Non-Sales Beat
+            Regular
           </Badge>
         );
       default:
@@ -745,103 +806,22 @@ export function Orders() {
     });
   };
 
-  // Priority badge — drives the at-a-glance "what do I work on next"
-  // signal on each row. Past = red (overdue), today = orange,
-  // tomorrow = amber, beyond = neutral.
-  const getPriorityBadge = (order: Order) => {
-    const bucket = getDeliveryBucket(order);
-    if (bucket === "past") {
-      return (
-        <Badge className="bg-red-100 text-red-800 border-red-300 gap-1">
-          <AlertCircle className="h-3 w-3" />
-          Overdue
-        </Badge>
-      );
-    }
-    if (bucket === "today") {
-      return (
-        <Badge className="bg-orange-100 text-orange-800 border-orange-300 gap-1">
-          <Clock className="h-3 w-3" />
-          Today
-        </Badge>
-      );
-    }
-    if (bucket === "tomorrow") {
-      return (
-        <Badge className="bg-amber-100 text-amber-800 border-amber-300 gap-1">
-          <CalendarClock className="h-3 w-3" />
-          Tomorrow
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="secondary" className="bg-gray-50 text-gray-700 border-gray-200 gap-1">
-        <CalendarDays className="h-3 w-3" />
-        Future
-      </Badge>
-    );
+  // Day-of-week formatter — "Monday" / "Thursday". Powers the
+  // Beat Delivery Day column on the orders table. Returns the input
+  // unchanged when it's not a parseable ISO date.
+  const formatDeliveryDayName = (iso: string): string => {
+    const t = Date.parse(iso + "T00:00:00Z");
+    if (Number.isNaN(t)) return iso;
+    return new Date(t).toLocaleDateString("en-GB", {
+      weekday: "long",
+      timeZone: "UTC",
+    });
   };
 
-  // Render action buttons based on active tab
-  const renderActionButtons = () => {
-    if (selectedOrders.length === 0) return null;
-
-    switch (activeTab) {
-      case "new":
-        return (
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setIsConfirmDialogOpen(true)}
-              className="gap-2"
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Confirm ({selectedOrders.length})
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setIsCancelDialogOpen(true)}
-              className="gap-2"
-            >
-              <XCircle className="h-4 w-4" />
-              Cancel ({selectedOrders.length})
-            </Button>
-          </div>
-        );
-
-      case "confirmed":
-        return (
-          <div className="flex gap-2">
-            <Button
-              onClick={() => setIsDeliverDialogOpen(true)}
-              className="gap-2 bg-green-600 hover:bg-green-700"
-            >
-              <PackageCheck className="h-4 w-4" />
-              Mark as Delivered ({selectedOrders.length})
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => setIsCancelDialogOpen(true)}
-              className="gap-2"
-            >
-              <XCircle className="h-4 w-4" />
-              Cancel ({selectedOrders.length})
-            </Button>
-          </div>
-        );
-
-      case "delivered":
-      case "cancelled":
-      case "all":
-        return (
-          <div className="text-sm text-gray-600 bg-gray-100 px-4 py-2 rounded-lg">
-            {selectedOrders.length} order(s) selected - View only
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
+  // (Priority badge was retired alongside the May 2026 column sweep
+  // — urgency now reads off the Delivery Type badge, and the row
+  // surfaces Beat Name + Beat Delivery Day as first-class columns
+  // instead of the old past/today/tomorrow/future bucket chip.)
 
   // Render order table
   const renderOrderTable = (ordersToRender: Order[]) => {
@@ -912,10 +892,13 @@ export function Orders() {
                 Order Date
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Delivery Date
+                Expected Delivery Date
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Priority
+                Beat Name
+              </th>
+              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                Beat Delivery Day
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Delivery Type
@@ -994,9 +977,13 @@ export function Orders() {
                     ₹{order.orderValue.toLocaleString()}
                   </p>
                 </td>
-                {/* One value per column — Order Date, Delivery Date,
-                    Priority bucket, and Delivery Type all stand on
-                    their own so each is easy to scan vertically. */}
+                {/* One value per column — Order Date, Expected
+                    Delivery Date, Beat Name, Beat Delivery Day, and
+                    Delivery Type all stand on their own so each is
+                    easy to scan vertically. The Priority bucket was
+                    retired alongside the May 2026 serviceability
+                    sweep — the seller now reads delivery urgency
+                    from the Delivery Type badge instead. */}
                 <td
                   className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
                   title={order.orderDate}
@@ -1009,8 +996,24 @@ export function Orders() {
                 >
                   {formatShortDate(order.expectedDeliveryDate)}
                 </td>
-                <td className="px-3 py-2.5 whitespace-nowrap">
-                  {getPriorityBadge(order)}
+                <td
+                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-800"
+                  title={order.beatName ?? undefined}
+                >
+                  {order.beatName ? (
+                    <span className="inline-flex items-center gap-1">
+                      <Route className="h-3 w-3 text-gray-500" />
+                      {order.beatName}
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-400">—</span>
+                  )}
+                </td>
+                <td
+                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
+                  title={order.expectedDeliveryDate}
+                >
+                  {formatDeliveryDayName(order.expectedDeliveryDate)}
                 </td>
                 <td
                   className="px-3 py-2.5 whitespace-nowrap"
@@ -1335,7 +1338,10 @@ export function Orders() {
                         )}
                       </div>
 
-                      {/* Bulk Action Buttons */}
+                      {/* Bulk Action Buttons — Mark Delivered, the
+                          May 2026 Update Delivery Date reschedule
+                          flow (with WhatsApp customer notification),
+                          and the destructive Cancel. */}
                       {selectedOrders.length > 0 && (
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
@@ -1346,6 +1352,15 @@ export function Orders() {
                           >
                             <Truck className="h-4 w-4" />
                             Mark Delivered
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-300 text-amber-800 hover:bg-amber-50 hover:text-amber-900 gap-2"
+                            onClick={() => setIsUpdateDeliveryDialogOpen(true)}
+                          >
+                            <CalendarPlus className="h-4 w-4" />
+                            Update Delivery Date
                           </Button>
                           <Button
                             size="sm"
@@ -1525,7 +1540,7 @@ export function Orders() {
                   "beyond",
                 )}
                 {renderGroup(
-                  "Other (Today / Overdue / NDD)",
+                  "Other (Today / Overdue / Urgent)",
                   <Clock className="h-4 w-4 text-blue-600" />,
                   grouped.other,
                   "other",
@@ -1617,6 +1632,88 @@ export function Orders() {
             >
               <XCircle className="h-4 w-4" />
               Cancel {selectedOrders.length} Order(s)
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Update Expected Delivery Date Dialog — bulk-reschedule
+          flow. The seller picks a new date in the input below;
+          on save we rewrite expectedDeliveryDate across the
+          selection and a mocked WhatsApp notification message is
+          surfaced in the success toast. Closing the dialog clears
+          the picked date so the next open starts blank. */}
+      <Dialog
+        open={isUpdateDeliveryDialogOpen}
+        onOpenChange={(open) => {
+          setIsUpdateDeliveryDialogOpen(open);
+          if (!open) setNewExpectedDeliveryDate("");
+        }}
+      >
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarPlus className="h-5 w-5 text-amber-600" />
+              Update Expected Delivery Date
+            </DialogTitle>
+            <DialogDescription>
+              Reschedule{" "}
+              {selectedOrders.length === 1
+                ? "1 order"
+                : `${selectedOrders.length} orders`}{" "}
+              to a new expected delivery date. Customers will be
+              notified on WhatsApp about the change.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="new-delivery-date">
+                New Expected Delivery Date
+              </Label>
+              <Input
+                id="new-delivery-date"
+                type="date"
+                value={newExpectedDeliveryDate}
+                min={new Date().toISOString().slice(0, 10)}
+                onChange={(e) =>
+                  setNewExpectedDeliveryDate(e.target.value)
+                }
+                className="w-full"
+              />
+              <p className="text-[11px] text-gray-500">
+                The same date will be applied to every selected
+                order. Past dates aren&apos;t allowed.
+              </p>
+            </div>
+
+            <div className="flex items-start gap-2 p-3 rounded border border-emerald-100 bg-emerald-50/60 text-[12px] text-emerald-900">
+              <MessageCircle className="h-4 w-4 mt-0.5 shrink-0 text-emerald-700" />
+              <p>
+                A WhatsApp message will be sent to each affected
+                customer with the new expected delivery date so they
+                know about the delay.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsUpdateDeliveryDialogOpen(false);
+                setNewExpectedDeliveryDate("");
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleUpdateDeliveryDate}
+              disabled={!newExpectedDeliveryDate}
+              className="gap-2 bg-amber-600 hover:bg-amber-700"
+            >
+              <CalendarPlus className="h-4 w-4" />
+              Update &amp; Notify
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1922,7 +2019,7 @@ export function Orders() {
                           options={deliveryTypeOptions}
                           selected={selectedDeliveryTypes}
                           onChange={setSelectedDeliveryTypes}
-                          placeholder="Sales / Non-Sales / NDD"
+                          placeholder="Urgent / Regular"
                           className="w-full"
                         />
                       </div>
@@ -1944,12 +2041,12 @@ export function Orders() {
                           </label>
                           <label className="flex items-center gap-2 cursor-pointer">
                             <Checkbox
-                              checked={nddOnly}
-                              onCheckedChange={(v) => setNddOnly(Boolean(v))}
+                              checked={urgentOnly}
+                              onCheckedChange={(v) => setUrgentOnly(Boolean(v))}
                             />
                             <span className="text-sm text-gray-800 flex items-center gap-1.5">
                               <Zap className="h-3.5 w-3.5 text-red-600" />
-                              NDD (Next Day) orders only
+                              Urgent orders only
                             </span>
                           </label>
                         </div>

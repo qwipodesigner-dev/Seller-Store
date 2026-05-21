@@ -22,17 +22,18 @@
 export type OrderStatus = "New" | "Confirmed" | "Delivered" | "Cancelled";
 
 /**
- * Operational delivery classification for an order. Drives the badge
- * shown on the row + the filter buckets in the orders page.
+ * Operational delivery classification for an order. Simplified per
+ * the May 2026 product call to just two values — the granular
+ * Sales Beat / Non-Sales Beat split now lives on the `beatName`
+ * field instead, and Next Day Delivery rolls into "Urgent".
  *
- *   - "Sales Beat"     — the customer falls inside a serviceability
- *                        bit/beat the seller already runs, so the
- *                        order rides the next scheduled beat truck.
- *   - "Non-Sales Beat" — the customer is outside any active beat;
- *                        seller dispatches separately (longer lead time).
- *   - "NDD"            — Next Day Delivery requested (express).
+ *   - "Urgent"  — must dispatch ASAP. Express, NDD-style, or any
+ *                 other priority signal. Renders with a red badge
+ *                 and rides the urgent lane in the day checklist.
+ *   - "Regular" — standard scheduled delivery; rides the configured
+ *                 beat / route on its assigned day.
  */
-export type DeliveryType = "Sales Beat" | "Non-Sales Beat" | "NDD";
+export type DeliveryType = "Urgent" | "Regular";
 
 export interface OrderLineItem {
   skuCode: string;
@@ -80,8 +81,9 @@ export interface Order {
   expectedDeliveryDate: string;
   /** See `DeliveryType` for semantics. */
   deliveryType: DeliveryType;
-  /** Optional beat name the order belongs to (when deliveryType is
-   *  Sales Beat). Surfaced on the badge and the detail page. */
+  /** Optional beat name the order belongs to (when the order rides
+   *  a configured serviceability beat). Surfaced on the badge and
+   *  the detail page; orphan/ad-hoc deliveries leave this blank. */
   beatName?: string;
 }
 
@@ -115,7 +117,7 @@ export const seedOrders: Order[] = [
     status: "New",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
-    deliveryType: "NDD",
+    deliveryType: "Urgent",
     buyerContact: "+91 98765 43210",
     buyerAddress:
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
@@ -215,7 +217,7 @@ export const seedOrders: Order[] = [
     status: "Confirmed",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
-    deliveryType: "Sales Beat",
+    deliveryType: "Regular",
     beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43211",
   },
@@ -232,7 +234,7 @@ export const seedOrders: Order[] = [
     status: "Confirmed",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-21",
-    deliveryType: "Non-Sales Beat",
+    deliveryType: "Regular",
     buyerContact: "+91 98765 43212",
   },
   {
@@ -248,7 +250,7 @@ export const seedOrders: Order[] = [
     status: "Delivered",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-19",
-    deliveryType: "Sales Beat",
+    deliveryType: "Regular",
     beatName: "Pune Central",
     buyerContact: "+91 98765 43213",
   },
@@ -265,7 +267,7 @@ export const seedOrders: Order[] = [
     status: "Cancelled",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-19",
-    deliveryType: "NDD",
+    deliveryType: "Urgent",
     buyerContact: "+91 98765 43214",
   },
   {
@@ -281,7 +283,7 @@ export const seedOrders: Order[] = [
     status: "Confirmed",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-22",
-    deliveryType: "Sales Beat",
+    deliveryType: "Regular",
     beatName: "Mumbai Metro — South",
     buyerContact: "+91 98765 43215",
   },
@@ -298,7 +300,7 @@ export const seedOrders: Order[] = [
     status: "Confirmed",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-25",
-    deliveryType: "Non-Sales Beat",
+    deliveryType: "Regular",
     buyerContact: "+91 98765 43216",
   },
   {
@@ -314,7 +316,7 @@ export const seedOrders: Order[] = [
     status: "New",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-21",
-    deliveryType: "Sales Beat",
+    deliveryType: "Regular",
     beatName: "Bengaluru East",
     buyerContact: "+91 98765 43217",
   },
@@ -331,7 +333,7 @@ export const seedOrders: Order[] = [
     status: "Delivered",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-18",
-    deliveryType: "Non-Sales Beat",
+    deliveryType: "Regular",
     buyerContact: "+91 98765 43218",
   },
   {
@@ -347,7 +349,7 @@ export const seedOrders: Order[] = [
     status: "New",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-22",
-    deliveryType: "Sales Beat",
+    deliveryType: "Regular",
     beatName: "Hyderabad North",
     buyerContact: "+91 98765 43219",
   },
@@ -364,7 +366,7 @@ export const seedOrders: Order[] = [
     status: "Delivered",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-17",
-    deliveryType: "Sales Beat",
+    deliveryType: "Regular",
     beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43220",
   },
@@ -381,7 +383,7 @@ export const seedOrders: Order[] = [
     status: "Cancelled",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-16",
-    deliveryType: "NDD",
+    deliveryType: "Urgent",
     buyerContact: "+91 98765 43221",
   },
 ];
@@ -498,17 +500,16 @@ export function dayOfWeekLabel(iso: string): string {
 
 /**
  * Human-friendly compound label combining the bucket + the delivery
- * type. Mirrors the spec's examples — "Tomorrow – Sales Beat",
- * "Friday Delivery", "NDD Requested".
+ * type. Rewritten alongside the May 2026 Urgent / Regular collapse —
+ * Urgent always reads as "Urgent" regardless of bucket; Regular
+ * surfaces the bucket name (Tomorrow / Today / weekday).
  */
 export function deliveryLabelFor(order: Order): string {
   const bucket = getDeliveryBucket(order);
-  if (order.deliveryType === "NDD") return "NDD Requested";
-  if (bucket === "tomorrow") {
-    return `Tomorrow – ${order.deliveryType}`;
-  }
-  if (bucket === "today") return `Today – ${order.deliveryType}`;
-  if (bucket === "past") return `Overdue – ${order.deliveryType}`;
+  if (order.deliveryType === "Urgent") return "Urgent";
+  if (bucket === "tomorrow") return "Tomorrow – Regular";
+  if (bucket === "today") return "Today – Regular";
+  if (bucket === "past") return "Overdue – Regular";
   // Beyond: surface the weekday so distributors can scan workload.
   return `${dayOfWeekLabel(order.expectedDeliveryDate)} Delivery`;
 }

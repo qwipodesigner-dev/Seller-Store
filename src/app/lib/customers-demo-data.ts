@@ -13,6 +13,18 @@ export interface CompanyLink {
   status: "Active" | "Blocked";
 }
 
+/**
+ * How this customer arrived in the seller's list.
+ *  - "polygon-sync"  — auto-onboarded by the backend when an admin
+ *                      configured serviceability that covered this
+ *                      customer's location. The customer exists in the
+ *                      list before they have placed any order.
+ *  - "first-order"   — legacy auto-register flow: customer landed in
+ *                      the list the moment they placed their first
+ *                      order against one of the seller's companies.
+ */
+export type CustomerOrigin = "polygon-sync" | "first-order";
+
 export interface DemoCustomer {
   customerId: string;
   customerName: string;
@@ -35,6 +47,12 @@ export interface DemoCustomer {
   totalRevenue?: number;
   /** Companies the customer buys from. Length ≥ 1. */
   companies: CompanyLink[];
+  /**
+   * How the customer was onboarded. Defaults to "first-order" for the
+   * legacy seed rows; new polygon-synced rows mark themselves so the
+   * list page can render an "Auto-onboarded" badge.
+   */
+  origin?: CustomerOrigin;
 }
 
 // ---------- Seed ----------
@@ -95,6 +113,7 @@ const SEED: DemoCustomer[] = [
     longitude: 72.8270,
     totalOrders: 6,
     totalRevenue: 38600,
+    origin: "polygon-sync",
     companies: [
       {
         companyId: "co-freedom",
@@ -143,6 +162,7 @@ const SEED: DemoCustomer[] = [
     longitude: 78.4347,
     totalOrders: 3,
     totalRevenue: 12450,
+    origin: "polygon-sync",
     companies: [
       { companyId: "co-itc", companyName: "ITC Limited", status: "Active" },
     ],
