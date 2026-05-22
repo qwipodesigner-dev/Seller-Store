@@ -8,32 +8,19 @@
 
 const STORAGE_PREFIX = "qwipo.logisticsSettings.";
 
-/**
- * The two operating modes are mutually exclusive — when Logistics is
- * enabled the admin picks exactly one for the seller. `null` means
- * "no mode picked yet" (only valid while the master is off; saving
- * with master on + mode null is blocked in the UI).
- */
-export type LogisticsMode = "tech-for-both" | "tech-for-third-party-only";
-
 export interface LogisticsSettings {
-  /** Master toggle. When false, the mode is ignored. */
-  enabled: boolean;
   /**
-   * Single active mode:
-   *  - "tech-for-both"             → "Tech for both Self & 3PL". Qwipo's
-   *    stack handles dispatch and delivery for both the seller's own
-   *    fleet and any 3PL providers.
-   *  - "tech-for-third-party-only" → "No Tech for Self & Tech for 3PL".
-   *    In-house delivery runs outside Qwipo; only the 3PL leg is
-   *    technology-tracked.
+   * Master toggle — the only thing the admin can flip from the Manage
+   * Seller → Logistics tab. The seller's sidebar reads this and gates
+   * the Logistics shortcut accordingly. (An earlier iteration carried a
+   * sub-mode field but the spec collapsed to a single enable/disable
+   * boolean; legacy `mode` keys in localStorage are ignored.)
    */
-  mode: LogisticsMode | null;
+  enabled: boolean;
 }
 
 const DEFAULT: LogisticsSettings = {
   enabled: false,
-  mode: null,
 };
 
 const storageKey = (sellerId: string) => `${STORAGE_PREFIX}${sellerId}`;

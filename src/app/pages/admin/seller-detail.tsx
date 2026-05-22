@@ -18,7 +18,6 @@ import {
   getLogisticsSettings,
   setLogisticsSettings,
   subscribeToLogisticsSettings,
-  type LogisticsMode,
 } from "../../lib/logistics-settings";
 import {
   Dialog,
@@ -1979,11 +1978,7 @@ function ConnectorCard({
 function LogisticsTab({ sellerId }: { sellerId: string }) {
   const initial = getLogisticsSettings(sellerId);
   const [enabled, setEnabled] = useState(initial.enabled);
-  const [mode, setMode] = useState<LogisticsMode | null>(initial.mode);
-  const [saved, setSaved] = useState({
-    enabled: initial.enabled,
-    mode: initial.mode,
-  });
+  const [savedEnabled, setSavedEnabled] = useState(initial.enabled);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
   // Re-sync when the admin switches sellers — the tab state belongs to
@@ -1991,43 +1986,21 @@ function LogisticsTab({ sellerId }: { sellerId: string }) {
   useEffect(() => {
     const fresh = getLogisticsSettings(sellerId);
     setEnabled(fresh.enabled);
-    setMode(fresh.mode);
-    setSaved({ enabled: fresh.enabled, mode: fresh.mode });
+    setSavedEnabled(fresh.enabled);
     return subscribeToLogisticsSettings(sellerId, () => {
-      const next = getLogisticsSettings(sellerId);
-      setSaved({ enabled: next.enabled, mode: next.mode });
+      setSavedEnabled(getLogisticsSettings(sellerId).enabled);
     });
   }, [sellerId]);
 
-  const isDirty =
-    enabled !== saved.enabled || (enabled && mode !== saved.mode);
-  const missingMode = enabled && mode === null;
-  const saveDisabled = !isDirty || missingMode;
+  const saveDisabled = enabled === savedEnabled;
 
-  // Radio semantics — picking a mode replaces the previous one;
-  // there's no "deselect" affordance (the master toggle turning off
-  // is how the seller clears the mode entirely).
-  const handleModeSelect = (next: LogisticsMode) => {
-    setMode(next);
-  };
-
-  const summary = (() => {
-    if (!enabled) {
-      return "Logistics will be disabled for this seller. The Logistics menu will not appear in their sidebar.";
-    }
-    const label =
-      mode === "tech-for-both"
-        ? "Tech for both Self & 3PL"
-        : "No Tech for Self & Tech for 3PL";
-    return `Logistics will be enabled for this seller in "${label}" mode. The Logistics menu will be available in their sidebar.`;
-  })();
+  const summary = enabled
+    ? "Logistics will be enabled for this seller. The Logistics shortcut will be clickable in their sidebar."
+    : "Logistics will be disabled for this seller. The Logistics shortcut will be greyed out in their sidebar.";
 
   const handleSave = () => {
-    setLogisticsSettings(sellerId, {
-      enabled,
-      mode: enabled ? mode : null,
-    });
-    setSaved({ enabled, mode: enabled ? mode : null });
+    setLogisticsSettings(sellerId, { enabled });
+    setSavedEnabled(enabled);
     setConfirmOpen(false);
     toast.success("Logistics settings saved for this seller.");
   };
@@ -2036,7 +2009,8 @@ function LogisticsTab({ sellerId }: { sellerId: string }) {
     <>
       <div className="max-w-3xl space-y-4">
         {/* Master toggle — same outlined-row container the Profile tab
-            uses for the Active / Inactive row. */}
+            uses for the Active / Inactive row. This is now the only
+            control on the tab: enable / disable. */}
         <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-3 bg-gray-50/50">
           <div>
             <Label className="text-sm">Enable Logistics</Label>
@@ -2047,102 +2021,6 @@ function LogisticsTab({ sellerId }: { sellerId: string }) {
           </div>
           <Switch checked={enabled} onCheckedChange={setEnabled} />
         </div>
-
-        {enabled && (
-          <div className="space-y-2">
-            <div>
-              <p className="text-xs font-medium text-gray-900">
-                Logistics mode
-              </p>
-              <p className="text-[11px] text-gray-500">
-                Pick one — the two modes are mutually exclusive.
-              </p>
-            </div>
-
-            {/* Radio-style picker — the dot sits before the heading on
-                the left so the card reads "[ ○ ] Heading / Description"
-                top-to-bottom. The whole card is the click target. */}
-            <div
-              role="radiogroup"
-              aria-label="Logistics mode"
-              className="grid grid-cols-1 md:grid-cols-2 gap-3"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === "tech-for-both"}
-                onClick={() => handleModeSelect("tech-for-both")}
-                className={`text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
-                  mode === "tech-for-both"
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <span
-                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                    mode === "tech-for-both"
-                      ? "border-emerald-600"
-                      : "border-gray-300"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {mode === "tech-for-both" && (
-                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                  )}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-gray-900">
-                    Tech for both Self &amp; 3PL
-                  </span>
-                  <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">
-                    Qwipo's logistics tech runs both the seller's own fleet
-                    and any 3PL provider deliveries.
-                  </span>
-                </span>
-              </button>
-
-              <button
-                type="button"
-                role="radio"
-                aria-checked={mode === "tech-for-third-party-only"}
-                onClick={() => handleModeSelect("tech-for-third-party-only")}
-                className={`text-left flex items-start gap-3 rounded-md border p-3 transition-colors ${
-                  mode === "tech-for-third-party-only"
-                    ? "border-emerald-300 bg-emerald-50/50"
-                    : "border-gray-200 bg-white hover:border-gray-300"
-                }`}
-              >
-                <span
-                  className={`mt-0.5 h-4 w-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center ${
-                    mode === "tech-for-third-party-only"
-                      ? "border-emerald-600"
-                      : "border-gray-300"
-                  }`}
-                  aria-hidden="true"
-                >
-                  {mode === "tech-for-third-party-only" && (
-                    <span className="h-2 w-2 rounded-full bg-emerald-600" />
-                  )}
-                </span>
-                <span className="flex-1 min-w-0">
-                  <span className="block text-sm font-medium text-gray-900">
-                    No Tech for Self &amp; Tech for 3PL
-                  </span>
-                  <span className="block text-[11px] text-gray-500 mt-1 leading-relaxed">
-                    The seller's in-house dispatch runs outside Qwipo; only
-                    the 3PL leg is technology-tracked.
-                  </span>
-                </span>
-              </button>
-            </div>
-
-            {missingMode && (
-              <p className="text-[11px] text-red-600">
-                Pick a mode before saving.
-              </p>
-            )}
-          </div>
-        )}
 
         <div className="flex justify-end pt-2">
           <Button
