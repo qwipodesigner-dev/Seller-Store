@@ -556,20 +556,20 @@ export function OrderDetail() {
                 </span>
               </div>
 
-              {/* Cancellation Reason — heading + selected reason.
-                  Only rendered for cancelled orders. Placed at the
-                  end of the Order Meta column with a top divider so
-                  it reads as a distinct block from the rest of the
-                  meta key/value rows. */}
+              {/* Cancellation Reason — rendered inline as another
+                  Order Meta row (same shape as Payment / Channel Order
+                  ID / Original Value) so the column reads as one
+                  uniform key-value list. Only appears for cancelled
+                  orders. */}
               {orderData.status === "Cancelled" &&
                 orderData.cancellationReason && (
-                  <div className="mt-2 pt-2 border-t border-gray-200 space-y-0.5">
-                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                  <div className="flex justify-between text-xs gap-2">
+                    <span className="text-gray-500 shrink-0">
                       Cancellation Reason
-                    </p>
-                    <p className="text-sm font-medium text-red-700">
+                    </span>
+                    <span className="text-gray-900 font-medium truncate">
                       {orderData.cancellationReason}
-                    </p>
+                    </span>
                   </div>
                 )}
             </div>
