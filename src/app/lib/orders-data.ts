@@ -85,6 +85,15 @@ export interface Order {
    *  a configured serviceability beat). Surfaced on the badge and
    *  the detail page; orphan/ad-hoc deliveries leave this blank. */
   beatName?: string;
+  /**
+   * Reason captured in the Cancel popup when the seller cancels an
+   * order (from either the detail page or the list page's bulk
+   * action). Only meaningful when `status === "Cancelled"`. Rendered
+   * in the Order Meta block on the detail page so the cancelled-tab
+   * reviewer can see why each order was cancelled without re-opening
+   * the activity log.
+   */
+  cancellationReason?: string;
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -265,6 +274,7 @@ export const seedOrders: Order[] = [
     paymentMode: "COD",
     orderDate: "2026-05-18",
     status: "Cancelled",
+    cancellationReason: "Out of Stock",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-19",
     deliveryType: "Urgent",
@@ -381,6 +391,7 @@ export const seedOrders: Order[] = [
     paymentMode: "Prepaid",
     orderDate: "2026-05-15",
     status: "Cancelled",
+    cancellationReason: "Pricing Error",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-16",
     deliveryType: "Urgent",
@@ -414,27 +425,57 @@ export function getOrderById(id: string): Order | undefined {
   return _orders.find((o) => o.id === id);
 }
 
-/** Update a single order's status. No-op if the id isn't found. */
-export function updateOrderStatus(id: string, status: OrderStatus) {
+/**
+ * Update a single order's status. No-op if the id isn't found.
+ * Passing `reason` alongside a "Cancelled" status persists it as
+ * `cancellationReason` so the detail page can render it in Order
+ * Meta. When the status flips to something OTHER than "Cancelled"
+ * the previously persisted reason is cleared.
+ */
+export function updateOrderStatus(
+  id: string,
+  status: OrderStatus,
+  reason?: string,
+) {
   let mutated = false;
   _orders = _orders.map((o) => {
     if (o.id !== id) return o;
     mutated = true;
-    return { ...o, status };
+    return applyStatusUpdate(o, status, reason);
   });
   if (mutated) notify();
 }
 
 /** Bulk variant — atomic from the subscriber's perspective. */
-export function updateOrderStatuses(ids: string[], status: OrderStatus) {
+export function updateOrderStatuses(
+  ids: string[],
+  status: OrderStatus,
+  reason?: string,
+) {
   const set = new Set(ids);
   let mutated = false;
   _orders = _orders.map((o) => {
     if (!set.has(o.id)) return o;
     mutated = true;
-    return { ...o, status };
+    return applyStatusUpdate(o, status, reason);
   });
   if (mutated) notify();
+}
+
+/** Status-write helper — single source of truth for the
+ *  cancellationReason side-effect. Cancelled + reason → persist;
+ *  any other status → wipe a stale reason. */
+function applyStatusUpdate(o: Order, status: OrderStatus, reason?: string): Order {
+  if (status === "Cancelled") {
+    return reason !== undefined
+      ? { ...o, status, cancellationReason: reason }
+      : { ...o, status };
+  }
+  // Any non-Cancelled write clears the previously persisted reason
+  // so a re-opened-then-fulfilled order doesn't carry a stale label.
+  const { cancellationReason: _drop, ...rest } = o;
+  void _drop;
+  return { ...rest, status };
 }
 
 export function subscribeToOrders(cb: () => void): () => void {

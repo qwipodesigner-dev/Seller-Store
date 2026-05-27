@@ -435,7 +435,7 @@ export function Orders() {
       toast.error("Please provide a reason for cancellation");
       return;
     }
-    updateOrderStatuses(selectedOrders, "Cancelled");
+    updateOrderStatuses(selectedOrders, "Cancelled", cancelReason);
     toast.success(
       `${selectedOrders.length} order(s) cancelled. Reason: ${cancelReason}`,
     );

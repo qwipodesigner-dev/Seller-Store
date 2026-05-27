@@ -112,6 +112,11 @@ interface OrderDetails {
   paymentMode: "COD" | "Prepaid";
   orderValue: number;
   products: OrderProduct[];
+  /** Reason the seller picked in the Cancel popup. Only meaningful
+   *  when `status === "Cancelled"` — surfaced inside the Order Meta
+   *  block so the cancelled-tab reviewer sees it without leaving
+   *  the page. */
+  cancellationReason?: string;
 }
 
 /**
@@ -149,6 +154,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     paymentMode: order.paymentMode,
     orderValue: order.orderValue,
     products,
+    cancellationReason: order.cancellationReason,
   };
 }
 
@@ -365,8 +371,14 @@ export function OrderDetail() {
   };
 
   const handleCancel = () => {
-    setOrderData((prev) => ({ ...prev, status: "Cancelled" }));
-    if (orderData.orderId) updateOrderStatus(orderData.orderId, "Cancelled");
+    setOrderData((prev) => ({
+      ...prev,
+      status: "Cancelled",
+      cancellationReason: cancelReason,
+    }));
+    if (orderData.orderId) {
+      updateOrderStatus(orderData.orderId, "Cancelled", cancelReason);
+    }
     setIsCancelModalOpen(false);
     toast.error(`Order cancelled. Reason: ${cancelReason}`);
     setTimeout(() => {
@@ -543,6 +555,23 @@ export function OrderDetail() {
                   ₹{orderData.orderValue.toLocaleString("en-IN")}
                 </span>
               </div>
+
+              {/* Cancellation Reason — heading + selected reason.
+                  Only rendered for cancelled orders. Placed at the
+                  end of the Order Meta column with a top divider so
+                  it reads as a distinct block from the rest of the
+                  meta key/value rows. */}
+              {orderData.status === "Cancelled" &&
+                orderData.cancellationReason && (
+                  <div className="mt-2 pt-2 border-t border-gray-200 space-y-0.5">
+                    <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wider">
+                      Cancellation Reason
+                    </p>
+                    <p className="text-sm font-medium text-red-700">
+                      {orderData.cancellationReason}
+                    </p>
+                  </div>
+                )}
             </div>
           </CardContent>
         </Card>
