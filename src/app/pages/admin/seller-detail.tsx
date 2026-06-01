@@ -14,6 +14,7 @@ import {
   TabsContent,
 } from "../../components/ui/tabs";
 import { ServiceabilityManager } from "../../components/serviceability-manager";
+import { CompanyComboBox } from "../../components/company-combobox";
 import {
   getLogisticsSettings,
   setLogisticsSettings,
@@ -1707,22 +1708,26 @@ export function SellerCatalogTab({
           <div className="space-y-4">
             <div className="space-y-1">
               <Label className="text-xs">Company</Label>
-              <select
+              {/* Search-and-select combobox — same pattern as the
+                  SKU picker on Offers & Schemes and the Add Seller
+                  flow's company picker. The list here is pre-filtered
+                  to companies the seller hasn't already linked, so
+                  every row is selectable. */}
+              <CompanyComboBox
                 value={addCompanyId}
-                onChange={(e) => {
-                  setAddCompanyId(e.target.value);
+                onChange={(v) => {
+                  setAddCompanyId(v);
                   setAddAllBrands(true);
                   setAddBrandIds([]);
                 }}
-                className="w-full h-9 px-3 rounded-md border border-gray-300 text-sm bg-white"
-              >
-                <option value="">Choose a company…</option>
-                {availableCompanies.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                placeholder="Choose a company…"
+                companies={availableCompanies.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  brandCount: c.brands.length,
+                }))}
+                disabled={availableCompanies.length === 0}
+              />
               {availableCompanies.length === 0 && (
                 <p className="text-[11px] text-amber-700">
                   No more catalog companies to link. Use <b>Add Brands</b>{" "}

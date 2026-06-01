@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
 import { addSeller } from "../../lib/mock-store";
 import { ImageUploader } from "../../components/ui/image-uploader";
+import { CompanyComboBox } from "../../components/company-combobox";
 
 interface SellerCompanySelection {
   companyId: string;
@@ -623,30 +624,29 @@ export function AdminAddUser() {
                         <Label className="text-xs">
                           Company <span className="text-red-500">*</span>
                         </Label>
-                        <Select
+                        {/* Search-and-select combobox — matches the SKU
+                            picker on Offers & Schemes so the admin can
+                            type to filter long company lists instead of
+                            scrolling a flat dropdown. Companies already
+                            added to other rows render greyed out with
+                            an "Already added" suffix. */}
+                        <CompanyComboBox
                           value={sel.companyId}
-                          onValueChange={(v) => setCompanyForRow(idx, v)}
-                        >
-                          <SelectTrigger className="bg-white">
-                            <SelectValue placeholder="Select a company..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {companies.map((c) => {
-                              const taken =
-                                usedCompanyIds.has(c.id) && c.id !== sel.companyId;
-                              return (
-                                <SelectItem
-                                  key={c.id}
-                                  value={c.id}
-                                  disabled={taken}
-                                >
-                                  {c.name}
-                                  {taken ? " (already added)" : ""}
-                                </SelectItem>
-                              );
-                            })}
-                          </SelectContent>
-                        </Select>
+                          onChange={(v) => setCompanyForRow(idx, v)}
+                          placeholder="Select a company..."
+                          companies={companies.map((c) => {
+                            const taken =
+                              usedCompanyIds.has(c.id) &&
+                              c.id !== sel.companyId;
+                            return {
+                              id: c.id,
+                              name: c.name,
+                              brandCount: c.brands.length,
+                              disabled: taken,
+                              disabledReason: taken ? "Already added" : undefined,
+                            };
+                          })}
+                        />
                       </div>
                       <div className="pt-5">
                         <Button
