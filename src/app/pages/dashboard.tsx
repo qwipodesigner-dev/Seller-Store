@@ -1,524 +1,708 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
-import { Card, CardContent } from "../components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { Badge } from "../components/ui/badge";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Label } from "../components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../components/ui/dialog";
 import {
+  Building2,
+  Tags,
   Package,
-  ShoppingCart,
-  TrendingUp,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Loader,
-  Calendar,
-  Flame,
-  TrendingDown,
-  Rocket,
-  ChevronRight,
-  Tag,
   Users,
+  Sparkles,
+  ShoppingCart,
+  CalendarRange,
+  Download,
+  ChevronRight,
+  ShieldCheck,
+  XCircle,
+  CheckCircle2,
   Clock,
+  AlertTriangle,
+  Truck,
+  PauseCircle,
+  TriangleAlert,
+  Layers,
 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  getDashboardSnapshot,
+  presetRange,
+  PRESET_RANGE_LABELS,
+  type DashboardSnapshot,
+  type DateRange,
+  type PresetRangeId,
+} from "../lib/dashboard-data";
+import { subscribeToOrders } from "../lib/orders-data";
+import { subscribeToDemoCustomers } from "../lib/customers-demo-data";
+import { subscribeToCompanies } from "../lib/admin-catalog";
 
-const topProducts = [
-  { name: "Premium Coffee Beans 500g", orders: 245, revenue: 183750 },
-  { name: "Instant Noodles Pack", orders: 198, revenue: 118800 },
-  { name: "Organic Green Tea Box", orders: 176, revenue: 132000 },
-  { name: "Dark Chocolate Bar 100g", orders: 134, revenue: 100500 },
-  { name: "Whole Wheat Pasta 1kg", orders: 123, revenue: 92250 },
+// ---------------------------------------------------------------------
+// Dashboard — seller-wide KPI rollup with a date-range filter, a
+// per-company breakdown table, and an XLSX download.
+//
+// Reads every data store via `getDashboardSnapshot(range)` and re-runs
+// the rollup whenever the seller flips a range preset, edits a custom
+// range, or any of the underlying stores fires its subscribe
+// notification (so a new order or a customer block on another page
+// rolls back into the dashboard counts live).
+// ---------------------------------------------------------------------
+
+const PRESETS: PresetRangeId[] = [
+  "today",
+  "last-7",
+  "last-30",
+  "month-to-date",
+  "year-to-date",
 ];
 
-const recentOrders = [
-  {
-    id: "ORD-1234",
-    customer: "ABC Retailers",
-    amount: 12500,
-    status: "Processing",
-    marketplace: "ONDC",
-  },
-  {
-    id: "ORD-1235",
-    customer: "XYZ Distributors",
-    amount: 8900,
-    status: "Shipped",
-    marketplace: "Amazon",
-  },
-  {
-    id: "ORD-1236",
-    customer: "Quick Mart",
-    amount: 6700,
-    status: "Delivered",
-    marketplace: "Flipkart",
-  },
-  {
-    id: "ORD-1237",
-    customer: "Super Store",
-    amount: 15200,
-    status: "Processing",
-    marketplace: "ONDC",
-  },
-  {
-    id: "ORD-1238",
-    customer: "Fresh Foods",
-    amount: 9800,
-    status: "Shipped",
-    marketplace: "Direct",
-  },
-];
-
-// Phase 1 placeholder — the full Dashboard (KPIs, charts, recent orders, etc.) is
-// not part of the Phase 1 scope. We surface a clean "Coming Soon" screen and
-// route the seller to the modules that ARE shipping in this phase.
 export function Dashboard() {
   const navigate = useNavigate();
+  const [activePreset, setActivePreset] = useState<PresetRangeId | "custom">(
+    "last-30",
+  );
+  const [range, setRange] = useState<DateRange>(() => presetRange("last-30"));
+  const [customOpen, setCustomOpen] = useState(false);
+  const [customFrom, setCustomFrom] = useState(range.from);
+  const [customTo, setCustomTo] = useState(range.to);
+  const [snapshot, setSnapshot] = useState<DashboardSnapshot>(() =>
+    getDashboardSnapshot(range),
+  );
 
-  const phase1Modules = [
-    { label: "My SKU", description: "Manage your catalog and ONDC details", href: "/products/my-sku", icon: Package },
-    { label: "Orders", description: "View and manage incoming orders", href: "/orders", icon: ShoppingCart },
-    { label: "Customers", description: "Customer list, filters and exports", href: "/customers", icon: Users },
-    { label: "Offers & Schemes", description: "Quantity Pricing Schemes (QPS)", href: "/offers", icon: Tag },
-  ];
+  // Re-run the rollup whenever the range changes or any of the stores
+  // we depend on fires a write notification. The other stores
+  // (admin-catalog companies, my-sku sampleSKUs, offers QPS schemes)
+  // are static at runtime today; if they grow a subscribe API later
+  // we can hook them in here without touching the rest of the page.
+  useEffect(() => {
+    const refresh = () => setSnapshot(getDashboardSnapshot(range));
+    refresh();
+    const unsubA = subscribeToOrders(refresh);
+    const unsubB = subscribeToDemoCustomers(refresh);
+    const unsubC = subscribeToCompanies(refresh);
+    return () => {
+      unsubA();
+      unsubB();
+      unsubC();
+    };
+  }, [range]);
+
+  const applyPreset = (id: PresetRangeId) => {
+    setActivePreset(id);
+    setRange(presetRange(id));
+  };
+
+  const applyCustom = () => {
+    if (!customFrom || !customTo) {
+      toast.error("Please set both dates.");
+      return;
+    }
+    if (customFrom > customTo) {
+      toast.error("From date must be on or before To date.");
+      return;
+    }
+    setActivePreset("custom");
+    setRange({ from: customFrom, to: customTo });
+    setCustomOpen(false);
+  };
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-blue-50 via-white to-purple-50 flex items-center justify-center p-6">
-      <div className="w-full max-w-3xl">
-        <div className="text-center mb-10">
-          <div className="inline-flex h-20 w-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 items-center justify-center shadow-xl mb-5">
-            <Rocket className="h-10 w-10 text-white" />
-          </div>
-          <Badge className="bg-amber-50 text-amber-700 border-amber-200 mb-3">
-            <Clock className="h-3 w-3 mr-1" />
-            Coming Soon
-          </Badge>
-          <h1 className="text-3xl font-semibold text-gray-900 mb-3">
-            Dashboard is on the way
-          </h1>
-          <p className="text-base text-gray-600 max-w-xl mx-auto leading-relaxed">
-            Sales KPIs, smart insights, recent-orders feed and other dashboard
-            visualisations are <b>not part of Phase 1</b>. They will be released in a
-            later phase. In the meantime, jump straight into the modules below.
+    <div className="h-full flex flex-col bg-gray-50">
+      {/* Toolbar — title, range picker, download. Sticks to the top so
+          the seller can re-filter without scrolling back. */}
+      <div className="bg-white border-b border-gray-200 px-6 py-4 flex flex-wrap items-center justify-between gap-3 flex-shrink-0">
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Dashboard</h1>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {snapshot.range.from === snapshot.range.to
+              ? `Snapshot for ${snapshot.range.from}`
+              : `Window: ${snapshot.range.from} → ${snapshot.range.to}`}
           </p>
         </div>
-
-        <Card className="border-blue-200 shadow-sm">
-          <CardContent className="p-6">
-            <p className="text-sm font-semibold text-gray-700 mb-4 uppercase tracking-wider">
-              Available now in Phase 1
-            </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {phase1Modules.map((m) => {
-                const Icon = m.icon;
-                return (
-                  <button
-                    key={m.label}
-                    onClick={() => navigate(m.href)}
-                    className="group flex items-center gap-3 text-left p-3 rounded-lg border border-gray-200 hover:border-blue-400 hover:bg-blue-50 transition-colors"
-                  >
-                    <div className="h-10 w-10 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-colors">
-                      <Icon className="h-5 w-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-gray-900">{m.label}</p>
-                      <p className="text-xs text-gray-600 truncate">{m.description}</p>
-                    </div>
-                    <ChevronRight className="h-4 w-4 text-gray-400 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-                  </button>
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
-
-        <p className="text-center text-xs text-gray-500 mt-6">
-          Have feedback or need a metric urgently?{" "}
-          <a href="/support" className="text-blue-600 hover:text-blue-700 font-medium">
-            Contact support
-          </a>
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex flex-wrap rounded-md border border-gray-200 bg-white p-1 gap-1">
+            {PRESETS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => applyPreset(p)}
+                className={`text-xs px-3 py-1.5 rounded ${
+                  activePreset === p
+                    ? "bg-blue-600 text-white"
+                    : "text-gray-600 hover:bg-gray-100"
+                }`}
+              >
+                {PRESET_RANGE_LABELS[p]}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => {
+                setCustomFrom(range.from);
+                setCustomTo(range.to);
+                setCustomOpen(true);
+              }}
+              className={`text-xs px-3 py-1.5 rounded inline-flex items-center gap-1 ${
+                activePreset === "custom"
+                  ? "bg-blue-600 text-white"
+                  : "text-gray-600 hover:bg-gray-100"
+              }`}
+            >
+              <CalendarRange className="h-3.5 w-3.5" />
+              Custom
+            </button>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => exportSnapshot(snapshot)}
+            className="gap-2"
+          >
+            <Download className="h-4 w-4" />
+            Download report
+          </Button>
+        </div>
       </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        {/* Catalog row */}
+        <SectionHeading
+          title="Catalog"
+          subtitle="Current state of the master catalog — not affected by the date range."
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <KpiCard
+            title="Companies"
+            icon={<Building2 className="h-5 w-5 text-blue-600" />}
+            mainValue={snapshot.companies.total}
+            stats={[
+              { label: "Active", value: snapshot.companies.active, tone: "emerald" },
+              { label: "Inactive", value: snapshot.companies.inactive, tone: "gray" },
+            ]}
+          />
+          <KpiCard
+            title="Brands"
+            icon={<Tags className="h-5 w-5 text-emerald-600" />}
+            mainValue={snapshot.brands.total}
+            stats={[
+              { label: "Active", value: snapshot.brands.active, tone: "emerald" },
+              { label: "Inactive", value: snapshot.brands.inactive, tone: "gray" },
+            ]}
+          />
+          <KpiCard
+            title="SKUs"
+            icon={<Package className="h-5 w-5 text-purple-600" />}
+            mainValue={snapshot.skus.total}
+            stats={[
+              { label: "Active", value: snapshot.skus.active, tone: "emerald" },
+              { label: "Inactive", value: snapshot.skus.inactive, tone: "gray" },
+              { label: "Compliant", value: snapshot.skus.compliant, tone: "blue" },
+              {
+                label: "Non-compliant",
+                value: snapshot.skus.nonCompliant,
+                tone: "amber",
+              },
+            ]}
+          />
+        </div>
+
+        {/* Customers row */}
+        <SectionHeading
+          title="Customers"
+          subtitle="Current customer base — counts are a snapshot of all linked customers."
+        />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KpiCard
+            title="Total customers"
+            icon={<Users className="h-5 w-5 text-blue-600" />}
+            mainValue={snapshot.customers.total}
+          />
+          <KpiCard
+            title="Active customers"
+            icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+            mainValue={snapshot.customers.active}
+            tone="emerald"
+          />
+          <KpiCard
+            title="Blocked customers"
+            icon={<XCircle className="h-5 w-5 text-rose-600" />}
+            mainValue={snapshot.customers.blocked}
+            tone="rose"
+          />
+        </div>
+
+        {/* Offers row */}
+        <SectionHeading
+          title="Offers & Schemes"
+          subtitle={`Schemes whose validity window overlaps ${snapshot.range.from} → ${snapshot.range.to}.`}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <KpiCard
+            title="Total"
+            icon={<Sparkles className="h-5 w-5 text-purple-600" />}
+            mainValue={snapshot.offers.total}
+          />
+          <KpiCard
+            title="Active"
+            icon={<CheckCircle2 className="h-5 w-5 text-emerald-600" />}
+            mainValue={snapshot.offers.active}
+            tone="emerald"
+          />
+          <KpiCard
+            title="Scheduled"
+            icon={<Clock className="h-5 w-5 text-amber-600" />}
+            mainValue={snapshot.offers.scheduled}
+            tone="amber"
+          />
+          <KpiCard
+            title="Inactive"
+            icon={<PauseCircle className="h-5 w-5 text-gray-600" />}
+            mainValue={snapshot.offers.inactive}
+            tone="gray"
+          />
+          <KpiCard
+            title="Expired"
+            icon={<TriangleAlert className="h-5 w-5 text-rose-600" />}
+            mainValue={snapshot.offers.expired}
+            tone="rose"
+          />
+        </div>
+
+        {/* Orders row */}
+        <SectionHeading
+          title="Orders"
+          subtitle={`Orders placed between ${snapshot.range.from} and ${snapshot.range.to}.`}
+        />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <KpiCard
+            title="Total orders"
+            icon={<ShoppingCart className="h-5 w-5 text-blue-600" />}
+            mainValue={snapshot.orders.total}
+          />
+          <KpiCard
+            title="Order value"
+            icon={<Layers className="h-5 w-5 text-indigo-600" />}
+            mainValueText={inrCompact(snapshot.orders.totalValue)}
+            tone="indigo"
+          />
+          <KpiCard
+            title="New"
+            icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
+            mainValue={snapshot.orders.new}
+            tone="amber"
+          />
+          <KpiCard
+            title="Confirmed"
+            icon={<CheckCircle2 className="h-5 w-5 text-blue-600" />}
+            mainValue={snapshot.orders.confirmed}
+            tone="blue"
+          />
+          <KpiCard
+            title="Delivered"
+            icon={<Truck className="h-5 w-5 text-emerald-600" />}
+            mainValue={snapshot.orders.delivered}
+            tone="emerald"
+          />
+          <KpiCard
+            title="Cancelled"
+            icon={<XCircle className="h-5 w-5 text-rose-600" />}
+            mainValue={snapshot.orders.cancelled}
+            tone="rose"
+          />
+        </div>
+
+        {/* Company breakdown */}
+        <SectionHeading
+          title="By company"
+          subtitle="Click a row to drill into that company's brands, SKUs, customers, offers, and orders."
+        />
+        <Card className="overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <Th>Company</Th>
+                  <Th align="right">Brands</Th>
+                  <Th align="right">SKUs</Th>
+                  <Th align="right">Compliant</Th>
+                  <Th align="right">Categories</Th>
+                  <Th align="right">Customers</Th>
+                  <Th align="right">Offers</Th>
+                  <Th align="right">Orders</Th>
+                  <Th align="right">Order value</Th>
+                  <Th align="right"> </Th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {snapshot.companyBreakdown.length === 0 ? (
+                  <tr>
+                    <td
+                      colSpan={10}
+                      className="px-4 py-12 text-center text-sm text-gray-500"
+                    >
+                      No companies linked yet.
+                    </td>
+                  </tr>
+                ) : (
+                  snapshot.companyBreakdown.map((row) => (
+                    <tr
+                      key={row.companyId}
+                      onClick={() =>
+                        navigate(
+                          `/dashboard/companies/${encodeURIComponent(
+                            row.companyId,
+                          )}?from=${range.from}&to=${range.to}`,
+                        )
+                      }
+                      className="hover:bg-gray-50 cursor-pointer transition-colors"
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-blue-600" />
+                          <span className="font-medium text-gray-900">
+                            {row.companyName}
+                          </span>
+                          {!row.isActive && (
+                            <Badge className="bg-gray-100 text-gray-600 border-gray-300">
+                              Inactive
+                            </Badge>
+                          )}
+                        </div>
+                      </td>
+                      <Td align="right">{row.brandCount}</Td>
+                      <Td align="right">
+                        {row.skuCount}
+                        <span className="text-xs text-gray-500 ml-1">
+                          ({row.activeSkuCount} active)
+                        </span>
+                      </Td>
+                      <Td align="right">
+                        <span className="inline-flex items-center gap-1">
+                          <ShieldCheck className="h-3.5 w-3.5 text-blue-600" />
+                          {row.compliantSkuCount}
+                        </span>
+                      </Td>
+                      <Td align="right">{row.categoryCount}</Td>
+                      <Td align="right">{row.customerCount}</Td>
+                      <Td align="right">{row.offerCount}</Td>
+                      <Td align="right">{row.orderCount}</Td>
+                      <Td align="right">{inrCompact(row.orderValue)}</Td>
+                      <Td align="right">
+                        <ChevronRight className="h-4 w-4 text-gray-400 inline" />
+                      </Td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+      </div>
+
+      {/* Custom range dialog */}
+      <Dialog open={customOpen} onOpenChange={setCustomOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarRange className="h-5 w-5 text-blue-600" />
+              Custom date range
+            </DialogTitle>
+            <DialogDescription>
+              Pick the From and To dates. Both bounds are inclusive.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-2 gap-3 py-2">
+            <div className="space-y-1.5">
+              <Label className="text-xs">From</Label>
+              <Input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">To</Label>
+              <Input
+                type="date"
+                value={customTo}
+                min={customFrom || undefined}
+                onChange={(e) => setCustomTo(e.target.value)}
+                className="h-9 text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCustomOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={applyCustom}>Apply</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-// ---- Legacy Phase-1 dashboard implementation (kept for the future re-launch) ----
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _LegacyDashboard() {
-  const navigate = useNavigate();
-  const [dateRange, setDateRange] = useState("30");
-  const [channel, setChannel] = useState("all");
+// =====================================================================
+// Subcomponents
+// =====================================================================
 
-  const metrics = [
-    {
-      label: "Total Orders",
-      value: "1,847",
-      change: "+12.5%",
-      trend: "up",
-      icon: ShoppingCart,
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      borderColor: "border-l-blue-500",
-    },
-    {
-      label: "Total Revenue",
-      value: "₹28.4L",
-      change: "+18.2%",
-      trend: "up",
-      icon: TrendingUp,
-      iconBg: "bg-green-100",
-      iconColor: "text-green-600",
-      borderColor: "border-l-green-500",
-    },
-    {
-      label: "Avg Order Value",
-      value: "₹1,538",
-      change: "+5.1%",
-      trend: "up",
-      icon: TrendingUp,
-      iconBg: "bg-purple-100",
-      iconColor: "text-purple-600",
-      borderColor: "border-l-purple-500",
-    },
-    {
-      label: "Active SKUs",
-      value: "1,284",
-      change: "+8.3%",
-      trend: "up",
-      icon: Package,
-      iconBg: "bg-indigo-100",
-      iconColor: "text-indigo-600",
-      borderColor: "border-l-indigo-500",
-    },
-    {
-      label: "Low Stock SKUs",
-      value: "47",
-      change: "-3.2%",
-      trend: "down",
-      icon: AlertTriangle,
-      iconBg: "bg-amber-100",
-      iconColor: "text-amber-600",
-      borderColor: "border-l-amber-500",
-    },
-    {
-      label: "Orders in Progress",
-      value: "156",
-      change: "+23.4%",
-      trend: "up",
-      icon: Loader,
-      iconBg: "bg-orange-100",
-      iconColor: "text-orange-600",
-      borderColor: "border-l-orange-500",
-    },
-    {
-      label: "Completed Orders",
-      value: "1,634",
-      change: "+15.7%",
-      trend: "up",
-      icon: CheckCircle,
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
-      borderColor: "border-l-emerald-500",
-    },
-    {
-      label: "Cancelled Orders",
-      value: "57",
-      change: "-8.9%",
-      trend: "down",
-      icon: XCircle,
-      iconBg: "bg-red-100",
-      iconColor: "text-red-600",
-      borderColor: "border-l-red-500",
-    },
-  ];
-
-  const insights = [
-    {
-      icon: AlertTriangle,
-      iconColor: "text-amber-600",
-      iconBg: "bg-amber-50",
-      borderColor: "border-amber-200",
-      message: "12 SKUs are low on stock",
-      detail: "Immediate restocking required",
-      action: "View Inventory",
-      link: "/inventory",
-    },
-    {
-      icon: Flame,
-      iconColor: "text-orange-600",
-      iconBg: "bg-orange-50",
-      borderColor: "border-orange-200",
-      message: "Top product: Premium Coffee Beans",
-      detail: "245 orders • ₹1.84L revenue",
-      action: "View Report",
-      link: "/reports/product-performance",
-    },
-    {
-      icon: TrendingDown,
-      iconColor: "text-red-600",
-      iconBg: "bg-red-50",
-      borderColor: "border-red-200",
-      message: "Orders dropped by 8% vs last week",
-      detail: "Consider running promotions",
-      action: "View Analytics",
-      link: "/reports/sales-orders",
-    },
-    {
-      icon: Rocket,
-      iconColor: "text-green-600",
-      iconBg: "bg-green-50",
-      borderColor: "border-green-200",
-      message: "3 products driving 60% revenue",
-      detail: "Focus on high performers",
-      action: "View Details",
-      link: "/reports/product-performance",
-    },
-  ];
-
+function SectionHeading({
+  title,
+  subtitle,
+}: {
+  title: string;
+  subtitle?: string;
+}) {
   return (
-    <div className="h-full flex flex-col bg-gray-50">
-      {/* Filters Bar */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4 flex-shrink-0">
-        <div className="flex flex-wrap items-center gap-3 justify-end">
-          <div className="flex items-center gap-2">
-            <Select value={dateRange} onValueChange={setDateRange}>
-              <SelectTrigger className="w-36">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="7">Last 7 days</SelectItem>
-                <SelectItem value="30">Last 30 days</SelectItem>
-                <SelectItem value="90">Last 90 days</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <Select value={channel} onValueChange={setChannel}>
-            <SelectTrigger className="w-36">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Channels</SelectItem>
-              <SelectItem value="ondc">ONDC</SelectItem>
-              <SelectItem value="marketplace">Marketplace</SelectItem>
-              <SelectItem value="direct">Direct</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Main Content - Scrollable */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6">
-        {/* Key Metrics - 8 Cards in 2 Rows */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((metric) => {
-            const Icon = metric.icon;
-            return (
-              <Card
-                key={metric.label}
-                className={`border-l-4 ${metric.borderColor} hover:shadow-lg transition-shadow`}
-              >
-                <CardContent className="p-5">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600 mb-2">
-                        {metric.label}
-                      </p>
-                      <p className="text-3xl font-bold text-gray-900 mb-2">
-                        {metric.value}
-                      </p>
-                      <div className="flex items-center gap-1">
-                        {metric.trend === "up" ? (
-                          <TrendingUp className="h-3 w-3 text-green-600" />
-                        ) : (
-                          <TrendingDown className="h-3 w-3 text-green-600" />
-                        )}
-                        <span
-                          className={`text-xs font-semibold ${
-                            metric.trend === "up"
-                              ? "text-green-600"
-                              : "text-green-600"
-                          }`}
-                        >
-                          {metric.change}
-                        </span>
-                        <span className="text-xs text-gray-500">
-                          vs last period
-                        </span>
-                      </div>
-                    </div>
-                    <div
-                      className={`${metric.iconBg} ${metric.iconColor} p-3 rounded-xl`}
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Smart Insights Section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">
-              💡 Smart Insights
-            </h2>
-            <span className="text-sm text-gray-500">
-              Real-time business intelligence
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {insights.map((insight, idx) => {
-              const Icon = insight.icon;
-              return (
-                <Card
-                  key={idx}
-                  className={`border-2 ${insight.borderColor} hover:shadow-lg transition-all cursor-pointer`}
-                  onClick={() => navigate(insight.link)}
-                >
-                  <CardContent className="p-5">
-                    <div className="flex items-start gap-4">
-                      <div
-                        className={`${insight.iconBg} ${insight.iconColor} p-3 rounded-xl flex-shrink-0`}
-                      >
-                        <Icon className="h-6 w-6" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-bold text-gray-900 text-base mb-1">
-                          {insight.message}
-                        </p>
-                        <p className="text-sm text-gray-600 mb-3">
-                          {insight.detail}
-                        </p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="p-0 h-auto font-semibold text-blue-600 hover:text-blue-700 hover:bg-transparent"
-                        >
-                          {insight.action}
-                          <ChevronRight className="h-4 w-4 ml-1" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Bottom Section - Top Products & Recent Orders */}
-        <div className="grid gap-6 md:grid-cols-2">
-          {/* Top Products */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Top Products
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/reports/product-performance")}
-                  className="text-blue-600 hover:text-blue-700 p-0 h-auto"
-                >
-                  View All
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-              <div className="space-y-3">
-                {topProducts.map((product, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="bg-blue-100 text-blue-600 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm">
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">
-                          {product.name}
-                        </p>
-                        <p className="text-xs text-gray-600">
-                          {product.orders} orders
-                        </p>
-                      </div>
-                    </div>
-                    <p className="font-bold text-gray-900">
-                      ₹{(product.revenue / 1000).toFixed(1)}K
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Recent Orders */}
-          <Card className="hover:shadow-lg transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between mb-5">
-                <h3 className="text-lg font-bold text-gray-900">
-                  Recent Orders
-                </h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => navigate("/orders")}
-                  className="text-blue-600 hover:text-blue-700 p-0 h-auto"
-                >
-                  View All
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
-              <div className="space-y-3">
-                {recentOrders.map((order) => (
-                  <div
-                    key={order.id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <div>
-                      <p className="font-semibold text-gray-900 text-sm">
-                        {order.id}
-                      </p>
-                      <p className="text-xs text-gray-600">{order.customer}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-gray-900 text-sm">
-                        ₹{order.amount.toLocaleString()}
-                      </p>
-                      <div className="flex items-center gap-2 mt-1">
-                        <Badge
-                          variant={
-                            order.status === "Delivered"
-                              ? "default"
-                              : order.status === "Shipped"
-                              ? "secondary"
-                              : "outline"
-                          }
-                          className="text-xs"
-                        >
-                          {order.status}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+    <div>
+      <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+      {subtitle && (
+        <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+          {subtitle}
+        </p>
+      )}
     </div>
   );
+}
+
+type Tone = "default" | "emerald" | "amber" | "rose" | "blue" | "indigo" | "gray";
+
+const TONE_VALUE_COLOR: Record<Tone, string> = {
+  default: "text-gray-900",
+  emerald: "text-emerald-700",
+  amber: "text-amber-700",
+  rose: "text-rose-700",
+  blue: "text-blue-700",
+  indigo: "text-indigo-700",
+  gray: "text-gray-700",
+};
+
+interface KpiStat {
+  label: string;
+  value: number;
+  tone?: "emerald" | "amber" | "rose" | "blue" | "gray";
+}
+
+function KpiCard({
+  title,
+  icon,
+  mainValue,
+  mainValueText,
+  tone = "default",
+  stats,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  mainValue?: number;
+  mainValueText?: string;
+  tone?: Tone;
+  stats?: KpiStat[];
+}) {
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm flex items-center gap-2 text-gray-700 font-medium">
+          {icon}
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="pt-0">
+        <p
+          className={`text-3xl font-semibold leading-tight ${TONE_VALUE_COLOR[tone]}`}
+        >
+          {mainValueText ?? mainValue?.toLocaleString("en-IN") ?? "—"}
+        </p>
+        {stats && stats.length > 0 && (
+          <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-1.5">
+            {stats.map((s) => (
+              <div
+                key={s.label}
+                className="flex items-center justify-between text-xs"
+              >
+                <span className="text-gray-500">{s.label}</span>
+                <span
+                  className={`font-medium ${
+                    s.tone ? TONE_VALUE_COLOR[s.tone] : "text-gray-900"
+                  }`}
+                >
+                  {s.value.toLocaleString("en-IN")}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Th({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <th
+      className={`px-4 py-3 text-${align} text-xs font-semibold uppercase tracking-wider text-gray-600`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({
+  children,
+  align = "left",
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+}) {
+  return (
+    <td className={`px-4 py-3 text-${align} text-sm text-gray-800`}>
+      {children}
+    </td>
+  );
+}
+
+// =====================================================================
+// Helpers
+// =====================================================================
+
+// "₹12.4L" / "₹50K" / "₹820" — compact Indian formatter used for KPI
+// values where space matters.
+function inrCompact(n: number): string {
+  if (n >= 1_00_00_000) return `₹${(n / 1_00_00_000).toFixed(1)}Cr`;
+  if (n >= 1_00_000) return `₹${(n / 1_00_000).toFixed(1)}L`;
+  if (n >= 1_000) return `₹${(n / 1_000).toFixed(1)}K`;
+  return `₹${n.toLocaleString("en-IN")}`;
+}
+
+// XLSX download — one workbook with sections matching the dashboard
+// layout. Same dynamic-import-ExcelJS pattern used by the other
+// download flows in the app so the SDK doesn't ship on the initial
+// bundle.
+async function exportSnapshot(snapshot: DashboardSnapshot) {
+  try {
+    const ExcelJS = (await import("exceljs")).default;
+    const wb = new ExcelJS.Workbook();
+    wb.creator = "Qwipo Seller Store";
+    wb.created = new Date();
+
+    const styleHeader = (row: import("exceljs").Row) => {
+      row.font = { bold: true, color: { argb: "FFFFFFFF" } };
+      row.fill = {
+        type: "pattern",
+        pattern: "solid",
+        fgColor: { argb: "FF1E40AF" },
+      };
+      row.alignment = { vertical: "middle", horizontal: "left" };
+      row.height = 22;
+    };
+
+    // Summary sheet
+    const summary = wb.addWorksheet("Summary");
+    summary.addRow(["Section", "Metric", "Value"]);
+    styleHeader(summary.getRow(1));
+    summary.addRow([
+      "Range",
+      "Window",
+      `${snapshot.range.from} → ${snapshot.range.to}`,
+    ]);
+    summary.addRow(["Companies", "Total", snapshot.companies.total]);
+    summary.addRow(["Companies", "Active", snapshot.companies.active]);
+    summary.addRow(["Companies", "Inactive", snapshot.companies.inactive]);
+    summary.addRow(["Brands", "Total", snapshot.brands.total]);
+    summary.addRow(["Brands", "Active", snapshot.brands.active]);
+    summary.addRow(["Brands", "Inactive", snapshot.brands.inactive]);
+    summary.addRow(["SKUs", "Total", snapshot.skus.total]);
+    summary.addRow(["SKUs", "Active", snapshot.skus.active]);
+    summary.addRow(["SKUs", "Inactive", snapshot.skus.inactive]);
+    summary.addRow(["SKUs", "Compliant", snapshot.skus.compliant]);
+    summary.addRow(["SKUs", "Non-compliant", snapshot.skus.nonCompliant]);
+    summary.addRow(["Customers", "Total", snapshot.customers.total]);
+    summary.addRow(["Customers", "Active", snapshot.customers.active]);
+    summary.addRow(["Customers", "Blocked", snapshot.customers.blocked]);
+    summary.addRow(["Offers", "Total", snapshot.offers.total]);
+    summary.addRow(["Offers", "Active", snapshot.offers.active]);
+    summary.addRow(["Offers", "Scheduled", snapshot.offers.scheduled]);
+    summary.addRow(["Offers", "Inactive", snapshot.offers.inactive]);
+    summary.addRow(["Offers", "Expired", snapshot.offers.expired]);
+    summary.addRow(["Orders", "Total", snapshot.orders.total]);
+    summary.addRow(["Orders", "New", snapshot.orders.new]);
+    summary.addRow(["Orders", "Confirmed", snapshot.orders.confirmed]);
+    summary.addRow(["Orders", "Delivered", snapshot.orders.delivered]);
+    summary.addRow(["Orders", "Cancelled", snapshot.orders.cancelled]);
+    summary.addRow(["Orders", "Total value (₹)", snapshot.orders.totalValue]);
+    summary.getColumn(1).width = 16;
+    summary.getColumn(2).width = 22;
+    summary.getColumn(3).width = 28;
+    summary.views = [{ state: "frozen", ySplit: 1 }];
+
+    // Company breakdown sheet
+    const company = wb.addWorksheet("Companies");
+    company.addRow([
+      "Company",
+      "Status",
+      "Brands",
+      "SKUs",
+      "Active SKUs",
+      "Compliant SKUs",
+      "Categories",
+      "Customers",
+      "Offers",
+      "Orders",
+      "Order value (₹)",
+    ]);
+    styleHeader(company.getRow(1));
+    snapshot.companyBreakdown.forEach((row) => {
+      company.addRow([
+        row.companyName,
+        row.isActive ? "Active" : "Inactive",
+        row.brandCount,
+        row.skuCount,
+        row.activeSkuCount,
+        row.compliantSkuCount,
+        row.categoryCount,
+        row.customerCount,
+        row.offerCount,
+        row.orderCount,
+        row.orderValue,
+      ]);
+    });
+    [40, 12, 10, 10, 12, 14, 12, 12, 10, 10, 16].forEach((w, i) => {
+      company.getColumn(i + 1).width = w;
+    });
+    company.views = [{ state: "frozen", ySplit: 1 }];
+
+    const buffer = await wb.xlsx.writeBuffer();
+    const blob = new Blob([buffer], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `seller_dashboard_${snapshot.range.from}_to_${snapshot.range.to}.xlsx`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Dashboard report downloaded.");
+  } catch (err) {
+    console.error("[dashboard] export failed", err);
+    toast.error("Couldn't generate the report. Please try again.");
+  }
 }

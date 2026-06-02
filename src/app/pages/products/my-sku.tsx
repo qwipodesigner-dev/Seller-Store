@@ -84,7 +84,10 @@ interface ONDCData {
   supportPhone: string;
 }
 
-interface SKUData {
+// Exported so other surfaces (notably the seller Dashboard's KPI
+// rollups) can reuse the same shape without re-modelling. The
+// `sampleSKUs` array below is also exported for the same reason.
+export interface SKUData {
   id: string;
   name: string;
   category: string;
@@ -107,8 +110,11 @@ interface SKUData {
   };
 }
 
-// SKU data — aligned with the Bizom DMS inventory export (Freedom / Sri Krupa / First Klass).
-const sampleSKUs: SKUData[] = [
+// SKU data — aligned with the Bizom DMS inventory export (Freedom /
+// Sri Krupa / First Klass). Exported so the Dashboard KPI rollups can
+// read the seller's full SKU catalog (status + compliance) without
+// having to duplicate the seed.
+export const sampleSKUs: SKUData[] = [
   // Demo SKU — fully ONDC-compliant Aashirvaad Atta 10 kg (ITC Limited).
   // Showcases what a complete, ready-to-publish SKU looks like.
   {

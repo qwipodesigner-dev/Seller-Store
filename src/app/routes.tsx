@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
+import { DashboardCompany } from "./pages/dashboard-company";
 import { Inventory } from "./pages/inventory";
 import { Orders } from "./pages/orders/list";
 import { OrderDetail } from "./pages/orders/detail";
@@ -118,6 +119,10 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, Component: Dashboard },
+      // Per-company drill-down — opens from the company table on the
+      // Dashboard. Carries the dashboard's date range via the query
+      // string so the window survives the navigation.
+      { path: "dashboard/companies/:companyId", Component: DashboardCompany },
       { path: "products/my-sku/edit/:skuId", Component: AddManually },
       { path: "products/my-sku", Component: MySKU },
       { path: "products/sku-detail/:skuId", Component: SKUDetail },
