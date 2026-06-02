@@ -98,6 +98,23 @@ export interface DashboardSnapshot {
   companyBreakdown: CompanyBreakdownRow[];
 }
 
+export interface OrderTrendPoint {
+  /** Bucket label — short, "Mon 02" / "May 04" / etc, chosen by
+   *  caller. We just key by ISO date and let the page format it. */
+  date: string;
+  total: number;
+  new: number;
+  confirmed: number;
+  delivered: number;
+  cancelled: number;
+  value: number;
+}
+
+export interface CategorySliceRow {
+  category: string;
+  skuCount: number;
+}
+
 export interface CompanyDrilldown {
   range: DateRange;
   company: Company;
@@ -324,6 +341,65 @@ export function getDashboardSnapshot(range: DateRange): DashboardSnapshot {
     orders: orderKpis,
     companyBreakdown,
   };
+}
+
+// ---------------------------------------------------------------------
+// Time-series + categorical helpers (charts)
+// ---------------------------------------------------------------------
+
+/**
+ * Walk every day in [range.from, range.to] inclusive and roll the
+ * order count + value per day. Empty days surface as zeros so the
+ * line chart renders a continuous x-axis. The label is the ISO date
+ * — the page picks a short formatter based on the window length.
+ */
+export function getOrderTrend(range: DateRange): OrderTrendPoint[] {
+  const orders = getOrders();
+  const buckets = new Map<string, OrderTrendPoint>();
+
+  // Pre-fill the date range so we always have a point per day.
+  const start = new Date(range.from + "T00:00:00");
+  const end = new Date(range.to + "T00:00:00");
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const iso = ISO(d);
+    buckets.set(iso, {
+      date: iso,
+      total: 0,
+      new: 0,
+      confirmed: 0,
+      delivered: 0,
+      cancelled: 0,
+      value: 0,
+    });
+  }
+
+  orders.forEach((o) => {
+    if (!buckets.has(o.orderDate)) return;
+    const point = buckets.get(o.orderDate)!;
+    point.total++;
+    point.value += o.orderValue;
+    if (o.status === "New") point.new++;
+    else if (o.status === "Confirmed") point.confirmed++;
+    else if (o.status === "Delivered") point.delivered++;
+    else if (o.status === "Cancelled") point.cancelled++;
+  });
+
+  return Array.from(buckets.values());
+}
+
+/**
+ * Roll the seller's catalog by category — used by the bar chart that
+ * shows SKU distribution. Sorted by SKU count descending so the
+ * biggest categories surface first.
+ */
+export function getCategoryDistribution(): CategorySliceRow[] {
+  const counts = new Map<string, number>();
+  sampleSKUs.forEach((s) => {
+    counts.set(s.category, (counts.get(s.category) ?? 0) + 1);
+  });
+  return Array.from(counts.entries())
+    .map(([category, skuCount]) => ({ category, skuCount }))
+    .sort((a, b) => b.skuCount - a.skuCount);
 }
 
 // ---------------------------------------------------------------------
