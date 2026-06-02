@@ -36,16 +36,6 @@ export interface AuthUser {
    * Currently used to distinguish the two super-admin demo logins.
    */
   dataMode?: "demo" | "empty";
-  /**
-   * Demo opt-in for the Logistics add-on. When true:
-   *  - the Settings hub surfaces the "Logistics Settings" card,
-   *  - the sidebar surfaces the "Logistics" nav item (gated further on
-   *    the Settings → Logistics master toggle for clickable vs. greyed),
-   *  - login pre-seeds the logistics settings to enabled with both
-   *    modes ticked so the flow is demo-able out of the box.
-   * Existing seller persona keeps this off → zero logistics surface.
-   */
-  logisticsAddon?: boolean;
 }
 
 interface AuthContextValue {

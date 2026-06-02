@@ -50,13 +50,10 @@ import {
 import { AlertOctagon, Loader2 } from "lucide-react";
 import { RouteProgress } from "./ui/page-loader";
 import { ThemeToggle } from "./theme-toggle";
-import {
-  getLogisticsSettings,
-  subscribeToLogisticsSettings,
-} from "../lib/logistics-settings";
-
-// External target the Logistics menu opens in a new tab once the
-// seller has enabled the module in Settings → Logistics Settings.
+// External target the Logistics menu opens in a new tab. The Logistics
+// item is part of every seller's sidebar — it goes greyed-out for the
+// empty-mode seller persona (so reviewers see the inception-day state)
+// and clickable for the regular seller.
 const LOGISTICS_PORTAL_URL =
   "https://logistics-buyer.test.bms.qwipo.com/auth/login";
 
@@ -73,6 +70,10 @@ type SellerNavItem = {
   subItems?: { href: string; name: string }[];
 };
 
+// The Logistics nav entry now sits in the base seller navigation
+// directly — every seller persona sees it. The empty-mode seller has
+// it greyed out (via `requiresLogistics`), while the regular seller
+// can click through to the external portal.
 const sellerNavigation: SellerNavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
@@ -81,18 +82,13 @@ const sellerNavigation: SellerNavItem[] = [
   { name: "Orders", href: "/orders", icon: ShoppingCart },
   { name: "Settings", href: "/settings", icon: Settings },
   { name: "Support", href: "/support", icon: HelpCircle },
+  {
+    name: "Logistics",
+    externalUrl: LOGISTICS_PORTAL_URL,
+    requiresLogistics: true,
+    icon: Truck,
+  },
 ];
-
-// The Logistics nav entry — only spliced into the seller nav when the
-// logged-in persona has the `logisticsAddon` flag (Seller + Logistics).
-// Kept separate from the base array so the vanilla seller's sidebar
-// stays exactly as it was before the add-on existed.
-const sellerLogisticsNav: SellerNavItem = {
-  name: "Logistics",
-  externalUrl: LOGISTICS_PORTAL_URL,
-  requiresLogistics: true,
-  icon: Truck,
-};
 
 const sellerErrorScreensNav = {
   name: "Error Screens",
@@ -166,52 +162,24 @@ export function RootLayout() {
   // so reviewers can browse the error and loading galleries without
   // leaving the app.
   const isEmptyMode = user?.dataMode === "empty";
-  // Seller + Logistics persona appends the Logistics entry at the end
-  // of the sidebar (below Support) so the core seller menu stays in
-  // its familiar order; every other seller persona keeps the base nav.
-  const baseSellerNav = user?.logisticsAddon
-    ? [...sellerNavigation, sellerLogisticsNav]
-    : sellerNavigation;
   const navigation = isAdmin
     ? isEmptyMode
       ? [...adminNavigation, adminErrorScreensNav, adminLoadingScreensNav]
       : adminNavigation
     : isEmptyMode
       ? [
-          ...baseSellerNav,
+          ...sellerNavigation,
           sellerCustomersDemoNav,
           sellerOffersDemoNav,
           sellerErrorScreensNav,
           sellerLoadingScreensNav,
         ]
-      : baseSellerNav;
+      : sellerNavigation;
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [expandedMenu, setExpandedMenu] = useState<string | null>(
     isAdmin ? "User Management" : "Products",
   );
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-
-  // Track the seller's Logistics master toggle so the sidebar item
-  // can be greyed-out / enabled live without a page reload. Settings
-  // are keyed by seller id — the Super Admin manages the state from
-  // the Manage Seller → Logistics tab, and the seller's sidebar reads
-  // the same key here. Falls back to defaults for non-seller roles
-  // (admin / designer) since they don't render the logistics nav at
-  // all.
-  const sellerId = user?.id ?? "";
-  const [logisticsEnabled, setLogisticsEnabled] = useState(() =>
-    sellerId ? getLogisticsSettings(sellerId).enabled : false,
-  );
-  useEffect(() => {
-    if (!sellerId) {
-      setLogisticsEnabled(false);
-      return;
-    }
-    setLogisticsEnabled(getLogisticsSettings(sellerId).enabled);
-    return subscribeToLogisticsSettings(sellerId, () =>
-      setLogisticsEnabled(getLogisticsSettings(sellerId).enabled),
-    );
-  }, [sellerId]);
 
   const handleLogout = () => {
     logout();
@@ -269,10 +237,12 @@ export function RootLayout() {
         const isExpanded = expandedMenu === item.name;
 
         // External URL items (e.g. Logistics → external portal). Render
-        // as a button — opens the URL in a new tab. Gated on the
-        // Logistics settings toggle when `requiresLogistics` is set.
+        // as a button — opens the URL in a new tab. `requiresLogistics`
+        // greys the item out for the empty-mode seller persona, so
+        // reviewers see the inception-day state; the regular seller
+        // has it clickable.
         if (item.externalUrl) {
-          const disabled = item.requiresLogistics && !logisticsEnabled;
+          const disabled = item.requiresLogistics && isEmptyMode;
           return (
             <button
               key={item.name}
@@ -285,10 +255,10 @@ export function RootLayout() {
               title={
                 collapsed
                   ? disabled
-                    ? `${item.name} (enable in Settings → Logistics)`
+                    ? `${item.name} (not available in demo empty mode)`
                     : item.name
                   : disabled
-                    ? "Enable Logistics in Settings first"
+                    ? "Logistics is not available in this demo persona"
                     : undefined
               }
               className={`flex w-full items-center ${
@@ -584,7 +554,7 @@ export function RootLayout() {
                   // as the desktop sidebar.
                   if (item.externalUrl) {
                     const disabled =
-                      item.requiresLogistics && !logisticsEnabled;
+                      item.requiresLogistics && isEmptyMode;
                     return (
                       <button
                         key={item.name}

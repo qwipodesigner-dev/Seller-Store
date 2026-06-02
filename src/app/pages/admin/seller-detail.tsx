@@ -44,7 +44,6 @@ import {
   Pencil,
   MapPin,
   Truck,
-  Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -435,13 +434,6 @@ export function AdminSellerDetail() {
                 >
                   <MapPin className="h-4 w-4 mr-2" />
                   Serviceability
-                </TabsTrigger>
-                <TabsTrigger
-                  value="logistics"
-                  className="data-[state=active]:bg-white data-[state=active]:shadow-sm rounded-md px-4 py-2"
-                >
-                  <Truck className="h-4 w-4 mr-2" />
-                  Logistics
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -847,14 +839,6 @@ export function AdminSellerDetail() {
                 zones for any seller from a single place. */}
             <TabsContent value="serviceability" className="p-6 mt-0">
               <ServiceabilityManager />
-            </TabsContent>
-
-            {/* Logistics — moved here from the seller-side Settings
-                hub. The admin owns enable/disable + mode for each
-                seller; the seller's sidebar reads the same per-seller
-                state and gates the Logistics nav accordingly. */}
-            <TabsContent value="logistics" className="p-6 mt-0">
-              {sellerId && <LogisticsTab sellerId={sellerId} />}
             </TabsContent>
           </Tabs>
         </Card>
@@ -2104,87 +2088,3 @@ function ConnectorCard({
   );
 }
 
-// =====================================================================
-// Logistics tab — admin controls the seller's logistics master toggle
-// + mode pick. Mirrors the visual rhythm of the other Manage Seller
-// tabs (Profile / Companies & Brands / Connector / Serviceability):
-// padded section header, an outlined master-toggle row, and a Save
-// button confined to the tab body.
-// =====================================================================
-
-function LogisticsTab({ sellerId }: { sellerId: string }) {
-  const initial = getLogisticsSettings(sellerId);
-  const [enabled, setEnabled] = useState(initial.enabled);
-  const [savedEnabled, setSavedEnabled] = useState(initial.enabled);
-  const [confirmOpen, setConfirmOpen] = useState(false);
-
-  // Re-sync when the admin switches sellers — the tab state belongs to
-  // sellerId, not to the component instance.
-  useEffect(() => {
-    const fresh = getLogisticsSettings(sellerId);
-    setEnabled(fresh.enabled);
-    setSavedEnabled(fresh.enabled);
-    return subscribeToLogisticsSettings(sellerId, () => {
-      setSavedEnabled(getLogisticsSettings(sellerId).enabled);
-    });
-  }, [sellerId]);
-
-  const saveDisabled = enabled === savedEnabled;
-
-  const summary = enabled
-    ? "Logistics will be enabled for this seller. The Logistics shortcut will be clickable in their sidebar."
-    : "Logistics will be disabled for this seller. The Logistics shortcut will be greyed out in their sidebar.";
-
-  const handleSave = () => {
-    setLogisticsSettings(sellerId, { enabled });
-    setSavedEnabled(enabled);
-    setConfirmOpen(false);
-    toast.success("Logistics settings saved for this seller.");
-  };
-
-  return (
-    <>
-      <div className="max-w-3xl space-y-4">
-        {/* Master toggle — same outlined-row container the Profile tab
-            uses for the Active / Inactive row. This is now the only
-            control on the tab: enable / disable. */}
-        <div className="flex items-start justify-between gap-3 border border-gray-200 rounded-md p-3 bg-gray-50/50">
-          <div>
-            <Label className="text-sm">Enable Logistics</Label>
-            <p className="text-[11px] text-gray-500 mt-0.5">
-              Off by default. Turn this on to make the Logistics shortcut
-              clickable in the seller's sidebar.
-            </p>
-          </div>
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
-        </div>
-
-        <div className="flex justify-end pt-2">
-          <Button
-            onClick={() => setConfirmOpen(true)}
-            disabled={saveDisabled}
-            className="gap-2"
-          >
-            <Save className="h-4 w-4" />
-            Save
-          </Button>
-        </div>
-      </div>
-
-      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Save logistics settings?</DialogTitle>
-            <DialogDescription>{summary}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave}>Confirm</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
-  );
-}
