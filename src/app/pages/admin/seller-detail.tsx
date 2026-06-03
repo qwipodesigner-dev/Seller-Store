@@ -96,8 +96,9 @@ export function AdminSellerDetail() {
   const [permissionsDirty, setPermissionsDirty] = useState(false);
 
   // Logistics connector state — reads the same logisticsSettings store
-  // that the Logistics tab and the seller sidebar use.
-  const [addLogisticsOpen, setAddLogisticsOpen] = useState(false);
+  // that the seller sidebar uses. The Logistics connector is now part
+  // of the unified Add Connector chooser; there's no separate Add
+  // Logistics dialog anymore.
   const [logisticsEnabled, setLogisticsEnabled] = useState(
     sellerId ? getLogisticsSettings(sellerId).enabled : false,
   );
@@ -592,50 +593,54 @@ export function AdminSellerDetail() {
               )}
             </TabsContent>
 
-            {/* Connectors */}
-            <TabsContent value="connectors" className="p-6 mt-0 space-y-8">
-              {/* ── Marketplace Connectors ── */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Connectors
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Manage this seller's integrations with marketplaces.
-                    </p>
-                  </div>
+            {/* Connectors — one unified section for every connector type
+                (marketplace + logistics). Connected cards render side by
+                side in the same grid; the Add Connector dialog hosts every
+                available type so there's no separate Add Logistics CTA. */}
+            <TabsContent value="connectors" className="p-6 mt-0">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">
+                    Connectors
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Manage this seller's marketplace and logistics
+                    integrations.
+                  </p>
+                </div>
+                <Button
+                  className="gap-2"
+                  onClick={() => setAddConnectorOpen(true)}
+                  disabled={ondcConnected && logisticsEnabled}
+                >
+                  <Plus className="h-4 w-4" />
+                  Add Connector
+                </Button>
+              </div>
+
+              {!ondcConnected && !logisticsEnabled ? (
+                <div className="text-center py-12 border-2 border-dashed rounded-lg">
+                  <Plug className="h-10 w-10 mx-auto text-gray-300 mb-2" />
+                  <p className="font-medium text-gray-600">
+                    No connectors configured yet
+                  </p>
+                  <p className="text-sm text-gray-500 mt-1 mb-4">
+                    Add a marketplace (ONDC) or a logistics provider (Qwipo
+                    Logistics) so this seller can transact and fulfil
+                    orders.
+                  </p>
                   <Button
-                    className="gap-2"
+                    variant="outline"
                     onClick={() => setAddConnectorOpen(true)}
-                    disabled={ondcConnected}
+                    className="gap-2"
                   >
                     <Plus className="h-4 w-4" />
                     Add Connector
                   </Button>
                 </div>
-
-                {!ondcConnected ? (
-                  <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                    <Plug className="h-10 w-10 mx-auto text-gray-300 mb-2" />
-                    <p className="font-medium text-gray-600">
-                      ONDC connector not configured yet
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1 mb-4">
-                      Add the Seller ID and API Key shared by ONDC so this
-                      seller can transact on the network.
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => setAddConnectorOpen(true)}
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Connector
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {ondcConnected && (
                     <ConnectorCard
                       icon={<ShoppingBag className="h-5 w-5" />}
                       iconBg="bg-orange-100 text-orange-600"
@@ -645,69 +650,32 @@ export function AdminSellerDetail() {
                       badge={connectorBadge(seller.connectors.ondc)}
                       onEdit={openEditOndc}
                     />
-                  </div>
-                )}
-              </div>
-
-              {/* ── Logistics Connectors ── */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div>
-                    <h3 className="text-base font-semibold text-gray-900">
-                      Logistics Connectors
-                    </h3>
-                    <p className="text-sm text-gray-500">
-                      Manage this seller's logistics provider integrations.
-                    </p>
-                  </div>
-                  <Button
-                    className="gap-2"
-                    onClick={() => setAddLogisticsOpen(true)}
-                    disabled={logisticsEnabled}
-                  >
-                    <Plus className="h-4 w-4" />
-                    Add Logistics
-                  </Button>
-                </div>
-
-                {!logisticsEnabled ? (
-                  <div className="text-center py-12 border-2 border-dashed rounded-lg">
-                    <Truck className="h-10 w-10 mx-auto text-gray-300 mb-2" />
-                    <p className="font-medium text-gray-600">
-                      No logistics connector added yet
-                    </p>
-                    <p className="text-sm text-gray-500 mt-1 mb-4">
-                      Connect a logistics provider to enable delivery planning
-                      and tracking for this seller.
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => setAddLogisticsOpen(true)}
-                      className="gap-2"
-                    >
-                      <Plus className="h-4 w-4" />
-                      Add Logistics
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  )}
+                  {logisticsEnabled && (
                     <ConnectorCard
                       icon={<Truck className="h-5 w-5" />}
                       iconBg="bg-blue-100 text-blue-600"
                       name="Qwipo Logistics"
                       subtitle="Logistics"
-                      description="Logistics fulfillment via ONDC network — delivery planning, tracking and status sync."
+                      description="Logistics fulfilment via ONDC network — delivery planning, tracking and status sync."
                       badge={
                         <Badge className="bg-green-50 text-green-700 border-green-200 gap-1">
                           <CheckCircle2 className="h-3 w-3" />
                           Connected
                         </Badge>
                       }
-                      onEdit={() => setAddLogisticsOpen(true)}
+                      onEdit={() => {
+                        // The logistics connector has no editable
+                        // credentials; clicking Edit re-opens the chooser
+                        // so the admin can see all available connectors
+                        // again, but the Logistics tile renders as
+                        // "Already added" and is non-interactive.
+                        setAddConnectorOpen(true);
+                      }}
                     />
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
             </TabsContent>
 
             {/* Permissions */}
@@ -846,7 +814,8 @@ export function AdminSellerDetail() {
 
       {/* -------- Dialogs -------- */}
 
-      {/* Add Connector (chooser) */}
+      {/* Add Connector (chooser) — now hosts both ONDC and Logistics so
+          the admin sees every available connector behind a single CTA. */}
       <Dialog open={addConnectorOpen} onOpenChange={setAddConnectorOpen}>
         <DialogContent>
           <DialogHeader>
@@ -856,7 +825,7 @@ export function AdminSellerDetail() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="py-2">
+          <div className="py-2 space-y-3">
             <button
               type="button"
               disabled={ondcConnected}
@@ -883,6 +852,45 @@ export function AdminSellerDetail() {
                 </p>
               )}
             </button>
+
+            {/* Logistics — Qwipo Logistics. Clicking the tile flips the
+                seller's logistics setting on and closes the chooser. No
+                follow-up form: a logistics connector has no per-seller
+                credentials to capture (it's an internal Qwipo service). */}
+            <button
+              type="button"
+              disabled={logisticsEnabled}
+              onClick={() => {
+                if (!sellerId) return;
+                setLogisticsSettings(sellerId, { enabled: true });
+                setLogisticsEnabled(true);
+                setAddConnectorOpen(false);
+                toast.success("Qwipo Logistics connected.");
+              }}
+              className={`w-full p-4 rounded-lg border text-left transition-all ${
+                logisticsEnabled
+                  ? "border-gray-200 bg-gray-50 opacity-60 cursor-not-allowed"
+                  : "border-gray-200 hover:border-blue-400 hover:shadow-sm"
+              }`}
+            >
+              <div className="bg-blue-100 text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center mb-3">
+                <Truck className="h-5 w-5" />
+              </div>
+              <p className="font-semibold text-gray-900">Qwipo Logistics</p>
+              <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs my-1">
+                Logistics
+              </Badge>
+              <p className="text-xs text-gray-600 mt-1">
+                ONDC logistics fulfilment — route planning, delivery
+                tracking and status sync.
+              </p>
+              {logisticsEnabled && (
+                <p className="text-xs text-green-600 font-medium mt-2">
+                  Already added
+                </p>
+              )}
+            </button>
+
             <p className="text-[11px] text-gray-500 mt-3">
               DMS connectors (Bizom, Tally, etc.) will arrive in Phase 2.
             </p>
@@ -1036,66 +1044,6 @@ export function AdminSellerDetail() {
             </Button>
             {/* CTA always enabled — see Add ONDC dialog for the pattern. */}
             <Button onClick={saveEditOndc}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Logistics Connector */}
-      <Dialog open={addLogisticsOpen} onOpenChange={setAddLogisticsOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Add Logistics Connector</DialogTitle>
-            <DialogDescription>
-              Select a logistics provider to connect for this seller.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="py-2">
-            <button
-              type="button"
-              className="w-full p-4 rounded-lg border border-blue-300 bg-blue-50/30 text-left"
-            >
-              <div className="flex items-start gap-3">
-                <div className="bg-blue-100 text-blue-600 w-10 h-10 rounded-lg flex items-center justify-center shrink-0">
-                  <Truck className="h-5 w-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900">Qwipo Logistics</p>
-                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                    ONDC logistics fulfillment — route planning, delivery
-                    tracking and status sync.
-                  </p>
-                </div>
-                {logisticsEnabled ? (
-                  <Badge className="bg-green-50 text-green-700 border-green-200 gap-1 shrink-0">
-                    <CheckCircle2 className="h-3 w-3" />
-                    Connected
-                  </Badge>
-                ) : (
-                  <Badge variant="outline" className="text-gray-500 shrink-0">
-                    Not Connected
-                  </Badge>
-                )}
-              </div>
-            </button>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setAddLogisticsOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              disabled={logisticsEnabled}
-              onClick={() => {
-                if (!sellerId) return;
-                setLogisticsSettings(sellerId, { enabled: true });
-                setLogisticsEnabled(true);
-                setAddLogisticsOpen(false);
-                toast.success("Qwipo Logistics connected.");
-              }}
-            >
-              Connect
-            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
