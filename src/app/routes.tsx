@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router";
 import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { Dashboard } from "./pages/dashboard";
+import { DashboardCompany } from "./pages/dashboard-company";
 import { Inventory } from "./pages/inventory";
 import { Orders } from "./pages/orders/list";
 import { OrderDetail } from "./pages/orders/detail";
@@ -22,7 +23,6 @@ import { AddSKU } from "./pages/products/add-sku";
 import { MySKU } from "./pages/products/my-sku";
 import { SKUDetail } from "./pages/products/sku-detail";
 import { AddManually } from "./pages/products/add-sku/manual";
-import { AiCreateSku } from "./pages/products/add-sku/ai-create";
 import { BrandSync } from "./pages/products/add-sku/brand-sync";
 import { CentralCatalogSync } from "./pages/products/add-sku/central-catalog-sync";
 import { PriceList } from "./pages/products/price-list";
@@ -118,13 +118,16 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, Component: Dashboard },
+      // Per-company drill-down — opens from the company table on the
+      // Dashboard. Carries the dashboard's date range via the query
+      // string so the window survives the navigation.
+      { path: "dashboard/companies/:companyId", Component: DashboardCompany },
       { path: "products/my-sku/edit/:skuId", Component: AddManually },
       { path: "products/my-sku", Component: MySKU },
       { path: "products/sku-detail/:skuId", Component: SKUDetail },
       { path: "products/add-sku", Component: AddSKU },
       { path: "products/add-sku/central-catalog", Component: CentralCatalogSync },
       { path: "products/add-sku/manual", Component: AddManually },
-      { path: "products/add-sku/ai", Component: AiCreateSku },
       { path: "products/add-sku/brand-sync", Component: BrandSync },
       { path: "products/price-list", Component: PriceList },
       { path: "offers", Component: OffersList },

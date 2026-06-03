@@ -34,6 +34,7 @@ import {
   TrendingDown,
   Truck,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -117,6 +118,9 @@ interface OrderDetails {
    *  block so the cancelled-tab reviewer sees it without leaving
    *  the page. */
   cancellationReason?: string;
+  /** Buyer's GST registration number. Undefined when the buyer is
+   *  not GST-registered or the number wasn't provided with the order. */
+  gstNumber?: string;
 }
 
 /**
@@ -155,6 +159,7 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     orderValue: order.orderValue,
     products,
     cancellationReason: order.cancellationReason,
+    gstNumber: order.gstNumber,
   };
 }
 
@@ -515,6 +520,25 @@ export function OrderDetail() {
               <p className="text-gray-600 flex gap-1.5 text-xs leading-snug">
                 <MapPin className="h-3 w-3 text-gray-400 mt-0.5 shrink-0" />
                 <span>{orderData.buyerAddress}</span>
+              </p>
+              {orderData.buyerAddress && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orderData.buyerAddress)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium mt-0.5"
+                >
+                  <MapPin className="h-3 w-3" />
+                  View on Map
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
+              <p className="text-gray-700 flex items-center gap-1.5 text-xs">
+                <Hash className="h-3 w-3 text-gray-400 shrink-0" />
+                <span className="text-gray-500 shrink-0">GST No.</span>
+                <span className={orderData.gstNumber ? "font-mono" : "italic text-gray-400"}>
+                  {orderData.gstNumber ?? "Not available"}
+                </span>
               </p>
             </div>
             {/* Seller */}

@@ -806,18 +806,6 @@ export function Orders() {
     });
   };
 
-  // Day-of-week formatter — "Monday" / "Thursday". Powers the
-  // Beat Delivery Day column on the orders table. Returns the input
-  // unchanged when it's not a parseable ISO date.
-  const formatDeliveryDayName = (iso: string): string => {
-    const t = Date.parse(iso + "T00:00:00Z");
-    if (Number.isNaN(t)) return iso;
-    return new Date(t).toLocaleDateString("en-GB", {
-      weekday: "long",
-      timeZone: "UTC",
-    });
-  };
-
   // (Priority badge was retired alongside the May 2026 column sweep
   // — urgency now reads off the Delivery Type badge, and the row
   // surfaces Beat Name + Beat Delivery Day as first-class columns
@@ -890,18 +878,6 @@ export function Orders() {
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Order Date
-              </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Expected Delivery Date
-              </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Beat Name
-              </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Beat Delivery Day
-              </th>
-              <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
-                Delivery Type
               </th>
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Status
@@ -977,49 +953,11 @@ export function Orders() {
                     ₹{order.orderValue.toLocaleString()}
                   </p>
                 </td>
-                {/* One value per column — Order Date, Expected
-                    Delivery Date, Beat Name, Beat Delivery Day, and
-                    Delivery Type all stand on their own so each is
-                    easy to scan vertically. The Priority bucket was
-                    retired alongside the May 2026 serviceability
-                    sweep — the seller now reads delivery urgency
-                    from the Delivery Type badge instead. */}
                 <td
                   className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
                   title={order.orderDate}
                 >
                   {formatShortDate(order.orderDate)}
-                </td>
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap text-sm font-medium text-gray-900"
-                  title={order.expectedDeliveryDate}
-                >
-                  {formatShortDate(order.expectedDeliveryDate)}
-                </td>
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-800"
-                  title={order.beatName ?? undefined}
-                >
-                  {order.beatName ? (
-                    <span className="inline-flex items-center gap-1">
-                      <Route className="h-3 w-3 text-gray-500" />
-                      {order.beatName}
-                    </span>
-                  ) : (
-                    <span className="text-xs text-gray-400">—</span>
-                  )}
-                </td>
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap text-sm text-gray-700"
-                  title={order.expectedDeliveryDate}
-                >
-                  {formatDeliveryDayName(order.expectedDeliveryDate)}
-                </td>
-                <td
-                  className="px-3 py-2.5 whitespace-nowrap"
-                  title={order.beatName ?? undefined}
-                >
-                  {getDeliveryTypeBadge(order)}
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   {getStatusBadge(order.status)}

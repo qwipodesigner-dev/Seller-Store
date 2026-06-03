@@ -94,6 +94,10 @@ export interface Order {
    * the activity log.
    */
   cancellationReason?: string;
+  /** GST registration number for the buyer (GSTIN). Optional — not
+   *  all retailers are GST-registered. Surfaced in the Buyer section
+   *  on the order detail page. */
+  gstNumber?: string;
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -132,6 +136,7 @@ export const seedOrders: Order[] = [
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
     buyerCode: "BUYER-BAL-456",
     channelOrderId: "ONDC-ORD-789456",
+    gstNumber: "29ABCDE1234F1Z5",
     lineItems: [
       {
         skuCode: "180000008",

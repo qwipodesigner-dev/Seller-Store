@@ -43,7 +43,6 @@ import {
   FileSpreadsheet,
   FileCheck,
   FileWarning,
-  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -84,7 +83,10 @@ interface ONDCData {
   supportPhone: string;
 }
 
-interface SKUData {
+// Exported so other surfaces (notably the seller Dashboard's KPI
+// rollups) can reuse the same shape without re-modelling. The
+// `sampleSKUs` array below is also exported for the same reason.
+export interface SKUData {
   id: string;
   name: string;
   category: string;
@@ -107,8 +109,11 @@ interface SKUData {
   };
 }
 
-// SKU data — aligned with the Bizom DMS inventory export (Freedom / Sri Krupa / First Klass).
-const sampleSKUs: SKUData[] = [
+// SKU data — aligned with the Bizom DMS inventory export (Freedom /
+// Sri Krupa / First Klass). Exported so the Dashboard KPI rollups can
+// read the seller's full SKU catalog (status + compliance) without
+// having to duplicate the seed.
+export const sampleSKUs: SKUData[] = [
   // Demo SKU — fully ONDC-compliant Aashirvaad Atta 10 kg (ITC Limited).
   // Showcases what a complete, ready-to-publish SKU looks like.
   {
@@ -1636,15 +1641,6 @@ export function MySKU() {
                   Filter
                 </Button>
                 )}
-                <Button
-                  size="sm"
-                  onClick={() => navigate("/products/add-sku/ai")}
-                  className="gap-2 flex-1 sm:flex-initial bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-700 hover:to-blue-700 text-white shadow-sm"
-                  title="Upload product images — AI fills the SKU details"
-                >
-                  <Sparkles className="h-4 w-4" />
-                  Create SKU with AI
-                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -1777,6 +1773,12 @@ export function MySKU() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Category
                   </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    MRP
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    Selling Price
+                  </th>
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
@@ -1794,7 +1796,7 @@ export function MySKU() {
               <tbody className="divide-y divide-gray-100">
                 {paginatedSKUs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-3">
+                    <td colSpan={10} className="px-4 py-3">
                       <EmptyState
                         icon={PackageSearch}
                         title="No matches"
@@ -1822,6 +1824,20 @@ export function MySKU() {
                       </td>
                       <td className="px-4 py-3">
                         <span className="text-sm text-gray-700">{sku.category}</span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-mono text-sm text-gray-900">
+                          {sku.mrp != null
+                            ? `₹${sku.mrp.toLocaleString("en-IN")}`
+                            : "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <span className="font-mono text-sm text-gray-900">
+                          {sku.sellingPrice != null
+                            ? `₹${sku.sellingPrice.toLocaleString("en-IN")}`
+                            : "—"}
+                        </span>
                       </td>
                       <td className="px-4 py-3 text-center">
                         <Badge

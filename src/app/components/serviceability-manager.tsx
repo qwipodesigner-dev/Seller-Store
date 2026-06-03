@@ -151,7 +151,7 @@ export function ServiceabilityManager() {
     const bit = bits.find((b) => b.id === bitId);
     if (!bit) return;
     setBits((prev) => prev.filter((b) => b.id !== bitId));
-    toast.success(`Removed bit "${bit.beatName}"`);
+    toast.success(`Removed beat "${bit.beatName}"`);
   };
 
   const handleDialogOpenChange = (next: boolean) => {
@@ -281,7 +281,7 @@ export function ServiceabilityManager() {
             : b,
         ),
       );
-      toast.success(`Updated bit "${draftBeatName.trim()}" for ${company.name}`);
+      toast.success(`Updated beat "${draftBeatName.trim()}" for ${company.name}`);
     } else {
       const bit: ServiceabilityBit = {
         id: makeServiceabilityBitId(),
@@ -324,8 +324,8 @@ export function ServiceabilityManager() {
             Serviceability
           </h3>
           <p className="text-sm text-gray-500">
-            Configure delivery bits — one polygon per beat. Customers matching
-            a bit inherit its delivery day automatically.
+            Configure delivery beats — one polygon per beat. Customers matching
+            a beat inherit its delivery day automatically.
           </p>
         </div>
         <Button
@@ -339,7 +339,7 @@ export function ServiceabilityManager() {
           }
         >
           <Plus className="h-4 w-4" />
-          Add Serviceability Bit
+          Add Serviceability Beat
         </Button>
       </div>
 
@@ -350,22 +350,22 @@ export function ServiceabilityManager() {
           <p className="font-medium text-gray-600">No companies linked yet</p>
           <p className="text-sm text-gray-500 mt-1">
             Link Qwipo catalog companies via the Companies &amp; Brands tab
-            first, then configure their delivery bits here.
+            first, then configure their delivery beats here.
           </p>
         </div>
       ) : sortedBits.length === 0 ? (
         <div className="text-center py-12 border-2 border-dashed rounded-lg">
           <MapPin className="h-10 w-10 mx-auto text-gray-300 mb-2" />
           <p className="font-medium text-gray-600">
-            No serviceability bits configured yet
+            No serviceability beats configured yet
           </p>
           <p className="text-sm text-gray-500 mt-1 mb-4">
-            Click <b>Add Serviceability Bit</b> to create the first beat for a
+            Click <b>Add Serviceability Beat</b> to create the first beat for a
             company.
           </p>
           <Button variant="outline" onClick={handleAddNew} className="gap-2">
             <Plus className="h-4 w-4" />
-            Add Serviceability Bit
+            Add Serviceability Beat
           </Button>
         </div>
       ) : (
@@ -461,10 +461,10 @@ export function ServiceabilityManager() {
         <div className="mt-4 flex items-start gap-2 p-3 rounded-md border border-blue-100 bg-blue-50/60 text-xs text-blue-900">
           <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
           <p>
-            Customers whose mapped location falls inside a bit&apos;s polygon
-            automatically inherit that bit&apos;s delivery day. To change a
-            customer&apos;s delivery day, edit the bit they belong to (or move
-            them to a different bit by adjusting the polygon).
+            Customers whose mapped location falls inside a beat&apos;s polygon
+            automatically inherit that beat&apos;s delivery day. To change a
+            customer&apos;s delivery day, edit the beat they belong to (or
+            move them to a different beat by adjusting the polygon).
           </p>
         </div>
       )}
@@ -476,12 +476,12 @@ export function ServiceabilityManager() {
             <DialogTitle className="flex items-center gap-2">
               <MapPin className="h-5 w-5 text-green-600" />
               {editingBitId
-                ? `Edit Bit — ${editingBit?.beatName ?? ""}`
-                : "Add Serviceability Bit"}
+                ? `Edit Beat — ${editingBit?.beatName ?? ""}`
+                : "Add Serviceability Beat"}
             </DialogTitle>
             <DialogDescription>
-              Each bit is a single delivery polygon belonging to a company.
-              Customers in the polygon inherit the bit&apos;s delivery day.
+              Each beat is a single delivery polygon belonging to a company.
+              Customers in the polygon inherit the beat&apos;s delivery day.
             </DialogDescription>
           </DialogHeader>
 
@@ -540,7 +540,7 @@ export function ServiceabilityManager() {
                 onValueChange={(v) => setDraftDeliveryDay(v as DeliveryDay)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Pick the day customers in this bit get delivered" />
+                  <SelectValue placeholder="Pick the day customers in this beat get delivered" />
                 </SelectTrigger>
                 <SelectContent>
                   {DELIVERY_DAY_OPTIONS.map((d) => (
@@ -551,7 +551,7 @@ export function ServiceabilityManager() {
                 </SelectContent>
               </Select>
               <p className="text-[11px] text-gray-500">
-                Every customer in this bit will be tagged with this day on
+                Every customer in this beat will be tagged with this day on
                 their next order cycle.
               </p>
             </div>
