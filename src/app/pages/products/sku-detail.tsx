@@ -885,6 +885,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     // (e.g. "Freedom Model" groups the 50ml / 100ml / 200ml SKUs).
     // Optional — single-variant SKUs leave it blank.
     groupName: "",
+    shortName: (sku as any).shortName || "",
     shortDesc: sku.description?.split(".")[0] || "",
     longDesc: sku.description || "",
     additionalImages: [] as string[],
@@ -929,6 +930,7 @@ function ProductDetailsTab({ sku }: { sku: any }) {
   const blankOndc: typeof dms = {
     ...dms,
     groupName: "",
+    shortName: (sku as any).shortName || "",
     shortDesc: "",
     longDesc: "",
     additionalImages: [],
@@ -1288,6 +1290,12 @@ function ProductDetailsTab({ sku }: { sku: any }) {
               </span>
             </div>
           }
+        />
+        <DualRow
+          label="Short Name"
+          help="Internal alias for this SKU (e.g. FFR1). Max 20 chars — letters, digits, hyphens, underscores only. Used for quick search on the SKU list."
+          dms={""}
+          ondc={<TextInput value={ondc.shortName} onChange={(v) => update("shortName", v)} edited={isEdited("shortName")} placeholder="e.g. FFR1" />}
         />
         <DualRow
           label="Short Description"

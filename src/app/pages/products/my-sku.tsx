@@ -95,6 +95,7 @@ export interface SKUData {
   status: string;
   lastUpdated: string;
   sku: string;
+  shortName?: string;
   // Price & Inventory fields — merged into the SKU record (previously on a separate page)
   mrp?: number;
   sellingPrice?: number;
@@ -125,6 +126,7 @@ export const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-25",
     sku: "190000001",
+    shortName: "AASH-10K",
     mrp: 565,
     sellingPrice: 525,
     availableStock: 320,
@@ -142,6 +144,7 @@ export const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-22",
     sku: "180000005",
+    shortName: "FFR-15KG",
     mrp: 3091, sellingPrice: 2810, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
     ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
   },
@@ -166,6 +169,7 @@ export const sampleSKUs: SKUData[] = [
     status: "Active",
     lastUpdated: "2026-04-22",
     sku: "180000008",
+    shortName: "FFR1",
     mrp: 188, sellingPrice: 171, availableStock: 642, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
     ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
   },
@@ -701,10 +705,12 @@ export function MySKU() {
 
   // Filtered SKUs
   const filteredSKUs = skus.filter((sku) => {
+    const q = searchQuery.toLowerCase();
     const matchesSearch =
-      sku.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sku.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      sku.brand.toLowerCase().includes(searchQuery.toLowerCase());
+      sku.name.toLowerCase().includes(q) ||
+      sku.sku.toLowerCase().includes(q) ||
+      sku.brand.toLowerCase().includes(q) ||
+      (sku.shortName ? sku.shortName.toLowerCase().includes(q) : false);
 
     const matchesStatus = statusFilter === "all" || sku.status === statusFilter;
     const matchesCategory = selectedCategories.length === 0 || selectedCategories.includes(sku.category);
@@ -1765,6 +1771,9 @@ export function MySKU() {
                     SKU Code <span className="text-red-500">*</span>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
+                    Short Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     SKU Name <span className="text-red-500">*</span>
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
@@ -1796,7 +1805,7 @@ export function MySKU() {
               <tbody className="divide-y divide-gray-100">
                 {paginatedSKUs.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-3">
+                    <td colSpan={11} className="px-4 py-3">
                       <EmptyState
                         icon={PackageSearch}
                         title="No matches"
@@ -1813,6 +1822,17 @@ export function MySKU() {
                             {sku.sku}
                           </span>
                         </CopyOnHover>
+                      </td>
+                      <td className="px-4 py-3">
+                        {sku.shortName ? (
+                          <CopyOnHover value={sku.shortName} label="Short name">
+                            <span className="font-mono text-sm font-medium text-gray-900">
+                              {sku.shortName}
+                            </span>
+                          </CopyOnHover>
+                        ) : (
+                          <span className="text-sm text-gray-400">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <CopyOnHover value={sku.name} label="SKU name">
