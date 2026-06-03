@@ -241,6 +241,14 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     rules: "Required. 3 to 100 characters. Plain text.",
     example: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
   },
+  {
+    key: "shortName",
+    header: "Short Name",
+    mandatory: false,
+    format: "Max 20 chars — letters/digits/-/_",
+    rules: "Optional. Up to 20 characters. Letters, digits, hyphens and underscores only — no spaces. Must be unique within the seller's catalog. Leave blank for no short name. In the Update Price & Stock template, enter CLEAR to explicitly remove an existing short name.",
+    example: "FFR1",
+  },
   // Group Name lets the seller cluster variants of the same product
   // family (e.g. "Freedom Model" groups Freedom Model 50ml / 100ml /
   // 200ml) so the list page can render them together and downstream
