@@ -59,6 +59,10 @@ import {
   CheckCircle2,
   ShieldCheck,
   Ruler,
+  Boxes,
+  Layers,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -3102,6 +3106,358 @@ function PriceInventoryTab({ sku }: { sku: any }) {
   );
 }
 
+// ---------- Selling Units Tab ----------
+// A SKU is stocked as individual base PIECES. Distributors rarely sell
+// single pieces — they sell in inner packs and cases. This tab lets the
+// seller declare which order units a buyer may purchase in (Piece /
+// Inner Pack / Case) plus any number of custom packs, and pick which
+// unit is the default at checkout. Any combination is valid except
+// "nothing enabled" — at least one unit must stay on.
+
+type SellingUnitKind = "piece" | "innerPack" | "case" | "custom";
+
+interface SellingUnit {
+  id: string;
+  kind: SellingUnitKind;
+  label: string;
+  /** Conversion factor — how many base pieces make up one of this unit. */
+  qtyInPieces: number;
+  enabled: boolean;
+}
+
+function SellingUnitsTab({ sku }: { sku: any }) {
+  // Seed Inner Pack / Case quantities from the packaging attributes
+  // already captured on the Product Details tab, falling back to the
+  // common shampoo-sachet defaults (16 / 960) when unknown.
+  const seedInnerPack =
+    Number(sku.packSize ?? sku.ondcPrefilled?.unitizedCount ?? 16) || 16;
+  const seedCase = Number(sku.unitsPerCase ?? 960) || 960;
+
+  const [units, setUnits] = useState<SellingUnit[]>([
+    { id: "piece", kind: "piece", label: "Piece", qtyInPieces: 1, enabled: true },
+    { id: "innerPack", kind: "innerPack", label: "Inner Pack", qtyInPieces: seedInnerPack, enabled: true },
+    { id: "case", kind: "case", label: "Case", qtyInPieces: seedCase, enabled: false },
+  ]);
+  const [defaultId, setDefaultId] = useState<string>("piece");
+  const customCounter = useRef(0);
+
+  const enabledUnits = units.filter((u) => u.enabled);
+  const noneEnabled = enabledUnits.length === 0;
+
+  const standardUnits = units.filter((u) => u.kind !== "custom");
+  const customUnits = units.filter((u) => u.kind === "custom");
+
+  // Whenever the current default gets disabled or removed, fall back to
+  // the first remaining enabled unit so the default is always valid.
+  const ensureValidDefault = (next: SellingUnit[]) => {
+    const stillValid = next.some((u) => u.id === defaultId && u.enabled);
+    if (!stillValid) {
+      const firstEnabled = next.find((u) => u.enabled);
+      setDefaultId(firstEnabled ? firstEnabled.id : "");
+    }
+  };
+
+  const toggleUnit = (id: string) => {
+    setUnits((prev) => {
+      const next = prev.map((u) =>
+        u.id === id ? { ...u, enabled: !u.enabled } : u,
+      );
+      ensureValidDefault(next);
+      return next;
+    });
+  };
+
+  const setQty = (id: string, value: string) => {
+    setUnits((prev) =>
+      prev.map((u) =>
+        u.id === id ? { ...u, qtyInPieces: Number(value) || 0 } : u,
+      ),
+    );
+  };
+
+  const setLabel = (id: string, value: string) => {
+    setUnits((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, label: value } : u)),
+    );
+  };
+
+  const addCustom = () => {
+    customCounter.current += 1;
+    const id = `custom-${customCounter.current}`;
+    setUnits((prev) => [
+      ...prev,
+      { id, kind: "custom", label: "", qtyInPieces: 0, enabled: true },
+    ]);
+  };
+
+  const removeCustom = (id: string) => {
+    setUnits((prev) => {
+      const next = prev.filter((u) => u.id !== id);
+      ensureValidDefault(next);
+      return next;
+    });
+  };
+
+  const handleSave = () => {
+    if (noneEnabled) {
+      toast.error("Enable at least one selling unit before saving.");
+      return;
+    }
+    // Validate enabled non-piece units have a sensible conversion.
+    const badQty = enabledUnits.find(
+      (u) => u.kind !== "piece" && (!Number.isFinite(u.qtyInPieces) || u.qtyInPieces < 1),
+    );
+    if (badQty) {
+      toast.error(
+        `"${badQty.label || "Custom pack"}" must contain at least 1 piece.`,
+      );
+      return;
+    }
+    const unnamed = enabledUnits.find(
+      (u) => u.kind === "custom" && u.label.trim() === "",
+    );
+    if (unnamed) {
+      toast.error("Give every custom pack a name before saving.");
+      return;
+    }
+    toast.success("Selling units saved successfully");
+  };
+
+  const iconFor = (kind: SellingUnitKind) =>
+    kind === "piece" ? (
+      <Package className="h-4 w-4 text-blue-600" />
+    ) : kind === "innerPack" ? (
+      <Layers className="h-4 w-4 text-violet-600" />
+    ) : kind === "case" ? (
+      <Boxes className="h-4 w-4 text-amber-600" />
+    ) : (
+      <PackageOpen className="h-4 w-4 text-emerald-600" />
+    );
+
+  return (
+    <div className="space-y-3">
+      {/* Sticky action bar — mirrors the Price & Inventory tab. */}
+      <div className="sticky top-0 z-20 flex flex-wrap items-center justify-between bg-white px-3 py-2 rounded-lg border border-gray-200 gap-2 shadow-sm">
+        <span className="text-sm font-medium text-gray-700">
+          Selling Units for <b>{sku.sku}</b>
+        </span>
+        <Button size="sm" onClick={handleSave}>
+          Save Selling Units
+        </Button>
+      </div>
+
+      {/* Explainer */}
+      <div className="flex items-start gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2.5">
+        <Info className="h-4 w-4 text-blue-600 mt-0.5 shrink-0" />
+        <p className="text-xs text-blue-900 leading-relaxed">
+          This SKU is stocked as individual <b>pieces</b>. Choose the pack
+          sizes buyers can order in. Enable any combination — Piece, Inner
+          Pack, Case, or your own custom packs. At least one must stay on,
+          and one enabled unit is the <b>default</b> shown at checkout.
+        </p>
+      </div>
+
+      {/* Standard units */}
+      <DualSection
+        title="Standard Selling Units"
+        icon={<Boxes className="h-5 w-5 text-amber-600" />}
+        dense
+      >
+        <div className="md:col-span-2 space-y-2">
+          {standardUnits.map((u) => (
+            <div
+              key={u.id}
+              className={`flex flex-wrap items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+                u.enabled
+                  ? "border-gray-200 bg-white"
+                  : "border-gray-100 bg-gray-50"
+              }`}
+            >
+              <BooleanToggle value={u.enabled} onChange={() => toggleUnit(u.id)} />
+              <div className="flex items-center gap-1.5 min-w-[130px]">
+                {iconFor(u.kind)}
+                <span
+                  className={`text-sm font-medium ${u.enabled ? "text-gray-900" : "text-gray-400"}`}
+                >
+                  {u.label}
+                </span>
+                {u.kind === "piece" && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-gray-100 text-gray-600 border border-gray-200 leading-none">
+                    Base
+                  </span>
+                )}
+              </div>
+
+              {/* Conversion */}
+              <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                <span>1 {u.label || "unit"} =</span>
+                {u.kind === "piece" ? (
+                  <span className="font-mono font-medium text-gray-900">1</span>
+                ) : (
+                  <input
+                    type="number"
+                    min={1}
+                    value={u.qtyInPieces || ""}
+                    disabled={!u.enabled}
+                    onChange={(e) => setQty(u.id, e.target.value)}
+                    className={`w-20 px-2 py-1 rounded-md border text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      u.enabled
+                        ? "border-gray-300 bg-white"
+                        : "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                    }`}
+                  />
+                )}
+                <span>pieces</span>
+              </div>
+
+              {/* Default radio */}
+              <button
+                type="button"
+                onClick={() => u.enabled && setDefaultId(u.id)}
+                disabled={!u.enabled}
+                className={`ml-auto inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                  !u.enabled
+                    ? "text-gray-300 cursor-not-allowed"
+                    : defaultId === u.id
+                      ? "text-blue-700"
+                      : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <span
+                  className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
+                    defaultId === u.id && u.enabled
+                      ? "border-blue-600"
+                      : "border-gray-300"
+                  }`}
+                >
+                  {defaultId === u.id && u.enabled && (
+                    <span className="h-2 w-2 rounded-full bg-blue-600" />
+                  )}
+                </span>
+                Default
+              </button>
+            </div>
+          ))}
+        </div>
+      </DualSection>
+
+      {/* Custom packs */}
+      <DualSection
+        title="Custom Packs"
+        icon={<PackageOpen className="h-5 w-5 text-emerald-600" />}
+        dense
+      >
+        <div className="md:col-span-2 space-y-2">
+          <p className="text-xs text-gray-500 -mt-1">
+            Sell in your own quantities (e.g. a "Bundle of 10"). Define a
+            name and how many base pieces it contains.
+          </p>
+          {customUnits.length === 0 ? (
+            <p className="text-xs text-gray-400 italic py-1">
+              No custom packs yet.
+            </p>
+          ) : (
+            customUnits.map((u) => (
+              <div
+                key={u.id}
+                className="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white px-3 py-2.5"
+              >
+                <BooleanToggle value={u.enabled} onChange={() => toggleUnit(u.id)} />
+                <input
+                  type="text"
+                  value={u.label}
+                  placeholder="Pack name (e.g. Bundle of 10)"
+                  onChange={(e) => setLabel(u.id, e.target.value)}
+                  className="flex-1 min-w-[160px] px-2.5 py-1.5 rounded-md border border-gray-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <div className="flex items-center gap-1.5 text-sm text-gray-600">
+                  <span>=</span>
+                  <input
+                    type="number"
+                    min={1}
+                    value={u.qtyInPieces || ""}
+                    onChange={(e) => setQty(u.id, e.target.value)}
+                    className="w-20 px-2 py-1 rounded-md border border-gray-300 text-sm font-mono bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <span>pieces</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => u.enabled && setDefaultId(u.id)}
+                  className={`inline-flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                    defaultId === u.id ? "text-blue-700" : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  <span
+                    className={`inline-flex h-4 w-4 items-center justify-center rounded-full border ${
+                      defaultId === u.id ? "border-blue-600" : "border-gray-300"
+                    }`}
+                  >
+                    {defaultId === u.id && (
+                      <span className="h-2 w-2 rounded-full bg-blue-600" />
+                    )}
+                  </span>
+                  Default
+                </button>
+                <button
+                  type="button"
+                  onClick={() => removeCustom(u.id)}
+                  className="text-gray-400 hover:text-red-600 transition-colors"
+                  title="Remove custom pack"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))
+          )}
+          <Button variant="outline" size="sm" onClick={addCustom} className="gap-1.5 mt-1">
+            <Plus className="h-4 w-4" />
+            Add custom pack
+          </Button>
+        </div>
+      </DualSection>
+
+      {/* Live preview */}
+      <div
+        className={`rounded-lg border px-3 py-2.5 ${
+          noneEnabled ? "border-red-200 bg-red-50" : "border-gray-200 bg-gray-50"
+        }`}
+      >
+        {noneEnabled ? (
+          <p className="flex items-center gap-1.5 text-xs text-red-700 font-medium">
+            <AlertCircle className="h-3.5 w-3.5" />
+            No selling units enabled — buyers won't be able to order this SKU.
+            Enable at least one.
+          </p>
+        ) : (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-gray-600">
+              Buyers can order in:
+            </span>
+            {enabledUnits.map((u) => (
+              <span
+                key={u.id}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${
+                  defaultId === u.id
+                    ? "bg-blue-50 text-blue-700 border-blue-200"
+                    : "bg-white text-gray-700 border-gray-200"
+                }`}
+              >
+                {u.label || "Unnamed"} ({u.qtyInPieces} pc)
+                {defaultId === u.id && (
+                  <span className="text-[10px] font-semibold uppercase tracking-wide">
+                    · Default
+                  </span>
+                )}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 /**
  * Build a minimal `sku` object from a catalog entry so SKU Detail
  * can render the correct SKU code, name, MRP and Selling Price for
@@ -3152,7 +3508,7 @@ function synthSkuFromCatalog(skuId: string) {
 export function SKUDetail() {
   const navigate = useNavigate();
   const { skuId } = useParams();
-  const [activeTab, setActiveTab] = useState<"details" | "pricing">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "selling-units" | "pricing">("details");
 
   // Prefer hand-authored rich detail when we have it, otherwise
   // synthesize from the shared catalog. Only fall back to the demo
@@ -3210,6 +3566,19 @@ export function SKUDetail() {
             </div>
           </button>
           <button
+            onClick={() => setActiveTab("selling-units")}
+            className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+              activeTab === "selling-units"
+                ? "border-blue-600 text-blue-600"
+                : "border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300"
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <Boxes className="h-4 w-4" />
+              Selling Units
+            </div>
+          </button>
+          <button
             onClick={() => setActiveTab("pricing")}
             className={`py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
               activeTab === "pricing"
@@ -3227,6 +3596,7 @@ export function SKUDetail() {
 
       {/* Tab Content */}
       {activeTab === "details" && <ProductDetailsTab sku={sku} />}
+      {activeTab === "selling-units" && <SellingUnitsTab sku={sku} />}
       {activeTab === "pricing" && <PriceInventoryTab sku={sku} />}
     </div>
   );
