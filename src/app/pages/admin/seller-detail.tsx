@@ -41,7 +41,6 @@ import {
   Plus,
   X,
   ArrowRight,
-  Pencil,
   MapPin,
   Truck,
 } from "lucide-react";
@@ -116,17 +115,6 @@ export function AdminSellerDetail() {
     sellerId?: string;
     apiKey?: string;
   }>({});
-  // Edit-existing-ONDC dialog: lets the admin update the stored Seller ID and
-  // API Key. Replaces the previous Manage/Delete buttons on the connector card.
-  const [editOndcOpen, setEditOndcOpen] = useState(false);
-  const [editOndcSellerId, setEditOndcSellerId] = useState("");
-  const [editOndcApiKey, setEditOndcApiKey] = useState("");
-  // Inline errors for the Edit ONDC dialog. Same pattern as configErrors.
-  const [editOndcErrors, setEditOndcErrors] = useState<{
-    sellerId?: string;
-    apiKey?: string;
-  }>({});
-
   // Phase 1 ships ONDC only — Bizom (DMS) connectors are deferred to Phase 2.
   // The legacy `extraDmsConnectors` list is kept here as an empty array so the
   // existing rendering branches don't blow up; we no longer surface a way to
@@ -231,38 +219,6 @@ export function AdminSellerDetail() {
       toast.error("Could not save the ONDC connector. Please try again.");
     }
   };
-
-  // Open the Edit ONDC dialog pre-filled with the existing stored values.
-  const openEditOndc = () => {
-    setEditOndcSellerId(seller.connectors.ondc.config.subscriberId || "");
-    setEditOndcApiKey(seller.connectors.ondc.config.privateKey || "");
-    setEditOndcErrors({});
-    setEditOndcOpen(true);
-  };
-
-  const saveEditOndc = () => {
-    const next: { sellerId?: string; apiKey?: string } = {};
-    if (!editOndcSellerId.trim()) next.sellerId = "Seller ID is required.";
-    if (!editOndcApiKey.trim()) next.apiKey = "API Key is required.";
-    if (Object.keys(next).length > 0) {
-      setEditOndcErrors(next);
-      return;
-    }
-    setEditOndcErrors({});
-    const updated = updateSellerOndcConfig(seller.id, {
-      ...seller.connectors.ondc.config,
-      subscriberId: editOndcSellerId.trim(),
-      privateKey: editOndcApiKey.trim(),
-    });
-    if (updated) {
-      toast.success("ONDC connector updated.");
-      setSeller(updated);
-      setEditOndcOpen(false);
-    } else {
-      toast.error("Could not save the ONDC connector. Please try again.");
-    }
-  };
-
 
   const toggleSyncType = (type: string) => {
     setOndcForm((f) => ({
@@ -648,7 +604,6 @@ export function AdminSellerDetail() {
                       subtitle="Marketplace"
                       description="Open Network for Digital Commerce — buyer-side order routing."
                       badge={connectorBadge(seller.connectors.ondc)}
-                      onEdit={openEditOndc}
                     />
                   )}
                   {logisticsEnabled && (
@@ -664,14 +619,6 @@ export function AdminSellerDetail() {
                           Connected
                         </Badge>
                       }
-                      onEdit={() => {
-                        // The logistics connector has no editable
-                        // credentials; clicking Edit re-opens the chooser
-                        // so the admin can see all available connectors
-                        // again, but the Logistics tile renders as
-                        // "Already added" and is non-interactive.
-                        setAddConnectorOpen(true);
-                      }}
                     />
                   )}
                 </div>
@@ -974,79 +921,6 @@ export function AdminSellerDetail() {
         </DialogContent>
       </Dialog>
 
-      {/* Edit existing ONDC connector — pre-fills the stored Seller ID and
-          API Key so the admin can update them without re-creating the link. */}
-      <Dialog open={editOndcOpen} onOpenChange={setEditOndcOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ShoppingBag className="h-5 w-5 text-orange-600" />
-              Edit ONDC Connector
-            </DialogTitle>
-            <DialogDescription>
-              Update the saved Seller ID or API Key for this seller.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            <div className="space-y-1.5">
-              <Label className={editOndcErrors.sellerId ? "text-red-700" : ""}>
-                Seller ID <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                placeholder="Enter seller ID"
-                value={editOndcSellerId}
-                onChange={(e) => {
-                  setEditOndcSellerId(e.target.value);
-                  if (editOndcErrors.sellerId)
-                    setEditOndcErrors((p) => ({ ...p, sellerId: undefined }));
-                }}
-                aria-invalid={!!editOndcErrors.sellerId}
-              />
-              {editOndcErrors.sellerId && (
-                <p className="flex items-start gap-1 text-xs text-red-600">
-                  <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>{editOndcErrors.sellerId}</span>
-                </p>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label className={editOndcErrors.apiKey ? "text-red-700" : ""}>
-                API Key <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                type="password"
-                placeholder="Enter API key"
-                value={editOndcApiKey}
-                onChange={(e) => {
-                  setEditOndcApiKey(e.target.value);
-                  if (editOndcErrors.apiKey)
-                    setEditOndcErrors((p) => ({ ...p, apiKey: undefined }));
-                }}
-                aria-invalid={!!editOndcErrors.apiKey}
-              />
-              {editOndcErrors.apiKey ? (
-                <p className="flex items-start gap-1 text-xs text-red-600">
-                  <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                  <span>{editOndcErrors.apiKey}</span>
-                </p>
-              ) : (
-                <p className="text-[11px] text-gray-500">
-                  Existing key is masked — replace it with a new value to rotate.
-                </p>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setEditOndcOpen(false)}>
-              Cancel
-            </Button>
-            {/* CTA always enabled — see Add ONDC dialog for the pattern. */}
-            <Button onClick={saveEditOndc}>Save Changes</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Active / Inactive confirmation prompt — fires whenever the admin
           flips the Status toggle on the Profile tab. The actual write only
@@ -1998,7 +1872,6 @@ function ConnectorCard({
   subtitle,
   description,
   badge,
-  onEdit,
 }: {
   icon: React.ReactNode;
   iconBg: string;
@@ -2006,7 +1879,6 @@ function ConnectorCard({
   subtitle: string;
   description: string;
   badge: React.ReactNode;
-  onEdit: () => void;
 }) {
   return (
     <Card className="border border-gray-200">
@@ -2021,16 +1893,7 @@ function ConnectorCard({
           </div>
           {badge}
         </div>
-        <p className="text-xs text-gray-600 mb-4">{description}</p>
-        <Button
-          size="sm"
-          variant="outline"
-          className="gap-1 w-full"
-          onClick={onEdit}
-        >
-          <Pencil className="h-3.5 w-3.5" />
-          Edit
-        </Button>
+        <p className="text-xs text-gray-600">{description}</p>
       </CardContent>
     </Card>
   );
