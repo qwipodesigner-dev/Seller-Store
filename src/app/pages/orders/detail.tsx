@@ -34,6 +34,7 @@ import {
   TrendingDown,
   Truck,
   AlertCircle,
+  ExternalLink,
 } from "lucide-react";
 import { toast } from "sonner";
 // Shared orders store — the detail page now looks up the right
@@ -520,6 +521,18 @@ export function OrderDetail() {
                 <MapPin className="h-3 w-3 text-gray-400 mt-0.5 shrink-0" />
                 <span>{orderData.buyerAddress}</span>
               </p>
+              {orderData.buyerAddress && (
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(orderData.buyerAddress)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 text-xs text-blue-600 hover:text-blue-700 font-medium mt-0.5"
+                >
+                  <MapPin className="h-3 w-3" />
+                  View on Map
+                  <ExternalLink className="h-2.5 w-2.5" />
+                </a>
+              )}
               <p className="text-gray-700 flex items-center gap-1.5 text-xs">
                 <Hash className="h-3 w-3 text-gray-400 shrink-0" />
                 <span className="text-gray-500 shrink-0">GST No.</span>
