@@ -411,6 +411,57 @@ export function Orders() {
     return currentTabOrders.reduce((sum, order) => sum + order.orderValue, 0);
   }, [currentTabOrders]);
 
+  // View on Map — bulk action available on the New + Confirmed
+  // tabs. Builds a single Google Maps URL covering every selected
+  // order's buyer location so the distributor can eyeball where the
+  // day's deliveries cluster before they confirm or dispatch.
+  //
+  // Behaviour:
+  //   • 0 selected orders carry a buyer address → toast and bail.
+  //   • 1 address → open the standard Maps search URL (mirrors the
+  //     single-order "View on Map" link on the order detail page).
+  //   • 2+ addresses → open Google Maps Directions URL with the
+  //     first selection as origin, the last as destination, and the
+  //     remainder as waypoints. Google Maps caps waypoints at 9, so
+  //     beyond ten stops we keep the first ten and toast the seller
+  //     that the rest are truncated.
+  // The URL approach keeps the seller off any Maps API key — every
+  // browser opens this in a new tab the same way the detail page does.
+  const handleViewOnMap = () => {
+    const sel = orders.filter((o) => selectedOrders.includes(o.id));
+    const addresses = sel
+      .map((o) => o.buyerAddress?.trim())
+      .filter((a): a is string => !!a && a.length > 0);
+
+    if (addresses.length === 0) {
+      toast.error("None of the selected orders have a buyer address to map.");
+      return;
+    }
+
+    let url: string;
+    if (addresses.length === 1) {
+      url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addresses[0])}`;
+    } else {
+      const MAX_STOPS = 10; // 1 origin + 8 waypoints + 1 destination
+      const capped = addresses.slice(0, MAX_STOPS);
+      const origin = encodeURIComponent(capped[0]);
+      const destination = encodeURIComponent(capped[capped.length - 1]);
+      const middle = capped
+        .slice(1, -1)
+        .map((a) => encodeURIComponent(a))
+        .join("|");
+      url =
+        `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}` +
+        (middle ? `&waypoints=${middle}` : "");
+      if (addresses.length > MAX_STOPS) {
+        toast.info(
+          `Showing the first ${MAX_STOPS} of ${addresses.length} buyer locations on the map (Google Maps cap).`,
+        );
+      }
+    }
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
   // Confirm orders (New → Confirmed). Pure confirmation surface —
   // dispatch date / time / notes are no longer captured here.
   const handleConfirmOrders = () => {
@@ -1172,10 +1223,23 @@ export function Orders() {
                     )}
                   </div>
                   
-                  {/* Bulk Action Buttons */}
+                  {/* Bulk Action Buttons — Confirm / Cancel keep the
+                      green/red destructive treatment; View on Map sits
+                      first because the seller usually wants to eyeball
+                      delivery clustering before they confirm a wave of
+                      new orders. */}
                   {selectedOrders.length > 0 && (
                     <div className="flex items-center gap-2">
                       <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
+                        onClick={handleViewOnMap}
+                      >
+                        <MapPin className="h-4 w-4" />
+                        View on Map
+                      </Button>
                       <Button
                         size="sm"
                         className="bg-green-600 hover:bg-green-700 text-white gap-2"
@@ -1276,13 +1340,24 @@ export function Orders() {
                         )}
                       </div>
 
-                      {/* Bulk Action Buttons — Mark Delivered, the
-                          May 2026 Update Delivery Date reschedule
-                          flow (with WhatsApp customer notification),
-                          and the destructive Cancel. */}
+                      {/* Bulk Action Buttons — View on Map (route the
+                          day's confirmed deliveries) anchors the row,
+                          then Mark Delivered, the May 2026 Update
+                          Delivery Date reschedule flow (with WhatsApp
+                          customer notification), and the destructive
+                          Cancel. */}
                       {selectedOrders.length > 0 && (
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-gray-600 mr-2">{selectedOrders.length} selected</span>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-blue-300 text-blue-700 hover:bg-blue-50 gap-2"
+                            onClick={handleViewOnMap}
+                          >
+                            <MapPin className="h-4 w-4" />
+                            View on Map
+                          </Button>
                           <Button
                             size="sm"
                             className="bg-green-600 hover:bg-green-700 text-white gap-2"
