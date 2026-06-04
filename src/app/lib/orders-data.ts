@@ -98,6 +98,16 @@ export interface Order {
    *  all retailers are GST-registered. Surfaced in the Buyer section
    *  on the order detail page. */
   gstNumber?: string;
+  /** Buyer's geo coordinates captured by the buyer app at order
+   *  placement time. Used by the Orders → View on Map dialog to
+   *  render each order's customer pin on the embedded Leaflet map.
+   *  Optional — pre-API orders may not carry coords. */
+  buyerLat?: number;
+  buyerLng?: number;
+  /** Buyer-app connectivity state at order placement — drives the
+   *  Online/Offline legend on the map. "Online" pins draw blue,
+   *  "Offline" pins draw orange. Defaults to "Online" when missing. */
+  connectivity?: "Online" | "Offline";
 }
 
 // One distributor for the demo seller. Populates the Seller-*
@@ -403,6 +413,46 @@ export const seedOrders: Order[] = [
     buyerContact: "+91 98765 43221",
   },
 ];
+
+// Hyderabad-area lat/lng + Online/Offline connectivity per seed
+// order. Kept out of the main seed array so the order definitions
+// stay focused on the line-item / status story; merged in below so
+// the View on Map dialog has real coordinates to plot.
+const ORDER_GEO: Record<string, { lat: number; lng: number; connectivity: "Online" | "Offline" }> = {
+  // Cluster 1 — Hitech City / Madhapur / Gachibowli (west)
+  "QWI-ONDC-260330-8F3K92": { lat: 17.4483, lng: 78.3915, connectivity: "Online" },
+  "QWI-ONDC-260519-K2P7XR": { lat: 17.4485, lng: 78.3908, connectivity: "Online" },
+  "QWI-FLPK-260519-Q4M8YE": { lat: 17.4399, lng: 78.3489, connectivity: "Online" },
+  // Cluster 2 — Banjara Hills / Jubilee Hills (central west)
+  "QWI-AMZN-260518-V6T3HN": { lat: 17.4156, lng: 78.4347, connectivity: "Online" },
+  "QWI-ONDC-260518-J5C9BD": { lat: 17.4317, lng: 78.4078, connectivity: "Offline" },
+  // Cluster 3 — Ameerpet / Begumpet (central)
+  "QWI-AMZN-260519-N7W2XK": { lat: 17.4374, lng: 78.4482, connectivity: "Online" },
+  "QWI-ONDC-260519-R3F4PT": { lat: 17.4399, lng: 78.4737, connectivity: "Online" },
+  // Cluster 4 — Secunderabad / Malkajgiri (north-east)
+  "QWI-FLPK-260520-A6H8WC": { lat: 17.4399, lng: 78.4983, connectivity: "Online" },
+  "QWI-AMZN-260517-B9D2MZ": { lat: 17.4485, lng: 78.5042, connectivity: "Offline" },
+  // Cluster 5 — Kukatpally / Miyapur (north-west)
+  "QWI-ONDC-260520-E5G7QY": { lat: 17.4849, lng: 78.4138, connectivity: "Online" },
+  "QWI-FLPK-260516-S4U8VK": { lat: 17.4978, lng: 78.3578, connectivity: "Online" },
+  // South — Mehdipatnam / Dilsukhnagar
+  "QWI-AMZN-260515-T6Y9NF": { lat: 17.3958, lng: 78.4358, connectivity: "Online" },
+};
+
+// Merge the geo data into the seed array so the View on Map dialog
+// has lat/lng for every demo order without polluting the per-order
+// definitions above.
+for (let i = 0; i < seedOrders.length; i++) {
+  const g = ORDER_GEO[seedOrders[i].id];
+  if (g) {
+    seedOrders[i] = {
+      ...seedOrders[i],
+      buyerLat: g.lat,
+      buyerLng: g.lng,
+      connectivity: g.connectivity,
+    };
+  }
+}
 
 // ---- Tiny in-memory store + subscribe API ----
 //

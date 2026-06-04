@@ -56,6 +56,7 @@ import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { CopyOnHover } from "../../components/copy-on-hover";
 import { ListPagination } from "../../components/ui/list-pagination";
+import { OrdersMapDialog } from "../../components/orders-map-dialog";
 // Shared store — seeds + writers live in lib/orders-data so the
 // detail page can read the same orders by id and writes flow both
 // ways. `Order` / `OrderLineItem` / `OrderStatus` are exported from
@@ -155,6 +156,10 @@ export function Orders() {
   const [isDeliverDialogOpen, setIsDeliverDialogOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
   const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  // View on Map dialog — embedded Leaflet view of the selected
+  // orders' customer locations. Opened from the New + Confirmed
+  // bulk action bars.
+  const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   // "Update Expected Delivery Date" bulk action — Confirmed tab.
   // The seller picks one or more confirmed orders, opens the
   // dialog, chooses a new date, and on save we mutate
@@ -412,54 +417,28 @@ export function Orders() {
   }, [currentTabOrders]);
 
   // View on Map — bulk action available on the New + Confirmed
-  // tabs. Builds a single Google Maps URL covering every selected
-  // order's buyer location so the distributor can eyeball where the
-  // day's deliveries cluster before they confirm or dispatch.
+  // tabs. Opens an in-app Leaflet + OpenStreetMap dialog showing
+  // every selected order's customer pin so the distributor can
+  // eyeball where the day's deliveries cluster before they confirm
+  // or dispatch.
   //
-  // Behaviour:
-  //   • 0 selected orders carry a buyer address → toast and bail.
-  //   • 1 address → open the standard Maps search URL (mirrors the
-  //     single-order "View on Map" link on the order detail page).
-  //   • 2+ addresses → open Google Maps Directions URL with the
-  //     first selection as origin, the last as destination, and the
-  //     remainder as waypoints. Google Maps caps waypoints at 9, so
-  //     beyond ten stops we keep the first ten and toast the seller
-  //     that the rest are truncated.
-  // The URL approach keeps the seller off any Maps API key — every
-  // browser opens this in a new tab the same way the detail page does.
+  // The dialog handles the heavy lifting (markers, clustering,
+  // legend, summary counts); this handler just gates the action
+  // on "at least one selected order carries coordinates" so the
+  // seller gets a helpful toast instead of an empty map when their
+  // selection has no geo data.
   const handleViewOnMap = () => {
     const sel = orders.filter((o) => selectedOrders.includes(o.id));
-    const addresses = sel
-      .map((o) => o.buyerAddress?.trim())
-      .filter((a): a is string => !!a && a.length > 0);
-
-    if (addresses.length === 0) {
-      toast.error("None of the selected orders have a buyer address to map.");
+    const mappable = sel.filter(
+      (o) => typeof o.buyerLat === "number" && typeof o.buyerLng === "number",
+    );
+    if (mappable.length === 0) {
+      toast.error(
+        "None of the selected orders has a recorded customer location.",
+      );
       return;
     }
-
-    let url: string;
-    if (addresses.length === 1) {
-      url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(addresses[0])}`;
-    } else {
-      const MAX_STOPS = 10; // 1 origin + 8 waypoints + 1 destination
-      const capped = addresses.slice(0, MAX_STOPS);
-      const origin = encodeURIComponent(capped[0]);
-      const destination = encodeURIComponent(capped[capped.length - 1]);
-      const middle = capped
-        .slice(1, -1)
-        .map((a) => encodeURIComponent(a))
-        .join("|");
-      url =
-        `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}` +
-        (middle ? `&waypoints=${middle}` : "");
-      if (addresses.length > MAX_STOPS) {
-        toast.info(
-          `Showing the first ${MAX_STOPS} of ${addresses.length} buyer locations on the map (Google Maps cap).`,
-        );
-      }
-    }
-    window.open(url, "_blank", "noopener,noreferrer");
+    setIsMapDialogOpen(true);
   };
 
   // Confirm orders (New → Confirmed). Pure confirmation surface —
@@ -1452,6 +1431,24 @@ export function Orders() {
         </Card>
         </div>
       </div>
+
+      {/* Orders Map View — Leaflet + OpenStreetMap dialog showing
+          customer pins for the seller's current selection. Opened
+          from the View on Map bulk action on the New + Confirmed
+          tabs. Context label reflects the tab the seller is on so
+          the header is honest about what they're looking at. */}
+      <OrdersMapDialog
+        open={isMapDialogOpen}
+        onOpenChange={setIsMapDialogOpen}
+        orders={orders.filter((o) => selectedOrders.includes(o.id))}
+        contextLabel={
+          activeTab === "new"
+            ? "New Orders"
+            : activeTab === "confirmed"
+              ? "Confirmed Orders"
+              : "Selected Orders"
+        }
+      />
 
       {/* Confirm Orders Dialog — pure confirmation surface, no
           dispatch metadata captured here. Visually splits the
