@@ -414,34 +414,103 @@ export const seedOrders: Order[] = [
   },
 ];
 
-// Hyderabad-area lat/lng + Online/Offline connectivity per seed
-// order. Kept out of the main seed array so the order definitions
-// stay focused on the line-item / status story; merged in below so
-// the View on Map dialog has real coordinates to plot.
-const ORDER_GEO: Record<string, { lat: number; lng: number; connectivity: "Online" | "Offline" }> = {
+// Hyderabad-area buyer location data per seed order — lat/lng,
+// street address, and Online/Offline connectivity. Kept out of the
+// main seed array so the order definitions stay focused on the
+// line-item / status story; merged in below so the View on Map
+// dialog has real coordinates AND human-readable addresses for the
+// pin popups + the single-order View on Map link on the detail page.
+// Every address is consistent with its lat/lng — the neighborhood
+// name in the string matches the area the coordinates pin to.
+const ORDER_GEO: Record<
+  string,
+  { lat: number; lng: number; address: string; connectivity: "Online" | "Offline" }
+> = {
   // Cluster 1 — Hitech City / Madhapur / Gachibowli (west)
-  "QWI-ONDC-260330-8F3K92": { lat: 17.4483, lng: 78.3915, connectivity: "Online" },
-  "QWI-ONDC-260519-K2P7XR": { lat: 17.4485, lng: 78.3908, connectivity: "Online" },
-  "QWI-FLPK-260519-Q4M8YE": { lat: 17.4399, lng: 78.3489, connectivity: "Online" },
+  "QWI-ONDC-260330-8F3K92": {
+    lat: 17.4483,
+    lng: 78.3915,
+    address: "Shop 12, Cyber Towers Road, HITEC City, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260519-K2P7XR": {
+    lat: 17.4485,
+    lng: 78.3908,
+    address: "Plot 47, Inorbit Mall Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260519-Q4M8YE": {
+    lat: 17.4399,
+    lng: 78.3489,
+    address: "Shop 8, DLF Cyber City Road, Gachibowli, Hyderabad, Telangana 500032",
+    connectivity: "Online",
+  },
   // Cluster 2 — Banjara Hills / Jubilee Hills (central west)
-  "QWI-AMZN-260518-V6T3HN": { lat: 17.4156, lng: 78.4347, connectivity: "Online" },
-  "QWI-ONDC-260518-J5C9BD": { lat: 17.4317, lng: 78.4078, connectivity: "Offline" },
+  "QWI-AMZN-260518-V6T3HN": {
+    lat: 17.4156,
+    lng: 78.4347,
+    address: "Shop 23, Road No. 12, Banjara Hills, Hyderabad, Telangana 500034",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260518-J5C9BD": {
+    lat: 17.4317,
+    lng: 78.4078,
+    address: "Plot 5, Road No. 36, Jubilee Hills, Hyderabad, Telangana 500033",
+    connectivity: "Offline",
+  },
   // Cluster 3 — Ameerpet / Begumpet (central)
-  "QWI-AMZN-260519-N7W2XK": { lat: 17.4374, lng: 78.4482, connectivity: "Online" },
-  "QWI-ONDC-260519-R3F4PT": { lat: 17.4399, lng: 78.4737, connectivity: "Online" },
+  "QWI-AMZN-260519-N7W2XK": {
+    lat: 17.4374,
+    lng: 78.4482,
+    address: "Shop 14, SR Nagar Main Road, Ameerpet, Hyderabad, Telangana 500038",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260519-R3F4PT": {
+    lat: 17.4399,
+    lng: 78.4737,
+    address: "Shop 9, Prakash Nagar, Begumpet, Hyderabad, Telangana 500016",
+    connectivity: "Online",
+  },
   // Cluster 4 — Secunderabad / Malkajgiri (north-east)
-  "QWI-FLPK-260520-A6H8WC": { lat: 17.4399, lng: 78.4983, connectivity: "Online" },
-  "QWI-AMZN-260517-B9D2MZ": { lat: 17.4485, lng: 78.5042, connectivity: "Offline" },
+  "QWI-FLPK-260520-A6H8WC": {
+    lat: 17.4399,
+    lng: 78.4983,
+    address: "Shop 31, S.D. Road, Secunderabad, Hyderabad, Telangana 500003",
+    connectivity: "Online",
+  },
+  "QWI-AMZN-260517-B9D2MZ": {
+    lat: 17.4485,
+    lng: 78.5042,
+    address: "Shop 17, Patny Centre, Secunderabad, Hyderabad, Telangana 500003",
+    connectivity: "Offline",
+  },
   // Cluster 5 — Kukatpally / Miyapur (north-west)
-  "QWI-ONDC-260520-E5G7QY": { lat: 17.4849, lng: 78.4138, connectivity: "Online" },
-  "QWI-FLPK-260516-S4U8VK": { lat: 17.4978, lng: 78.3578, connectivity: "Online" },
-  // South — Mehdipatnam / Dilsukhnagar
-  "QWI-AMZN-260515-T6Y9NF": { lat: 17.3958, lng: 78.4358, connectivity: "Online" },
+  "QWI-ONDC-260520-E5G7QY": {
+    lat: 17.4849,
+    lng: 78.4138,
+    address: "Shop 6, KPHB Phase 4, Kukatpally, Hyderabad, Telangana 500072",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260516-S4U8VK": {
+    lat: 17.4978,
+    lng: 78.3578,
+    address: "Shop 22, Miyapur Main Road, Miyapur, Hyderabad, Telangana 500049",
+    connectivity: "Online",
+  },
+  // South — Mehdipatnam
+  "QWI-AMZN-260515-T6Y9NF": {
+    lat: 17.3958,
+    lng: 78.4358,
+    address: "Shop 11, Tolichowki Junction, Mehdipatnam, Hyderabad, Telangana 500028",
+    connectivity: "Online",
+  },
 };
 
-// Merge the geo data into the seed array so the View on Map dialog
-// has lat/lng for every demo order without polluting the per-order
-// definitions above.
+// Merge the geo data into the seed array so the View on Map dialog,
+// the single-order map link on the detail page, and the popup card
+// inside the embedded map all read from the same source of truth.
+// `buyerAddress` is overridden so the legacy Bangalore stub on the
+// first seed order can't drift away from its new Hyderabad coords.
 for (let i = 0; i < seedOrders.length; i++) {
   const g = ORDER_GEO[seedOrders[i].id];
   if (g) {
@@ -449,6 +518,7 @@ for (let i = 0; i < seedOrders.length; i++) {
       ...seedOrders[i],
       buyerLat: g.lat,
       buyerLng: g.lng,
+      buyerAddress: g.address,
       connectivity: g.connectivity,
     };
   }
