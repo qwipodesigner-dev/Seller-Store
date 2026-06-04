@@ -39,21 +39,17 @@ import {
 export function OrderSettings() {
   const navigate = useNavigate();
 
-  // ---- Minimum / Maximum Order Value ----
+  // ---- Minimum Order Value ----
+  // Maximum Order Value was retired — sellers wanted just a floor,
+  // no per-order ceiling, so the field plus its state, dirty flag,
+  // error key, and column have all been dropped.
   const [minOrderAmount, setMinOrderAmount] = useState("1000");
-  const [maxOrderAmount, setMaxOrderAmount] = useState("500000");
-  const [savedOrderValue, setSavedOrderValue] = useState({
-    min: "1000",
-    max: "500000",
-  });
-  const isOrderValueDirty =
-    minOrderAmount !== savedOrderValue.min ||
-    maxOrderAmount !== savedOrderValue.max;
+  const [savedMinOrderAmount, setSavedMinOrderAmount] = useState("1000");
+  const isOrderValueDirty = minOrderAmount !== savedMinOrderAmount;
   // Inline errors keyed by field — surfaces under the relevant input
   // instead of a toast.
   const [orderValueErrors, setOrderValueErrors] = useState<{
     min?: string;
-    max?: string;
   }>({});
 
   // ---- Order Processing ----
@@ -89,25 +85,13 @@ export function OrderSettings() {
 
   // ---- Section save handlers ----
   const handleSaveOrderValue = () => {
-    const errs: { min?: string; max?: string } = {};
     const min = parseFloat(minOrderAmount);
-    const max = parseFloat(maxOrderAmount);
     if (minOrderAmount.trim() === "" || isNaN(min) || min < 0) {
-      errs.min = "Enter a non-negative number";
-    }
-    if (maxOrderAmount.trim() !== "") {
-      if (isNaN(max)) {
-        errs.max = "Enter a valid number";
-      } else if (!isNaN(min) && max <= min) {
-        errs.max = "Max order should be greater than Min order";
-      }
-    }
-    if (Object.keys(errs).length > 0) {
-      setOrderValueErrors(errs);
+      setOrderValueErrors({ min: "Enter a non-negative number" });
       return;
     }
     setOrderValueErrors({});
-    setSavedOrderValue({ min: minOrderAmount, max: maxOrderAmount });
+    setSavedMinOrderAmount(minOrderAmount);
     toast.success("Order value saved.");
   };
 
@@ -172,7 +156,9 @@ export function OrderSettings() {
       <div className="max-w-5xl space-y-3">
         {/* Row 1: Order Value + Processing side-by-side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Order Value — Min + Max */}
+          {/* Order Value — Minimum only. The Maximum column was retired;
+              sellers wanted a floor without an upper cap, so this card
+              now hosts a single field. */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
@@ -191,7 +177,7 @@ export function OrderSettings() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 grid grid-cols-2 gap-3">
+            <CardContent className="pt-0">
               <div className="space-y-1">
                 <Label className="text-xs">Minimum (₹)</Label>
                 <Input
@@ -200,8 +186,7 @@ export function OrderSettings() {
                   value={minOrderAmount}
                   onChange={(e) => {
                     setMinOrderAmount(e.target.value);
-                    if (orderValueErrors.min || orderValueErrors.max)
-                      setOrderValueErrors({});
+                    if (orderValueErrors.min) setOrderValueErrors({});
                   }}
                   className="h-8 text-sm"
                   aria-invalid={!!orderValueErrors.min}
@@ -211,28 +196,6 @@ export function OrderSettings() {
                 ) : (
                   <p className="text-[11px] text-gray-500">
                     Orders below this aren't accepted.
-                  </p>
-                )}
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">Maximum (₹)</Label>
-                <Input
-                  type="number"
-                  placeholder="500000"
-                  value={maxOrderAmount}
-                  onChange={(e) => {
-                    setMaxOrderAmount(e.target.value);
-                    if (orderValueErrors.max || orderValueErrors.min)
-                      setOrderValueErrors({});
-                  }}
-                  className="h-8 text-sm"
-                  aria-invalid={!!orderValueErrors.max}
-                />
-                {orderValueErrors.max ? (
-                  <p className="text-[11px] text-red-600">{orderValueErrors.max}</p>
-                ) : (
-                  <p className="text-[11px] text-gray-500">
-                    Optional cap per order.
                   </p>
                 )}
               </div>
