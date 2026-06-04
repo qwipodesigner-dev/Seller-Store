@@ -502,6 +502,22 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     example: "Active",
   },
 
+  // --- Selling Unit ---
+  // Comma-separated list of positive whole numbers describing the
+  // pack sizes (in pieces) buyers can order the SKU in. Example:
+  // "1,16,96" → buyer can order singles, an inner pack of 16, or a
+  // case of 96. Optional. Each value must be a positive integer; no
+  // duplicates within the same row.
+  {
+    key: "sellingUnits",
+    header: "Selling Unit",
+    mandatory: false,
+    format: "Comma-separated positive whole numbers",
+    rules:
+      "Optional. Comma-separated list of positive whole numbers (e.g. 1,23,122). Each value must be ≥ 1. Duplicates within the same row are not allowed.",
+    example: "1,16,96",
+  },
+
   // --- Tax ---
   {
     key: "hsnCode",
