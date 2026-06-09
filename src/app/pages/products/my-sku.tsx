@@ -48,6 +48,7 @@ import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { Layers, PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
+import { getMySkus } from "../../lib/my-sku-store";
 import { EmptyState } from "../../components/empty-state";
 import { CopyOnHover } from "../../components/copy-on-hover";
 import { ListPagination } from "../../components/ui/list-pagination";
@@ -55,6 +56,7 @@ import {
   BulkImportDialog,
   type BulkImportValidationResult,
   type BulkImportError as BulkImportErrorRow,
+  type PSCheckItem,
 } from "../../components/bulk-import-dialog";
 import {
   downloadSkuTemplate,
@@ -62,6 +64,8 @@ import {
   SKU_FIELDS,
   type ParsedSkuRow,
 } from "../../lib/sku-import-template";
+import { psSkus, getBrandById, getCategoryById } from "../../lib/product-store-data";
+import { addSkuRequest } from "../../lib/sku-request-store";
 
 // ONDC Data structure
 interface ONDCData {
@@ -96,6 +100,8 @@ export interface SKUData {
   lastUpdated: string;
   sku: string;
   shortName?: string;
+  // Set when this SKU was imported from the Product Store
+  productStoreId?: string;
   // Price & Inventory fields — merged into the SKU record (previously on a separate page)
   mrp?: number;
   sellingPrice?: number;
@@ -103,6 +109,10 @@ export interface SKUData {
   isInfiniteStock?: boolean;
   thresholdLevel?: number;
   reservedStock?: number;
+  // Field Category 1 values pre-populated from Product Store (read-only in editor)
+  ondcPrefilled?: Record<string, unknown>;
+  // Tax fields
+  tax?: { hsnCode?: string; gstTax?: string; gstCess?: string };
   ondcCompliance: {
     isCompliant: boolean;
     missingFields: string[];
@@ -678,7 +688,7 @@ const ONDC_OPTIONAL_COLUMNS: string[] = [];
 export function MySKU() {
   const navigate = useNavigate();
   const [skus, setSkus] = useState<SKUData[]>(() =>
-    isEmptyMode() ? [] : sampleSKUs,
+    isEmptyMode() ? [] : getMySkus(),
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
@@ -688,6 +698,7 @@ export function MySKU() {
   // dialog handles upload, validation, results, and import flow.
   const [isAddSkuBulkOpen, setIsAddSkuBulkOpen] = useState(false);
   const [isPriceStockBulkOpen, setIsPriceStockBulkOpen] = useState(false);
+
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
@@ -771,13 +782,11 @@ export function MySKU() {
   // the existing parsing logic to the standardized
   // BulkImportValidationResult shape so the dialog renders the same
   // summary card + Row/Field/Error table for every module.
-  const handleDownloadAddSkuSample = async () => {
-    // Phase 2 spec: download a 3-tab .xlsx (Main SKU Upload /
-    // Validation / Master Data) with cell-level dropdowns on every
-    // master-backed column. The generator (ExcelJS-based, so the
-    // dropdowns actually persist on save) lives in
-    // lib/sku-import-template.ts so this page stays focused on the
-    // table UX.
+  const handleDownloadAddSkuSample = async (format?: string) => {
+    if (format === "ps") {
+      await downloadPsLookupTemplate();
+      return;
+    }
     try {
       await downloadSkuTemplate();
       toast.success("SKU import template downloaded");
@@ -820,6 +829,132 @@ export function MySKU() {
       reader.onerror = () => reject(new Error("Could not read file."));
       reader.readAsText(file);
     });
+
+  // ---- PS Lookup import (simple 2-column flow) ----
+  // Simpler template: just SKU Code + SKU Name. The system looks each
+  // code up in the Product Store, merges Category 1 fields for matched
+  // ones, and surfaces unmatched ones so the seller can raise requests.
+
+  // Download the full SKU import template pre-filled with Product Store
+  // examples. Sellers fill in any remaining fields, and rows whose SKU
+  // Code isn't found in PS trigger a catalog request on upload.
+  const downloadPsLookupTemplate = async () => {
+    try {
+      const prefillRows = psSkus.slice(0, 8).map((s) => {
+        const brand = getBrandById(s.brandId);
+        const category = getCategoryById(s.categoryId);
+        const packUnit =
+          s.packagingUnit === "kg" ? "Kilogram"
+          : s.packagingUnit === "g" ? "Gram"
+          : s.packagingUnit === "L" ? "Liter"
+          : s.packagingUnit === "ml" ? "Milliliter"
+          : s.packagingUnit;
+        const weightKg = s.productWeight;
+        const weightMeasure = weightKg >= 1 ? "Kilogram" : "Gram";
+        const skuWeight = weightKg >= 1 ? String(weightKg) : String(weightKg * 1000);
+        return {
+          skuCode: s.skuCode,
+          skuName: s.name,
+          shortName: s.shortName ?? "",
+          groupName: s.groupName ?? "",
+          shortDesc: s.shortDescription,
+          longDesc: s.longDescription,
+          measureUnit: packUnit,
+          measureValue: s.packagingSize,
+          weightMeasure,
+          skuWeight,
+          unitizedCount: "1",
+          upc: s.upc ?? "",
+          packageType: s.packageType ?? "",
+          packageTypeValue: s.packageTypeValue ?? "",
+          categoryId: category?.name ?? s.categoryId,
+          hsnCode: s.hsnCode,
+          countryOfOrigin: s.countryOfOrigin,
+          manufacturerName: s.manufacturerName,
+          gstTax: s.gstTax ?? "",
+          gstCess: s.gstCess ?? "0%",
+          brandAttribute: brand?.name ?? "",
+          itemStatus: "Active",
+        };
+      });
+      // 2 placeholder rows whose SKU codes don't exist in PS — these
+      // show the "raise request" panel when the file is uploaded.
+      const nonPsRows = [
+        {
+          skuCode: "NEW-SKU-001",
+          skuName: "Example New Product 500g",
+          shortName: "NEW-001",
+          groupName: "Example Group",
+          shortDesc: "A new product not yet in the Product Store catalog",
+          longDesc: "Fill in the full description here. This SKU will raise a catalog request when uploaded.",
+          measureUnit: "Gram",
+          unitValue: "500",
+          weightMeasure: "Gram",
+          measureValue: "500",
+          unitizedCount: "1",
+          packageType: "Pouch",
+          packageTypeValue: "",
+          upc: "",
+          minimumOrderQty: "1",
+          maximumOrderQty: "100",
+          categoryId: "Atta, Flours & Sooji",
+          returnable: "No",
+          cancellable: "No",
+          availableOnCod: "Yes",
+          timeToShip: "24 hours",
+          consumerCareContactName: "Customer Support",
+          consumerCareContactEmail: "support@example.com",
+          consumerCareContactPhone: "9876543210",
+          manufacturerName: "Your Manufacturer Name",
+          brandAttribute: "Your Brand Name",
+          countryOfOrigin: "India",
+          itemStatus: "Active",
+          hsnCode: "11010000",
+          gstTax: "5%",
+          gstCess: "0%",
+        },
+        {
+          skuCode: "NEW-SKU-002",
+          skuName: "Example New Beverage 1L",
+          shortName: "NEW-002",
+          groupName: "Example Group",
+          shortDesc: "A second new product not yet in the Product Store catalog",
+          longDesc: "Fill in the full description here. This SKU will also raise a catalog request when uploaded.",
+          measureUnit: "Liter",
+          unitValue: "1",
+          weightMeasure: "Kilogram",
+          measureValue: "1",
+          unitizedCount: "1",
+          packageType: "Bottle",
+          packageTypeValue: "",
+          upc: "",
+          minimumOrderQty: "1",
+          maximumOrderQty: "100",
+          categoryId: "Beverages",
+          returnable: "No",
+          cancellable: "No",
+          availableOnCod: "Yes",
+          timeToShip: "24 hours",
+          consumerCareContactName: "Customer Support",
+          consumerCareContactEmail: "support@example.com",
+          consumerCareContactPhone: "9876543210",
+          manufacturerName: "Your Manufacturer Name",
+          brandAttribute: "Your Brand Name",
+          countryOfOrigin: "India",
+          itemStatus: "Active",
+          hsnCode: "22021010",
+          gstTax: "12%",
+          gstCess: "0%",
+        },
+      ];
+
+      await downloadSkuTemplate([...prefillRows, ...nonPsRows]);
+      toast.success("Product Store template downloaded — 8 PS examples + 2 sample new-SKU rows.");
+    } catch (err) {
+      console.error("Failed to generate PS lookup template", err);
+      toast.error("Couldn't generate the template — please try again.");
+    }
+  };
 
   // Validate uploaded Add-SKU file → returns the standardized result
   // shape consumed by <BulkImportDialog>. Phase 2: file is a 3-tab
@@ -890,6 +1025,23 @@ export function MySKU() {
       const skuName = (row.skuName ?? "").trim();
       const skuLabel = skuName || (skuCode ? `SKU ${skuCode}` : `Row ${rowNumber}`);
       const rowErrors: BulkImportErrorRow[] = [];
+
+      // PS fast-path: if the SKU Code matches a Product Store SKU, skip
+      // field-level validation entirely — Category 1 fields are overridden
+      // from the catalog on import anyway. Only block duplicates.
+      if (skuCode) {
+        const psSku = psSkus.find((s) => s.skuCode === skuCode);
+        if (psSku) {
+          if (seenCodes.has(skuCode)) {
+            errors.push({ row: rowNumber, field: "SKU Code", error: "Duplicate SKU Code in this file.", skuLabel, skuCode, skuName, value: skuCode });
+            return;
+          }
+          seenCodes.add(skuCode);
+          validCount++;
+          validData.push({ ...row, _psSkuId: psSku.id });
+          return;
+        }
+      }
 
       // Walk the schema: every mandatory field must be filled, and any
       // field with options must take a listed value. Custom format
@@ -1165,26 +1317,59 @@ export function MySKU() {
       }
     });
 
+    // Product Store cross-check — run on valid rows only.
+    // Tag each valid row with the PS SKU id when a code match is found
+    // so importAddSkuRows can merge Category 1 fields from the catalog.
+    const psFound: PSCheckItem[] = [];
+    const psNotFound: PSCheckItem[] = [];
+    const taggedData: ParsedSkuRow[] = validData.map((row) => {
+      const code = (row.skuCode ?? "").trim();
+      const psSku = code ? psSkus.find((s) => s.skuCode === code) : undefined;
+      if (psSku) {
+        psFound.push({ skuCode: code, skuName: row.skuName ?? "" });
+        return { ...row, _psSkuId: psSku.id };
+      }
+      psNotFound.push({ skuCode: code, skuName: row.skuName ?? "", rowData: row });
+      return row;
+    });
+
     return {
       totalRows: parsed.rows.length,
       validRows: validCount,
       invalidRows: parsed.rows.length - validCount,
       errors,
-      validData,
+      validData: taggedData,
+      psCheckResult: { psFound, psNotFound },
     };
   };
 
-  // Apply validated Add-SKU rows into the catalog. Phase 2: rows now
-  // arrive with every SKU field, so we hydrate the catalog record
-  // with category, brand, status, etc. — no more "Imported / —"
-  // placeholders.
+  // Apply validated Add-SKU rows into the catalog. When a row carries
+  // _psSkuId (set during PS cross-check), Category 1 fields are merged
+  // from the Product Store; Category 2 fields (pricing, stock) come
+  // from the sheet.
   const importAddSkuRows = (rows: unknown[]) => {
     const valid = rows as ParsedSkuRow[];
+    const today = new Date().toISOString().split("T")[0];
     const newSkus: SKUData[] = valid.map((row, idx) => {
+      const psSku = row._psSkuId ? psSkus.find((s) => s.id === row._psSkuId) : undefined;
       const status =
-        (row.itemStatus ?? "").toLowerCase() === "inactive"
-          ? "Inactive"
-          : "Active";
+        (row.itemStatus ?? "").toLowerCase() === "inactive" ? "Inactive" : "Active";
+      if (psSku) {
+        // Merge: Category 1 from PS, Category 2 from sheet
+        const brand = getBrandById(psSku.brandId);
+        const category = getCategoryById(psSku.categoryId);
+        return {
+          id: String(skus.length + idx + 1),
+          name: psSku.name,
+          category: category?.name ?? psSku.categoryId,
+          brand: brand?.name ?? psSku.brandId,
+          source: "PS + Excel Import",
+          status,
+          lastUpdated: today,
+          sku: psSku.skuCode,
+          ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
+        };
+      }
       return {
         id: String(skus.length + idx + 1),
         name: row.skuName ?? "",
@@ -1192,7 +1377,7 @@ export function MySKU() {
         brand: row.brandAttribute || "—",
         source: "Excel Import",
         status,
-        lastUpdated: new Date().toISOString().split("T")[0],
+        lastUpdated: today,
         sku: row.skuCode ?? "",
         ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
       };
@@ -2079,12 +2264,61 @@ export function MySKU() {
             </>
           ),
           sample: {
-            fileName: "SKU_Import_Template.xlsx",
             onDownload: handleDownloadAddSkuSample,
+            formats: [
+              {
+                value: "full",
+                label: "Full SKU Template",
+                description: "All fields — use when adding SKUs not yet in the Product Store.",
+              },
+              {
+                value: "ps",
+                label: "Product Store Lookup Template",
+                description: "All fields, pre-filled with 8 PS SKU examples (green rows). Upload to auto-fill matched SKUs from PS; unmatched rows raise catalog requests with your sheet data.",
+              },
+            ],
           },
           accept: ".csv,.xlsx,.xls",
           validate: validateAddSkuFile,
           onImport: importAddSkuRows,
+          onRaiseRequests: (notFound: PSCheckItem[]) => {
+            notFound.forEach((item) => {
+              const r = item.rowData ?? {};
+              addSkuRequest({
+                itemName: item.skuName || r.skuName || item.skuCode,
+                shortName: r.shortName ?? "",
+                groupName: r.groupName ?? "",
+                brandId: "",
+                brandOther: r.brandAttribute ?? "",
+                brandAttribute: r.brandAttribute ?? "",
+                shortDesc: r.shortDesc ?? "",
+                longDesc: r.longDesc ?? "",
+                measureUnit: r.measureUnit ?? "",
+                measureValue: r.measureValue ?? "",
+                weightMeasure: r.weightMeasure ?? "",
+                skuWeight: r.skuWeight ?? "",
+                unitizedCount: r.unitizedCount ?? "1",
+                upc: r.upc ?? "",
+                packageType: r.packageType ?? "",
+                packageTypeValue: r.packageTypeValue ?? "",
+                productLength: r.productLength ?? "",
+                productWidth: r.productWidth ?? "",
+                productHeight: r.productHeight ?? "",
+                categoryId: r.categoryId ?? "",
+                hsnCode: r.hsnCode ?? "",
+                countryOfOrigin: r.countryOfOrigin ?? "India",
+                gstTax: r.gstTax ?? "",
+                gstCess: r.gstCess ?? "0%",
+                manufacturerName: r.manufacturerName ?? "",
+                notes: `Raised from bulk import — SKU code: ${item.skuCode}`,
+              });
+            });
+            toast.success(
+              `${notFound.length} catalog request${notFound.length === 1 ? "" : "s"} submitted. Track them in My Requests.`,
+              { duration: 5000 }
+            );
+            setIsAddSkuBulkOpen(false);
+          },
         }}
       />
 
@@ -2140,6 +2374,7 @@ export function MySKU() {
               : ""),
         }}
       />
+
     </div>
   );
 }

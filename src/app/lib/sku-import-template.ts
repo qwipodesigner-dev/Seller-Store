@@ -578,7 +578,7 @@ const escapeSheetName = (name: string) =>
  * SheetJS still owns the parser side because its sheet_to_json and
  * cell-resolution logic is best-in-class.
  */
-export const downloadSkuTemplate = async () => {
+export const downloadSkuTemplate = async (prefillRows?: ParsedSkuRow[]) => {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
   wb.creator = "Qwipo Seller Store";
@@ -812,6 +812,22 @@ export const downloadSkuTemplate = async () => {
     validation.getCell(r, 4).alignment = { wrapText: true, vertical: "top" };
   }
   validation.views = [{ state: "frozen", ySplit: 1 }];
+
+  // Pre-fill example rows when provided (e.g. Product Store lookup template).
+  if (prefillRows && prefillRows.length > 0) {
+    const PRE_FILL: ExcelJSType.FillPattern = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FFF0FDF4" }, // green-50
+    };
+    prefillRows.forEach((row) => {
+      const values = SKU_FIELDS.map((f) => row[f.key] ?? "");
+      const addedRow = main.addRow(values);
+      addedRow.eachCell((cell) => {
+        cell.fill = PRE_FILL;
+      });
+    });
+  }
 
   // Reorder sheets so the user lands on Main SKU Upload first when
   // they open the workbook.

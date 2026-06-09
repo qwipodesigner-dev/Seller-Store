@@ -1,6 +1,14 @@
 import { createBrowserRouter } from "react-router";
 import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
+import { CatalogAdminLogin } from "./pages/catalog-admin/login";
+import { CatalogAdminLayout } from "./pages/catalog-admin/layout";
+import { CatalogAdminDashboard } from "./pages/catalog-admin/dashboard";
+import { CatalogAdminRequests } from "./pages/catalog-admin/requests";
+import { CatalogAdminCatalog } from "./pages/catalog-admin/catalog";
+import { CatalogAdminSkuForm } from "./pages/catalog-admin/sku-form";
+import { ProductStore } from "./pages/products/product-store";
+import { MyRequests } from "./pages/products/my-requests";
 import { Dashboard } from "./pages/dashboard";
 import { DashboardCompany } from "./pages/dashboard-company";
 import { Inventory } from "./pages/inventory";
@@ -54,6 +62,26 @@ import { ErrorScreensDemo } from "./pages/demos/error-screens";
 import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
 export const router = createBrowserRouter([
+  // Catalog Admin Portal — separate login + standalone layout
+  {
+    path: "/catalog-admin/login",
+    Component: CatalogAdminLogin,
+  },
+  {
+    path: "/catalog-admin",
+    element: (
+      <ProtectedRoute allow="catalog-admin">
+        <CatalogAdminLayout />
+      </ProtectedRoute>
+    ),
+    children: [
+      { index: true, Component: CatalogAdminDashboard },
+      { path: "requests", Component: CatalogAdminRequests },
+      { path: "catalog", Component: CatalogAdminCatalog },
+      { path: "catalog/create", Component: CatalogAdminSkuForm },
+      { path: "catalog/:skuId", Component: CatalogAdminSkuForm },
+    ],
+  },
   {
     path: "/login",
     Component: Login,
@@ -118,6 +146,8 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, Component: Dashboard },
+      { path: "products/product-store", Component: ProductStore },
+      { path: "products/my-requests", Component: MyRequests },
       // Per-company drill-down — opens from the company table on the
       // Dashboard. Carries the dashboard's date range via the query
       // string so the window survives the navigation.

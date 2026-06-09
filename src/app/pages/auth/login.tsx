@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Link } from "react-router";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Shield, Store, Phone, KeyRound, Palette } from "lucide-react";
+import { Shield, Store, Phone, KeyRound, Palette, Database } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
@@ -60,6 +60,8 @@ export function Login() {
         navigate("/admin");
       } else if (user.role === "designer") {
         navigate("/design");
+      } else if (user.role === "catalog-admin") {
+        navigate("/catalog-admin");
       } else {
         navigate("/");
       }
@@ -347,6 +349,16 @@ export function Login() {
                   </button>
                 </div>
               </div>
+
+              <p className="text-center text-xs text-gray-500 mt-4">
+                Catalog Admin?{" "}
+                <Link
+                  to="/catalog-admin/login"
+                  className="text-teal-600 hover:underline font-medium"
+                >
+                  Login to Product Store →
+                </Link>
+              </p>
             </CardContent>
           </Card>
 

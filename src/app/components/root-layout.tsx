@@ -21,6 +21,7 @@ import {
   X,
   Truck,
   ExternalLink,
+  Database,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -76,6 +77,7 @@ type SellerNavItem = {
 // can click through to the external portal.
 const sellerNavigation: SellerNavItem[] = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
+  { name: "Product Store", href: "/products/product-store", icon: Database },
   { name: "My SKU", href: "/products/my-sku", icon: Package },
   { name: "Customers", href: "/customers", icon: Users },
   { name: "Offers & Schemes", href: "/offers", icon: Tag },
@@ -126,6 +128,7 @@ const sellerCustomersDemoNav = {
 // Get page title based on current route
 const getSellerPageTitle = (pathname: string): string => {
   if (pathname === "/") return "Dashboard";
+  if (pathname.startsWith("/products/product-store")) return "Product Store";
   if (pathname.startsWith("/products/sku-detail")) return "SKU Details";
   if (pathname.startsWith("/products/my-sku")) return "My SKU List";
   if (pathname.startsWith("/customers-demo")) return "Customers 2";

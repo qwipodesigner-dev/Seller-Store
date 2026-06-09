@@ -75,6 +75,17 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "demo",
     },
   },
+  "5500000001": {
+    otp: "1234",
+    user: {
+      id: "catalog-admin-1",
+      name: "Catalog Admin",
+      email: "catalog@qwipo.com",
+      role: "catalog-admin",
+      avatarInitials: "CA",
+      dataMode: "demo",
+    },
+  },
 };
 
 export function validateCredentials(

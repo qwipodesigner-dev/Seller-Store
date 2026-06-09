@@ -1,5 +1,6 @@
 import { useNavigate, useParams } from "react-router";
 import { useRef, useState } from "react";
+import { getMySkus } from "../../lib/my-sku-store";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -3229,6 +3230,50 @@ function SellingUnitsChips({
  * record. The hand-authored entries in `skuData` (1, 2, 190000001)
  * still take precedence — this is only the fallback path.
  */
+function synthSkuFromStore(skuId: string) {
+  const s = getMySkus().find((sk) => sk.id === skuId);
+  if (!s) return null;
+  return {
+    id: s.id,
+    name: s.name,
+    sku: s.sku,
+    shortName: s.shortName ?? "",
+    category: s.category,
+    brand: s.brand,
+    source: s.source,
+    status: s.status,
+    lastUpdated: s.lastUpdated,
+    description: (s.ondcPrefilled?.longDesc as string) ?? "",
+    specifications: {
+      weight: s.ondcPrefilled?.skuWeight
+        ? `${s.ondcPrefilled.skuWeight} ${s.ondcPrefilled.weightMeasure ?? ""}`
+        : "",
+      packaging: "",
+      shelfLife: "",
+      manufacturer: (s.ondcPrefilled?.manufacturerName as string) ?? "",
+      countryOfOrigin: (s.ondcPrefilled?.countryOfOrigin as string) ?? "India",
+    },
+    pricing: {
+      mrp: s.mrp ?? 0,
+      sellingPrice: s.sellingPrice ?? 0,
+      costPrice: 0,
+      margin: "—",
+    },
+    mrp: s.mrp,
+    sellingPrice: s.sellingPrice,
+    availableStock: s.availableStock ?? 0,
+    inventory: {
+      currentStock: s.availableStock ?? 0,
+      minStockLevel: s.thresholdLevel ?? 0,
+      reorderPoint: 0,
+      warehouse: "",
+    },
+    ondcPrefilled: s.ondcPrefilled ?? null,
+    tax: s.tax ?? { hsnCode: "", gstTax: "", gstCess: "" },
+    productStoreId: s.productStoreId ?? null,
+  };
+}
+
 function synthSkuFromCatalog(skuId: string) {
   const c = findCatalogSku(skuId);
   if (!c) return null;
@@ -3280,6 +3325,7 @@ export function SKUDetail() {
   const sku =
     (skuId && skuData[skuId]) ||
     (skuId && synthSkuFromCatalog(skuId)) ||
+    (skuId && synthSkuFromStore(skuId)) ||
     skuData["1"];
 
   const getStatusBadge = (status: string) => {
