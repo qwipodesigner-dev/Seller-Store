@@ -79,6 +79,13 @@ export interface Order {
    * For NDD the value is orderDate + 1 day.
    */
   expectedDeliveryDate: string;
+  /**
+   * Date the order was actually delivered (YYYY-MM-DD). Only set
+   * after status transitions to "Delivered" — undefined for any
+   * other status. Shown alongside `expectedDeliveryDate` in the
+   * orders list so the seller can spot late deliveries at a glance.
+   */
+  actualDeliveryDate?: string;
   /** See `DeliveryType` for semantics. */
   deliveryType: DeliveryType;
   /** Optional beat name the order belongs to (when the order rides
@@ -141,6 +148,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "Urgent",
+    beatName: "KPHB 1",
     buyerContact: "+91 98765 43210",
     buyerAddress:
       "Shop No. 12, MG Road, Koramangala, Bangalore, Karnataka - 560034",
@@ -259,6 +267,7 @@ export const seedOrders: Order[] = [
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-21",
     deliveryType: "Regular",
+    beatName: "Madhapur",
     buyerContact: "+91 98765 43212",
   },
   {
@@ -274,6 +283,7 @@ export const seedOrders: Order[] = [
     status: "Delivered",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-19",
+    actualDeliveryDate: "2026-05-19",
     deliveryType: "Regular",
     beatName: "Pune Central",
     buyerContact: "+91 98765 43213",
@@ -293,6 +303,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-19",
     deliveryType: "Urgent",
+    beatName: "Banjara Hills",
     buyerContact: "+91 98765 43214",
   },
   {
@@ -326,6 +337,7 @@ export const seedOrders: Order[] = [
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-25",
     deliveryType: "Regular",
+    beatName: "Ameerpet",
     buyerContact: "+91 98765 43216",
   },
   {
@@ -358,7 +370,9 @@ export const seedOrders: Order[] = [
     status: "Delivered",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-18",
+    actualDeliveryDate: "2026-05-19",
     deliveryType: "Regular",
+    beatName: "SR Nagar",
     buyerContact: "+91 98765 43218",
   },
   {
@@ -391,6 +405,7 @@ export const seedOrders: Order[] = [
     status: "Delivered",
     marketplace: "Flipkart",
     expectedDeliveryDate: "2026-05-17",
+    actualDeliveryDate: "2026-05-17",
     deliveryType: "Regular",
     beatName: "Mumbai Metro — North",
     buyerContact: "+91 98765 43220",
@@ -410,6 +425,7 @@ export const seedOrders: Order[] = [
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-16",
     deliveryType: "Urgent",
+    beatName: "Hyderabad West",
     buyerContact: "+91 98765 43221",
   },
 ];
@@ -518,8 +534,11 @@ export function updateOrderStatuses(
 }
 
 /** Status-write helper — single source of truth for the
- *  cancellationReason side-effect. Cancelled + reason → persist;
- *  any other status → wipe a stale reason. */
+ *  cancellationReason side-effect AND the actualDeliveryDate stamp.
+ *  Cancelled + reason → persist reason; any non-Cancelled write wipes
+ *  a stale reason. Delivered writes stamp today's date as the
+ *  actualDeliveryDate (if not already set) so the orders list can
+ *  show the seller exactly when each order shipped. */
 function applyStatusUpdate(o: Order, status: OrderStatus, reason?: string): Order {
   if (status === "Cancelled") {
     return reason !== undefined
@@ -530,6 +549,19 @@ function applyStatusUpdate(o: Order, status: OrderStatus, reason?: string): Orde
   // so a re-opened-then-fulfilled order doesn't carry a stale label.
   const { cancellationReason: _drop, ...rest } = o;
   void _drop;
+  if (status === "Delivered") {
+    return {
+      ...rest,
+      status,
+      actualDeliveryDate: o.actualDeliveryDate ?? DEMO_TODAY,
+    };
+  }
+  // Reverting away from Delivered (e.g. re-opening) wipes the stamp.
+  if (o.actualDeliveryDate !== undefined) {
+    const { actualDeliveryDate: _dropAct, ...withoutAct } = rest;
+    void _dropAct;
+    return { ...withoutAct, status };
+  }
   return { ...rest, status };
 }
 
