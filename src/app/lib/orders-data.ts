@@ -22,6 +22,22 @@
 export type OrderStatus = "New" | "Confirmed" | "Delivered" | "Cancelled";
 
 /**
+ * Who initiated a cancellation. Seller cancellations originate from
+ * the seller store (the bulk Cancel action on the New / Confirmed tabs
+ * and the Cancel CTA on the order detail page). Buyer cancellations
+ * arrive via the buyer app's ONDC /cancel call while the order is
+ * still in "New" status and within the configured Cancellation Window
+ * — they land here as terminal cancellations the seller didn't act on.
+ *
+ * The seller store surfaces the distinction so the Cancelled tab and
+ * the order detail page tell the seller at a glance who pulled the
+ * plug. Buyer-side cancellations carry the buyer's reason verbatim
+ * from the cancel payload; seller-side cancellations carry the reason
+ * the seller picked in the Cancel popup.
+ */
+export type CancelledBy = "Buyer" | "Seller";
+
+/**
  * Operational delivery classification for an order. Simplified per
  * the May 2026 product call to just two values — the granular
  * Sales Beat / Non-Sales Beat split now lives on the `beatName`
@@ -86,14 +102,29 @@ export interface Order {
    *  the detail page; orphan/ad-hoc deliveries leave this blank. */
   beatName?: string;
   /**
-   * Reason captured in the Cancel popup when the seller cancels an
-   * order (from either the detail page or the list page's bulk
-   * action). Only meaningful when `status === "Cancelled"`. Rendered
-   * in the Order Meta block on the detail page so the cancelled-tab
+   * Reason recorded for a cancelled order. For seller-side
+   * cancellations this is the option the seller picked in the Cancel
+   * popup (Out of Stock / Delivery Issue / Pricing Error / Other);
+   * for buyer-side cancellations this is the reason the buyer chose
+   * in the buyer app, surfaced verbatim. Only meaningful when
+   * `status === "Cancelled"`. Rendered in the Order Meta block + the
+   * Cancellation banner on the detail page so the cancelled-tab
    * reviewer can see why each order was cancelled without re-opening
    * the activity log.
    */
   cancellationReason?: string;
+  /** Who cancelled the order — see {@link CancelledBy}. Only set when
+   *  `status === "Cancelled"`. Drives the status-chip variant on the
+   *  orders list (amber "Cancelled by Buyer" vs red "Cancelled by
+   *  Seller"), the Cancelled-By quick filters on the Cancelled tab,
+   *  and the banner + meta on the detail page. */
+  cancelledBy?: CancelledBy;
+  /** When the cancellation was processed. ISO 8601 string. Set
+   *  alongside `cancelledBy` whenever the order transitions to
+   *  Cancelled, so the detail page banner and the Cancelled tab can
+   *  show "Cancelled on 15 Jun 2026 at 04:32 PM" without re-reading
+   *  the activity log. */
+  cancellationTime?: string;
   /** GST registration number for the buyer (GSTIN). Optional — not
    *  all retailers are GST-registered. Surfaced in the Buyer section
    *  on the order detail page. */
@@ -290,6 +321,8 @@ export const seedOrders: Order[] = [
     orderDate: "2026-05-18",
     status: "Cancelled",
     cancellationReason: "Out of Stock",
+    cancelledBy: "Seller",
+    cancellationTime: "2026-05-18T11:42:00+05:30",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-19",
     deliveryType: "Urgent",
@@ -407,10 +440,80 @@ export const seedOrders: Order[] = [
     orderDate: "2026-05-15",
     status: "Cancelled",
     cancellationReason: "Pricing Error",
+    cancelledBy: "Seller",
+    cancellationTime: "2026-05-15T09:18:00+05:30",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-16",
     deliveryType: "Urgent",
     buyerContact: "+91 98765 43221",
+  },
+  // Buyer-cancelled examples. Both arrived via the buyer app's
+  // ONDC /cancel call while the order was still in "New" status —
+  // the seller never confirmed them, so they land on the Cancelled
+  // tab with the amber "Cancelled by Buyer" chip and the buyer's
+  // own reason copy carried verbatim from the buyer app.
+  {
+    id: "QWI-ONDC-260520-H7L4MX",
+    brand: "ITC",
+    company: "ITC Limited",
+    source: "DMS-Bizom",
+    retailerName: "Sai Krishna Provisions",
+    itemsSummary: "20 units Sunfeast Marie Light",
+    orderValue: 3600,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    orderTime: "09:12 AM",
+    status: "Cancelled",
+    cancellationReason: "Ordered by mistake",
+    cancelledBy: "Buyer",
+    cancellationTime: "2026-05-20T09:38:00+05:30",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43222",
+    channelOrderId: "ONDC-ORD-784512",
+  },
+  {
+    id: "QWI-ONDC-260519-W2K8PV",
+    brand: "Marico",
+    company: "Marico Limited",
+    source: "DMS-Botery",
+    retailerName: "Greenfield Mart",
+    itemsSummary: "60 units Parachute Coconut Oil",
+    orderValue: 8400,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-19",
+    orderTime: "06:48 PM",
+    status: "Cancelled",
+    cancellationReason: "Found a better price elsewhere",
+    cancelledBy: "Buyer",
+    cancellationTime: "2026-05-19T07:14:00+05:30",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-22",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43223",
+    channelOrderId: "ONDC-ORD-861247",
+  },
+  {
+    id: "QWI-FLPK-260518-D9J3RE",
+    brand: "Pepsi",
+    company: "PepsiCo India",
+    source: "DMS-Bizom",
+    retailerName: "Sri Lakshmi Stores",
+    itemsSummary: "40 units Lay's Classic Salted",
+    orderValue: 2800,
+    paymentMode: "COD",
+    orderDate: "2026-05-18",
+    orderTime: "02:25 PM",
+    status: "Cancelled",
+    cancellationReason: "Delivery is too late",
+    cancelledBy: "Buyer",
+    cancellationTime: "2026-05-18T02:51:00+05:30",
+    marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43224",
+    channelOrderId: "FLPK-ORD-552031",
   },
 ];
 
@@ -504,6 +607,26 @@ const ORDER_GEO: Record<
     address: "Shop 11, Tolichowki Junction, Mehdipatnam, Hyderabad, Telangana 500028",
     connectivity: "Online",
   },
+  // Buyer-cancelled orders — clustered near existing pins so the
+  // Cancelled tab's "View on Map" reads as one realistic delivery zone.
+  "QWI-ONDC-260520-H7L4MX": {
+    lat: 17.4188,
+    lng: 78.4587,
+    address: "Shop 4, Punjagutta Cross Roads, Punjagutta, Hyderabad, Telangana 500082",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260519-W2K8PV": {
+    lat: 17.4256,
+    lng: 78.4521,
+    address: "Plot 28, Somajiguda Circle, Somajiguda, Hyderabad, Telangana 500082",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260518-D9J3RE": {
+    lat: 17.4108,
+    lng: 78.4942,
+    address: "Shop 19, Tarnaka Main Road, Tarnaka, Hyderabad, Telangana 500017",
+    connectivity: "Offline",
+  },
 };
 
 // Merge the geo data into the seed array so the View on Map dialog,
@@ -552,21 +675,24 @@ export function getOrderById(id: string): Order | undefined {
 
 /**
  * Update a single order's status. No-op if the id isn't found.
- * Passing `reason` alongside a "Cancelled" status persists it as
- * `cancellationReason` so the detail page can render it in Order
- * Meta. When the status flips to something OTHER than "Cancelled"
- * the previously persisted reason is cleared.
+ * Passing `reason` + `cancelledBy` alongside a "Cancelled" status
+ * persists them as `cancellationReason` / `cancelledBy` and stamps
+ * `cancellationTime` to "now" so the detail page can render the
+ * banner + meta. When the status flips to something OTHER than
+ * "Cancelled" the previously persisted cancellation fields are
+ * cleared.
  */
 export function updateOrderStatus(
   id: string,
   status: OrderStatus,
   reason?: string,
+  cancelledBy: CancelledBy = "Seller",
 ) {
   let mutated = false;
   _orders = _orders.map((o) => {
     if (o.id !== id) return o;
     mutated = true;
-    return applyStatusUpdate(o, status, reason);
+    return applyStatusUpdate(o, status, reason, cancelledBy);
   });
   if (mutated) notify();
 }
@@ -576,30 +702,49 @@ export function updateOrderStatuses(
   ids: string[],
   status: OrderStatus,
   reason?: string,
+  cancelledBy: CancelledBy = "Seller",
 ) {
   const set = new Set(ids);
   let mutated = false;
   _orders = _orders.map((o) => {
     if (!set.has(o.id)) return o;
     mutated = true;
-    return applyStatusUpdate(o, status, reason);
+    return applyStatusUpdate(o, status, reason, cancelledBy);
   });
   if (mutated) notify();
 }
 
 /** Status-write helper — single source of truth for the
- *  cancellationReason side-effect. Cancelled + reason → persist;
- *  any other status → wipe a stale reason. */
-function applyStatusUpdate(o: Order, status: OrderStatus, reason?: string): Order {
+ *  cancellation side-effects. Cancelled + reason → persist reason,
+ *  cancelledBy and a fresh cancellationTime; any other status →
+ *  wipe stale cancellation fields. */
+function applyStatusUpdate(
+  o: Order,
+  status: OrderStatus,
+  reason?: string,
+  cancelledBy: CancelledBy = "Seller",
+): Order {
   if (status === "Cancelled") {
-    return reason !== undefined
-      ? { ...o, status, cancellationReason: reason }
-      : { ...o, status };
+    const next: Order = {
+      ...o,
+      status,
+      cancelledBy,
+      cancellationTime: new Date().toISOString(),
+    };
+    if (reason !== undefined) next.cancellationReason = reason;
+    return next;
   }
-  // Any non-Cancelled write clears the previously persisted reason
-  // so a re-opened-then-fulfilled order doesn't carry a stale label.
-  const { cancellationReason: _drop, ...rest } = o;
-  void _drop;
+  // Any non-Cancelled write clears previously persisted cancellation
+  // fields so a re-opened-then-fulfilled order doesn't carry stale labels.
+  const {
+    cancellationReason: _r,
+    cancelledBy: _b,
+    cancellationTime: _t,
+    ...rest
+  } = o;
+  void _r;
+  void _b;
+  void _t;
   return { ...rest, status };
 }
 
