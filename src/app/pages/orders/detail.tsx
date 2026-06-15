@@ -49,6 +49,7 @@ import {
   synthesizeProducts,
   SELLER_INFO,
   type Order,
+  type CancelledBy,
 } from "../../lib/orders-data";
 
 /** One row in the QPS slab schedule for a SKU. */
@@ -113,14 +114,48 @@ interface OrderDetails {
   paymentMode: "COD" | "Prepaid";
   orderValue: number;
   products: OrderProduct[];
-  /** Reason the seller picked in the Cancel popup. Only meaningful
-   *  when `status === "Cancelled"` — surfaced inside the Order Meta
-   *  block so the cancelled-tab reviewer sees it without leaving
-   *  the page. */
+  /** Cancellation reason — seller-picked option for seller-side
+   *  cancellations, buyer-supplied copy for buyer-side cancellations.
+   *  Only meaningful when `status === "Cancelled"`. Surfaced in the
+   *  Cancellation banner + the Order Meta block. */
   cancellationReason?: string;
+  /** Who cancelled — see {@link CancelledBy}. Drives the banner +
+   *  status-chip variant. Only meaningful when cancelled. */
+  cancelledBy?: CancelledBy;
+  /** ISO timestamp the cancellation was processed at. Rendered in the
+   *  Cancellation banner ("Cancelled by Buyer on 15 Jun 2026 at 04:32 PM").
+   *  Only meaningful when cancelled. */
+  cancellationTime?: string;
   /** Buyer's GST registration number. Undefined when the buyer is
    *  not GST-registered or the number wasn't provided with the order. */
   gstNumber?: string;
+}
+
+/**
+ * Pretty-print an ISO timestamp as e.g. "20 May 2026 at 09:38 AM".
+ * Falls back to the raw string when the value isn't parseable so a
+ * malformed timestamp never breaks the banner. Renders in IST so the
+ * displayed time matches what the seller (and the buyer-app payload)
+ * actually saw.
+ */
+function formatCancellationTime(iso: string | undefined): string | undefined {
+  if (!iso) return undefined;
+  const t = Date.parse(iso);
+  if (Number.isNaN(t)) return iso;
+  const d = new Date(t);
+  const datePart = d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    timeZone: "Asia/Kolkata",
+  });
+  const timePart = d.toLocaleTimeString("en-US", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Kolkata",
+  });
+  return `${datePart} at ${timePart}`;
 }
 
 /**
@@ -159,6 +194,8 @@ function buildOrderDetailFromStore(order: Order): OrderDetails {
     orderValue: order.orderValue,
     products,
     cancellationReason: order.cancellationReason,
+    cancelledBy: order.cancelledBy,
+    cancellationTime: order.cancellationTime,
     gstNumber: order.gstNumber,
   };
 }
@@ -314,7 +351,8 @@ export function OrderDetail() {
   // dedicated flow. Status transitions (Confirm / Cancel / Mark
   // as Delivered) remain available on the action bar below.
 
-  const getStatusBadge = (status: OrderDetails["status"]) => {
+  const getStatusBadge = (data: OrderDetails) => {
+    const status = data.status;
     switch (status) {
       case "New":
         return (
@@ -334,12 +372,24 @@ export function OrderDetail() {
             In Progress
           </Badge>
         );
-      case "Cancelled":
+      case "Cancelled": {
+        // Mirror the list-page chip split — amber for buyer-side,
+        // purple for seller-side. Default to Seller for legacy
+        // un-stamped cancellations.
+        const who = data.cancelledBy ?? "Seller";
+        if (who === "Buyer") {
+          return (
+            <Badge className="bg-amber-50 text-amber-800 border-amber-200 text-base px-4 py-1">
+              Cancelled by Buyer
+            </Badge>
+          );
+        }
         return (
-          <Badge className="bg-red-50 text-red-700 border-red-200 text-base px-4 py-1">
-            Cancelled
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-base px-4 py-1">
+            Cancelled by Seller
           </Badge>
         );
+      }
       case "Delivered":
         return (
           <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-base px-4 py-1">
@@ -376,13 +426,16 @@ export function OrderDetail() {
   };
 
   const handleCancel = () => {
+    const now = new Date().toISOString();
     setOrderData((prev) => ({
       ...prev,
       status: "Cancelled",
       cancellationReason: cancelReason,
+      cancelledBy: "Seller",
+      cancellationTime: now,
     }));
     if (orderData.orderId) {
-      updateOrderStatus(orderData.orderId, "Cancelled", cancelReason);
+      updateOrderStatus(orderData.orderId, "Cancelled", cancelReason, "Seller");
     }
     setIsCancelModalOpen(false);
     toast.error(`Order cancelled. Reason: ${cancelReason}`);
@@ -433,7 +486,7 @@ export function OrderDetail() {
                 <h1 className="text-lg font-semibold text-gray-900 truncate">
                   Order #{orderData.orderId}
                 </h1>
-                {getStatusBadge(orderData.status)}
+                {getStatusBadge(orderData)}
                 {getChannelBadge(orderData.channel)}
               </div>
               <div className="flex items-center gap-1 text-[11px] text-gray-500 mt-0.5">
@@ -497,6 +550,53 @@ export function OrderDetail() {
       </div>
 
       <div className="p-4 space-y-3">
+        {/* Cancellation banner — only renders when the order is in a
+            terminal Cancelled state. Two variants:
+              - Buyer-cancelled  → amber, signals the buyer pulled the
+                plug via the buyer app (auto-processed; no seller
+                action required).
+              - Seller-cancelled → red, signals the seller's own
+                cancel action from this page or the bulk list.
+            Reads the timestamp + reason directly from the order
+            so the cancelled-tab reviewer doesn't have to expand
+            Order Meta to see the headline facts. */}
+        {orderData.status === "Cancelled" &&
+          (() => {
+            const who = orderData.cancelledBy ?? "Seller";
+            const whenLabel = formatCancellationTime(orderData.cancellationTime);
+            const isBuyer = who === "Buyer";
+            const wrap = isBuyer
+              ? "bg-amber-50 border-amber-200 text-amber-900"
+              : "bg-red-50 border-red-200 text-red-900";
+            const iconWrap = isBuyer ? "text-amber-600" : "text-red-600";
+            return (
+              <div
+                className={`rounded-lg border ${wrap} px-4 py-3 flex items-start gap-3`}
+                role="status"
+                aria-live="polite"
+              >
+                <XCircle className={`h-5 w-5 mt-0.5 shrink-0 ${iconWrap}`} />
+                <div className="min-w-0 text-sm leading-snug">
+                  <p className="font-semibold">
+                    This order was cancelled by the {isBuyer ? "buyer" : "seller"}
+                    {whenLabel ? ` on ${whenLabel}` : ""}.
+                  </p>
+                  {orderData.cancellationReason && (
+                    <p className="mt-0.5 text-xs">
+                      <span className="font-medium">Reason:</span>{" "}
+                      {orderData.cancellationReason}
+                    </p>
+                  )}
+                  {isBuyer && (
+                    <p className="mt-0.5 text-[11px] text-amber-800/80">
+                      Auto-processed via the buyer app — no seller action required.
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
         {/* Buyer / Seller / Order Meta — compact 3-up grid. Each
             column holds the bare minimum: a single identifier and
             the contact lines that the seller actually needs to
@@ -580,22 +680,40 @@ export function OrderDetail() {
                 </span>
               </div>
 
-              {/* Cancellation Reason — rendered inline as another
-                  Order Meta row (same shape as Payment / Channel Order
-                  ID / Original Value) so the column reads as one
-                  uniform key-value list. Only appears for cancelled
-                  orders. */}
-              {orderData.status === "Cancelled" &&
-                orderData.cancellationReason && (
+              {/* Cancellation details — rendered inline as Order Meta
+                  rows (same shape as Payment / Channel Order ID /
+                  Original Value) so the column reads as one uniform
+                  key-value list. Only appears for cancelled orders. */}
+              {orderData.status === "Cancelled" && (
+                <>
                   <div className="flex justify-between text-xs gap-2">
-                    <span className="text-gray-500 shrink-0">
-                      Cancellation Reason
-                    </span>
-                    <span className="text-gray-900 font-medium truncate">
-                      {orderData.cancellationReason}
+                    <span className="text-gray-500 shrink-0">Cancelled By</span>
+                    <span className="text-gray-900 font-medium">
+                      {orderData.cancelledBy ?? "Seller"}
                     </span>
                   </div>
-                )}
+                  {orderData.cancellationTime && (
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-gray-500 shrink-0">
+                        Cancellation Time
+                      </span>
+                      <span className="text-gray-900 font-medium truncate">
+                        {formatCancellationTime(orderData.cancellationTime)}
+                      </span>
+                    </div>
+                  )}
+                  {orderData.cancellationReason && (
+                    <div className="flex justify-between text-xs gap-2">
+                      <span className="text-gray-500 shrink-0">
+                        Cancellation Reason
+                      </span>
+                      <span className="text-gray-900 font-medium truncate">
+                        {orderData.cancellationReason}
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
           </CardContent>
         </Card>

@@ -66,6 +66,7 @@ import {
   type OrderLineItem,
   type DeliveryType,
   type DeliveryBucket,
+  type CancelledBy,
   SELLER_INFO,
   getOrders,
   setOrders as setOrdersStore,
@@ -141,6 +142,13 @@ export function Orders() {
   const [deliveryEndDate, setDeliveryEndDate] = useState<string>("");
   const [tomorrowOnly, setTomorrowOnly] = useState(false);
   const [urgentOnly, setUrgentOnly] = useState(false);
+  // "Cancelled By" quick filter — only consulted on the Cancelled
+  // tab. "all" matches buyer + seller cancellations; the other two
+  // narrow to just one origin so the seller can audit one cancellation
+  // channel at a time.
+  const [cancelledByFilter, setCancelledByFilter] = useState<
+    "all" | CancelledBy
+  >("all");
 
   // Unique brands and statuses for filter options
   const uniqueBrands = useMemo(
@@ -317,6 +325,17 @@ export function Orders() {
         }
       }
 
+      // Cancelled-By quick filter — only applies on the Cancelled tab.
+      // Off-tab the filter is ignored so switching tabs doesn't accidentally
+      // mask non-cancelled orders.
+      let matchesCancelledBy = true;
+      if (tab === "cancelled" && cancelledByFilter !== "all") {
+        // Treat legacy / un-stamped cancellations as seller-initiated
+        // — that's where the existing seed orders came from.
+        const who = order.cancelledBy ?? "Seller";
+        matchesCancelledBy = who === cancelledByFilter;
+      }
+
       return (
         matchesStatus &&
         matchesSearch &&
@@ -329,7 +348,8 @@ export function Orders() {
         matchesUrgentOnly &&
         matchesTomorrowOnly &&
         matchesDeliveryDateRange &&
-        matchesConfirmedSub
+        matchesConfirmedSub &&
+        matchesCancelledBy
       );
     });
   };
@@ -353,6 +373,7 @@ export function Orders() {
       deliveryEndDate,
       tomorrowOnly,
       urgentOnly,
+      cancelledByFilter,
     ],
   );
 
@@ -422,6 +443,31 @@ export function Orders() {
     confirmedDeliveryDay,
   ]);
 
+  // Counts for the Cancelled tab's "Cancelled By" quick filter.
+  // Counts respect the search box + global filters, but not the
+  // cancelled-by chip itself, so each chip always shows the size
+  // of the bucket the seller would land on if they clicked it.
+  const cancelledByCounts = useMemo(() => {
+    const baseCancelled = orders.filter((o) => {
+      if (o.status !== "Cancelled") return false;
+      const matchesSearch =
+        o.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        o.retailerName.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesMarketplace =
+        marketplaceFilter === "all" || o.marketplace === marketplaceFilter;
+      const matchesBrand =
+        selectedBrandFilters.length === 0 ||
+        selectedBrandFilters.includes(o.brand);
+      return matchesSearch && matchesMarketplace && matchesBrand;
+    });
+    const isBuyer = (o: Order) => (o.cancelledBy ?? "Seller") === "Buyer";
+    return {
+      all: baseCancelled.length,
+      buyer: baseCancelled.filter(isBuyer).length,
+      seller: baseCancelled.filter((o) => !isBuyer(o)).length,
+    };
+  }, [orders, searchQuery, marketplaceFilter, selectedBrandFilters]);
+
   // Handle select all for current tab
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
@@ -452,6 +498,9 @@ export function Orders() {
       setConfirmedDeliveryDay("all");
       setConfirmedBeatMode("all");
     }
+    // Same idea for the Cancelled tab's "Cancelled By" quick filter
+    // — reset on the way out so it doesn't quietly persist.
+    if (tab !== "cancelled") setCancelledByFilter("all");
   };
 
   const handleConfirmedDayChange = (day: string) => {
@@ -549,7 +598,7 @@ export function Orders() {
       toast.error("Please provide a reason for cancellation");
       return;
     }
-    updateOrderStatuses(selectedOrders, "Cancelled", cancelReason);
+    updateOrderStatuses(selectedOrders, "Cancelled", cancelReason, "Seller");
     toast.success(
       `${selectedOrders.length} order(s) cancelled. Reason: ${cancelReason}`,
     );
@@ -851,8 +900,19 @@ export function Orders() {
     setIsExportDialogOpen(false);
   };
 
-  // Get status badge
-  const getStatusBadge = (status: Order["status"]) => {
+  // Get status badge. Cancelled orders fan out into two visually
+  // distinct chips so the cancelled-tab reviewer can tell at a glance
+  // who pulled the plug:
+  //   - "Cancelled by Buyer"  — amber, signals an auto-processed
+  //     cancellation the seller didn't act on (came in via the buyer
+  //     app's ONDC /cancel).
+  //   - "Cancelled by Seller" — purple, signals a seller-initiated
+  //     cancellation from the bulk action or the detail page.
+  // Legacy / un-stamped cancellations default to the Seller variant
+  // since every pre-feature cancellation in the seed data came from
+  // a seller action.
+  const getStatusBadge = (order: Order) => {
+    const status = order.status;
     switch (status) {
       case "New":
         return (
@@ -872,12 +932,23 @@ export function Orders() {
             Delivered
           </Badge>
         );
-      case "Cancelled":
+      case "Cancelled": {
+        const who = order.cancelledBy ?? "Seller";
+        if (who === "Buyer") {
+          return (
+            <Badge className="bg-amber-50 text-amber-800 border-amber-200 gap-1">
+              <XCircle className="h-3 w-3" />
+              Cancelled by Buyer
+            </Badge>
+          );
+        }
         return (
-          <Badge className="bg-red-50 text-red-700 border-red-200">
-            Cancelled
+          <Badge className="bg-purple-50 text-purple-700 border-purple-200 gap-1">
+            <XCircle className="h-3 w-3" />
+            Cancelled by Seller
           </Badge>
         );
+      }
       default:
         return <Badge variant="outline">{status}</Badge>;
     }
@@ -1016,6 +1087,11 @@ export function Orders() {
               <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Status
               </th>
+              {activeTab === "cancelled" && (
+                <th className="text-left px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
+                  Cancellation Reason
+                </th>
+              )}
               <th className="text-center px-3 py-2.5 text-[10px] font-semibold uppercase tracking-wider text-gray-600 whitespace-nowrap">
                 Actions
               </th>
@@ -1148,8 +1224,22 @@ export function Orders() {
                   </p>
                 </td>
                 <td className="px-3 py-2.5 whitespace-nowrap">
-                  {getStatusBadge(order.status)}
+                  {getStatusBadge(order)}
                 </td>
+                {activeTab === "cancelled" && (
+                  <td className="px-3 py-2.5 max-w-[200px]">
+                    {order.cancellationReason ? (
+                      <p
+                        className="text-xs text-gray-700 truncate"
+                        title={order.cancellationReason}
+                      >
+                        {order.cancellationReason}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-400 italic">—</p>
+                    )}
+                  </td>
+                )}
                 <td className="px-3 py-2.5 whitespace-nowrap">
                   <div className="flex items-center justify-center gap-2">
                     <Button
@@ -1609,25 +1699,79 @@ export function Orders() {
 
             <TabsContent value="cancelled" className="mt-0 flex-1 flex flex-col overflow-hidden data-[state=inactive]:hidden">
               {!isEmpty && (
-              <div className="px-6 py-4 border-b flex-shrink-0">
-                <div className="relative max-w-md">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <Input
-                    placeholder="Search by order ID, retailer name..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10 pr-10"
-                  />
-                  {searchQuery && (
+                <>
+                  {/* Cancelled-By quick filter — split a flat Cancelled
+                      list into who-pulled-the-plug buckets so the
+                      seller can audit buyer drop-offs vs their own
+                      cancellations in one click. Mirrors the Confirmed
+                      tab's delivery-window chips for visual rhythm. */}
+                  <div className="px-6 pt-4 pb-2 border-b flex-shrink-0 flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-medium text-gray-600 uppercase tracking-wide mr-1">
+                      Cancelled By:
+                    </span>
                     <button
-                      onClick={() => setSearchQuery("")}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() => {
+                        setCancelledByFilter("all");
+                        setCurrentPage(1);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                        cancelledByFilter === "all"
+                          ? "bg-gray-900 text-white border-gray-900"
+                          : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                      }`}
                     >
-                      <X className="h-4 w-4" />
+                      All ({cancelledByCounts.all})
                     </button>
-                  )}
-                </div>
-              </div>
+                    <button
+                      onClick={() => {
+                        setCancelledByFilter("Buyer");
+                        setCurrentPage(1);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+                        cancelledByFilter === "Buyer"
+                          ? "bg-amber-600 text-white border-amber-600"
+                          : "bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100"
+                      }`}
+                    >
+                      <XCircle className="h-3 w-3" />
+                      Buyer ({cancelledByCounts.buyer})
+                    </button>
+                    <button
+                      onClick={() => {
+                        setCancelledByFilter("Seller");
+                        setCurrentPage(1);
+                      }}
+                      className={`text-xs px-3 py-1.5 rounded-full border transition-colors gap-1.5 inline-flex items-center ${
+                        cancelledByFilter === "Seller"
+                          ? "bg-purple-600 text-white border-purple-600"
+                          : "bg-purple-50 text-purple-700 border-purple-200 hover:bg-purple-100"
+                      }`}
+                    >
+                      <XCircle className="h-3 w-3" />
+                      Seller ({cancelledByCounts.seller})
+                    </button>
+                  </div>
+
+                  <div className="px-6 py-4 border-b flex-shrink-0">
+                    <div className="relative max-w-md">
+                      <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                      <Input
+                        placeholder="Search by order ID, retailer name..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-10 pr-10"
+                      />
+                      {searchQuery && (
+                        <button
+                          onClick={() => setSearchQuery("")}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </>
               )}
 
               {/* Table */}

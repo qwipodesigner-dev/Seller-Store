@@ -22,6 +22,22 @@
 export type OrderStatus = "New" | "Confirmed" | "Delivered" | "Cancelled";
 
 /**
+ * Who initiated a cancellation. Seller cancellations originate from
+ * the seller store (the bulk Cancel action on the New / Confirmed tabs
+ * and the Cancel CTA on the order detail page). Buyer cancellations
+ * arrive via the buyer app's ONDC /cancel call while the order is
+ * still in "New" status and within the configured Cancellation Window
+ * — they land here as terminal cancellations the seller didn't act on.
+ *
+ * The seller store surfaces the distinction so the Cancelled tab and
+ * the order detail page tell the seller at a glance who pulled the
+ * plug. Buyer-side cancellations carry the buyer's reason verbatim
+ * from the cancel payload; seller-side cancellations carry the reason
+ * the seller picked in the Cancel popup.
+ */
+export type CancelledBy = "Buyer" | "Seller";
+
+/**
  * Operational delivery classification for an order. Simplified per
  * the May 2026 product call to just two values — the granular
  * Sales Beat / Non-Sales Beat split now lives on the `beatName`
@@ -93,14 +109,29 @@ export interface Order {
    *  the detail page; orphan/ad-hoc deliveries leave this blank. */
   beatName?: string;
   /**
-   * Reason captured in the Cancel popup when the seller cancels an
-   * order (from either the detail page or the list page's bulk
-   * action). Only meaningful when `status === "Cancelled"`. Rendered
-   * in the Order Meta block on the detail page so the cancelled-tab
+   * Reason recorded for a cancelled order. For seller-side
+   * cancellations this is the option the seller picked in the Cancel
+   * popup (Out of Stock / Delivery Issue / Pricing Error / Other);
+   * for buyer-side cancellations this is the reason the buyer chose
+   * in the buyer app, surfaced verbatim. Only meaningful when
+   * `status === "Cancelled"`. Rendered in the Order Meta block + the
+   * Cancellation banner on the detail page so the cancelled-tab
    * reviewer can see why each order was cancelled without re-opening
    * the activity log.
    */
   cancellationReason?: string;
+  /** Who cancelled the order — see {@link CancelledBy}. Only set when
+   *  `status === "Cancelled"`. Drives the status-chip variant on the
+   *  orders list (amber "Cancelled by Buyer" vs red "Cancelled by
+   *  Seller"), the Cancelled-By quick filters on the Cancelled tab,
+   *  and the banner + meta on the detail page. */
+  cancelledBy?: CancelledBy;
+  /** When the cancellation was processed. ISO 8601 string. Set
+   *  alongside `cancelledBy` whenever the order transitions to
+   *  Cancelled, so the detail page banner and the Cancelled tab can
+   *  show "Cancelled on 15 Jun 2026 at 04:32 PM" without re-reading
+   *  the activity log. */
+  cancellationTime?: string;
   /** GST registration number for the buyer (GSTIN). Optional — not
    *  all retailers are GST-registered. Surfaced in the Buyer section
    *  on the order detail page. */
@@ -300,6 +331,8 @@ export const seedOrders: Order[] = [
     orderDate: "2026-05-18",
     status: "Cancelled",
     cancellationReason: "Out of Stock",
+    cancelledBy: "Seller",
+    cancellationTime: "2026-05-18T11:42:00+05:30",
     marketplace: "ONDC",
     expectedDeliveryDate: "2026-05-19",
     deliveryType: "Urgent",
@@ -422,42 +455,201 @@ export const seedOrders: Order[] = [
     orderDate: "2026-05-15",
     status: "Cancelled",
     cancellationReason: "Pricing Error",
+    cancelledBy: "Seller",
+    cancellationTime: "2026-05-15T09:18:00+05:30",
     marketplace: "Amazon",
     expectedDeliveryDate: "2026-05-16",
     deliveryType: "Urgent",
     beatName: "Hyderabad West",
     buyerContact: "+91 98765 43221",
   },
+  // Buyer-cancelled examples. Both arrived via the buyer app's
+  // ONDC /cancel call while the order was still in "New" status —
+  // the seller never confirmed them, so they land on the Cancelled
+  // tab with the amber "Cancelled by Buyer" chip and the buyer's
+  // own reason copy carried verbatim from the buyer app.
+  {
+    id: "QWI-ONDC-260520-H7L4MX",
+    brand: "ITC",
+    company: "ITC Limited",
+    source: "DMS-Bizom",
+    retailerName: "Sai Krishna Provisions",
+    itemsSummary: "20 units Sunfeast Marie Light",
+    orderValue: 3600,
+    paymentMode: "COD",
+    orderDate: "2026-05-20",
+    orderTime: "09:12 AM",
+    status: "Cancelled",
+    cancellationReason: "Ordered by mistake",
+    cancelledBy: "Buyer",
+    cancellationTime: "2026-05-20T09:38:00+05:30",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43222",
+    channelOrderId: "ONDC-ORD-784512",
+  },
+  {
+    id: "QWI-ONDC-260519-W2K8PV",
+    brand: "Marico",
+    company: "Marico Limited",
+    source: "DMS-Botery",
+    retailerName: "Greenfield Mart",
+    itemsSummary: "60 units Parachute Coconut Oil",
+    orderValue: 8400,
+    paymentMode: "Prepaid",
+    orderDate: "2026-05-19",
+    orderTime: "06:48 PM",
+    status: "Cancelled",
+    cancellationReason: "Found a better price elsewhere",
+    cancelledBy: "Buyer",
+    cancellationTime: "2026-05-19T07:14:00+05:30",
+    marketplace: "ONDC",
+    expectedDeliveryDate: "2026-05-22",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43223",
+    channelOrderId: "ONDC-ORD-861247",
+  },
+  {
+    id: "QWI-FLPK-260518-D9J3RE",
+    brand: "Pepsi",
+    company: "PepsiCo India",
+    source: "DMS-Bizom",
+    retailerName: "Sri Lakshmi Stores",
+    itemsSummary: "40 units Lay's Classic Salted",
+    orderValue: 2800,
+    paymentMode: "COD",
+    orderDate: "2026-05-18",
+    orderTime: "02:25 PM",
+    status: "Cancelled",
+    cancellationReason: "Delivery is too late",
+    cancelledBy: "Buyer",
+    cancellationTime: "2026-05-18T02:51:00+05:30",
+    marketplace: "Flipkart",
+    expectedDeliveryDate: "2026-05-21",
+    deliveryType: "Regular",
+    buyerContact: "+91 98765 43224",
+    channelOrderId: "FLPK-ORD-552031",
+  },
 ];
 
-// Hyderabad-area lat/lng + Online/Offline connectivity per seed
-// order. Kept out of the main seed array so the order definitions
-// stay focused on the line-item / status story; merged in below so
-// the View on Map dialog has real coordinates to plot.
-const ORDER_GEO: Record<string, { lat: number; lng: number; connectivity: "Online" | "Offline" }> = {
+// Hyderabad-area buyer location data per seed order — lat/lng,
+// street address, and Online/Offline connectivity. Kept out of the
+// main seed array so the order definitions stay focused on the
+// line-item / status story; merged in below so the View on Map
+// dialog has real coordinates AND human-readable addresses for the
+// pin popups + the single-order View on Map link on the detail page.
+// Every address is consistent with its lat/lng — the neighborhood
+// name in the string matches the area the coordinates pin to.
+const ORDER_GEO: Record<
+  string,
+  { lat: number; lng: number; address: string; connectivity: "Online" | "Offline" }
+> = {
   // Cluster 1 — Hitech City / Madhapur / Gachibowli (west)
-  "QWI-ONDC-260330-8F3K92": { lat: 17.4483, lng: 78.3915, connectivity: "Online" },
-  "QWI-ONDC-260519-K2P7XR": { lat: 17.4485, lng: 78.3908, connectivity: "Online" },
-  "QWI-FLPK-260519-Q4M8YE": { lat: 17.4399, lng: 78.3489, connectivity: "Online" },
+  "QWI-ONDC-260330-8F3K92": {
+    lat: 17.4483,
+    lng: 78.3915,
+    address: "Shop 12, Cyber Towers Road, HITEC City, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260519-K2P7XR": {
+    lat: 17.4485,
+    lng: 78.3908,
+    address: "Plot 47, Inorbit Mall Road, Madhapur, Hyderabad, Telangana 500081",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260519-Q4M8YE": {
+    lat: 17.4399,
+    lng: 78.3489,
+    address: "Shop 8, DLF Cyber City Road, Gachibowli, Hyderabad, Telangana 500032",
+    connectivity: "Online",
+  },
   // Cluster 2 — Banjara Hills / Jubilee Hills (central west)
-  "QWI-AMZN-260518-V6T3HN": { lat: 17.4156, lng: 78.4347, connectivity: "Online" },
-  "QWI-ONDC-260518-J5C9BD": { lat: 17.4317, lng: 78.4078, connectivity: "Offline" },
+  "QWI-AMZN-260518-V6T3HN": {
+    lat: 17.4156,
+    lng: 78.4347,
+    address: "Shop 23, Road No. 12, Banjara Hills, Hyderabad, Telangana 500034",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260518-J5C9BD": {
+    lat: 17.4317,
+    lng: 78.4078,
+    address: "Plot 5, Road No. 36, Jubilee Hills, Hyderabad, Telangana 500033",
+    connectivity: "Offline",
+  },
   // Cluster 3 — Ameerpet / Begumpet (central)
-  "QWI-AMZN-260519-N7W2XK": { lat: 17.4374, lng: 78.4482, connectivity: "Online" },
-  "QWI-ONDC-260519-R3F4PT": { lat: 17.4399, lng: 78.4737, connectivity: "Online" },
+  "QWI-AMZN-260519-N7W2XK": {
+    lat: 17.4374,
+    lng: 78.4482,
+    address: "Shop 14, SR Nagar Main Road, Ameerpet, Hyderabad, Telangana 500038",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260519-R3F4PT": {
+    lat: 17.4399,
+    lng: 78.4737,
+    address: "Shop 9, Prakash Nagar, Begumpet, Hyderabad, Telangana 500016",
+    connectivity: "Online",
+  },
   // Cluster 4 — Secunderabad / Malkajgiri (north-east)
-  "QWI-FLPK-260520-A6H8WC": { lat: 17.4399, lng: 78.4983, connectivity: "Online" },
-  "QWI-AMZN-260517-B9D2MZ": { lat: 17.4485, lng: 78.5042, connectivity: "Offline" },
+  "QWI-FLPK-260520-A6H8WC": {
+    lat: 17.4399,
+    lng: 78.4983,
+    address: "Shop 31, S.D. Road, Secunderabad, Hyderabad, Telangana 500003",
+    connectivity: "Online",
+  },
+  "QWI-AMZN-260517-B9D2MZ": {
+    lat: 17.4485,
+    lng: 78.5042,
+    address: "Shop 17, Patny Centre, Secunderabad, Hyderabad, Telangana 500003",
+    connectivity: "Offline",
+  },
   // Cluster 5 — Kukatpally / Miyapur (north-west)
-  "QWI-ONDC-260520-E5G7QY": { lat: 17.4849, lng: 78.4138, connectivity: "Online" },
-  "QWI-FLPK-260516-S4U8VK": { lat: 17.4978, lng: 78.3578, connectivity: "Online" },
-  // South — Mehdipatnam / Dilsukhnagar
-  "QWI-AMZN-260515-T6Y9NF": { lat: 17.3958, lng: 78.4358, connectivity: "Online" },
+  "QWI-ONDC-260520-E5G7QY": {
+    lat: 17.4849,
+    lng: 78.4138,
+    address: "Shop 6, KPHB Phase 4, Kukatpally, Hyderabad, Telangana 500072",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260516-S4U8VK": {
+    lat: 17.4978,
+    lng: 78.3578,
+    address: "Shop 22, Miyapur Main Road, Miyapur, Hyderabad, Telangana 500049",
+    connectivity: "Online",
+  },
+  // South — Mehdipatnam
+  "QWI-AMZN-260515-T6Y9NF": {
+    lat: 17.3958,
+    lng: 78.4358,
+    address: "Shop 11, Tolichowki Junction, Mehdipatnam, Hyderabad, Telangana 500028",
+    connectivity: "Online",
+  },
+  // Buyer-cancelled orders — clustered near existing pins so the
+  // Cancelled tab's "View on Map" reads as one realistic delivery zone.
+  "QWI-ONDC-260520-H7L4MX": {
+    lat: 17.4188,
+    lng: 78.4587,
+    address: "Shop 4, Punjagutta Cross Roads, Punjagutta, Hyderabad, Telangana 500082",
+    connectivity: "Online",
+  },
+  "QWI-ONDC-260519-W2K8PV": {
+    lat: 17.4256,
+    lng: 78.4521,
+    address: "Plot 28, Somajiguda Circle, Somajiguda, Hyderabad, Telangana 500082",
+    connectivity: "Online",
+  },
+  "QWI-FLPK-260518-D9J3RE": {
+    lat: 17.4108,
+    lng: 78.4942,
+    address: "Shop 19, Tarnaka Main Road, Tarnaka, Hyderabad, Telangana 500017",
+    connectivity: "Offline",
+  },
 };
 
-// Merge the geo data into the seed array so the View on Map dialog
-// has lat/lng for every demo order without polluting the per-order
-// definitions above.
+// Merge the geo data into the seed array so the View on Map dialog,
+// the single-order map link on the detail page, and the popup card
+// inside the embedded map all read from the same source of truth.
+// `buyerAddress` is overridden so the legacy Bangalore stub on the
+// first seed order can't drift away from its new Hyderabad coords.
 for (let i = 0; i < seedOrders.length; i++) {
   const g = ORDER_GEO[seedOrders[i].id];
   if (g) {
@@ -465,6 +657,7 @@ for (let i = 0; i < seedOrders.length; i++) {
       ...seedOrders[i],
       buyerLat: g.lat,
       buyerLng: g.lng,
+      buyerAddress: g.address,
       connectivity: g.connectivity,
     };
   }
@@ -498,21 +691,24 @@ export function getOrderById(id: string): Order | undefined {
 
 /**
  * Update a single order's status. No-op if the id isn't found.
- * Passing `reason` alongside a "Cancelled" status persists it as
- * `cancellationReason` so the detail page can render it in Order
- * Meta. When the status flips to something OTHER than "Cancelled"
- * the previously persisted reason is cleared.
+ * Passing `reason` + `cancelledBy` alongside a "Cancelled" status
+ * persists them as `cancellationReason` / `cancelledBy` and stamps
+ * `cancellationTime` to "now" so the detail page can render the
+ * banner + meta. When the status flips to something OTHER than
+ * "Cancelled" the previously persisted cancellation fields are
+ * cleared.
  */
 export function updateOrderStatus(
   id: string,
   status: OrderStatus,
   reason?: string,
+  cancelledBy: CancelledBy = "Seller",
 ) {
   let mutated = false;
   _orders = _orders.map((o) => {
     if (o.id !== id) return o;
     mutated = true;
-    return applyStatusUpdate(o, status, reason);
+    return applyStatusUpdate(o, status, reason, cancelledBy);
   });
   if (mutated) notify();
 }
@@ -522,33 +718,55 @@ export function updateOrderStatuses(
   ids: string[],
   status: OrderStatus,
   reason?: string,
+  cancelledBy: CancelledBy = "Seller",
 ) {
   const set = new Set(ids);
   let mutated = false;
   _orders = _orders.map((o) => {
     if (!set.has(o.id)) return o;
     mutated = true;
-    return applyStatusUpdate(o, status, reason);
+    return applyStatusUpdate(o, status, reason, cancelledBy);
   });
   if (mutated) notify();
 }
 
-/** Status-write helper — single source of truth for the
- *  cancellationReason side-effect AND the actualDeliveryDate stamp.
- *  Cancelled + reason → persist reason; any non-Cancelled write wipes
- *  a stale reason. Delivered writes stamp today's date as the
- *  actualDeliveryDate (if not already set) so the orders list can
- *  show the seller exactly when each order shipped. */
-function applyStatusUpdate(o: Order, status: OrderStatus, reason?: string): Order {
+/** Status-write helper — single source of truth for the cancellation
+ *  side-effects AND the actualDeliveryDate stamp.
+ *   - Cancelled + reason → persist reason, cancelledBy and a fresh
+ *     cancellationTime; any non-Cancelled write wipes stale
+ *     cancellation fields so a re-opened-then-fulfilled order doesn't
+ *     carry stale labels.
+ *   - Delivered writes stamp today's date as the actualDeliveryDate
+ *     (if not already set) so the orders list can show the seller
+ *     exactly when each order shipped. Reverting away from Delivered
+ *     wipes the stamp. */
+function applyStatusUpdate(
+  o: Order,
+  status: OrderStatus,
+  reason?: string,
+  cancelledBy: CancelledBy = "Seller",
+): Order {
   if (status === "Cancelled") {
-    return reason !== undefined
-      ? { ...o, status, cancellationReason: reason }
-      : { ...o, status };
+    const next: Order = {
+      ...o,
+      status,
+      cancelledBy,
+      cancellationTime: new Date().toISOString(),
+    };
+    if (reason !== undefined) next.cancellationReason = reason;
+    return next;
   }
-  // Any non-Cancelled write clears the previously persisted reason
-  // so a re-opened-then-fulfilled order doesn't carry a stale label.
-  const { cancellationReason: _drop, ...rest } = o;
-  void _drop;
+  // Any non-Cancelled write clears previously persisted cancellation
+  // fields so a re-opened-then-fulfilled order doesn't carry stale labels.
+  const {
+    cancellationReason: _r,
+    cancelledBy: _b,
+    cancellationTime: _t,
+    ...rest
+  } = o;
+  void _r;
+  void _b;
+  void _t;
   if (status === "Delivered") {
     return {
       ...rest,
