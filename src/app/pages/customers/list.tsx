@@ -32,8 +32,6 @@ import {
   Eye,
   Users,
   Sparkles,
-  MapPin,
-  CalendarDays,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -48,10 +46,6 @@ import {
 import { isEmptyMode } from "../../lib/data-mode";
 import { EmptyState } from "../../components/empty-state";
 import { CopyOnHover } from "../../components/copy-on-hover";
-import {
-  findBitForCustomer,
-  subscribeToServiceabilityBits,
-} from "../../lib/serviceability-data";
 import {
   Tooltip,
   TooltipContent,
@@ -92,65 +86,6 @@ const escapeCsv = (v: string | number) => {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
-/**
- * Roll up the per-company Beat Name and Delivery Day assignments for a
- * customer into a row-level display value.
- *
- *  - Zero matches (no serviceability bit covers any of the customer's
- *    companies)         → returns { beat: null, day: null } and the
- *                          cell renders a quiet "—" with a tooltip.
- *  - One unique value   → returns the single string for the column.
- *  - Multiple values    → returns "Multiple" with the full breakdown
- *                          in the tooltip so the seller can drill in
- *                          via the Linked Companies popup.
- */
-function resolveBeatAndDay(c: DemoCustomer): {
-  beat: string | null;
-  day: string | null;
-  perCompany: Array<{ company: string; beat: string; day: string }>;
-  beatCount: number;
-  dayCount: number;
-} {
-  const perCompany: Array<{ company: string; beat: string; day: string }> = [];
-  c.companies.forEach((co) => {
-    const bit = findBitForCustomer(
-      {
-        customerId: c.customerId,
-        city: c.city,
-        area: c.area,
-        pincode: c.pincode,
-      },
-      co.companyId,
-    );
-    if (bit) {
-      perCompany.push({
-        company: co.companyName,
-        beat: bit.beatName,
-        day: bit.deliveryDay,
-      });
-    }
-  });
-  const uniqueBeats = Array.from(new Set(perCompany.map((p) => p.beat)));
-  const uniqueDays = Array.from(new Set(perCompany.map((p) => p.day)));
-  return {
-    beat:
-      uniqueBeats.length === 0
-        ? null
-        : uniqueBeats.length === 1
-          ? uniqueBeats[0]
-          : "Multiple",
-    day:
-      uniqueDays.length === 0
-        ? null
-        : uniqueDays.length === 1
-          ? uniqueDays[0]
-          : "Multiple",
-    perCompany,
-    beatCount: uniqueBeats.length,
-    dayCount: uniqueDays.length,
-  };
-}
-
 export function CustomersDemo() {
   const navigate = useNavigate();
   // Source of truth lives in lib/customers-demo-data.ts. We mirror it
@@ -169,18 +104,6 @@ export function CustomersDemo() {
     if (isEmpty) return;
     return subscribeToDemoCustomers(() =>
       setCustomersState([...getDemoCustomers()]),
-    );
-  }, [isEmpty]);
-
-  // Serviceability changes (a Super Admin editing a bit on the
-  // seller-detail page) need to re-flow into the Beat / Delivery Day
-  // columns on this list. Subscribe to the bits store and bump a
-  // counter so the per-row resolver re-runs.
-  const [, setBitsVersion] = useState(0);
-  useEffect(() => {
-    if (isEmpty) return;
-    return subscribeToServiceabilityBits(() =>
-      setBitsVersion((n) => n + 1),
     );
   }, [isEmpty]);
 
@@ -282,23 +205,12 @@ export function CustomersDemo() {
       "Lat",
       "Long",
       "Company",
-      "Beat",
-      "Delivery Day",
       "Status",
       "Origin",
     ];
     const lines = [headers.join(",")];
     filteredCustomers.forEach((c) => {
       c.companies.forEach((co) => {
-        const bit = findBitForCustomer(
-          {
-            customerId: c.customerId,
-            city: c.city,
-            area: c.area,
-            pincode: c.pincode,
-          },
-          co.companyId,
-        );
         lines.push(
           [
             c.customerId.toUpperCase(),
@@ -310,8 +222,6 @@ export function CustomersDemo() {
             c.latitude,
             c.longitude,
             co.companyName,
-            bit?.beatName ?? "",
-            bit?.deliveryDay ?? "",
             co.status,
             c.origin ?? "first-order",
           ]
@@ -424,20 +334,12 @@ export function CustomersDemo() {
                   <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Company
                   </th>
-                  {/* Area / PIN column removed — full address is shown
-                      on the detail page. Beat + Delivery Day columns
-                      were added per the May 2026 serviceability sweep
-                      so sellers can scan the assigned delivery
-                      schedule without opening each customer's detail
-                      page. Values are resolved from the active
-                      serviceability bits (see lib/serviceability-
-                      data.ts → findBitForCustomer). */}
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Beat
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600">
-                    Delivery Day
-                  </th>
+                  {/* Beat + Delivery Day columns were removed in the
+                      June 2026 simplification sweep — those values now
+                      live exclusively on the customer detail page,
+                      under Linked Companies, where the per-company
+                      breakdown belongs. The list keeps a clean
+                      Identity → Company → Status → Action read. */}
                   <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wider text-gray-600">
                     Status
                   </th>
@@ -450,7 +352,7 @@ export function CustomersDemo() {
                 {paginated.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={5}
                       className="px-4 py-12 text-center text-sm text-gray-500"
                     >
                       No customers match your search or filters.
@@ -458,8 +360,6 @@ export function CustomersDemo() {
                   </tr>
                 ) : (
                   paginated.map((c) => {
-                    const { beat, day, perCompany, beatCount, dayCount } =
-                      resolveBeatAndDay(c);
                     // Status is per-company — roll up for the row badge.
                     // All-Active and All-Blocked render the single state;
                     // anything else shows a "Mixed" amber badge so
@@ -547,82 +447,11 @@ export function CustomersDemo() {
                             <ChevronRight className="h-3 w-3 opacity-60" />
                           </Button>
                         </td>
-                        {/* Area / PIN cell removed — full address is
-                            on the detail page. */}
-                        {/* Beat — single value when one, "Multiple"
-                            badge with breakdown tooltip when the
-                            customer spans companies with different
-                            beats. A quiet "—" reads as "no
-                            serviceability configured for this
-                            customer's companies yet". */}
-                        <td className="px-4 py-3">
-                          {beat === null ? (
-                            <span className="text-xs text-gray-400">—</span>
-                          ) : beatCount > 1 ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1 cursor-help">
-                                    <MapPin className="h-3 w-3" />
-                                    Multiple
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <p className="text-[11px] font-semibold mb-1">
-                                    Beat by company
-                                  </p>
-                                  <ul className="text-[11px] space-y-0.5">
-                                    {perCompany.map((p) => (
-                                      <li key={p.company}>
-                                        <span className="text-gray-300">{p.company}:</span>{" "}
-                                        <b>{p.beat}</b>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-sm text-gray-800">
-                              <MapPin className="h-3 w-3 text-gray-500" />
-                              {beat}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3">
-                          {day === null ? (
-                            <span className="text-xs text-gray-400">—</span>
-                          ) : dayCount > 1 ? (
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1 cursor-help">
-                                    <CalendarDays className="h-3 w-3" />
-                                    Multiple
-                                  </Badge>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-xs">
-                                  <p className="text-[11px] font-semibold mb-1">
-                                    Delivery day by company
-                                  </p>
-                                  <ul className="text-[11px] space-y-0.5">
-                                    {perCompany.map((p) => (
-                                      <li key={p.company}>
-                                        <span className="text-gray-300">{p.company}:</span>{" "}
-                                        <b>{p.day}</b>
-                                      </li>
-                                    ))}
-                                  </ul>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 text-sm text-gray-800">
-                              <CalendarDays className="h-3 w-3 text-gray-500" />
-                              {day}
-                            </span>
-                          )}
-                        </td>
+                        {/* Beat + Delivery Day cells removed — those
+                            now live on the detail page (Linked
+                            Companies card), since they're per-company
+                            facts and don't roll up cleanly to a single
+                            row. */}
                         <td className="px-4 py-3 text-center">
                           {blockedCount === 0 ? (
                             <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 gap-1">
@@ -811,42 +640,27 @@ export function CustomersDemo() {
           {linkedCustomer && (
             <div className="py-2 max-h-[60vh] overflow-y-auto">
               <div className="border border-gray-200 rounded-lg divide-y divide-gray-100">
-                {/* Header row — added Beat + Delivery Day so the
-                    seller can see the full serviceability picture
-                    per company without leaving the list. */}
-                <div className="grid grid-cols-[minmax(0,1.4fr)_110px_110px_100px_110px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
+                {/* Beat + Delivery Day were stripped from the popup
+                    in June 2026 — the popup is for fast per-company
+                    Block / Unblock, not a serviceability summary. The
+                    detail page (Linked Companies card) is the canonical
+                    place for beat + day. */}
+                <div className="grid grid-cols-[minmax(0,1fr)_120px_130px] gap-3 px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wider font-semibold text-gray-500">
                   <span>Company</span>
-                  <span>Beat</span>
-                  <span>Delivery Day</span>
                   <span className="text-center">Status</span>
                   <span className="text-right">Action</span>
                 </div>
                 {linkedCustomer.companies.map((co) => {
-                  const bit = findBitForCustomer(
-                    {
-                      customerId: linkedCustomer.customerId,
-                      city: linkedCustomer.city,
-                      area: linkedCustomer.area,
-                      pincode: linkedCustomer.pincode,
-                    },
-                    co.companyId,
-                  );
                   return (
                   <div
                     key={co.companyId}
-                    className="grid grid-cols-[minmax(0,1.4fr)_110px_110px_100px_110px] gap-3 px-3 py-2.5 items-center"
+                    className="grid grid-cols-[minmax(0,1fr)_120px_130px] gap-3 px-3 py-2.5 items-center"
                   >
                     <div className="flex items-center gap-2 min-w-0">
                       <Building2 className="h-4 w-4 text-gray-500 shrink-0" />
                       <p className="text-sm font-medium text-gray-900 truncate">
                         {co.companyName}
                       </p>
-                    </div>
-                    <div className="text-xs text-gray-700 truncate" title={bit?.beatName}>
-                      {bit ? bit.beatName : <span className="text-gray-400">—</span>}
-                    </div>
-                    <div className="text-xs text-gray-700" title={bit?.deliveryDay}>
-                      {bit ? bit.deliveryDay : <span className="text-gray-400">—</span>}
                     </div>
                     <div className="flex justify-center">
                       {co.status === "Active" ? (
@@ -906,9 +720,9 @@ export function CustomersDemo() {
                 })}
               </div>
               <p className="text-[11px] text-gray-500 mt-2 px-1">
-                Status, Beat, Delivery Day, and Block / Unblock are
-                tracked per company — the same customer can sit on
-                different beats and delivery days across companies.
+                Status and Block / Unblock are tracked per company. To
+                see the beat name &amp; delivery day for each company,
+                open this customer&apos;s detail page.
               </p>
             </div>
           )}
