@@ -43,6 +43,12 @@ export const catalogAdminNavigation: CatalogNavItem[] = [
     roles: ["brand-manager"],
   },
   {
+    name: "My Requests",
+    href: "/catalog-admin/my-requests",
+    icon: Inbox,
+    roles: ["brand-manager"],
+  },
+  {
     name: "Create SKU",
     href: "/catalog-admin/catalog/create",
     icon: Package,
@@ -68,6 +74,7 @@ export function getCatalogAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/catalog-admin/catalog/")) return "SKU Detail";
   if (pathname.startsWith("/catalog-admin/catalog")) return "Browse Catalog";
   if (pathname.startsWith("/catalog-admin/my-catalog")) return "My Catalog";
+  if (pathname.startsWith("/catalog-admin/my-requests")) return "My Requests";
   if (pathname.startsWith("/catalog-admin/brand-managers")) return "Brand Managers";
   return "Product Store";
 }

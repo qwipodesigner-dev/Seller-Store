@@ -19,6 +19,9 @@ import {
   Info,
   ShieldCheck,
   AlertCircle,
+  Percent,
+  Sparkles,
+  PackageOpen,
 } from "lucide-react";
 import { psBrands, psCompanies } from "../lib/product-store-data";
 
@@ -84,7 +87,7 @@ export interface SkuFormState {
   // Descriptions
   shortDesc: string;
   longDesc: string;
-  // Quantity & Packaging
+  // Quantity & Inventory
   measureUnit: string;
   measureValue: string;
   weightMeasure: string;
@@ -99,14 +102,17 @@ export interface SkuFormState {
   productLength: string;
   productWidth: string;
   productHeight: string;
-  // Compliance & Tax
-  categoryId: string;
+  // Tax
   hsnCode: string;
-  countryOfOrigin: string;
-  manufacturerName: string;
-  manufacturerAddress: string; // admin only
   gstTax: string;
   gstCess: string;
+  // Category
+  categoryId: string;
+  // Company & Brand Information
+  manufacturerName: string;
+  manufacturerAddress: string; // admin only
+  // Tags
+  countryOfOrigin: string;
   // Seller only
   notes: string;
   // Admin only
@@ -137,13 +143,13 @@ export const emptySkuForm: SkuFormState = {
   productLength: "",
   productWidth: "",
   productHeight: "",
-  categoryId: "",
   hsnCode: "",
-  countryOfOrigin: "India",
-  manufacturerName: "",
-  manufacturerAddress: "",
   gstTax: "",
   gstCess: "0%",
+  categoryId: "",
+  manufacturerName: "",
+  manufacturerAddress: "",
+  countryOfOrigin: "India",
   notes: "",
   itemStatus: "enable",
 };
@@ -226,22 +232,20 @@ export function SkuFormFields({
 
   const hoverBorder = accent === "teal" ? "hover:border-teal-400 hover:bg-teal-50 hover:text-teal-600" : "hover:border-purple-400 hover:bg-purple-50 hover:text-purple-600";
 
-  const handleBrandChange = (brandId: string) => {
-    const brand = psBrands.find((b) => b.id === brandId);
-    const company = brand ? psCompanies.find((c) => c.id === brand.companyId) : null;
-    onChange("brandId", brandId);
-    onChange("companyId", brand?.companyId ?? "");
-    onChange("brandOther", "");
-    onChange("brandAttribute", brand?.name ?? "");
-    onChange("manufacturerName", company?.name ?? form.manufacturerName);
-  };
-
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
     const urls = Array.from(files).map((f) => URL.createObjectURL(f));
     onProductImagesChange([...productImages, ...urls]);
   };
+
+  // Auto-calculated Weight in KG — mirrors sku-detail.tsx behaviour
+  const weightInKg = (() => {
+    const w = parseFloat(form.skuWeight);
+    if (!form.weightMeasure || isNaN(w)) return null;
+    const kg = form.weightMeasure === "Kilogram" ? w : w / 1000;
+    return kg.toFixed(3);
+  })();
 
   const volumetricWeight =
     form.productLength && form.productWidth && form.productHeight
@@ -255,7 +259,8 @@ export function SkuFormFields({
 
   return (
     <div className="space-y-4">
-      {/* ── 1. Descriptor ── */}
+
+      {/* ── 1. Descriptor (Product Identity) ── matches sku-detail section name */}
       <SkuFormSection
         title="Descriptor (Product Identity)"
         icon={<FileText className="h-3.5 w-3.5 text-blue-600" />}
@@ -270,7 +275,7 @@ export function SkuFormFields({
         </SkuFormRow>
 
         <div className="grid grid-cols-2 gap-3">
-          <SkuFormRow label="Short Name" required={!readOnly} help={readOnly ? undefined : "Internal alias — max 20 chars"}>
+          <SkuFormRow label="Short Name" help={readOnly ? undefined : "Internal alias — max 20 chars"}>
             <Input
               placeholder="e.g. AASH-10K"
               value={form.shortName}
@@ -279,7 +284,7 @@ export function SkuFormFields({
               disabled={readOnly}
             />
           </SkuFormRow>
-          <SkuFormRow label="Group Name" required={!readOnly} help={readOnly ? undefined : "Product line this SKU belongs to"}>
+          <SkuFormRow label="Group Name" help={readOnly ? undefined : "Product line this SKU belongs to"}>
             <Input
               placeholder="e.g. Aashirvaad Atta"
               value={form.groupName}
@@ -289,7 +294,7 @@ export function SkuFormFields({
           </SkuFormRow>
         </div>
 
-        {/* Admin: SKU Code + Brand Attribute in same row */}
+        {/* Admin: SKU Code + Brand Attribute */}
         {isAdmin && (
           <div className="grid grid-cols-2 gap-3">
             <SkuFormRow label="SKU Code" required={!readOnly} help={readOnly ? undefined : "Unique identifier — cannot be changed after creation"}>
@@ -301,7 +306,7 @@ export function SkuFormFields({
                 disabled={readOnly || isEdit}
               />
             </SkuFormRow>
-            <SkuFormRow label="Brand Attribute" required={!readOnly} help={readOnly ? undefined : "Brand name for ONDC compliance"}>
+            <SkuFormRow label="Brand Attribute" help={readOnly ? undefined : "Brand name for ONDC compliance"}>
               <Input
                 placeholder="Auto-filled from brand"
                 value={form.brandAttribute}
@@ -312,70 +317,7 @@ export function SkuFormFields({
           </div>
         )}
 
-        {/* Seller: Brand + Brand Attribute in same row */}
-        {isSeller && (
-          <div className="grid grid-cols-2 gap-3">
-            <SkuFormRow label="Brand" required={!readOnly}>
-              <Select value={form.brandId} onValueChange={handleBrandChange} disabled={readOnly}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select brand" />
-                </SelectTrigger>
-                <SelectContent className="max-h-52">
-                  {psBrands.map((b) => (
-                    <SelectItem key={b.id} value={b.id}>
-                      {b.logo} {b.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </SkuFormRow>
-            <SkuFormRow label="Brand Attribute" required={!readOnly} help={readOnly ? undefined : "Brand name for ONDC compliance"}>
-              <Input
-                placeholder="Auto-filled from brand, or enter manually"
-                value={form.brandAttribute}
-                onChange={(e) => onChange("brandAttribute", e.target.value)}
-                disabled={readOnly}
-              />
-            </SkuFormRow>
-          </div>
-        )}
-
-        {/* Seller: fallback when brand not in list (hide in readOnly if empty) */}
-        {isSeller && (!readOnly || form.brandOther) && !form.brandId && (
-          <SkuFormRow label="Brand / Company (if not listed)" required={!readOnly}>
-            <Input
-              placeholder="e.g. GSK Consumer, HUL"
-              value={form.brandOther}
-              onChange={(e) => onChange("brandOther", e.target.value)}
-              disabled={readOnly}
-            />
-          </SkuFormRow>
-        )}
-
-        {/* Admin: Brand select on its own full-width row */}
-        {isAdmin && (
-          <SkuFormRow label="Brand" required={!readOnly}>
-            <Select value={form.brandId} onValueChange={handleBrandChange} disabled={readOnly}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select brand" />
-              </SelectTrigger>
-              <SelectContent>
-                {psBrands.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.logo} {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SkuFormRow>
-        )}
-      </SkuFormSection>
-
-      {/* ── 2. Descriptions ── */}
-      <SkuFormSection
-        title="Descriptions"
-        icon={<FileText className="h-3.5 w-3.5 text-purple-600" />}
-      >
+        {/* Short Description + Long Description — same section as sku-detail Descriptor */}
         <SkuFormRow label="Short Description" required={!readOnly} help={readOnly ? undefined : "10–150 chars, plain text"}>
           <Input
             placeholder="One-line product summary"
@@ -399,7 +341,7 @@ export function SkuFormFields({
         </SkuFormRow>
       </SkuFormSection>
 
-      {/* ── 3. Product Images ── */}
+      {/* ── 2. Product Images ── */}
       <SkuFormSection
         title={isSeller ? "Product Images (optional)" : "Images"}
         icon={isSeller
@@ -468,9 +410,9 @@ export function SkuFormFields({
         )}
       </SkuFormSection>
 
-      {/* ── 4. Quantity & Packaging ── */}
+      {/* ── 3. Quantity & Inventory ── renamed from "Quantity & Packaging" to match sku-detail */}
       <SkuFormSection
-        title="Quantity & Packaging"
+        title="Quantity & Inventory"
         icon={<Package className="h-3.5 w-3.5 text-indigo-600" />}
       >
         <div className="grid grid-cols-2 gap-3">
@@ -522,9 +464,19 @@ export function SkuFormFields({
           </SkuFormRow>
         </div>
 
+        {/* Weight in KG — auto-calculated, read-only. Mirrors sku-detail behaviour. */}
+        {weightInKg && (
+          <div className="flex items-center gap-2 text-sm text-gray-600 bg-white rounded px-3 py-2 border">
+            <Info className="h-3.5 w-3.5 text-gray-400 flex-shrink-0" />
+            <span>Weight in KG:</span>
+            <span className="font-semibold text-gray-900 font-mono">{weightInKg} kg</span>
+            <span className="ml-auto text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">Auto</span>
+          </div>
+        )}
+
         {isAdmin ? (
           <div className="grid grid-cols-3 gap-3">
-            <SkuFormRow label="Pack Size" help={readOnly ? undefined : "Units per pack"}>
+            <SkuFormRow label="Pack Size (Inner Pack)" help={readOnly ? undefined : "Units per pack"}>
               <Input type="number" min="1" placeholder="1" value={form.unitizedCount}
                 onChange={(e) => onChange("unitizedCount", e.target.value)} disabled={readOnly} />
             </SkuFormRow>
@@ -539,11 +491,11 @@ export function SkuFormFields({
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
-            <SkuFormRow label="Pack Size" required={!readOnly} help={readOnly ? undefined : "Units per inner pack"}>
+            <SkuFormRow label="Pack Size (Inner Pack)" help={readOnly ? undefined : "Units per inner pack"}>
               <Input type="number" min="1" placeholder="1" value={form.unitizedCount}
                 onChange={(e) => onChange("unitizedCount", e.target.value)} disabled={readOnly} />
             </SkuFormRow>
-            <SkuFormRow label="UPC / Barcode" help={readOnly ? undefined : "Optional"}>
+            <SkuFormRow label="UPC (Unit Per Case)" help={readOnly ? undefined : "Optional"}>
               <Input placeholder="e.g. 8901725100015" value={form.upc}
                 onChange={(e) => onChange("upc", e.target.value)} className="font-mono" disabled={readOnly} />
             </SkuFormRow>
@@ -551,28 +503,28 @@ export function SkuFormFields({
         )}
 
         <div className="grid grid-cols-2 gap-3">
-          <SkuFormRow label="Package Type" required={!readOnly} help={readOnly ? undefined : "e.g. Carton, Pouch, Jar"}>
+          <SkuFormRow label="Package Type" help={readOnly ? undefined : "e.g. Carton, Pouch, Jar"}>
             <Input placeholder="e.g. Pouch" value={form.packageType}
               onChange={(e) => onChange("packageType", e.target.value)} disabled={readOnly} />
           </SkuFormRow>
-          <SkuFormRow label="Package Type Value" required={!readOnly} help={readOnly ? undefined : "e.g. Laminated Pouch"}>
+          <SkuFormRow label="Package Type Value" help={readOnly ? undefined : "e.g. Laminated Pouch"}>
             <Input placeholder="e.g. Laminated Pouch" value={form.packageTypeValue}
               onChange={(e) => onChange("packageTypeValue", e.target.value)} disabled={readOnly} />
           </SkuFormRow>
         </div>
 
         {isAdmin && (
-          <SkuFormRow label="UPC / Barcode" help={readOnly ? undefined : "Universal Product Code (optional)"}>
+          <SkuFormRow label="UPC (Unit Per Case)" help={readOnly ? undefined : "Universal Product Code (optional)"}>
             <Input placeholder="e.g. 8901725100015" value={form.upc}
               onChange={(e) => onChange("upc", e.target.value)} className="font-mono" disabled={readOnly} />
           </SkuFormRow>
         )}
       </SkuFormSection>
 
-      {/* ── 5. Dimensions ── */}
+      {/* ── 4. Dimensions ── matches sku-detail section name */}
       <SkuFormSection
-        title="Dimensions (optional)"
-        icon={<Ruler className="h-3.5 w-3.5 text-orange-600" />}
+        title="Dimensions"
+        icon={<Ruler className="h-3.5 w-3.5 text-amber-600" />}
       >
         <div className="grid grid-cols-3 gap-3">
           <SkuFormRow label="Length (cm)">
@@ -593,16 +545,17 @@ export function SkuFormFields({
             <Info className="h-3.5 w-3.5 text-gray-400" />
             Volumetric weight:{" "}
             <span className="font-semibold text-gray-900">{volumetricWeight} kg</span>
+            <span className="ml-auto text-[10px] font-semibold bg-gray-100 text-gray-500 border border-gray-200 px-1.5 py-0.5 rounded">Auto</span>
           </div>
         )}
       </SkuFormSection>
 
-      {/* ── 6. Compliance & Taxonomy ── */}
+      {/* ── 5. Category, Fulfillment & Location ── matches sku-detail section name */}
       <SkuFormSection
-        title="Compliance & Taxonomy"
-        icon={<ShieldCheck className="h-3.5 w-3.5 text-green-600" />}
+        title="Category, Fulfillment & Location"
+        icon={<PackageOpen className="h-3.5 w-3.5 text-orange-600" />}
       >
-        <SkuFormRow label="ONDC Category" required={!readOnly} help={readOnly ? undefined : "Maps this SKU to the ONDC eB2B taxonomy"}>
+        <SkuFormRow label="Category ID" required={!readOnly} help={readOnly ? undefined : "Maps this SKU to the ONDC eB2B taxonomy"}>
           <Select value={form.categoryId} onValueChange={(v) => onChange("categoryId", v)} disabled={readOnly}>
             <SelectTrigger>
               <SelectValue placeholder="Select ONDC category" />
@@ -614,19 +567,24 @@ export function SkuFormFields({
             </SelectContent>
           </Select>
         </SkuFormRow>
+        {readOnly ? null : (
+          <p className="text-[11px] text-gray-400 flex items-center gap-1">
+            <Info className="h-3 w-3 flex-shrink-0" />
+            Fulfillment ID and Location ID are configured on the SKU detail page after import.
+          </p>
+        )}
+      </SkuFormSection>
 
-        <div className="grid grid-cols-2 gap-3">
-          <SkuFormRow label="HSN Code" required={!readOnly && isSeller} help={readOnly ? undefined : "6-8 digit code for GST filing"}>
-            <Input placeholder="e.g. 11010000" value={form.hsnCode}
-              onChange={(e) => onChange("hsnCode", e.target.value)}
-              className="font-mono" maxLength={readOnly ? undefined : 8} disabled={readOnly} />
-          </SkuFormRow>
-          <SkuFormRow label="Country of Origin" required={!readOnly && isSeller}>
-            <Input placeholder="India" value={form.countryOfOrigin}
-              onChange={(e) => onChange("countryOfOrigin", e.target.value)} disabled={readOnly} />
-          </SkuFormRow>
-        </div>
-
+      {/* ── 6. Tax ── matches sku-detail section name */}
+      <SkuFormSection
+        title="Tax"
+        icon={<Percent className="h-3.5 w-3.5 text-orange-500" />}
+      >
+        <SkuFormRow label="HSN Code" required={!readOnly && isSeller} help={readOnly ? undefined : "6-8 digit code for GST filing"}>
+          <Input placeholder="e.g. 11010000" value={form.hsnCode}
+            onChange={(e) => onChange("hsnCode", e.target.value)}
+            className="font-mono" maxLength={readOnly ? undefined : 8} disabled={readOnly} />
+        </SkuFormRow>
         <div className="grid grid-cols-2 gap-3">
           <SkuFormRow label="GST Tax %" required={!readOnly}>
             <Select value={form.gstTax} onValueChange={(v) => onChange("gstTax", v)} disabled={readOnly}>
@@ -653,8 +611,86 @@ export function SkuFormFields({
             </Select>
           </SkuFormRow>
         </div>
+      </SkuFormSection>
 
-        <SkuFormRow label="Manufacturer / Packer Name" required={!readOnly}>
+      {/* ── 7. Company & Brand Information ── matches sku-detail section name; Brand moved here from Descriptor */}
+      <SkuFormSection
+        title="Company & Brand Information"
+        icon={<ShieldCheck className="h-3.5 w-3.5 text-rose-600" />}
+      >
+        {/* Seller: Brand dropdown + fallback */}
+        {isSeller && (
+          <>
+            <SkuFormRow label="Brand" required={!readOnly}>
+              <Select value={form.brandId} onValueChange={(brandId) => {
+                const brand = psBrands.find((b) => b.id === brandId);
+                const company = brand ? psCompanies.find((c) => c.id === brand.companyId) : null;
+                onChange("brandId", brandId);
+                onChange("companyId", brand?.companyId ?? "");
+                onChange("brandOther", "");
+                onChange("brandAttribute", brand?.name ?? "");
+                onChange("manufacturerName", company?.name ?? form.manufacturerName);
+              }} disabled={readOnly}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select brand" />
+                </SelectTrigger>
+                <SelectContent className="max-h-52">
+                  {psBrands.map((b) => (
+                    <SelectItem key={b.id} value={b.id}>
+                      {b.logo} {b.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SkuFormRow>
+            <SkuFormRow label="Brand Attribute" help={readOnly ? undefined : "Brand name for ONDC compliance"}>
+              <Input
+                placeholder="Auto-filled from brand, or enter manually"
+                value={form.brandAttribute}
+                onChange={(e) => onChange("brandAttribute", e.target.value)}
+                disabled={readOnly}
+              />
+            </SkuFormRow>
+            {(!readOnly || form.brandOther) && !form.brandId && (
+              <SkuFormRow label="Brand / Company (if not listed)" required={!readOnly}>
+                <Input
+                  placeholder="e.g. GSK Consumer, HUL"
+                  value={form.brandOther}
+                  onChange={(e) => onChange("brandOther", e.target.value)}
+                  disabled={readOnly}
+                />
+              </SkuFormRow>
+            )}
+          </>
+        )}
+
+        {/* Admin: Brand dropdown */}
+        {isAdmin && (
+          <SkuFormRow label="Brand" required={!readOnly}>
+            <Select value={form.brandId} onValueChange={(brandId) => {
+              const brand = psBrands.find((b) => b.id === brandId);
+              const company = brand ? psCompanies.find((c) => c.id === brand.companyId) : null;
+              onChange("brandId", brandId);
+              onChange("companyId", brand?.companyId ?? "");
+              onChange("brandOther", "");
+              onChange("brandAttribute", brand?.name ?? "");
+              onChange("manufacturerName", company?.name ?? form.manufacturerName);
+            }} disabled={readOnly}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select brand" />
+              </SelectTrigger>
+              <SelectContent>
+                {psBrands.map((b) => (
+                  <SelectItem key={b.id} value={b.id}>
+                    {b.logo} {b.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </SkuFormRow>
+        )}
+
+        <SkuFormRow label="Manufacturer / Packer Name (Company Name)" required={!readOnly}>
           <Input
             placeholder="Auto-filled from brand, or enter manually"
             value={form.manufacturerName}
@@ -676,7 +712,26 @@ export function SkuFormFields({
         )}
       </SkuFormSection>
 
-      {/* ── 7. Notes to Catalog Team (seller only) ── */}
+      {/* ── 8. Tags (Discovery & Attribute Enrichment) ── matches sku-detail section name */}
+      <SkuFormSection
+        title="Tags (Discovery & Attribute Enrichment)"
+        icon={<Sparkles className="h-3.5 w-3.5 text-pink-600" />}
+      >
+        <SkuFormRow label="Country of Origin" required={!readOnly && isSeller}>
+          <Select value={form.countryOfOrigin} onValueChange={(v) => onChange("countryOfOrigin", v)} disabled={readOnly}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select country" />
+            </SelectTrigger>
+            <SelectContent>
+              {["India", "Bangladesh", "Sri Lanka", "Nepal", "Bhutan", "China", "Other"].map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </SkuFormRow>
+      </SkuFormSection>
+
+      {/* ── 9. Notes to Catalog Team (seller only) ── */}
       {isSeller && (!readOnly || form.notes) && (
         <SkuFormSection
           title="Notes to Catalog Team"

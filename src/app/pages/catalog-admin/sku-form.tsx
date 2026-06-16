@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Switch } from "../../components/ui/switch";
-import { ArrowLeft, Save, CheckCircle2, Info, Upload } from "lucide-react";
+import { ArrowLeft, Save, CheckCircle2, Info, Upload, Send } from "lucide-react";
 import {
   BulkImportDialog,
   type BulkImportValidationResult,
@@ -13,15 +13,21 @@ import { toast } from "sonner";
 import {
   psSkus,
   getBrandById,
+  getCompanyById,
+  addPsRequest,
 } from "../../lib/product-store-data";
 import {
   SkuFormFields,
   SkuFormState,
   emptySkuForm,
 } from "../../components/sku-form-fields";
+import { useAuth } from "../../lib/auth-context";
+import type { SkuRequestForm } from "../../lib/sku-request-store";
 
 export function CatalogAdminSkuForm() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const isBrandManager = user?.role === "brand-manager";
   const { skuId } = useParams();
   const isEdit = !!skuId;
 
@@ -149,12 +155,55 @@ export function CatalogAdminSkuForm() {
     setTimeout(() => {
       setIsSaving(false);
       setSaved(true);
-      toast.success(
-        isEdit
-          ? `"${form.itemName}" updated. Linked sellers will be notified.`
-          : `"${form.itemName}" created with status Pending Approval.`
-      );
-      setTimeout(() => navigate("/catalog-admin/catalog"), 900);
+
+      if (isBrandManager) {
+        const brand = getBrandById(form.brandId);
+        const company = getCompanyById(form.companyId || brand?.companyId || "");
+        if (isEdit && existingSku) {
+          // Collect proposed changes vs current SKU
+          const changes: Record<string, { old: string; new: string }> = {};
+          if (form.itemName !== existingSku.name) changes["SKU Name"] = { old: existingSku.name, new: form.itemName };
+          if (form.shortDesc !== existingSku.shortDescription) changes["Short Description"] = { old: existingSku.shortDescription, new: form.shortDesc };
+          if (form.hsnCode !== existingSku.hsnCode) changes["HSN Code"] = { old: existingSku.hsnCode, new: form.hsnCode };
+          const newStatus = form.itemStatus === "enable" ? "active" : "inactive";
+          if (newStatus !== existingSku.status) changes["Status"] = { old: existingSku.status, new: newStatus };
+
+          const req = addPsRequest({
+            type: "edit_sku",
+            skuId: existingSku.id,
+            skuCode: existingSku.skuCode,
+            skuName: existingSku.name,
+            brandId: existingSku.brandId,
+            brandName: brand?.name ?? existingSku.brandId,
+            companyName: company?.name ?? existingSku.companyId,
+            requestedBy: user?.businessName ?? "Brand Manager",
+            requestedByType: "brand_manager",
+            changes: Object.keys(changes).length > 0 ? changes : undefined,
+            notes: Object.keys(changes).length === 0 ? "No field changes detected." : undefined,
+          });
+          toast.success(`Edit request ${req.id} submitted to Catalog Admin.`);
+        } else {
+          const req = addPsRequest({
+            type: "create_sku",
+            skuName: form.itemName,
+            brandId: form.brandId,
+            brandName: brand?.name ?? form.brandId,
+            companyName: company?.name ?? form.companyId,
+            requestedBy: user?.businessName ?? "Brand Manager",
+            requestedByType: "brand_manager",
+            form: form as unknown as SkuRequestForm,
+          });
+          toast.success(`Create SKU request ${req.id} submitted to Catalog Admin.`);
+        }
+        setTimeout(() => navigate("/catalog-admin/my-requests"), 900);
+      } else {
+        toast.success(
+          isEdit
+            ? `"${form.itemName}" updated. Linked sellers will be notified.`
+            : `"${form.itemName}" created with status Pending Approval.`
+        );
+        setTimeout(() => navigate("/catalog-admin/catalog"), 900);
+      }
     }, 700);
   };
 
@@ -176,11 +225,11 @@ export function CatalogAdminSkuForm() {
       {/* Header */}
       <div>
         <button
-          onClick={() => navigate("/catalog-admin/catalog")}
+          onClick={() => navigate(isBrandManager ? "/catalog-admin/my-catalog" : "/catalog-admin/catalog")}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Catalog
+          {isBrandManager ? "Back to My Catalog" : "Back to Catalog"}
         </button>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
@@ -188,7 +237,11 @@ export function CatalogAdminSkuForm() {
               {isEdit ? "Edit SKU" : "Create New SKU"}
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
-              {isEdit
+              {isBrandManager
+                ? isEdit
+                  ? "Changes will be submitted as a request for Catalog Admin approval."
+                  : "New SKU details will be submitted as a request to Catalog Admin."
+                : isEdit
                 ? "Editing read-only fields — changes will notify all linked sellers."
                 : "New SKUs are created with 'Pending Approval' and go live after internal review."}
             </p>
@@ -233,8 +286,10 @@ export function CatalogAdminSkuForm() {
                 "Saving..."
               ) : (
                 <>
-                  <Save className="h-4 w-4" />
-                  {isEdit ? "Save Changes" : "Create SKU"}
+                  {isBrandManager ? <Send className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+                  {isBrandManager
+                    ? isEdit ? "Submit Edit Request" : "Submit Create Request"
+                    : isEdit ? "Save Changes" : "Create SKU"}
                 </>
               )}
             </Button>
@@ -273,11 +328,7 @@ export function CatalogAdminSkuForm() {
               fileName: "qwipo-bulk-sku-template.csv",
             },
             instructions: (
-              <div className="space-y-1">
-                <p className="font-medium">Required columns: SKU Code, SKU Name, Brand, HSN Code</p>
-                <p>Optional: Company, Category, Short Description, MRP, Pack Size, Pack Unit, Product Weight (kg)</p>
-                <p className="text-amber-700 font-medium mt-1">⚠ All SKUs are created as Inactive. Images must be uploaded per-SKU before activating.</p>
-              </div>
+              <p className="text-amber-700 font-medium">⚠ All SKUs are created as Inactive. Images must be uploaded per-SKU before activating.</p>
             ),
             validate: validateBulkFile,
             onImport: handleBulkImport,

@@ -78,6 +78,7 @@ import {
   psSkus,
   getBrandById,
   getCategoryById,
+  addPsRequest,
   type PSCompany,
   type PSBrand,
   type PSSku,
@@ -1148,7 +1149,17 @@ export function MySKU() {
   };
 
   const handleSubmitCompanyRequest = () => {
-    toast.success(`Company request for "${companyReqName}" submitted.`);
+    const req = addPsRequest({
+      type: "request_company",
+      skuName: "—",
+      brandId: "",
+      brandName: "—",
+      companyName: companyReqName.trim(),
+      requestedBy: "You (Seller)",
+      requestedByType: "seller",
+      notes: companyReqMessage.trim() || undefined,
+    });
+    toast.success(`Company request ${req.id} submitted. Track it in Catalog Admin Requests.`, { duration: 4000 });
     setShowCompanyRequestDialog(false);
   };
 
@@ -1160,7 +1171,17 @@ export function MySKU() {
   };
 
   const handleSubmitBrandRequest = () => {
-    toast.success(`Brand request for "${brandReqName}" submitted.`);
+    const req = addPsRequest({
+      type: "request_brand",
+      skuName: "—",
+      brandId: "",
+      brandName: brandReqName.trim(),
+      companyName: brandReqCompanyName.trim() || "—",
+      requestedBy: "You (Seller)",
+      requestedByType: "seller",
+      notes: brandReqMessage.trim() || undefined,
+    });
+    toast.success(`Brand request ${req.id} submitted. Track it in Catalog Admin Requests.`, { duration: 4000 });
     setShowBrandRequestDialog(false);
   };
 
@@ -1355,21 +1376,11 @@ export function MySKU() {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
-                    <DropdownMenuItem
-                      onClick={() => setIsAddSkuBulkOpen(true)}
-                      className="gap-2 cursor-pointer"
-                    >
-                      <Plus className="h-4 w-4 text-blue-600" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Add New SKUs</p>
-                        <p className="text-[11px] text-gray-500">Upload the full SKU template (all fields)</p>
-                      </div>
-                    </DropdownMenuItem>
                     {/* "Update Price & Stock" needs an existing catalog
                         to update — when the seller has no SKUs yet
                         (empty inception state) the option is disabled
                         and visually greyed out so it's clear they need
-                        to add SKUs first via the row above. */}
+                        to add SKUs first. */}
                     <DropdownMenuItem
                       disabled={isEmpty}
                       onClick={
@@ -1457,7 +1468,7 @@ export function MySKU() {
               <EmptyState
                 icon={PackageSearch}
                 title="No SKUs in your catalog yet"
-                description="No SKUs in your catalog yet — click Bulk Import → Add new SKU to bring in your first products."
+                description="No SKUs in your catalog yet — click Add from Product Store to import SKUs, or use Bulk Import to update price & stock."
               />
             ) : (
             <table className="w-full">
@@ -1797,11 +1808,23 @@ export function MySKU() {
                       ))}
                     </div>
                   )}
-                  <div className="flex items-start gap-2 p-2.5 bg-purple-50 rounded-lg border border-purple-100 text-xs text-purple-800">
-                    <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-purple-500" />
-                    <span>
-                      All imported SKUs will be <strong>Inactive</strong>. Set MRP and selling price in My SKU to activate each one.
-                    </span>
+                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 text-sm text-purple-900 space-y-1">
+                    <p className="font-medium flex items-center gap-1 text-xs">
+                      <Info className="h-3.5 w-3.5 flex-shrink-0 text-purple-500" />
+                      What gets imported (Read-only fields)
+                    </p>
+                    <ul className="text-xs space-y-0.5 ml-5 list-disc text-purple-800">
+                      <li>SKU name, short name, SKU code, group name</li>
+                      <li>Brand, company, category</li>
+                      <li>Short &amp; long description</li>
+                      <li>Measure unit, packaging size, UPC, package type</li>
+                      <li>SKU weight &amp; dimensions</li>
+                      <li>Manufacturer name, country of origin</li>
+                      <li>HSN code, GST tax %, GST cess %</li>
+                    </ul>
+                  </div>
+                  <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
+                    <strong>You fill in after import:</strong> MRP, selling price, fulfillment ID, location, order limits, and consumer care details.
                   </div>
                 </div>
               );

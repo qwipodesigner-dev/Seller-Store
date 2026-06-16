@@ -35,6 +35,8 @@ import {
   Calendar,
   ShieldCheck,
   Building2,
+  PowerOff,
+  Zap,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -151,8 +153,15 @@ export function CatalogAdminRequests() {
     if (type === "inactivate_sku")
       return (
         <Badge className="bg-red-50 text-red-700 border-red-200 gap-1 text-xs">
-          <XCircle className="h-3 w-3" />
-          Inactivate
+          <PowerOff className="h-3 w-3" />
+          Make Inactive
+        </Badge>
+      );
+    if (type === "activate_sku")
+      return (
+        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1 text-xs">
+          <Zap className="h-3 w-3" />
+          Activate SKU
         </Badge>
       );
     if (type === "request_company")
@@ -250,8 +259,9 @@ export function CatalogAdminRequests() {
             <SelectItem value="request_company">New Company</SelectItem>
             <SelectItem value="request_brand">New Brand</SelectItem>
             <SelectItem value="create_sku">Create SKU</SelectItem>
-            <SelectItem value="edit_sku">Edit SKU — Brand Mgr only</SelectItem>
-            <SelectItem value="inactivate_sku">Inactivate — Brand Mgr only</SelectItem>
+            <SelectItem value="edit_sku">Edit SKU</SelectItem>
+            <SelectItem value="inactivate_sku">Make Inactive</SelectItem>
+            <SelectItem value="activate_sku">Activate SKU</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -471,14 +481,16 @@ export function CatalogAdminRequests() {
                 </div>
               )}
 
-              {/* ── Brand-manager-only notice for edit / inactivate ── */}
-              {(viewRequest.type === "edit_sku" || viewRequest.type === "inactivate_sku") && (
+              {/* ── Brand-manager-only notice for edit / inactivate / activate ── */}
+              {(viewRequest.type === "edit_sku" || viewRequest.type === "inactivate_sku" || viewRequest.type === "activate_sku") && (
                 <div className="flex items-start gap-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-800">
                   <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-purple-500" />
                   <p>
                     {viewRequest.type === "edit_sku"
                       ? "SKU edits can only be requested by brand managers."
-                      : "SKU inactivation can only be requested by brand managers."}
+                      : viewRequest.type === "inactivate_sku"
+                      ? "SKU inactivation can only be requested by brand managers."
+                      : "SKU activation can only be requested by brand managers."}
                   </p>
                 </div>
               )}

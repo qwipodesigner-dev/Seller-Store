@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -29,6 +29,8 @@ import {
   Users,
   ShieldCheck,
   Phone,
+  X,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { psCompanies, psBrands } from "../../lib/product-store-data";
@@ -85,6 +87,133 @@ const emptyForm = {
   brandIds: [] as string[],
 };
 
+interface PickerOption {
+  id: string;
+  label: string;
+  sublabel?: string;
+}
+
+function SearchPicker({
+  label,
+  icon,
+  options,
+  selected,
+  onAdd,
+  onRemove,
+  placeholder,
+  badgeColor = "teal",
+  required,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  options: PickerOption[];
+  selected: string[];
+  onAdd: (id: string) => void;
+  onRemove: (id: string) => void;
+  placeholder: string;
+  badgeColor?: "teal" | "indigo";
+  required?: boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  const unselected = options.filter(
+    (o) => !selected.includes(o.id) && o.label.toLowerCase().includes(query.toLowerCase())
+  );
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const tealChip = "bg-teal-50 text-teal-800 border-teal-200";
+  const indigoChip = "bg-indigo-50 text-indigo-800 border-indigo-200";
+  const chipClass = badgeColor === "teal" ? tealChip : indigoChip;
+
+  const tealRow = "bg-teal-600 text-white";
+  const indigoRow = "bg-indigo-600 text-white";
+
+  return (
+    <div className="space-y-2">
+      <Label className="flex items-center gap-1.5">
+        {icon}
+        {label}
+        {required && <span className="text-red-500">*</span>}
+      </Label>
+
+      {/* Selected chips */}
+      {selected.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {selected.map((id) => {
+            const opt = options.find((o) => o.id === id);
+            return (
+              <span
+                key={id}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs font-medium ${chipClass}`}
+              >
+                {opt?.label ?? id}
+                <button
+                  type="button"
+                  onClick={() => onRemove(id)}
+                  className="ml-0.5 rounded-full hover:opacity-70 transition-opacity"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Search input + dropdown */}
+      <div ref={containerRef} className="relative">
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <Input
+            placeholder={placeholder}
+            className="pl-8 pr-8 h-8 text-sm"
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
+            onFocus={() => setOpen(true)}
+          />
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+        </div>
+
+        {open && (
+          <div className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+            {unselected.length === 0 ? (
+              <p className="text-xs text-gray-400 px-3 py-2">
+                {options.length === selected.length ? "All options selected" : "No results"}
+              </p>
+            ) : (
+              unselected.map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); onAdd(opt.id); setQuery(""); }}
+                  className="w-full text-left px-3 py-2 hover:bg-gray-50 flex items-center justify-between group transition-colors"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-800">{opt.label}</p>
+                    {opt.sublabel && <p className="text-[11px] text-gray-400">{opt.sublabel}</p>}
+                  </div>
+                  <Plus className="h-3.5 w-3.5 text-gray-300 group-hover:text-gray-500" />
+                </button>
+              ))
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export function CatalogAdminBrandManagers() {
   const [managers, setManagers] = useState<BrandManager[]>(initialManagers);
   const [search, setSearch] = useState("");
@@ -123,13 +252,13 @@ export function CatalogAdminBrandManagers() {
     setDialogOpen(true);
   };
 
-  const toggleCompany = (id: string) => {
+  const addCompany = (id: string) => {
+    setForm((prev) => ({ ...prev, companyIds: [...prev.companyIds, id] }));
+  };
+
+  const removeCompany = (id: string) => {
     setForm((prev) => {
-      const has = prev.companyIds.includes(id);
-      const companyIds = has
-        ? prev.companyIds.filter((c) => c !== id)
-        : [...prev.companyIds, id];
-      // Remove brands that no longer belong to selected companies
+      const companyIds = prev.companyIds.filter((c) => c !== id);
       const brandIds = prev.brandIds.filter((bid) => {
         const brand = psBrands.find((b) => b.id === bid);
         return brand && companyIds.includes(brand.companyId);
@@ -138,18 +267,24 @@ export function CatalogAdminBrandManagers() {
     });
   };
 
-  const toggleBrand = (id: string) => {
-    setForm((prev) => ({
-      ...prev,
-      brandIds: prev.brandIds.includes(id)
-        ? prev.brandIds.filter((b) => b !== id)
-        : [...prev.brandIds, id],
-    }));
+  const addBrand = (id: string) => {
+    setForm((prev) => ({ ...prev, brandIds: [...prev.brandIds, id] }));
+  };
+
+  const removeBrand = (id: string) => {
+    setForm((prev) => ({ ...prev, brandIds: prev.brandIds.filter((b) => b !== id) }));
   };
 
   const availableBrands = psBrands.filter((b) =>
     form.companyIds.includes(b.companyId)
   );
+
+  const companyOptions: PickerOption[] = psCompanies.map((c) => ({ id: c.id, label: c.name }));
+  const brandOptions: PickerOption[] = availableBrands.map((b) => ({
+    id: b.id,
+    label: b.name,
+    sublabel: psCompanies.find((c) => c.id === b.companyId)?.name,
+  }));
 
   const isValid = form.name.trim() && form.mobile.trim().length >= 10 && form.companyIds.length > 0;
 
@@ -332,7 +467,7 @@ export function CatalogAdminBrandManagers() {
 
       {/* Create / Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Users className="h-5 w-5 text-teal-600" />
@@ -377,68 +512,31 @@ export function CatalogAdminBrandManagers() {
             </div>
 
             {/* Companies */}
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1.5">
-                <Building2 className="h-3.5 w-3.5 text-teal-600" />
-                Map to Companies *
-              </Label>
-              <div className="grid grid-cols-2 gap-2">
-                {psCompanies.map((c) => {
-                  const selected = form.companyIds.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleCompany(c.id)}
-                      className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-left text-xs transition-colors ${
-                        selected
-                          ? "border-teal-400 bg-teal-50 text-teal-900"
-                          : "border-gray-200 hover:border-gray-300 text-gray-700"
-                      }`}
-                    >
-                      <div className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center ${selected ? "border-teal-600 bg-teal-600" : "border-gray-300"}`}>
-                        {selected && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
-                      </div>
-                      <span className="truncate font-medium">{c.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            <SearchPicker
+              label="Map to Companies"
+              icon={<Building2 className="h-3.5 w-3.5 text-teal-600" />}
+              options={companyOptions}
+              selected={form.companyIds}
+              onAdd={addCompany}
+              onRemove={removeCompany}
+              placeholder="Search companies..."
+              badgeColor="teal"
+              required
+            />
 
-            {/* Brands — only shown when companies selected */}
-            {availableBrands.length > 0 && (
-              <div className="space-y-2">
-                <Label className="flex items-center gap-1.5">
-                  <Tag className="h-3.5 w-3.5 text-indigo-600" />
-                  Map to Brands <span className="text-xs text-gray-400 font-normal">(optional — leave blank for all brands in company)</span>
-                </Label>
-                <div className="grid grid-cols-2 gap-1.5 max-h-48 overflow-y-auto border rounded-lg p-2">
-                  {availableBrands.map((b) => {
-                    const selected = form.brandIds.includes(b.id);
-                    const company = psCompanies.find((c) => c.id === b.companyId);
-                    return (
-                      <button
-                        key={b.id}
-                        type="button"
-                        onClick={() => toggleBrand(b.id)}
-                        className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md border text-left text-xs transition-colors ${
-                          selected
-                            ? "border-indigo-400 bg-indigo-50 text-indigo-900"
-                            : "border-gray-200 hover:border-gray-300 text-gray-700"
-                        }`}
-                      >
-                        <div className={`w-3 h-3 rounded border-2 flex-shrink-0 flex items-center justify-center ${selected ? "border-indigo-600 bg-indigo-600" : "border-gray-300"}`}>
-                          {selected && <div className="w-1.5 h-1.5 bg-white rounded-sm" />}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="truncate font-medium">{b.name}</p>
-                          <p className="text-[10px] text-gray-400 truncate">{company?.name}</p>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
+            {/* Brands */}
+            {form.companyIds.length > 0 && (
+              <div className="space-y-1">
+                <SearchPicker
+                  label="Map to Brands"
+                  icon={<Tag className="h-3.5 w-3.5 text-indigo-600" />}
+                  options={brandOptions}
+                  selected={form.brandIds}
+                  onAdd={addBrand}
+                  onRemove={removeBrand}
+                  placeholder="Search brands..."
+                  badgeColor="indigo"
+                />
                 <p className="text-[11px] text-gray-400">
                   {form.brandIds.length === 0
                     ? "No specific brands selected — manager will see all brands under mapped companies."

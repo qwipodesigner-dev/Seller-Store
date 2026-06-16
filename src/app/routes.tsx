@@ -10,6 +10,7 @@ import { CatalogAdminSkuForm } from "./pages/catalog-admin/sku-form";
 import { CatalogAdminBrandManagers } from "./pages/catalog-admin/brand-managers";
 import { BrandManagerCatalog } from "./pages/brand-manager/catalog";
 import { BrandManagerDashboard } from "./pages/brand-manager/dashboard";
+import { BrandManagerRequests } from "./pages/brand-manager/requests";
 import { useAuth } from "./lib/auth-context";
 import { MyRequests } from "./pages/products/my-requests";
 import { Dashboard } from "./pages/dashboard";
@@ -96,6 +97,7 @@ export const router = createBrowserRouter([
       { path: "catalog/:skuId", Component: CatalogAdminSkuForm },
       { path: "brand-managers", Component: CatalogAdminBrandManagers },
       { path: "my-catalog", Component: BrandManagerCatalog },
+      { path: "my-requests", Component: BrandManagerRequests },
     ],
   },
   {

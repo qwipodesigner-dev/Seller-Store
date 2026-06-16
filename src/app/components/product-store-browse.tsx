@@ -51,7 +51,6 @@ import {
   psBrands,
   psCategories,
   psSkus as defaultSkus,
-  getBrandsByCompany,
   getSkusByBrand,
   getSkusByCompany,
   type PSCompany,
@@ -66,6 +65,8 @@ export interface ProductStoreBrowseProps {
   mode?: "seller" | "admin";
   addedSkuIds?: Set<string>;
   skuList?: PSSku[];
+  companyList?: PSCompany[];
+  brandList?: PSBrand[];
   onAddSku?: (sku: PSSku) => void;
   onBulkImportCompany?: (company: PSCompany, e: React.MouseEvent) => void;
   onBulkImportBrand?: (brand: PSBrand, e: React.MouseEvent) => void;
@@ -202,15 +203,13 @@ function SkuDetailPanel({
       </SheetHeader>
 
       <div className="flex-1 overflow-y-auto">
+        {/* Descriptor (Product Identity) — matches sku-detail section name */}
         <DetailSection
-          title="Product Details"
+          title="Descriptor (Product Identity)"
           icon={<Package className="h-3 w-3" />}
         >
-          <DetailRow label="Brand" value={brand?.name} />
-          <DetailRow label="Company" value={company?.name} />
           {sku.shortName && <DetailRow label="Short Name" value={sku.shortName} mono />}
           {sku.groupName && <DetailRow label="Group Name" value={sku.groupName} />}
-          <DetailRow label="Category" value={getCategory(sku.categoryId)} />
           <DetailRow label="Short Description" value={sku.shortDescription} />
           <DetailRow label="Long Description" value={sku.longDescription} />
         </DetailSection>
@@ -222,12 +221,13 @@ function SkuDetailPanel({
           <DetailRow label="Reference MRP" value={`₹${sku.mrp}`} />
         </DetailSection>
 
+        {/* Quantity & Inventory — matches sku-detail section name */}
         <DetailSection
-          title="Packaging & Weight"
+          title="Quantity & Inventory"
           icon={<Weight className="h-3 w-3" />}
         >
           <DetailRow
-            label="Pack Size"
+            label="Pack Size (Inner Pack)"
             value={`${sku.packagingSize} ${sku.packagingUnit}`}
           />
           {sku.packageType && (
@@ -240,10 +240,11 @@ function SkuDetailPanel({
               }
             />
           )}
-          <DetailRow label="Product Weight" value={`${sku.productWeight} kg`} />
-          {sku.upc && <DetailRow label="UPC / Barcode" value={sku.upc} mono />}
+          <DetailRow label="Weight in KG" value={`${sku.productWeight} kg`} />
+          {sku.upc && <DetailRow label="UPC (Unit Per Case)" value={sku.upc} mono />}
         </DetailSection>
 
+        {/* Dimensions — matches sku-detail section name */}
         {(sku.productLength || sku.productWidth || sku.productHeight) && (
           <DetailSection
             title="Dimensions"
@@ -267,17 +268,42 @@ function SkuDetailPanel({
           </DetailSection>
         )}
 
+        {/* Category, Fulfillment & Location — matches sku-detail section name */}
         <DetailSection
-          title="Compliance & Tax"
+          title="Category, Fulfillment & Location"
+          icon={<ShieldCheck className="h-3 w-3" />}
+        >
+          <DetailRow label="Category ID" value={getCategory(sku.categoryId)} />
+        </DetailSection>
+
+        {/* Tax — matches sku-detail section name */}
+        <DetailSection
+          title="Tax"
           icon={<ShieldCheck className="h-3 w-3" />}
         >
           <DetailRow label="HSN Code" value={sku.hsnCode} mono />
-          <DetailRow label="Country of Origin" value={sku.countryOfOrigin} />
-          <DetailRow label="Manufacturer" value={sku.manufacturerName} />
-          {sku.gstTax && <DetailRow label="GST Tax" value={sku.gstTax} />}
+          {sku.gstTax && <DetailRow label="GST Tax %" value={sku.gstTax} />}
           {sku.gstCess !== undefined && (
-            <DetailRow label="GST Cess" value={sku.gstCess ?? "0%"} />
+            <DetailRow label="GST Cess %" value={sku.gstCess ?? "0%"} />
           )}
+        </DetailSection>
+
+        {/* Company & Brand Information — matches sku-detail section name */}
+        <DetailSection
+          title="Company & Brand Information"
+          icon={<ShieldCheck className="h-3 w-3" />}
+        >
+          <DetailRow label="Brand" value={brand?.name} />
+          <DetailRow label="Company" value={company?.name} />
+          <DetailRow label="Manufacturer / Packer Name" value={sku.manufacturerName} />
+        </DetailSection>
+
+        {/* Tags (Discovery & Attribute Enrichment) — matches sku-detail section name */}
+        <DetailSection
+          title="Tags (Discovery & Attribute Enrichment)"
+          icon={<ShieldCheck className="h-3 w-3" />}
+        >
+          <DetailRow label="Country of Origin" value={sku.countryOfOrigin} />
         </DetailSection>
 
         <DetailSection
@@ -298,6 +324,8 @@ export function ProductStoreBrowse({
   mode = "seller",
   addedSkuIds = new Set<string>(),
   skuList,
+  companyList,
+  brandList,
   onAddSku,
   onBulkImportCompany,
   onBulkImportBrand,
@@ -308,6 +336,8 @@ export function ProductStoreBrowse({
   onRequestSku,
 }: ProductStoreBrowseProps) {
   const effectiveSkus = skuList ?? defaultSkus;
+  const effectiveCompanies = companyList ?? psCompanies;
+  const effectiveBrands = brandList ?? psBrands;
 
   // USER STORY NOTE: Currently shows ALL companies and brands from the Product Store.
   // When implementing the real API, this should be filtered to only show companies and
@@ -331,10 +361,10 @@ export function ProductStoreBrowse({
   const globalSearch = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (q.length < 2) return null;
-    const matchedCompanies = psCompanies.filter((c) =>
+    const matchedCompanies = effectiveCompanies.filter((c) =>
       c.name.toLowerCase().includes(q)
     );
-    const matchedBrands = psBrands.filter((b) =>
+    const matchedBrands = effectiveBrands.filter((b) =>
       b.name.toLowerCase().includes(q)
     );
     const matchedSkus = effectiveSkus
@@ -344,26 +374,26 @@ export function ProductStoreBrowse({
           s.name.toLowerCase().includes(q) || s.skuCode.toLowerCase().includes(q)
       );
     return { companies: matchedCompanies, brands: matchedBrands, skus: matchedSkus };
-  }, [searchQuery, effectiveSkus, mode]);
+  }, [searchQuery, effectiveSkus, effectiveCompanies, effectiveBrands, mode]);
 
   const isGlobalSearch = globalSearch !== null;
 
   const visibleCompanies = useMemo(
     () =>
-      psCompanies.filter((c) =>
+      effectiveCompanies.filter((c) =>
         c.name.toLowerCase().includes(searchQuery.toLowerCase())
       ),
-    [searchQuery]
+    [searchQuery, effectiveCompanies]
   );
 
   const visibleBrands = useMemo(() => {
     const brands = selectedCompany
-      ? getBrandsByCompany(selectedCompany.id)
-      : psBrands;
+      ? effectiveBrands.filter((b) => b.companyId === selectedCompany.id)
+      : effectiveBrands;
     return brands.filter((b) =>
       b.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
-  }, [selectedCompany, searchQuery]);
+  }, [selectedCompany, searchQuery, effectiveBrands]);
 
   const visibleSkus = useMemo(() => {
     let skus = selectedBrand
@@ -444,7 +474,7 @@ export function ProductStoreBrowse({
             </div>
             <div>
               <p className="text-xl font-bold text-gray-900 leading-none">
-                {psCompanies.length}
+                {effectiveCompanies.length}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">Companies</p>
             </div>
@@ -455,7 +485,7 @@ export function ProductStoreBrowse({
             </div>
             <div>
               <p className="text-xl font-bold text-gray-900 leading-none">
-                {psBrands.length}
+                {effectiveBrands.length}
               </p>
               <p className="text-xs text-gray-500 mt-0.5">Brands</p>
             </div>
@@ -496,7 +526,7 @@ export function ProductStoreBrowse({
           <p className="text-sm text-purple-900">
             <span className="font-medium">How it works:</span> Browse Company →
             Brand → SKU. Click <strong>Add to My SKU</strong> to import a product.
-            If a SKU isn't listed, raise a request — our catalog team will add it.
+            If a Company, Brand, or SKU isn't listed, raise a request — our catalog team will add it.
           </p>
         </div>
       )}
@@ -637,9 +667,9 @@ export function ProductStoreBrowse({
                 </p>
                 <div className="divide-y divide-gray-100 rounded-lg border overflow-hidden">
                   {globalSearch.skus.map((sku) => {
-                    const brand = psBrands.find((b) => b.id === sku.brandId);
+                    const brand = effectiveBrands.find((b) => b.id === sku.brandId);
                     const company = brand
-                      ? psCompanies.find((c) => c.id === brand.companyId)
+                      ? effectiveCompanies.find((c) => c.id === brand.companyId)
                       : null;
                     const isAdded = addedSkuIds.has(sku.id);
                     return (
@@ -735,7 +765,7 @@ export function ProductStoreBrowse({
                 </p>
                 <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                   {globalSearch.brands.map((brand) => {
-                    const company = psCompanies.find(
+                    const company = effectiveCompanies.find(
                       (c) => c.id === brand.companyId
                     );
                     return (
@@ -1054,7 +1084,6 @@ export function ProductStoreBrowse({
                           {brand.name}
                         </p>
                         <div className="flex gap-3 text-xs text-gray-500 mt-1">
-                          <span className="text-gray-400">{brand.category}</span>
                           <span>
                             <span className="font-bold text-gray-700">
                               {brand.skuCount}

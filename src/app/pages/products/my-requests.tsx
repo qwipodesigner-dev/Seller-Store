@@ -287,7 +287,7 @@ export function MyRequests() {
       {/* Header */}
       <div>
         <button
-          onClick={() => navigate("/products/product-store")}
+          onClick={() => navigate("/products/my-sku")}
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -377,7 +377,7 @@ export function MyRequests() {
                 Can't find a SKU in the Product Store?{" "}
                 <button
                   className="text-purple-600 hover:underline font-medium"
-                  onClick={() => navigate("/products/product-store")}
+                  onClick={() => navigate("/products/my-sku")}
                 >
                   Submit a request →
                 </button>

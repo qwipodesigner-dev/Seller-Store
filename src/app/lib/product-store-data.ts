@@ -69,7 +69,7 @@ export interface PSSku {
   updatedAt: string;
 }
 
-export type PSRequestType = "create_sku" | "edit_sku" | "inactivate_sku" | "request_company" | "request_brand";
+export type PSRequestType = "create_sku" | "edit_sku" | "inactivate_sku" | "activate_sku" | "request_company" | "request_brand";
 export type PSRequestStatus = "submitted" | "in_progress" | "approved" | "rejected";
 
 export interface PSRequest {
@@ -625,6 +625,20 @@ export const psRequests: PSRequest[] = [
   },
   // Request Company — sellers asking for a new company to be onboarded
   {
+    id: "REQ-050", type: "request_company", status: "submitted",
+    skuName: "—", brandId: "", brandName: "—", companyName: "Amul (GCMMF)",
+    requestedBy: "Vikram Patel (Patel General Stores)", requestedByType: "seller",
+    createdAt: "2026-06-16", updatedAt: "2026-06-16",
+    notes: "Amul is our highest-demand brand — retailers ask for Amul butter, ghee, and milk powder almost daily. Requesting GCMMF (Gujarat Co-operative Milk Marketing Federation) to be onboarded along with brands like Amul Butter, Amul Ghee, and Amul Gold.",
+  },
+  {
+    id: "REQ-051", type: "request_brand", status: "submitted",
+    skuName: "—", brandId: "", brandName: "Cadbury Dairy Milk", companyName: "Mondelez India",
+    requestedBy: "Sneha Nair (Nair Brothers Wholesale)", requestedByType: "seller",
+    createdAt: "2026-06-16", updatedAt: "2026-06-16",
+    notes: "Mondelez is in the Product Store but Cadbury Dairy Milk is missing as a brand. Retailers order CDM bars (Silk, Bubbly, Shots) in bulk — please add it under Mondelez India.",
+  },
+  {
     id: "REQ-030", type: "request_company", status: "submitted",
     skuName: "—", brandId: "", brandName: "—", companyName: "Haldiram's Snacks Pvt Ltd",
     requestedBy: "Ravi Gupta (Gupta Distributors)", requestedByType: "seller",
@@ -692,4 +706,21 @@ export function getPendingRequests(): PSRequest[] {
 
 export function getRequestsByType(type: PSRequestType): PSRequest[] {
   return psRequests.filter((r) => r.type === type);
+}
+
+let _nextReqId = 60;
+
+export function addPsRequest(
+  partial: Omit<PSRequest, "id" | "status" | "createdAt" | "updatedAt">
+): PSRequest {
+  const today = new Date().toISOString().split("T")[0];
+  const req: PSRequest = {
+    ...partial,
+    id: `REQ-${String(_nextReqId++).padStart(3, "0")}`,
+    status: "submitted",
+    createdAt: today,
+    updatedAt: today,
+  };
+  psRequests.unshift(req);
+  return req;
 }
