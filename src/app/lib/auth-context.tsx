@@ -17,7 +17,7 @@ import { setDataMode as setGlobalDataMode } from "./data-mode";
 //     on the design-system handbook so PMs / designers / developers
 //     can browse tokens + components + patterns without bumping
 //     into seller chrome.
-export type Role = "admin" | "seller" | "designer" | "catalog-admin";
+export type Role = "admin" | "seller" | "designer" | "catalog-admin" | "brand-manager";
 
 export interface AuthUser {
   id: string;
@@ -64,7 +64,8 @@ function readStoredUser(): AuthUser | null {
       (parsed.role === "admin" ||
         parsed.role === "seller" ||
         parsed.role === "designer" ||
-        parsed.role === "catalog-admin")
+        parsed.role === "catalog-admin" ||
+        parsed.role === "brand-manager")
     ) {
       return parsed as AuthUser;
     }

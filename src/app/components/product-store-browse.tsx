@@ -34,7 +34,6 @@ import {
   Tag,
   Info,
   Eye,
-  Users,
   X,
   MoreVertical,
   Pencil,
@@ -52,7 +51,6 @@ import {
   psBrands,
   psCategories,
   psSkus as defaultSkus,
-  psSellerCount,
   getBrandsByCompany,
   getSkusByBrand,
   getSkusByCompany,
@@ -73,7 +71,9 @@ export interface ProductStoreBrowseProps {
   onBulkImportBrand?: (brand: PSBrand, e: React.MouseEvent) => void;
   onEditSku?: (sku: PSSku) => void;
   onInactivateSku?: (sku: PSSku) => void;
-  onRequestSku?: () => void;
+  onRequestCompany?: () => void;
+  onRequestBrand?: (company: PSCompany | null) => void;
+  onRequestSku?: (company: PSCompany | null, brand: PSBrand | null) => void;
 }
 
 // ── SKU Detail Panel helpers ─────────────────────────────────────────────────
@@ -162,10 +162,6 @@ function SkuDetailPanel({
                   Inactive
                 </Badge>
               )}
-              <span className="text-[11px] text-gray-400 flex items-center gap-1">
-                <Users className="h-3 w-3" />
-                {sku.linkedSellersCount} sellers
-              </span>
             </div>
             <p className="text-xs text-gray-500 mt-1.5">{sku.shortDescription}</p>
           </div>
@@ -174,8 +170,8 @@ function SkuDetailPanel({
         <div className="mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800 flex items-start gap-2">
           <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-500" />
           <span>
-            <strong>Category 1 fields</strong> — managed by Catalog Admin,
-            read-only for sellers.
+            <strong>Read-only fields</strong> — managed by Catalog Admin,
+            not editable by sellers.
           </span>
         </div>
 
@@ -290,7 +286,6 @@ function SkuDetailPanel({
         >
           <DetailRow label="Created" value={sku.createdAt} />
           <DetailRow label="Last Updated" value={sku.updatedAt} />
-          <DetailRow label="Linked Sellers" value={sku.linkedSellersCount} />
         </DetailSection>
       </div>
     </div>
@@ -308,9 +303,18 @@ export function ProductStoreBrowse({
   onBulkImportBrand,
   onEditSku,
   onInactivateSku,
+  onRequestCompany,
+  onRequestBrand,
   onRequestSku,
 }: ProductStoreBrowseProps) {
   const effectiveSkus = skuList ?? defaultSkus;
+
+  // USER STORY NOTE: Currently shows ALL companies and brands from the Product Store.
+  // When implementing the real API, this should be filtered to only show companies and
+  // brands that are mapped to this seller in Seller Admin (i.e. the seller's approved
+  // brand/company associations). psCompanies and psBrands below should be replaced with
+  // seller-scoped lists fetched server-side. This filter must be enforced at the API
+  // level, not just in the UI, to prevent sellers from browsing unmapped brands.
 
   const [level, setLevel] = useState<BrowseLevel>("companies");
   const [selectedCompany, setSelectedCompany] = useState<PSCompany | null>(null);
@@ -469,23 +473,19 @@ export function ProductStoreBrowse({
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
-            <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
-              {mode === "admin" ? (
-                <Users className="h-4 w-4 text-amber-600" />
-              ) : (
+          {mode === "seller" && (
+            <div className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+              <div className="w-9 h-9 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
                 <CheckCircle2 className="h-4 w-4 text-amber-600" />
-              )}
+              </div>
+              <div>
+                <p className="text-xl font-bold text-gray-900 leading-none">
+                  {addedSkuIds.size}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">In My SKU</p>
+              </div>
             </div>
-            <div>
-              <p className="text-xl font-bold text-gray-900 leading-none">
-                {mode === "admin" ? psSellerCount : addedSkuIds.size}
-              </p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                {mode === "admin" ? "Sellers on Product Store" : "In My SKU"}
-              </p>
-            </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -552,13 +552,33 @@ export function ProductStoreBrowse({
             </SelectContent>
           </Select>
         )}
-        {mode === "seller" && (
+        {mode === "seller" && !isGlobalSearch && level === "companies" && (
           <Button
             variant="outline"
             className="gap-2 text-purple-700 border-purple-300 hover:bg-purple-50"
-            onClick={onRequestSku}
+            onClick={onRequestCompany}
+          >
+            <Building2 className="h-4 w-4" />
+            Request a Company
+          </Button>
+        )}
+        {mode === "seller" && !isGlobalSearch && level === "brands" && (
+          <Button
+            variant="outline"
+            className="gap-2 text-purple-700 border-purple-300 hover:bg-purple-50"
+            onClick={() => onRequestBrand?.(selectedCompany)}
           >
             <Tag className="h-4 w-4" />
+            Request a Brand
+          </Button>
+        )}
+        {mode === "seller" && (isGlobalSearch || level === "skus") && (
+          <Button
+            variant="outline"
+            className="gap-2 text-purple-700 border-purple-300 hover:bg-purple-50"
+            onClick={() => onRequestSku?.(selectedCompany, selectedBrand)}
+          >
+            <Package className="h-4 w-4" />
             Request a SKU
           </Button>
         )}
@@ -813,7 +833,7 @@ export function ProductStoreBrowse({
                       Can't find the SKU?{" "}
                       <button
                         className="text-purple-600 hover:underline font-medium"
-                        onClick={onRequestSku}
+                        onClick={() => onRequestSku?.(selectedCompany, selectedBrand)}
                       >
                         Request it from Catalog Admin →
                       </button>
@@ -941,7 +961,17 @@ export function ProductStoreBrowse({
             </div>
             {visibleCompanies.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                No companies match your search.
+                <p>No companies match your search.</p>
+                {mode === "seller" && (
+                  <p className="text-sm mt-1">
+                    <button
+                      className="text-purple-600 hover:underline font-medium"
+                      onClick={onRequestCompany}
+                    >
+                      Request a Company →
+                    </button>
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
@@ -1070,7 +1100,17 @@ export function ProductStoreBrowse({
             </div>
             {visibleBrands.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                No brands found.
+                <p>No brands found.</p>
+                {mode === "seller" && (
+                  <p className="text-sm mt-1">
+                    <button
+                      className="text-purple-600 hover:underline font-medium"
+                      onClick={() => onRequestBrand?.(selectedCompany)}
+                    >
+                      Request a Brand →
+                    </button>
+                  </p>
+                )}
               </div>
             )}
           </CardContent>
@@ -1111,7 +1151,7 @@ export function ProductStoreBrowse({
                     Can't find what you're looking for?{" "}
                     <button
                       className="text-purple-600 hover:underline font-medium"
-                      onClick={onRequestSku}
+                      onClick={() => onRequestSku?.(selectedCompany, selectedBrand)}
                     >
                       Request a SKU
                     </button>
@@ -1135,14 +1175,9 @@ export function ProductStoreBrowse({
                       Packaging
                     </th>
                     {mode === "admin" && (
-                      <>
-                        <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                          Sellers
-                        </th>
-                        <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
-                          Status
-                        </th>
-                      </>
+                      <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
+                        Status
+                      </th>
                     )}
                     <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500">
                       Details
@@ -1188,12 +1223,6 @@ export function ProductStoreBrowse({
                         </td>
                         {mode === "admin" && (
                           <>
-                            <td className="px-4 py-3 text-center">
-                              <div className="flex items-center justify-center gap-1 text-xs text-gray-600">
-                                <Users className="h-3 w-3" />
-                                {sku.linkedSellersCount}
-                              </div>
-                            </td>
                             <td className="px-4 py-3 text-center">
                               {sku.status === "active" ? (
                                 <Badge className="bg-green-50 text-green-700 border-green-200 gap-1 text-xs">
@@ -1278,7 +1307,7 @@ export function ProductStoreBrowse({
                 </span>
                 <button
                   className="text-purple-600 hover:underline"
-                  onClick={onRequestSku}
+                  onClick={() => onRequestSku?.(selectedCompany, selectedBrand)}
                 >
                   Can't find a SKU? Request it →
                 </button>

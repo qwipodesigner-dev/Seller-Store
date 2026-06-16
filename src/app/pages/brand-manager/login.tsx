@@ -10,12 +10,12 @@ import {
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Database, Phone, KeyRound, ShieldCheck, Tag } from "lucide-react";
+import { Tag, Phone, KeyRound, Briefcase } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
 
-export function CatalogAdminLogin() {
+export function BrandManagerLogin() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [mobile, setMobile] = useState("");
@@ -44,10 +44,10 @@ export function CatalogAdminLogin() {
     setTimeout(() => {
       const user = validateCredentials(mobile, otp);
       setIsLoading(false);
-      if (!user || (user.role !== "catalog-admin" && user.role !== "brand-manager")) {
+      if (!user || user.role !== "brand-manager") {
         setOtpError(
           user
-            ? "This account doesn't have Product Store Portal access."
+            ? "This account doesn't have Brand Manager access."
             : "Invalid OTP. Please try again."
         );
         setOtp("");
@@ -56,52 +56,47 @@ export function CatalogAdminLogin() {
       setOtpError(null);
       login(user);
       toast.success(`Welcome, ${user.name}!`);
-      navigate("/catalog-admin");
+      navigate("/brand-manager");
     }, 600);
   };
 
   const fillDemo = () => {
-    setMobile("5500000001");
+    setMobile("5500000002");
     setOtp("1234");
     setOtpSent(true);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-teal-50 via-white to-emerald-50 flex">
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50 flex">
       {/* Left panel */}
-      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-teal-600 via-emerald-600 to-green-700 relative overflow-hidden">
+      <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-indigo-600 via-purple-600 to-violet-700 relative overflow-hidden">
         <div className="absolute inset-0">
           <div className="absolute top-20 left-10 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute bottom-32 right-10 w-96 h-96 bg-emerald-400/20 rounded-full blur-3xl" />
+          <div className="absolute bottom-32 right-10 w-96 h-96 bg-purple-400/20 rounded-full blur-3xl" />
         </div>
         <div className="relative z-10 flex flex-col justify-center px-16 text-white">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <Database className="h-7 w-7 text-white" />
+              <Tag className="h-7 w-7 text-white" />
             </div>
             <div>
               <p className="text-lg font-bold">Qwipo</p>
-              <p className="text-sm text-teal-200">Product Store</p>
+              <p className="text-sm text-indigo-200">Brand Manager Portal</p>
             </div>
           </div>
 
           <h2 className="text-4xl font-bold leading-tight mb-4">
-            Manage the
+            Manage Your
             <br />
-            Master Catalog
+            Brand Catalog
           </h2>
-          <p className="text-lg text-teal-100 max-w-md mb-8">
-            Review SKU requests, approve edits, maintain product data, and keep
-            the catalog up to date for all distributors on Digidukaan.
+          <p className="text-lg text-indigo-100 max-w-md mb-8">
+            View your brand's SKUs, raise edit and inactivation requests, and
+            create new products — all within your mapped companies.
           </p>
 
           <div className="flex flex-wrap gap-3">
-            {[
-              "SKU Approvals",
-              "Edit Requests",
-              "Catalog Management",
-              "Brand Oversight",
-            ].map((f) => (
+            {["SKU Management", "Edit Requests", "Catalog Browse", "Create SKUs"].map((f) => (
               <span
                 key={f}
                 className="px-3 py-1.5 rounded-full bg-white/15 text-sm font-medium text-white/90"
@@ -110,48 +105,29 @@ export function CatalogAdminLogin() {
               </span>
             ))}
           </div>
-
-          <div className="flex gap-10 mt-12">
-            <div>
-              <p className="text-3xl font-bold">
-                {/* from psSkus */}
-                1,500+
-              </p>
-              <p className="text-sm text-teal-200">Active SKUs</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold">21</p>
-              <p className="text-sm text-teal-200">Brands</p>
-            </div>
-            <div>
-              <p className="text-3xl font-bold">8</p>
-              <p className="text-sm text-teal-200">Companies</p>
-            </div>
-          </div>
         </div>
       </div>
 
       {/* Right panel */}
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="text-center mb-8">
             <div className="flex items-center justify-center gap-2 mb-2">
-              <div className="w-10 h-10 bg-teal-600 rounded-xl flex items-center justify-center">
-                <Database className="h-6 w-6 text-white" />
+              <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center">
+                <Tag className="h-6 w-6 text-white" />
               </div>
               <div className="text-left">
                 <p className="font-bold text-gray-900 text-lg leading-tight">
                   Qwipo Product Store
                 </p>
-                <p className="text-xs text-gray-500">Product Store Portal</p>
+                <p className="text-xs text-gray-500">Brand Manager Portal</p>
               </div>
             </div>
           </div>
 
           <Card className="shadow-xl border-0">
             <CardHeader className="pb-4">
-              <CardTitle className="text-2xl">Product Store Portal</CardTitle>
+              <CardTitle className="text-2xl">Brand Manager Login</CardTitle>
               <CardDescription>
                 Sign in with your registered mobile number
               </CardDescription>
@@ -169,9 +145,7 @@ export function CatalogAdminLogin() {
                       placeholder="Enter 10-digit mobile number"
                       value={mobile}
                       onChange={(e) =>
-                        setMobile(
-                          e.target.value.replace(/\D/g, "").slice(0, 10)
-                        )
+                        setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
                       }
                       className="pl-10"
                       maxLength={10}
@@ -184,7 +158,7 @@ export function CatalogAdminLogin() {
                 {!otpSent ? (
                   <Button
                     type="button"
-                    className="w-full bg-teal-600 hover:bg-teal-700"
+                    className="w-full bg-indigo-600 hover:bg-indigo-700"
                     disabled={isLoading || mobile.length !== 10}
                     onClick={handleSendOtp}
                   >
@@ -216,12 +190,10 @@ export function CatalogAdminLogin() {
                         <p className="text-xs text-red-600">{otpError}</p>
                       )}
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-gray-500">
-                          OTP sent to {mobile}
-                        </p>
+                        <p className="text-xs text-gray-500">OTP sent to {mobile}</p>
                         <button
                           type="button"
-                          className="text-xs text-teal-600 hover:text-teal-700 font-medium"
+                          className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
                           onClick={() => {
                             setOtpSent(false);
                             setOtp("");
@@ -233,7 +205,7 @@ export function CatalogAdminLogin() {
                     </div>
                     <Button
                       type="submit"
-                      className="w-full bg-teal-600 hover:bg-teal-700"
+                      className="w-full bg-indigo-600 hover:bg-indigo-700"
                       disabled={isLoading || otp.length !== 4}
                     >
                       {isLoading ? "Verifying..." : "Verify OTP"}
@@ -243,37 +215,29 @@ export function CatalogAdminLogin() {
               </form>
 
               {/* Demo credentials */}
-              <div className="mt-5 p-3 border border-teal-100 bg-teal-50/60 rounded-lg space-y-2">
-                <p className="text-xs font-semibold text-teal-900">
-                  Demo accounts — tap to autofill (OTP: 1234)
+              <div className="mt-5 p-3 border border-indigo-100 bg-indigo-50/60 rounded-lg">
+                <p className="text-xs font-semibold text-indigo-900 mb-2">
+                  Demo account — tap to autofill (OTP: 1234)
                 </p>
                 <button
                   type="button"
                   onClick={fillDemo}
-                  className="w-full flex items-center gap-2 p-2 rounded-md bg-white border border-teal-200 hover:border-teal-400 transition-all text-left"
-                >
-                  <ShieldCheck className="h-4 w-4 text-teal-600 flex-shrink-0" />
-                  <div>
-                    <p className="text-xs font-semibold text-gray-900">Catalog Admin</p>
-                    <p className="text-[10px] text-gray-500">5500000001</p>
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => { setMobile("5500000002"); setOtp("1234"); setOtpSent(true); }}
                   className="w-full flex items-center gap-2 p-2 rounded-md bg-white border border-indigo-200 hover:border-indigo-400 transition-all text-left"
                 >
-                  <Tag className="h-4 w-4 text-indigo-600 flex-shrink-0" />
+                  <Briefcase className="h-4 w-4 text-indigo-600 flex-shrink-0" />
                   <div>
-                    <p className="text-xs font-semibold text-gray-900">Brand Manager — Arjun Mehta (ITC)</p>
+                    <p className="text-xs font-semibold text-gray-900">
+                      Arjun Mehta — ITC Limited
+                    </p>
                     <p className="text-[10px] text-gray-500">5500000002</p>
                   </div>
                 </button>
               </div>
 
               <p className="text-center text-xs text-gray-500 mt-4">
-                <Link to="/login" className="text-teal-600 hover:underline font-medium">
-                  Switch to Seller login
+                Not a brand manager?{" "}
+                <Link to="/catalog-admin/login" className="text-indigo-600 hover:underline font-medium">
+                  Catalog Admin login
                 </Link>
               </p>
             </CardContent>

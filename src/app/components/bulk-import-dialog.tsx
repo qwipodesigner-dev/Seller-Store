@@ -17,9 +17,6 @@ import {
   RefreshCw,
   Upload,
   X,
-  Package,
-  Send,
-  Store,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -50,21 +47,6 @@ export interface BulkImportError {
   value?: string;
 }
 
-export interface PSCheckItem {
-  skuCode: string;
-  skuName: string;
-  /** Full parsed row from the upload file — present for not-found items
-   *  so callers can raise a full SKU request with all available data. */
-  rowData?: Record<string, string>;
-}
-
-export interface PSCheckResult {
-  /** Valid rows whose skuCode matched a Product Store SKU — Category 1 fields will be merged. */
-  psFound: PSCheckItem[];
-  /** Valid rows whose skuCode had no match in the Product Store. */
-  psNotFound: PSCheckItem[];
-}
-
 export interface BulkImportValidationResult {
   totalRows: number;
   validRows: number;
@@ -75,8 +57,6 @@ export interface BulkImportValidationResult {
    * Each module shapes this differently — the dialog never reads it.
    */
   validData: unknown[];
-  /** Product Store match check — present only for the Add SKU importer. */
-  psCheckResult?: PSCheckResult;
 }
 
 export interface BulkImportConfig {
@@ -127,13 +107,6 @@ export interface BulkImportConfig {
    * result so the message can include counts.
    */
   successToast?: (result: BulkImportValidationResult) => string;
-  /**
-   * Called when the user clicks "Raise Requests" for SKUs not found in
-   * the Product Store. Receives the list of not-found items so the
-   * caller can batch-submit requests. Only rendered when
-   * `psCheckResult.psNotFound` is non-empty.
-   */
-  onRaiseRequests?: (notFound: PSCheckItem[]) => void;
   /**
    * Demo-mode simulated processing delay (ms). Defaults to 5 000 so
    * reviewers still see the loader experience without waiting half a
@@ -317,16 +290,7 @@ export function BulkImportDialog({
           )}
           {step === "validating" && <ValidatingStep />}
           {step === "importing" && <ImportingStep />}
-          {step === "results" && result && (
-            <ResultsStep
-              result={result}
-              onRaiseRequests={
-                result.psCheckResult?.psNotFound?.length
-                  ? () => config.onRaiseRequests?.(result.psCheckResult!.psNotFound)
-                  : undefined
-              }
-            />
-          )}
+          {step === "results" && result && <ResultsStep result={result} />}
         </div>
 
         <DialogFooter className="px-6 py-3 border-t border-gray-100 gap-2 sm:gap-2 flex-row sm:flex-row justify-end">
@@ -362,16 +326,6 @@ export function BulkImportDialog({
                 <Download className="h-4 w-4" />
                 Download Error Report
               </Button>
-              {result.psCheckResult?.psNotFound?.length ? (
-                <Button
-                  variant="outline"
-                  onClick={() => config.onRaiseRequests?.(result.psCheckResult!.psNotFound)}
-                  className="gap-2 text-amber-700 border-amber-300 hover:bg-amber-50"
-                >
-                  <Send className="h-4 w-4" />
-                  Raise Requests ({result.psCheckResult.psNotFound.length})
-                </Button>
-              ) : null}
               <Button
                 onClick={handleImport}
                 disabled={result.validRows === 0}
@@ -495,14 +449,7 @@ function ImportingStep() {
   );
 }
 
-function ResultsStep({
-  result,
-  onRaiseRequests,
-}: {
-  result: BulkImportValidationResult;
-  onRaiseRequests?: () => void;
-}) {
-  const ps = result.psCheckResult;
+function ResultsStep({ result }: { result: BulkImportValidationResult }) {
   return (
     <div className="px-6 py-5 space-y-4">
       {/* Summary header */}
@@ -526,74 +473,11 @@ function ResultsStep({
         />
       </div>
 
-      {/* Product Store check — only for Add SKU importer */}
-      {ps && (
-        <div className="space-y-2">
-          {/* Found in PS */}
-          {ps.psFound.length > 0 && (
-            <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Store className="h-4 w-4 text-emerald-600" />
-                <p className="text-sm font-semibold text-emerald-900">
-                  {ps.psFound.length} SKU{ps.psFound.length === 1 ? "" : "s"} found in Product Store
-                </p>
-              </div>
-              <p className="text-xs text-emerald-700 mb-2">
-                Read-only fields (description, packaging, compliance) will be auto-filled from the catalog. Your editable fields (pricing, stock) are kept from your sheet.
-              </p>
-              <div className="max-h-28 overflow-y-auto space-y-1">
-                {ps.psFound.map((s) => (
-                  <div key={s.skuCode} className="flex items-center gap-2 text-xs text-emerald-800">
-                    <CheckCircle2 className="h-3 w-3 flex-shrink-0 text-emerald-600" />
-                    <code className="font-mono bg-emerald-100 px-1 rounded">{s.skuCode}</code>
-                    <span className="truncate">{s.skuName}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Not found in PS */}
-          {ps.psNotFound.length > 0 && (
-            <div className="rounded-lg border border-amber-200 bg-amber-50 overflow-hidden">
-              <div className="px-4 py-3 border-b border-amber-200">
-                <div className="flex items-center gap-2 mb-1">
-                  <Package className="h-4 w-4 text-amber-600" />
-                  <p className="text-sm font-semibold text-amber-900">
-                    {ps.psNotFound.length} SKU{ps.psNotFound.length === 1 ? "" : "s"} not found in Product Store
-                  </p>
-                </div>
-                <p className="text-xs text-amber-700">
-                  These SKUs will be imported using only data from your sheet. You can raise a catalog request to get them added to the Product Store.
-                </p>
-              </div>
-              <div className="max-h-36 overflow-y-auto divide-y divide-amber-100">
-                {ps.psNotFound.map((s) => (
-                  <div key={s.skuCode} className="flex items-center justify-between gap-3 px-4 py-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <code className="text-xs font-mono text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded flex-shrink-0">{s.skuCode}</code>
-                      <span className="text-xs text-amber-900 truncate">{s.skuName}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              {onRaiseRequests && (
-                <div className="px-4 py-2.5 bg-amber-50 border-t border-amber-200">
-                  <button
-                    onClick={onRaiseRequests}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 hover:text-amber-900 hover:underline"
-                  >
-                    <Send className="h-3.5 w-3.5" />
-                    Raise catalog requests for all {ps.psNotFound.length} missing SKUs →
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Validation errors */}
+      {/* Simplified SKU-grouped error summary. Phase 2 spec: keep the
+          UI light because a full row × field × message table at SKU
+          scale is unreadable. We collapse to "{SKU Name} | {N errors}"
+          and rely on the Download Error Report button below to carry
+          the detailed breakdown. */}
       {result.errors.length > 0 ? (
         <div className="rounded-lg border border-red-200 overflow-hidden">
           <div className="bg-red-50 px-4 py-2 border-b border-red-200 flex items-center justify-between gap-2">
@@ -788,7 +672,8 @@ function FormatPickerDialog({
             Download Sample Template
           </DialogTitle>
           <DialogDescription>
-            Choose a template to download.
+            Pick the file format you want — the template will download
+            with your existing catalog pre-filled.
           </DialogDescription>
         </DialogHeader>
 

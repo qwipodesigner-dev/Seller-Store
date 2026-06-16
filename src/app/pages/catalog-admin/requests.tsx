@@ -33,6 +33,8 @@ import {
   AlertTriangle,
   Inbox,
   Calendar,
+  ShieldCheck,
+  Building2,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -76,7 +78,9 @@ export function CatalogAdminRequests() {
           r.skuName.toLowerCase().includes(q) ||
           r.brandName.toLowerCase().includes(q) ||
           r.companyName.toLowerCase().includes(q) ||
-          r.requestedBy.toLowerCase().includes(q)
+          r.requestedBy.toLowerCase().includes(q) ||
+          (r.type === "request_company" && r.companyName.toLowerCase().includes(q)) ||
+          (r.type === "request_brand" && r.brandName.toLowerCase().includes(q))
         );
       }
       return true;
@@ -144,10 +148,24 @@ export function CatalogAdminRequests() {
           Edit SKU
         </Badge>
       );
+    if (type === "inactivate_sku")
+      return (
+        <Badge className="bg-red-50 text-red-700 border-red-200 gap-1 text-xs">
+          <XCircle className="h-3 w-3" />
+          Inactivate
+        </Badge>
+      );
+    if (type === "request_company")
+      return (
+        <Badge className="bg-violet-50 text-violet-700 border-violet-200 gap-1 text-xs">
+          <Building2 className="h-3 w-3" />
+          New Company
+        </Badge>
+      );
     return (
-      <Badge className="bg-red-50 text-red-700 border-red-200 gap-1 text-xs">
-        <XCircle className="h-3 w-3" />
-        Inactivate
+      <Badge className="bg-indigo-50 text-indigo-700 border-indigo-200 gap-1 text-xs">
+        <Tag className="h-3 w-3" />
+        New Brand
       </Badge>
     );
   };
@@ -203,8 +221,9 @@ export function CatalogAdminRequests() {
           )}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Review and approve Create, Edit, and Inactivate requests from sellers
-          and brand managers.
+          Review and approve requests. Create SKU requests come from sellers or
+          brand managers. Edit SKU and Inactivate requests are restricted to
+          brand managers only.
         </p>
       </div>
 
@@ -228,9 +247,11 @@ export function CatalogAdminRequests() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="request_company">New Company</SelectItem>
+            <SelectItem value="request_brand">New Brand</SelectItem>
             <SelectItem value="create_sku">Create SKU</SelectItem>
-            <SelectItem value="edit_sku">Edit SKU</SelectItem>
-            <SelectItem value="inactivate_sku">Inactivate SKU</SelectItem>
+            <SelectItem value="edit_sku">Edit SKU — Brand Mgr only</SelectItem>
+            <SelectItem value="inactivate_sku">Inactivate — Brand Mgr only</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -290,16 +311,28 @@ export function CatalogAdminRequests() {
                     className="border-b last:border-0 hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900 text-sm">
-                        {req.skuName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {req.brandName} · {req.companyName}
-                      </p>
-                      {req.skuCode && (
-                        <code className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded font-mono">
-                          {req.skuCode}
-                        </code>
+                      {req.type === "request_company" ? (
+                        <>
+                          <p className="font-medium text-gray-900 text-sm">{req.companyName}</p>
+                          <p className="text-xs text-gray-400">New company</p>
+                        </>
+                      ) : req.type === "request_brand" ? (
+                        <>
+                          <p className="font-medium text-gray-900 text-sm">{req.brandName}</p>
+                          <p className="text-xs text-gray-500">{req.companyName}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-gray-900 text-sm">{req.skuName}</p>
+                          <p className="text-xs text-gray-500">
+                            {req.brandName} · {req.companyName}
+                          </p>
+                          {req.skuCode && (
+                            <code className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded font-mono">
+                              {req.skuCode}
+                            </code>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="px-4 py-3">{getTypeBadge(req.type)}</td>
@@ -344,7 +377,11 @@ export function CatalogAdminRequests() {
             <div className="flex items-start gap-3 flex-wrap">
               <div className="flex-1 min-w-0">
                 <DialogTitle className="text-base">
-                  {viewRequest?.form?.itemName || viewRequest?.skuName || "—"}
+                  {viewRequest?.type === "request_company"
+                    ? viewRequest.companyName
+                    : viewRequest?.type === "request_brand"
+                    ? `${viewRequest.brandName} — ${viewRequest.companyName}`
+                    : viewRequest?.form?.itemName || viewRequest?.skuName || "—"}
                 </DialogTitle>
                 <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                   <code className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">
@@ -388,6 +425,64 @@ export function CatalogAdminRequests() {
           {viewRequest && (
             <div className="space-y-5 pt-2">
 
+              {/* ── Request a Company form (read-only) ── */}
+              {viewRequest.type === "request_company" && (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-500">Company Name</Label>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
+                      {viewRequest.companyName || "—"}
+                    </div>
+                  </div>
+                  {viewRequest.notes && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-500">Message</Label>
+                      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 whitespace-pre-wrap">
+                        {viewRequest.notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Request a Brand form (read-only) ── */}
+              {viewRequest.type === "request_brand" && (
+                <div className="space-y-3">
+                  {viewRequest.companyName && (
+                    <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 border border-violet-200 rounded-lg">
+                      <span className="text-xs text-violet-600 font-medium">Company</span>
+                      <span className="text-sm font-semibold text-violet-900">{viewRequest.companyName}</span>
+                    </div>
+                  )}
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-500">Brand Name</Label>
+                    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
+                      {viewRequest.brandName || "—"}
+                    </div>
+                  </div>
+                  {viewRequest.notes && (
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-500">Message</Label>
+                      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 whitespace-pre-wrap">
+                        {viewRequest.notes}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── Brand-manager-only notice for edit / inactivate ── */}
+              {(viewRequest.type === "edit_sku" || viewRequest.type === "inactivate_sku") && (
+                <div className="flex items-start gap-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-800">
+                  <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-purple-500" />
+                  <p>
+                    {viewRequest.type === "edit_sku"
+                      ? "SKU edits can only be requested by brand managers."
+                      : "SKU inactivation can only be requested by brand managers."}
+                  </p>
+                </div>
+              )}
+
               {/* ── Full seller-filled form (create_sku requests) ── */}
               {viewRequest.form && (
                 <SkuFormFields
@@ -426,8 +521,11 @@ export function CatalogAdminRequests() {
                 </div>
               )}
 
-              {/* Fallback notes for non-create requests without form data */}
-              {!viewRequest.form && viewRequest.notes && (
+              {/* Fallback notes for non-create/non-company/non-brand requests without form data */}
+              {!viewRequest.form &&
+                viewRequest.type !== "request_company" &&
+                viewRequest.type !== "request_brand" &&
+                viewRequest.notes && (
                 <div className="p-3 bg-gray-50 rounded border text-xs">
                   <p className="text-gray-500 mb-1 font-medium">Notes</p>
                   <p className="text-gray-800">{viewRequest.notes}</p>

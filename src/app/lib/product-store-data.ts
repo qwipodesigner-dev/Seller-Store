@@ -69,7 +69,7 @@ export interface PSSku {
   updatedAt: string;
 }
 
-export type PSRequestType = "create_sku" | "edit_sku" | "inactivate_sku";
+export type PSRequestType = "create_sku" | "edit_sku" | "inactivate_sku" | "request_company" | "request_brand";
 export type PSRequestStatus = "submitted" | "in_progress" | "approved" | "rejected";
 
 export interface PSRequest {
@@ -580,12 +580,12 @@ export const psRequests: PSRequest[] = [
       notes: "Requested by a new retailer.",
     },
   },
-  // Edit SKU requests — raised when seller wants to update Field Cat 2 in PS
+  // Edit SKU requests — only brand managers can request edits to PS SKUs
   {
     id: "REQ-010", type: "edit_sku", status: "in_progress",
     skuId: "PS-001", skuCode: "AASH-001", skuName: "Aashirvaad Whole Wheat Atta 10 kg",
     brandId: "AASH", brandName: "Aashirvaad", companyName: "ITC Limited",
-    requestedBy: "Rajesh Kumar (ABC Distributors)", requestedByType: "seller",
+    requestedBy: "Arjun Mehta (ITC Brand Manager)", requestedByType: "brand_manager",
     createdAt: "2026-06-02", updatedAt: "2026-06-02",
     changes: {
       "Short Description": { old: "Premium whole wheat flour, ideal for soft rotis", new: "Premium whole wheat flour, ideal for soft rotis. Now with iron & calcium enrichment." },
@@ -597,7 +597,7 @@ export const psRequests: PSRequest[] = [
     id: "REQ-011", type: "edit_sku", status: "submitted",
     skuId: "PS-020", skuCode: "MAGGI-001", skuName: "Maggi 2-Minute Masala Noodles 70g",
     brandId: "MAGGI", brandName: "Maggi", companyName: "Nestle India",
-    requestedBy: "Priya Sharma (Sri Krupa Distributors)", requestedByType: "seller",
+    requestedBy: "Sneha Kapoor (Nestle Brand Manager)", requestedByType: "brand_manager",
     createdAt: "2026-06-05", updatedAt: "2026-06-05",
     changes: {
       "MRP": { old: "₹15", new: "₹16" },
@@ -608,20 +608,50 @@ export const psRequests: PSRequest[] = [
     id: "REQ-012", type: "edit_sku", status: "approved",
     skuId: "PS-010", skuCode: "SUNF-001", skuName: "Sunfeast Dark Fantasy Choco Fills 150g",
     brandId: "SUNF", brandName: "Sunfeast", companyName: "ITC Limited",
-    requestedBy: "Mohan Das (Freedom Distributors)", requestedByType: "seller",
+    requestedBy: "Arjun Mehta (ITC Brand Manager)", requestedByType: "brand_manager",
     createdAt: "2026-05-15", updatedAt: "2026-05-18",
     changes: {
       "HSN Code": { old: "19053199", new: "19053100" },
     },
   },
-  // Inactivate requests
+  // Inactivate requests — only brand managers can request inactivation
   {
     id: "REQ-020", type: "inactivate_sku", status: "submitted",
     skuId: "PS-095", skuCode: "YIPP-001", skuName: "Yippee! Magic Masala Long Noodles 70g",
     brandId: "YIPP", brandName: "Yippee!", companyName: "ITC Limited",
-    requestedBy: "System (Auto-detected discontinuation)", requestedByType: "system",
+    requestedBy: "Arjun Mehta (ITC Brand Manager)", requestedByType: "brand_manager",
     createdAt: "2026-04-08", updatedAt: "2026-04-08",
-    notes: "SKU no longer available from distributor. Proposed for inactivation.",
+    notes: "SKU being discontinued by the brand. Requesting inactivation from the Product Store.",
+  },
+  // Request Company — sellers asking for a new company to be onboarded
+  {
+    id: "REQ-030", type: "request_company", status: "submitted",
+    skuName: "—", brandId: "", brandName: "—", companyName: "Haldiram's Snacks Pvt Ltd",
+    requestedBy: "Ravi Gupta (Gupta Distributors)", requestedByType: "seller",
+    createdAt: "2026-06-10", updatedAt: "2026-06-10",
+    notes: "Haldiram's is one of the most requested brands by our retailers. Requesting onboarding of the company and its brands (Haldiram's Nagpur & Haldiram's Delhi) into the Product Store.",
+  },
+  {
+    id: "REQ-031", type: "request_company", status: "rejected",
+    skuName: "—", brandId: "", brandName: "—", companyName: "Mother Dairy Fruit & Vegetable Pvt Ltd",
+    requestedBy: "Sandeep Rao (Sri Balaji Traders)", requestedByType: "seller",
+    createdAt: "2026-05-18", updatedAt: "2026-05-22",
+    reason: "Mother Dairy is already in the process of being onboarded. You will be notified once the company and brands are live.",
+  },
+  // Request Brand — sellers asking for a new brand under an existing company
+  {
+    id: "REQ-040", type: "request_brand", status: "submitted",
+    skuName: "—", brandId: "", brandName: "Horlicks", companyName: "Hindustan Unilever",
+    requestedBy: "Meena Iyer (Fast Track Distributors)", requestedByType: "seller",
+    createdAt: "2026-06-12", updatedAt: "2026-06-12",
+    notes: "Horlicks was recently acquired by HUL. Requesting the brand to be added under HUL in the Product Store so we can start importing SKUs.",
+  },
+  {
+    id: "REQ-041", type: "request_brand", status: "approved",
+    skuName: "—", brandId: "", brandName: "Boost", companyName: "Hindustan Unilever",
+    requestedBy: "Priya Sharma (Sri Krupa Distributors)", requestedByType: "seller",
+    createdAt: "2026-05-25", updatedAt: "2026-05-28",
+    notes: "Boost is an HUL brand but not yet in the Product Store. High demand from retailers.",
   },
 ];
 

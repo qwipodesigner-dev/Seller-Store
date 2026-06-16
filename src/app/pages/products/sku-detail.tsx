@@ -1160,6 +1160,13 @@ function ProductDetailsTab({ sku }: { sku: any }) {
     // Compliance is "no errors at all" — the moment the last gap closes
     // (BR-11), the SKU's badge flips automatically. There's no separate
     // publish step.
+    //
+    // TODO (user story): SKUs imported from Product Store start with MRP=0 and
+    // SP=0 (FC2 fields — seller must fill them in). When this user story is
+    // implemented, add a check here so that a SKU with MRP <= 0 or SP <= 0
+    // is NEVER marked ONDC compliant, regardless of whether the ONDC fields
+    // are filled. i.e.: const isNowCompliant = errors.length === 0 && mrp > 0 && sp > 0;
+    // (read mrp/sp from the Price & Inventory state, same as commitSave does.)
     const isNowCompliant = errors.length === 0;
 
     // No edits → button shouldn't have been enabled, defensive only.

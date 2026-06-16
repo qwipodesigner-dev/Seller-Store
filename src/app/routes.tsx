@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router";
+import { createBrowserRouter, Navigate } from "react-router";
 import { RootLayout } from "./components/root-layout";
 import { ProtectedRoute } from "./components/protected-route";
 import { CatalogAdminLogin } from "./pages/catalog-admin/login";
@@ -7,7 +7,10 @@ import { CatalogAdminDashboard } from "./pages/catalog-admin/dashboard";
 import { CatalogAdminRequests } from "./pages/catalog-admin/requests";
 import { CatalogAdminCatalog } from "./pages/catalog-admin/catalog";
 import { CatalogAdminSkuForm } from "./pages/catalog-admin/sku-form";
-import { ProductStore } from "./pages/products/product-store";
+import { CatalogAdminBrandManagers } from "./pages/catalog-admin/brand-managers";
+import { BrandManagerCatalog } from "./pages/brand-manager/catalog";
+import { BrandManagerDashboard } from "./pages/brand-manager/dashboard";
+import { useAuth } from "./lib/auth-context";
 import { MyRequests } from "./pages/products/my-requests";
 import { Dashboard } from "./pages/dashboard";
 import { DashboardCompany } from "./pages/dashboard-company";
@@ -61,25 +64,38 @@ import { AdminCategories } from "./pages/admin/categories";
 import { ErrorScreensDemo } from "./pages/demos/error-screens";
 import { LoadingScreensDemo } from "./pages/demos/loading-screens";
 
+function CatalogAdminIndex() {
+  const { user } = useAuth();
+  if (user?.role === "brand-manager") return <BrandManagerDashboard />;
+  return <CatalogAdminDashboard />;
+}
+
 export const router = createBrowserRouter([
   // Catalog Admin Portal — separate login + standalone layout
   {
     path: "/catalog-admin/login",
     Component: CatalogAdminLogin,
   },
+  // Brand Manager login redirects to the shared portal login
+  {
+    path: "/brand-manager/login",
+    element: <Navigate to="/catalog-admin/login" replace />,
+  },
   {
     path: "/catalog-admin",
     element: (
-      <ProtectedRoute allow="catalog-admin">
+      <ProtectedRoute allow={["catalog-admin", "brand-manager"]}>
         <CatalogAdminLayout />
       </ProtectedRoute>
     ),
     children: [
-      { index: true, Component: CatalogAdminDashboard },
+      { index: true, Component: CatalogAdminIndex },
       { path: "requests", Component: CatalogAdminRequests },
       { path: "catalog", Component: CatalogAdminCatalog },
       { path: "catalog/create", Component: CatalogAdminSkuForm },
       { path: "catalog/:skuId", Component: CatalogAdminSkuForm },
+      { path: "brand-managers", Component: CatalogAdminBrandManagers },
+      { path: "my-catalog", Component: BrandManagerCatalog },
     ],
   },
   {
@@ -146,7 +162,6 @@ export const router = createBrowserRouter([
     ),
     children: [
       { index: true, Component: Dashboard },
-      { path: "products/product-store", Component: ProductStore },
       { path: "products/my-requests", Component: MyRequests },
       // Per-company drill-down — opens from the company table on the
       // Dashboard. Carries the dashboard's date range via the query

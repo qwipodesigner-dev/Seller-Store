@@ -86,6 +86,18 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       dataMode: "demo",
     },
   },
+  "5500000002": {
+    otp: "1234",
+    user: {
+      id: "brand-manager-1",
+      name: "Arjun Mehta",
+      email: "arjun.mehta@itc.com",
+      role: "brand-manager",
+      businessName: "ITC Limited",
+      avatarInitials: "AM",
+      dataMode: "demo",
+    },
+  },
 };
 
 export function validateCredentials(

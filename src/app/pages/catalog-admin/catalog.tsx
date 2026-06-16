@@ -25,7 +25,6 @@ export function CatalogAdminCatalog() {
   const [skus, setSkus] = useState(initialSkus);
   const [inactivateDialog, setInactivateDialog] = useState<PSSku | null>(null);
   const [inactivateReason, setInactivateReason] = useState("");
-
   const handleInactivate = () => {
     if (!inactivateDialog || !inactivateReason.trim()) return;
     setSkus((prev) =>
@@ -51,13 +50,15 @@ export function CatalogAdminCatalog() {
             View, edit, and manage SKUs across all companies and brands.
           </p>
         </div>
-        <Button
-          onClick={() => navigate("/catalog-admin/catalog/create")}
-          className="gap-2 bg-teal-600 hover:bg-teal-700"
-        >
-          <Plus className="h-4 w-4" />
-          Create SKU
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            onClick={() => navigate("/catalog-admin/catalog/create")}
+            className="gap-2 bg-teal-600 hover:bg-teal-700"
+          >
+            <Plus className="h-4 w-4" />
+            Create SKU
+          </Button>
+        </div>
       </div>
 
       {/* Shared browse component in admin mode */}

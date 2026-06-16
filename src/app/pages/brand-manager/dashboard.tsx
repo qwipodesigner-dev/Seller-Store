@@ -5,39 +5,25 @@ import {
   Rocket,
   Clock,
   ChevronRight,
-  Inbox,
   Database,
   Package,
-  Users,
 } from "lucide-react";
 
-export function CatalogAdminDashboard() {
+export function BrandManagerDashboard() {
   const navigate = useNavigate();
 
   const modules = [
     {
-      label: "Requests",
-      description: "Review and action SKU create, edit, and inactivation requests from sellers.",
-      href: "/catalog-admin/requests",
-      icon: Inbox,
-    },
-    {
-      label: "Browse Catalog",
-      description: "View and manage all SKUs across companies and brands in the master catalog.",
-      href: "/catalog-admin/catalog",
+      label: "My Catalog",
+      description: "Browse SKUs across the companies and brands mapped to your account.",
+      href: "/catalog-admin/my-catalog",
       icon: Database,
     },
     {
       label: "Create SKU",
-      description: "Add a new SKU to the master catalog or bulk-import via CSV.",
+      description: "Add a new SKU to the catalog or bulk-import multiple SKUs via CSV.",
       href: "/catalog-admin/catalog/create",
       icon: Package,
-    },
-    {
-      label: "Brand Managers",
-      description: "Create and manage Brand Manager logins and their company/brand mappings.",
-      href: "/catalog-admin/brand-managers",
-      icon: Users,
     },
   ];
 
@@ -53,13 +39,12 @@ export function CatalogAdminDashboard() {
             Coming Soon
           </Badge>
           <h1 className="text-3xl font-semibold text-gray-900 mb-3">
-            Product Store Dashboard is on the way
+            Brand Manager Dashboard is on the way
           </h1>
           <p className="text-base text-gray-600 max-w-xl mx-auto leading-relaxed">
-            Catalog-level KPIs, request analytics, SKU health trends and other
-            dashboard visualisations are <b>not part of Phase 1</b>. They will
-            be released in a later phase. In the meantime, jump straight into
-            the modules below.
+            SKU health summaries, request status and brand-level analytics are{" "}
+            <b>not part of Phase 1</b>. They will be released in a later phase.
+            In the meantime, jump straight into the modules below.
           </p>
         </div>
 

@@ -7,7 +7,7 @@
  * the source of truth without needing a context or event bus.
  */
 
-import { sampleSKUs, type SKUData } from "../pages/products/my-sku";
+import { sampleSKUs, type SKUData } from "./my-sku-data";
 import { type PSSku, psBrands, psCompanies, psCategories } from "./product-store-data";
 
 // Mutable store — initialised once from the demo seed.
@@ -126,9 +126,11 @@ export function addFromProductStore(psSku: PSSku): SKUData {
     lastUpdated: new Date().toISOString().split("T")[0],
     sku: psSku.skuCode,
     shortName: psSku.shortName ?? "",
-    // MRP is FC2 — seller sets their own MRP; not inherited from Product Store
+    // MRP is FC2 — seller sets their own MRP; not inherited from Product Store.
+    // These start undefined (renders as 0/blank in the UI). Until the seller
+    // fills them in, the SKU must NOT be marked ONDC compliant — see the TODO
+    // note in sku-detail.tsx doSaveOndc() when implementing the user story.
     mrp: undefined,
-    // FC2 — empty until seller fills in
     sellingPrice: undefined,
     availableStock: 0,
     isInfiniteStock: false,

@@ -43,6 +43,10 @@ import {
   FileSpreadsheet,
   FileCheck,
   FileWarning,
+  Send,
+  Info,
+  FileText,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
@@ -56,627 +60,32 @@ import {
   BulkImportDialog,
   type BulkImportValidationResult,
   type BulkImportError as BulkImportErrorRow,
-  type PSCheckItem,
 } from "../../components/bulk-import-dialog";
+import { ProductStoreBrowse } from "../../components/product-store-browse";
+import {
+  SkuFormFields,
+  type SkuFormState,
+  emptySkuForm,
+} from "../../components/sku-form-fields";
+import { addFromProductStore, isImportedFromPS } from "../../lib/my-sku-store";
 import {
   downloadSkuTemplate,
   parseSkuImportFile,
   SKU_FIELDS,
   type ParsedSkuRow,
 } from "../../lib/sku-import-template";
-import { psSkus, getBrandById, getCategoryById } from "../../lib/product-store-data";
+import {
+  psSkus,
+  getBrandById,
+  getCategoryById,
+  type PSCompany,
+  type PSBrand,
+  type PSSku,
+} from "../../lib/product-store-data";
 import { addSkuRequest } from "../../lib/sku-request-store";
-
-// ONDC Data structure
-interface ONDCData {
-  productName: string;
-  mrp: string;
-  hsnCode: string;
-  countryOfOrigin: string;
-  manufacturerName: string;
-  manufacturerAddress: string;
-  importerPackerName: string;
-  importerPackerAddress: string;
-  productLength: string;
-  productWidth: string;
-  productHeight: string;
-  productWeight: string;
-  returnPolicy: string;
-  supportName: string;
-  supportEmail: string;
-  supportPhone: string;
-}
-
-// Exported so other surfaces (notably the seller Dashboard's KPI
-// rollups) can reuse the same shape without re-modelling. The
-// `sampleSKUs` array below is also exported for the same reason.
-export interface SKUData {
-  id: string;
-  name: string;
-  category: string;
-  brand: string;
-  source: string;
-  status: string;
-  lastUpdated: string;
-  sku: string;
-  shortName?: string;
-  // Set when this SKU was imported from the Product Store
-  productStoreId?: string;
-  // Price & Inventory fields — merged into the SKU record (previously on a separate page)
-  mrp?: number;
-  sellingPrice?: number;
-  availableStock?: number;
-  isInfiniteStock?: boolean;
-  thresholdLevel?: number;
-  reservedStock?: number;
-  // Field Category 1 values pre-populated from Product Store (read-only in editor)
-  ondcPrefilled?: Record<string, unknown>;
-  // Tax fields
-  tax?: { hsnCode?: string; gstTax?: string; gstCess?: string };
-  ondcCompliance: {
-    isCompliant: boolean;
-    missingFields: string[];
-    ondcData: Partial<ONDCData>;
-  };
-}
-
-// SKU data — aligned with the Bizom DMS inventory export (Freedom /
-// Sri Krupa / First Klass). Exported so the Dashboard KPI rollups can
-// read the seller's full SKU catalog (status + compliance) without
-// having to duplicate the seed.
-export const sampleSKUs: SKUData[] = [
-  // Demo SKU — fully ONDC-compliant Aashirvaad Atta 10 kg (ITC Limited).
-  // Showcases what a complete, ready-to-publish SKU looks like.
-  {
-    id: "190000001",
-    name: "Aashirvaad Whole Wheat Atta 10 kg",
-    category: "Cooking and Baking Needs",
-    brand: "Aashirvaad",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-25",
-    sku: "190000001",
-    shortName: "AASH-10K",
-    mrp: 565,
-    sellingPrice: 525,
-    availableStock: 320,
-    isInfiniteStock: false,
-    thresholdLevel: 30,
-    reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "180000005",
-    name: "FREEDOM REF. SUNFLOWER OIL 15 KG. TIN",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-22",
-    sku: "180000005",
-    shortName: "FFR-15KG",
-    mrp: 3091, sellingPrice: 2810, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000006",
-    name: "FREEDOM REF. SUNFLOWER OIL 15 LTR. TIN",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-22",
-    sku: "180000006",
-    mrp: 2838, sellingPrice: 2580, availableStock: 252, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000008",
-    name: "FREEDOM REF. SUNFLOWER OIL 1 LTR.X16NOS.",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-22",
-    sku: "180000008",
-    shortName: "FFR1",
-    mrp: 188, sellingPrice: 171, availableStock: 642, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "180000076",
-    name: "FREEDOM REF.SUNFLOWER OIL 1 LTR X 12PET",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-14",
-    sku: "180000076",
-    mrp: 191, sellingPrice: 174, availableStock: 27, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000179",
-    name: "FREEDOM REF.SUNFLOWER OIL 2 LTR X 6 PET",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-08",
-    sku: "180000179",
-    mrp: 388, sellingPrice: 353, availableStock: 1, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000248",
-    name: "FREEDOM FILTE. GROUNDNUT OIL 1 LTRX10NOS",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-03-20",
-    sku: "180000248",
-    mrp: 190, sellingPrice: 173, availableStock: 0, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000249",
-    name: "FREEDOM REF.SUNFLOWEROIL 5LTRX4JARS-NEW",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-14",
-    sku: "180000249",
-    mrp: 963, sellingPrice: 875, availableStock: 138, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "180000260",
-    name: "FREEDOM K.GHANI MUSTARD OIL 1LTRX12 PET",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-06",
-    sku: "180000260",
-    mrp: 194, sellingPrice: 176, availableStock: 12, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000377",
-    name: "Sri Krupa 1Ltr X 12 Pet",
-    category: "Edible Oil",
-    brand: "Sri Krupa",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-03-20",
-    sku: "180000377",
-    mrp: 172, sellingPrice: 156, availableStock: 9, isInfiniteStock: false, thresholdLevel: 5, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000419",
-    name: "FREEDOM FILTE. GROUNDNUT OIL 1 LTRX10NOS-OFFER",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-08",
-    sku: "180000419",
-    mrp: 190, sellingPrice: 173, availableStock: 28, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "180000437",
-    name: "FREEDOM REF. RICE BRAN OIL 1 LTR.X16 NOS",
-    category: "Edible Oil",
-    brand: "Freedom",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-04-08",
-    sku: "180000437",
-    mrp: 179, sellingPrice: 163, availableStock: 50, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "180000490",
-    name: "FIRST KLASS REF PALMOLEIN 750G X 15 NOS",
-    category: "Edible Oil",
-    brand: "First Klass",
-    source: "DMS",
-    status: "Active",
-    lastUpdated: "2026-03-16",
-    sku: "180000490",
-    mrp: 129, sellingPrice: 117.4, availableStock: 19, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-
-  // -------------------------------------------------------------------
-  // Extended catalog — 50 additional SKUs across ITC, Britannia, Nestle,
-  // HUL, Tata, Marico, Mondelez, P&G, beverage majors, and dairy. Mix of
-  // ONDC-compliant + non-compliant so the My SKU list paints all three
-  // statuses against the 25-per-page pagination.
-  // -------------------------------------------------------------------
-
-  // ITC — Aashirvaad
-  {
-    id: "190000002", name: "Aashirvaad Multigrain Atta 5 kg",
-    category: "Atta, Flours and Sooji", brand: "Aashirvaad", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-25", sku: "190000002",
-    mrp: 320, sellingPrice: 298, availableStock: 184, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "190000003", name: "Aashirvaad Salt 1 kg",
-    category: "Salt, Sugar and Jaggery", brand: "Aashirvaad", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-24", sku: "190000003",
-    mrp: 28, sellingPrice: 26, availableStock: 412, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "190000004", name: "Aashirvaad Turmeric Powder 200 g",
-    category: "Masala & Seasoning", brand: "Aashirvaad", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-22", sku: "190000004",
-    mrp: 105, sellingPrice: 96, availableStock: 0, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "190000005", name: "Aashirvaad Chilli Powder 200 g",
-    category: "Masala & Seasoning", brand: "Aashirvaad", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-20", sku: "190000005",
-    mrp: 135, sellingPrice: 124, availableStock: 78, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // ITC — Sunfeast
-  {
-    id: "200000001", name: "Sunfeast Marie Light 200 g",
-    category: "Chocolates and Biscuits", brand: "Sunfeast", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-18", sku: "200000001",
-    mrp: 30, sellingPrice: 27, availableStock: 540, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "200000002", name: "Sunfeast Dark Fantasy Choco Fills 75 g",
-    category: "Chocolates and Biscuits", brand: "Sunfeast", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-17", sku: "200000002",
-    mrp: 50, sellingPrice: 45, availableStock: 320, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "200000003", name: "Sunfeast Mom's Magic Cashew & Almond 200 g",
-    category: "Chocolates and Biscuits", brand: "Sunfeast", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-12", sku: "200000003",
-    mrp: 55, sellingPrice: 50, availableStock: 210, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // ITC — Bingo
-  {
-    id: "210000001", name: "Bingo Mad Angles Achaari Masti 80 g",
-    category: "Snacks and Namkeen", brand: "Bingo", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-15", sku: "210000001",
-    mrp: 30, sellingPrice: 27, availableStock: 480, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "210000002", name: "Bingo Tedhe Medhe Tomato Twist 80 g",
-    category: "Snacks and Namkeen", brand: "Bingo", source: "DMS",
-    status: "Inactive", lastUpdated: "2026-04-10", sku: "210000002",
-    mrp: 30, sellingPrice: 27, availableStock: 12, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-
-  // ITC — Yippee
-  {
-    id: "220000001", name: "Yippee Magic Masala Noodles 4-pack 280 g",
-    category: "Pasta, Soup and Noodles", brand: "Yippee", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-19", sku: "220000001",
-    mrp: 60, sellingPrice: 54, availableStock: 360, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "220000002", name: "Yippee Mood Masala Noodles 8-pack 560 g",
-    category: "Pasta, Soup and Noodles", brand: "Yippee", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-14", sku: "220000002",
-    mrp: 120, sellingPrice: 108, availableStock: 144, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // Britannia
-  {
-    id: "230000001", name: "Britannia Marie Gold 250 g",
-    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-23", sku: "230000001",
-    mrp: 45, sellingPrice: 41, availableStock: 600, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "230000002", name: "Britannia Good Day Cashew 200 g",
-    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-21", sku: "230000002",
-    mrp: 50, sellingPrice: 46, availableStock: 320, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "230000003", name: "Britannia 50-50 Maska Chaska 100 g",
-    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-16", sku: "230000003",
-    mrp: 20, sellingPrice: 18, availableStock: 480, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "230000004", name: "Britannia NutriChoice Digestive 200 g",
-    category: "Chocolates and Biscuits", brand: "Britannia", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-11", sku: "230000004",
-    mrp: 60, sellingPrice: 55, availableStock: 240, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-
-  // Nestle
-  {
-    id: "240000001", name: "Nestle Maggi 2-Minute Noodles 280 g (4-pack)",
-    category: "Pasta, Soup and Noodles", brand: "Nestle", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-26", sku: "240000001",
-    mrp: 64, sellingPrice: 58, availableStock: 800, isInfiniteStock: false, thresholdLevel: 120, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "240000002", name: "Nestle Maggi Hot & Sweet Tomato Sauce 1 kg",
-    category: "Sauces, Spreads and Dips", brand: "Nestle", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-13", sku: "240000002",
-    mrp: 175, sellingPrice: 160, availableStock: 95, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "240000003", name: "Nestle Kit Kat 4-Finger 38 g",
-    category: "Chocolates and Biscuits", brand: "Nestle", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-09", sku: "240000003",
-    mrp: 40, sellingPrice: 36, availableStock: 540, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "240000004", name: "Nestle Munch Chocolate 10 g (Pack of 30)",
-    category: "Chocolates and Biscuits", brand: "Nestle", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-05", sku: "240000004",
-    mrp: 150, sellingPrice: 138, availableStock: 60, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // HUL
-  {
-    id: "250000001", name: "Surf Excel Easy Wash 1 kg",
-    category: "Detergents and Dishwash", brand: "Surf Excel", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-27", sku: "250000001",
-    mrp: 140, sellingPrice: 128, availableStock: 220, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "250000002", name: "Wheel Active 2-in-1 Lemon & Jasmine 4 kg",
-    category: "Detergents and Dishwash", brand: "Wheel", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-24", sku: "250000002",
-    mrp: 240, sellingPrice: 220, availableStock: 88, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "250000003", name: "Lifebuoy Total 10 Soap 100 g (Pack of 4)",
-    category: "Beauty & Hygiene", brand: "Lifebuoy", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-19", sku: "250000003",
-    mrp: 100, sellingPrice: 92, availableStock: 360, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "250000004", name: "Dove Cream Beauty Bar 100 g",
-    category: "Beauty & Hygiene", brand: "Dove", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-16", sku: "250000004",
-    mrp: 80, sellingPrice: 73, availableStock: 450, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "250000005", name: "Lux Soft Touch Soap 150 g (Pack of 3)",
-    category: "Beauty & Hygiene", brand: "Lux", source: "DMS",
-    status: "Inactive", lastUpdated: "2026-04-02", sku: "250000005",
-    mrp: 90, sellingPrice: 82, availableStock: 26, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-
-  // Tata Consumer Products
-  {
-    id: "260000001", name: "Tata Salt 1 kg",
-    category: "Salt, Sugar and Jaggery", brand: "Tata", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-28", sku: "260000001",
-    mrp: 28, sellingPrice: 26, availableStock: 800, isInfiniteStock: false, thresholdLevel: 100, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "260000002", name: "Tata Sampann Toor Dal Unpolished 1 kg",
-    category: "Dals and Pulses", brand: "Tata Sampann", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-22", sku: "260000002",
-    mrp: 180, sellingPrice: 165, availableStock: 250, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "260000003", name: "Tata Tea Premium 500 g",
-    category: "Tea and Coffee", brand: "Tata Tea", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-18", sku: "260000003",
-    mrp: 280, sellingPrice: 255, availableStock: 140, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "260000004", name: "Tata Tea Gold 250 g",
-    category: "Tea and Coffee", brand: "Tata Tea", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-14", sku: "260000004",
-    mrp: 175, sellingPrice: 160, availableStock: 0, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-
-  // Marico
-  {
-    id: "270000001", name: "Saffola Gold Refined Oil 1 L",
-    category: "Oil & Ghee", brand: "Saffola", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-26", sku: "270000001",
-    mrp: 210, sellingPrice: 192, availableStock: 360, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "270000002", name: "Saffola Tasty Refined Oil 1 L",
-    category: "Oil & Ghee", brand: "Saffola", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-23", sku: "270000002",
-    mrp: 195, sellingPrice: 178, availableStock: 280, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "270000003", name: "Parachute Coconut Oil 200 ml",
-    category: "Beauty & Hygiene", brand: "Parachute", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-20", sku: "270000003",
-    mrp: 110, sellingPrice: 100, availableStock: 540, isInfiniteStock: false, thresholdLevel: 80, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "270000004", name: "Hair & Care Almond Hair Oil 100 ml",
-    category: "Beauty & Hygiene", brand: "Hair & Care", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-12", sku: "270000004",
-    mrp: 75, sellingPrice: 68, availableStock: 320, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // Mondelez
-  {
-    id: "280000001", name: "Cadbury Dairy Milk Silk 60 g",
-    category: "Chocolates and Biscuits", brand: "Cadbury", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-27", sku: "280000001",
-    mrp: 85, sellingPrice: 78, availableStock: 720, isInfiniteStock: false, thresholdLevel: 120, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "280000002", name: "Cadbury 5 Star Chocolate 25 g (Pack of 12)",
-    category: "Chocolates and Biscuits", brand: "Cadbury", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-21", sku: "280000002",
-    mrp: 120, sellingPrice: 110, availableStock: 240, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "280000003", name: "Cadbury Bournvita Health Drink 500 g",
-    category: "Beverages", brand: "Bournvita", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-15", sku: "280000003",
-    mrp: 245, sellingPrice: 225, availableStock: 168, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // P&G
-  {
-    id: "290000001", name: "Tide Plus Extra Power 1 kg",
-    category: "Detergents and Dishwash", brand: "Tide", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-25", sku: "290000001",
-    mrp: 145, sellingPrice: 132, availableStock: 280, isInfiniteStock: false, thresholdLevel: 50, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "290000002", name: "Ariel Matic Front Load Detergent 1 kg",
-    category: "Detergents and Dishwash", brand: "Ariel", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-22", sku: "290000002",
-    mrp: 235, sellingPrice: 215, availableStock: 160, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "290000003", name: "Pantene Pro-V Total Damage Care Shampoo 180 ml",
-    category: "Beauty & Hygiene", brand: "Pantene", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-17", sku: "290000003",
-    mrp: 165, sellingPrice: 150, availableStock: 220, isInfiniteStock: false, thresholdLevel: 40, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "290000004", name: "Whisper Ultra Choice 7-pack XL",
-    category: "Beauty & Hygiene", brand: "Whisper", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-13", sku: "290000004",
-    mrp: 145, sellingPrice: 132, availableStock: 390, isInfiniteStock: false, thresholdLevel: 60, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // Beverage majors
-  {
-    id: "300000001", name: "Coca-Cola PET 600 ml (Case of 24)",
-    category: "Beverages", brand: "Coca-Cola", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-28", sku: "300000001",
-    mrp: 960, sellingPrice: 880, availableStock: 64, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "300000002", name: "Pepsi PET 600 ml (Case of 24)",
-    category: "Beverages", brand: "Pepsi", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-26", sku: "300000002",
-    mrp: 960, sellingPrice: 880, availableStock: 56, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "300000003", name: "Sprite PET 600 ml (Case of 24)",
-    category: "Beverages", brand: "Sprite", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-24", sku: "300000003",
-    mrp: 960, sellingPrice: 880, availableStock: 48, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "300000004", name: "Thumbs Up PET 600 ml (Case of 24)",
-    category: "Beverages", brand: "Thumbs Up", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-19", sku: "300000004",
-    mrp: 960, sellingPrice: 880, availableStock: 40, isInfiniteStock: false, thresholdLevel: 15, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-
-  // Dairy & breakfast
-  {
-    id: "310000001", name: "Amul Toned Milk 1 L (Case of 12)",
-    category: "Dairy and Cheese", brand: "Amul", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-27", sku: "310000001",
-    mrp: 720, sellingPrice: 660, availableStock: 35, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "310000002", name: "Mother Dairy Paneer 200 g",
-    category: "Dairy and Cheese", brand: "Mother Dairy", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-25", sku: "310000002",
-    mrp: 95, sellingPrice: 86, availableStock: 168, isInfiniteStock: false, thresholdLevel: 30, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-  {
-    id: "310000003", name: "Amul Butter 500 g",
-    category: "Dairy and Cheese", brand: "Amul", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-22", sku: "310000003",
-    mrp: 285, sellingPrice: 262, availableStock: 144, isInfiniteStock: false, thresholdLevel: 25, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "310000004", name: "Kellogg's Corn Flakes Original 475 g",
-    category: "Cereals and Breakfast", brand: "Kellogg's", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-18", sku: "310000004",
-    mrp: 235, sellingPrice: 215, availableStock: 120, isInfiniteStock: false, thresholdLevel: 25, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "310000005", name: "Bagrry's White Oats 1 kg",
-    category: "Cereals and Breakfast", brand: "Bagrry's", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-14", sku: "310000005",
-    mrp: 280, sellingPrice: 255, availableStock: 88, isInfiniteStock: false, thresholdLevel: 20, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-
-  // Pet care
-  {
-    id: "320000001", name: "Pedigree Chicken & Vegetables 1.2 kg",
-    category: "Pet Care", brand: "Pedigree", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-15", sku: "320000001",
-    mrp: 460, sellingPrice: 420, availableStock: 56, isInfiniteStock: false, thresholdLevel: 12, reservedStock: 0,
-    ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-  },
-  {
-    id: "320000002", name: "Whiskas Cat Food Tuna 480 g",
-    category: "Pet Care", brand: "Whiskas", source: "DMS",
-    status: "Active", lastUpdated: "2026-04-08", sku: "320000002",
-    mrp: 320, sellingPrice: 295, availableStock: 32, isInfiniteStock: false, thresholdLevel: 10, reservedStock: 0,
-    ondcCompliance: { isCompliant: false, missingFields: ["Short Description", "Long Description", "Measure Unit", "SKU Weight", "Min Order Qty", "Max Order Qty", "Category ID", "Fulfillment ID", "Location ID", "Time to Ship", "Consumer Care Contact", "Country of Origin", "Brand Attribute"], ondcData: {} },
-  },
-];
+import { sampleSKUs, type SKUData } from "../../lib/my-sku-data";
+export type { SKUData } from "../../lib/my-sku-data";
+export { sampleSKUs } from "../../lib/my-sku-data";
 
 
 // Bulk-import columns — Phase-change:
@@ -698,6 +107,24 @@ export function MySKU() {
   // dialog handles upload, validation, results, and import flow.
   const [isAddSkuBulkOpen, setIsAddSkuBulkOpen] = useState(false);
   const [isPriceStockBulkOpen, setIsPriceStockBulkOpen] = useState(false);
+
+  // Product Store panel — opened via "Add from Product Store" button
+  const [isProductStoreOpen, setIsProductStoreOpen] = useState(false);
+  const [psImportSku, setPsImportSku] = useState<PSSku | null>(null);
+  const [psBulkImport, setPsBulkImport] = useState<{ label: string; skus: PSSku[] } | null>(null);
+  const [showPSRequestDialog, setShowPSRequestDialog] = useState(false);
+  const [psReqForm, setPsReqForm] = useState<SkuFormState>(emptySkuForm);
+  const [psReqImages, setPsReqImages] = useState<string[]>([]);
+  const [showCompanyRequestDialog, setShowCompanyRequestDialog] = useState(false);
+  const [companyReqName, setCompanyReqName] = useState("");
+  const [companyReqMessage, setCompanyReqMessage] = useState("");
+  const [showBrandRequestDialog, setShowBrandRequestDialog] = useState(false);
+  const [brandReqName, setBrandReqName] = useState("");
+  const [brandReqMessage, setBrandReqMessage] = useState("");
+  const [brandReqCompanyName, setBrandReqCompanyName] = useState("");
+  const [addedPsSkuIds, setAddedPsSkuIds] = useState<Set<string>>(
+    () => new Set(psSkus.map((s) => s.id).filter((id) => isImportedFromPS(id)))
+  );
 
 
   // Filters
@@ -776,17 +203,14 @@ export function MySKU() {
     toast.info("Import functionality coming soon");
   };
 
+  // Render Product Store as full page content so the sidebar stays visible
   // ---- Add SKU bulk import ----
   // Both flows (Add SKU + Price/Stock) drive the shared
   // <BulkImportDialog>. The validate / onImport closures below adapt
   // the existing parsing logic to the standardized
   // BulkImportValidationResult shape so the dialog renders the same
   // summary card + Row/Field/Error table for every module.
-  const handleDownloadAddSkuSample = async (format?: string) => {
-    if (format === "ps") {
-      await downloadPsLookupTemplate();
-      return;
-    }
+  const handleDownloadAddSkuSample = async () => {
     try {
       await downloadSkuTemplate();
       toast.success("SKU import template downloaded");
@@ -829,132 +253,6 @@ export function MySKU() {
       reader.onerror = () => reject(new Error("Could not read file."));
       reader.readAsText(file);
     });
-
-  // ---- PS Lookup import (simple 2-column flow) ----
-  // Simpler template: just SKU Code + SKU Name. The system looks each
-  // code up in the Product Store, merges Category 1 fields for matched
-  // ones, and surfaces unmatched ones so the seller can raise requests.
-
-  // Download the full SKU import template pre-filled with Product Store
-  // examples. Sellers fill in any remaining fields, and rows whose SKU
-  // Code isn't found in PS trigger a catalog request on upload.
-  const downloadPsLookupTemplate = async () => {
-    try {
-      const prefillRows = psSkus.slice(0, 8).map((s) => {
-        const brand = getBrandById(s.brandId);
-        const category = getCategoryById(s.categoryId);
-        const packUnit =
-          s.packagingUnit === "kg" ? "Kilogram"
-          : s.packagingUnit === "g" ? "Gram"
-          : s.packagingUnit === "L" ? "Liter"
-          : s.packagingUnit === "ml" ? "Milliliter"
-          : s.packagingUnit;
-        const weightKg = s.productWeight;
-        const weightMeasure = weightKg >= 1 ? "Kilogram" : "Gram";
-        const skuWeight = weightKg >= 1 ? String(weightKg) : String(weightKg * 1000);
-        return {
-          skuCode: s.skuCode,
-          skuName: s.name,
-          shortName: s.shortName ?? "",
-          groupName: s.groupName ?? "",
-          shortDesc: s.shortDescription,
-          longDesc: s.longDescription,
-          measureUnit: packUnit,
-          measureValue: s.packagingSize,
-          weightMeasure,
-          skuWeight,
-          unitizedCount: "1",
-          upc: s.upc ?? "",
-          packageType: s.packageType ?? "",
-          packageTypeValue: s.packageTypeValue ?? "",
-          categoryId: category?.name ?? s.categoryId,
-          hsnCode: s.hsnCode,
-          countryOfOrigin: s.countryOfOrigin,
-          manufacturerName: s.manufacturerName,
-          gstTax: s.gstTax ?? "",
-          gstCess: s.gstCess ?? "0%",
-          brandAttribute: brand?.name ?? "",
-          itemStatus: "Active",
-        };
-      });
-      // 2 placeholder rows whose SKU codes don't exist in PS — these
-      // show the "raise request" panel when the file is uploaded.
-      const nonPsRows = [
-        {
-          skuCode: "NEW-SKU-001",
-          skuName: "Example New Product 500g",
-          shortName: "NEW-001",
-          groupName: "Example Group",
-          shortDesc: "A new product not yet in the Product Store catalog",
-          longDesc: "Fill in the full description here. This SKU will raise a catalog request when uploaded.",
-          measureUnit: "Gram",
-          unitValue: "500",
-          weightMeasure: "Gram",
-          measureValue: "500",
-          unitizedCount: "1",
-          packageType: "Pouch",
-          packageTypeValue: "",
-          upc: "",
-          minimumOrderQty: "1",
-          maximumOrderQty: "100",
-          categoryId: "Atta, Flours & Sooji",
-          returnable: "No",
-          cancellable: "No",
-          availableOnCod: "Yes",
-          timeToShip: "24 hours",
-          consumerCareContactName: "Customer Support",
-          consumerCareContactEmail: "support@example.com",
-          consumerCareContactPhone: "9876543210",
-          manufacturerName: "Your Manufacturer Name",
-          brandAttribute: "Your Brand Name",
-          countryOfOrigin: "India",
-          itemStatus: "Active",
-          hsnCode: "11010000",
-          gstTax: "5%",
-          gstCess: "0%",
-        },
-        {
-          skuCode: "NEW-SKU-002",
-          skuName: "Example New Beverage 1L",
-          shortName: "NEW-002",
-          groupName: "Example Group",
-          shortDesc: "A second new product not yet in the Product Store catalog",
-          longDesc: "Fill in the full description here. This SKU will also raise a catalog request when uploaded.",
-          measureUnit: "Liter",
-          unitValue: "1",
-          weightMeasure: "Kilogram",
-          measureValue: "1",
-          unitizedCount: "1",
-          packageType: "Bottle",
-          packageTypeValue: "",
-          upc: "",
-          minimumOrderQty: "1",
-          maximumOrderQty: "100",
-          categoryId: "Beverages",
-          returnable: "No",
-          cancellable: "No",
-          availableOnCod: "Yes",
-          timeToShip: "24 hours",
-          consumerCareContactName: "Customer Support",
-          consumerCareContactEmail: "support@example.com",
-          consumerCareContactPhone: "9876543210",
-          manufacturerName: "Your Manufacturer Name",
-          brandAttribute: "Your Brand Name",
-          countryOfOrigin: "India",
-          itemStatus: "Active",
-          hsnCode: "22021010",
-          gstTax: "12%",
-          gstCess: "0%",
-        },
-      ];
-
-      await downloadSkuTemplate([...prefillRows, ...nonPsRows]);
-      toast.success("Product Store template downloaded — 8 PS examples + 2 sample new-SKU rows.");
-    } catch (err) {
-      console.error("Failed to generate PS lookup template", err);
-      toast.error("Couldn't generate the template — please try again.");
-    }
-  };
 
   // Validate uploaded Add-SKU file → returns the standardized result
   // shape consumed by <BulkImportDialog>. Phase 2: file is a 3-tab
@@ -1317,29 +615,12 @@ export function MySKU() {
       }
     });
 
-    // Product Store cross-check — run on valid rows only.
-    // Tag each valid row with the PS SKU id when a code match is found
-    // so importAddSkuRows can merge Category 1 fields from the catalog.
-    const psFound: PSCheckItem[] = [];
-    const psNotFound: PSCheckItem[] = [];
-    const taggedData: ParsedSkuRow[] = validData.map((row) => {
-      const code = (row.skuCode ?? "").trim();
-      const psSku = code ? psSkus.find((s) => s.skuCode === code) : undefined;
-      if (psSku) {
-        psFound.push({ skuCode: code, skuName: row.skuName ?? "" });
-        return { ...row, _psSkuId: psSku.id };
-      }
-      psNotFound.push({ skuCode: code, skuName: row.skuName ?? "", rowData: row });
-      return row;
-    });
-
     return {
       totalRows: parsed.rows.length,
       validRows: validCount,
       invalidRows: parsed.rows.length - validCount,
       errors,
-      validData: taggedData,
-      psCheckResult: { psFound, psNotFound },
+      validData,
     };
   };
 
@@ -1764,6 +1045,182 @@ export function MySKU() {
     );
   };
 
+  // ---- Product Store panel handlers ----
+  const onPsReqChange = (key: keyof SkuFormState, value: string) =>
+    setPsReqForm((prev) => ({ ...prev, [key]: value }));
+
+  const handlePsImportToMySku = (sku: PSSku) => {
+    addFromProductStore(sku);
+    setAddedPsSkuIds((prev) => new Set([...prev, sku.id]));
+    // Also refresh the main SKU list so the imported SKU appears immediately
+    setSkus((prev) => {
+      const alreadyExists = prev.some((s) => s.sku === sku.skuCode);
+      if (alreadyExists) return prev;
+      const brand = getBrandById(sku.brandId);
+      const category = getCategoryById(sku.categoryId);
+      const today = new Date().toISOString().split("T")[0];
+      return [
+        {
+          id: sku.id,
+          name: sku.name,
+          category: category?.name ?? sku.categoryId,
+          brand: brand?.name ?? sku.brandId,
+          source: "Product Store",
+          status: "Inactive",
+          lastUpdated: today,
+          sku: sku.skuCode,
+          shortName: sku.shortName,
+          productStoreId: sku.id,
+          ondcCompliance: { isCompliant: false, missingFields: ["MRP", "Selling Price"], ondcData: {} },
+        },
+        ...prev,
+      ];
+    });
+    toast.success(
+      `"${sku.name}" added to My SKU as Inactive. Set MRP and selling price to activate it.`,
+      { duration: 4000 }
+    );
+    setPsImportSku(null);
+  };
+
+  const handlePsBulkImport = () => {
+    if (!psBulkImport) return;
+    const newSkus = psBulkImport.skus.filter((s) => !addedPsSkuIds.has(s.id));
+    newSkus.forEach((s) => addFromProductStore(s));
+    setAddedPsSkuIds((prev) => new Set([...prev, ...newSkus.map((s) => s.id)]));
+    const today = new Date().toISOString().split("T")[0];
+    setSkus((prev) => {
+      const existingCodes = new Set(prev.map((s) => s.sku));
+      const toAdd = newSkus
+        .filter((s) => !existingCodes.has(s.skuCode))
+        .map((s) => {
+          const brand = getBrandById(s.brandId);
+          const category = getCategoryById(s.categoryId);
+          return {
+            id: s.id,
+            name: s.name,
+            category: category?.name ?? s.categoryId,
+            brand: brand?.name ?? s.brandId,
+            source: "Product Store",
+            status: "Inactive" as const,
+            lastUpdated: today,
+            sku: s.skuCode,
+            shortName: s.shortName,
+            productStoreId: s.id,
+            ondcCompliance: { isCompliant: false, missingFields: ["MRP", "Selling Price"], ondcData: {} },
+          };
+        });
+      return [...toAdd, ...prev];
+    });
+    toast.success(
+      `${newSkus.length} SKU${newSkus.length !== 1 ? "s" : ""} from ${psBulkImport.label} added to My SKU as Inactive.`,
+      { duration: 4000 }
+    );
+    setPsBulkImport(null);
+  };
+
+  const openPsBulkImportForCompany = (company: PSCompany, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const compSkus = psSkus.filter((s) => s.companyId === company.id && s.status === "active");
+    setPsBulkImport({ label: company.name, skus: compSkus });
+  };
+
+  const openPsBulkImportForBrand = (brand: PSBrand, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const brandSkus = psSkus.filter((s) => s.brandId === brand.id && s.status === "active");
+    setPsBulkImport({ label: brand.name, skus: brandSkus });
+  };
+
+  const openPSRequestDialog = (_company?: PSCompany | null, brand?: PSBrand | null) => {
+    setPsReqForm({
+      ...emptySkuForm,
+      brandId: brand?.id ?? "",
+      brandAttribute: brand?.name ?? "",
+    });
+    setPsReqImages([]);
+    setShowPSRequestDialog(true);
+  };
+
+  const openCompanyRequestDialog = () => {
+    setCompanyReqName("");
+    setCompanyReqMessage("");
+    setShowCompanyRequestDialog(true);
+  };
+
+  const handleSubmitCompanyRequest = () => {
+    toast.success(`Company request for "${companyReqName}" submitted.`);
+    setShowCompanyRequestDialog(false);
+  };
+
+  const openBrandRequestDialog = (company?: PSCompany | null) => {
+    setBrandReqName("");
+    setBrandReqMessage("");
+    setBrandReqCompanyName(company?.name ?? "");
+    setShowBrandRequestDialog(true);
+  };
+
+  const handleSubmitBrandRequest = () => {
+    toast.success(`Brand request for "${brandReqName}" submitted.`);
+    setShowBrandRequestDialog(false);
+  };
+
+  const isPSReqValid =
+    psReqForm.itemName.trim() !== "" &&
+    psReqForm.shortName.trim() !== "" &&
+    psReqForm.groupName.trim() !== "" &&
+    (psReqForm.brandId !== "" || psReqForm.brandOther.trim() !== "") &&
+    psReqForm.brandAttribute.trim() !== "" &&
+    psReqForm.shortDesc.trim() !== "" &&
+    psReqForm.longDesc.trim() !== "" &&
+    psReqForm.measureUnit !== "" &&
+    psReqForm.measureValue.trim() !== "" &&
+    psReqForm.weightMeasure !== "" &&
+    psReqForm.skuWeight.trim() !== "" &&
+    psReqForm.unitizedCount.trim() !== "" &&
+    psReqForm.packageType.trim() !== "" &&
+    psReqForm.packageTypeValue.trim() !== "" &&
+    psReqForm.categoryId !== "" &&
+    psReqForm.hsnCode.trim() !== "" &&
+    psReqForm.countryOfOrigin.trim() !== "" &&
+    psReqForm.gstTax !== "" &&
+    psReqForm.manufacturerName.trim() !== "";
+
+  const handleSubmitPSRequest = () => {
+    if (!isPSReqValid) return;
+    const req = addSkuRequest({
+      itemName: psReqForm.itemName,
+      shortName: psReqForm.shortName,
+      groupName: psReqForm.groupName,
+      brandId: psReqForm.brandId,
+      brandOther: psReqForm.brandOther,
+      brandAttribute: psReqForm.brandAttribute,
+      shortDesc: psReqForm.shortDesc,
+      longDesc: psReqForm.longDesc,
+      measureUnit: psReqForm.measureUnit,
+      measureValue: psReqForm.measureValue,
+      weightMeasure: psReqForm.weightMeasure,
+      skuWeight: psReqForm.skuWeight,
+      unitizedCount: psReqForm.unitizedCount,
+      upc: psReqForm.upc,
+      packageType: psReqForm.packageType,
+      packageTypeValue: psReqForm.packageTypeValue,
+      productLength: psReqForm.productLength,
+      productWidth: psReqForm.productWidth,
+      productHeight: psReqForm.productHeight,
+      categoryId: psReqForm.categoryId,
+      hsnCode: psReqForm.hsnCode,
+      countryOfOrigin: psReqForm.countryOfOrigin,
+      gstTax: psReqForm.gstTax,
+      gstCess: psReqForm.gstCess,
+      manufacturerName: psReqForm.manufacturerName,
+      notes: psReqForm.notes,
+    });
+    toast.success(`Request ${req.id} submitted. Track it in My Requests.`, { duration: 4000 });
+    setShowPSRequestDialog(false);
+    setPsReqForm(emptySkuForm);
+    setPsReqImages([]);
+  };
+
   const getSourceBadge = (source: string) => {
     const badgeMap: Record<string, { color: string; icon?: React.ReactNode }> = {
       "Brand Sync": {
@@ -1797,10 +1254,56 @@ export function MySKU() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
+      {/* Product Store inline view — replaces card when open, sidebar stays visible */}
+      {isProductStoreOpen && (
+        <div className="flex flex-col flex-1 min-h-0 bg-white">
+          <div className="flex items-center justify-between px-6 py-4 border-b bg-white flex-shrink-0">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsProductStoreOpen(false)}
+                className="gap-1.5 text-gray-600 -ml-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back
+              </Button>
+              <div className="w-px h-5 bg-gray-200" />
+              <Database className="h-5 w-5 text-purple-600" />
+              <div>
+                <p className="text-base font-semibold text-gray-900 leading-none">Product Store</p>
+                <p className="text-xs text-gray-500 mt-0.5">Browse the Qwipo Master Catalog and import SKUs into My SKU.</p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/products/my-requests")}
+              className="gap-2 text-purple-700 border-purple-200 hover:bg-purple-50"
+            >
+              <Send className="h-4 w-4" />
+              My Requests
+            </Button>
+          </div>
+          <div className="flex-1 overflow-y-auto px-6 py-4">
+            <ProductStoreBrowse
+              mode="seller"
+              addedSkuIds={addedPsSkuIds}
+              onAddSku={setPsImportSku}
+              onBulkImportCompany={openPsBulkImportForCompany}
+              onBulkImportBrand={openPsBulkImportForBrand}
+              onRequestCompany={openCompanyRequestDialog}
+              onRequestBrand={openBrandRequestDialog}
+              onRequestSku={openPSRequestDialog}
+            />
+          </div>
+        </div>
+      )}
+
       {/* Page area — Card fills the available height; only the table
           rows scroll, the search/filter header and pagination stay
           pinned to the top and bottom of the Card. */}
-      <div className="flex-1 overflow-hidden p-6">
+      {!isProductStoreOpen && <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
           {/* Header with Search and Actions — search + Bulk Import stay
               visible on the empty state so the seller can immediately
@@ -1832,6 +1335,14 @@ export function MySKU() {
                   Filter
                 </Button>
                 )}
+                <Button
+                  size="sm"
+                  onClick={() => setIsProductStoreOpen(true)}
+                  className="gap-2 flex-1 sm:flex-initial bg-purple-900 hover:bg-purple-800 text-white"
+                >
+                  <Database className="h-4 w-4" />
+                  Add from Product Store
+                </Button>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
@@ -2106,7 +1617,7 @@ export function MySKU() {
           />
           )}
         </Card>
-      </div>
+      </div>}
 
       {/* Filter Drawer */}
       <AnimatePresence>
@@ -2244,6 +1755,275 @@ export function MySKU() {
         )}
       </AnimatePresence>
 
+
+      {/* ── PS Bulk Import Dialog ── */}
+      <Dialog open={!!psBulkImport} onOpenChange={() => setPsBulkImport(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-purple-600" />
+              Import All SKUs — {psBulkImport?.label}
+            </DialogTitle>
+            <DialogDescription>
+              All SKUs from {psBulkImport?.label} will be added to your My SKU list as Inactive.
+            </DialogDescription>
+          </DialogHeader>
+          {psBulkImport &&
+            (() => {
+              const newSkus = psBulkImport.skus.filter((s) => !addedPsSkuIds.has(s.id));
+              const alreadyAdded = psBulkImport.skus.length - newSkus.length;
+              return (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-2 text-center">
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-100">
+                      <p className="text-xl font-bold text-green-700">{newSkus.length}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Will be added</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
+                      <p className="text-xl font-bold text-gray-500">{alreadyAdded}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Already in My SKU</p>
+                    </div>
+                  </div>
+                  {newSkus.length > 0 && (
+                    <div className="max-h-40 overflow-y-auto rounded-lg border divide-y text-sm">
+                      {newSkus.map((s) => (
+                        <div key={s.id} className="flex items-center gap-2 px-3 py-2">
+                          <span className="text-base">{s.image}</span>
+                          <div className="min-w-0">
+                            <p className="font-medium text-gray-900 text-xs truncate">{s.name}</p>
+                            <code className="text-[10px] text-gray-400 font-mono">{s.skuCode}</code>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2 p-2.5 bg-purple-50 rounded-lg border border-purple-100 text-xs text-purple-800">
+                    <Info className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-purple-500" />
+                    <span>
+                      All imported SKUs will be <strong>Inactive</strong>. Set MRP and selling price in My SKU to activate each one.
+                    </span>
+                  </div>
+                </div>
+              );
+            })()}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPsBulkImport(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handlePsBulkImport}
+              disabled={psBulkImport?.skus.filter((s) => !addedPsSkuIds.has(s.id)).length === 0}
+              className="gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Import {psBulkImport?.skus.filter((s) => !addedPsSkuIds.has(s.id)).length ?? 0} SKUs
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PS Import Confirm Dialog (single SKU) ── */}
+      <Dialog open={!!psImportSku} onOpenChange={() => setPsImportSku(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="h-5 w-5 text-purple-600" />
+              Add to My SKU
+            </DialogTitle>
+            <DialogDescription>
+              This will import the SKU's catalog details into your My SKU list.
+            </DialogDescription>
+          </DialogHeader>
+          {psImportSku && (
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
+                <span className="text-3xl">{psImportSku.image}</span>
+                <div>
+                  <p className="font-semibold text-gray-900 text-sm">{psImportSku.name}</p>
+                  <code className="text-[11px] text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded font-mono">
+                    {psImportSku.skuCode}
+                  </code>
+                </div>
+              </div>
+              <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 text-sm text-purple-900 space-y-1">
+                <p className="font-medium flex items-center gap-1">
+                  <Info className="h-4 w-4" />
+                  What gets imported (Read-only fields)
+                </p>
+                <ul className="text-xs space-y-0.5 ml-5 list-disc text-purple-800">
+                  <li>SKU name, short name, SKU code, group name</li>
+                  <li>Brand, company, category</li>
+                  <li>Short &amp; long description</li>
+                  <li>Measure unit, packaging size, UPC, package type</li>
+                  <li>SKU weight &amp; dimensions</li>
+                  <li>Manufacturer name, country of origin</li>
+                  <li>HSN code, GST tax %, GST cess %</li>
+                </ul>
+              </div>
+              <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
+                <strong>You fill in after import:</strong> MRP, selling price, fulfillment ID, location, order limits, and consumer care details.
+              </div>
+            </div>
+          )}
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setPsImportSku(null)} className="sm:mr-auto">
+              Cancel
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => { if (psImportSku) handlePsImportToMySku(psImportSku); setIsProductStoreOpen(false); }}
+              className="gap-2 text-purple-700 border-purple-300 hover:bg-purple-50"
+            >
+              Add &amp; Close →
+            </Button>
+            <Button onClick={() => psImportSku && handlePsImportToMySku(psImportSku)} className="gap-2">
+              <Plus className="h-4 w-4" />
+              Add to My SKU
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PS Request a Company Dialog ── */}
+      <Dialog open={showCompanyRequestDialog} onOpenChange={setShowCompanyRequestDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              Request a New Company
+            </DialogTitle>
+            <DialogDescription>
+              Tell us which company you'd like added to the Product Store.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="company-req-name">Company Name *</Label>
+              <Input
+                id="company-req-name"
+                placeholder="e.g. Godrej Consumer Products"
+                value={companyReqName}
+                onChange={(e) => setCompanyReqName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="company-req-msg">Message (optional)</Label>
+              <textarea
+                id="company-req-msg"
+                rows={3}
+                placeholder="Any additional context — why this company is needed, which SKUs you expect, etc."
+                value={companyReqMessage}
+                onChange={(e) => setCompanyReqMessage(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowCompanyRequestDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitCompanyRequest}
+              disabled={!companyReqName.trim()}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="h-4 w-4" />
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PS Request a Brand Dialog ── */}
+      <Dialog open={showBrandRequestDialog} onOpenChange={setShowBrandRequestDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              Request a New Brand
+            </DialogTitle>
+            <DialogDescription>
+              Tell us which brand you'd like added to the Product Store.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            {brandReqCompanyName && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
+                <span className="text-xs text-purple-600 font-medium">Company</span>
+                <span className="text-sm font-semibold text-purple-900">{brandReqCompanyName}</span>
+              </div>
+            )}
+            <div className="space-y-1.5">
+              <Label htmlFor="brand-req-name">Brand Name *</Label>
+              <Input
+                id="brand-req-name"
+                placeholder="e.g. Haldiram's"
+                value={brandReqName}
+                onChange={(e) => setBrandReqName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="brand-req-msg">Message (optional)</Label>
+              <textarea
+                id="brand-req-msg"
+                rows={3}
+                placeholder="Any additional context — category, specific SKUs you need, etc."
+                value={brandReqMessage}
+                onChange={(e) => setBrandReqMessage(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowBrandRequestDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitBrandRequest}
+              disabled={!brandReqName.trim()}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="h-4 w-4" />
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── PS Request a SKU Dialog ── */}
+      <Dialog open={showPSRequestDialog} onOpenChange={setShowPSRequestDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              Request a New SKU
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-1">
+            <SkuFormFields
+              mode="seller"
+              form={psReqForm}
+              onChange={onPsReqChange}
+              productImages={psReqImages}
+              onProductImagesChange={setPsReqImages}
+            />
+          </div>
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowPSRequestDialog(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSubmitPSRequest}
+              disabled={!isPSReqValid}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="h-4 w-4" />
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Add SKU — Bulk Import. Drives the standardized
           BulkImportDialog flow: upload → validating → results →
           import. Module-specific copy / sample / validator only. */}
@@ -2265,60 +2045,11 @@ export function MySKU() {
           ),
           sample: {
             onDownload: handleDownloadAddSkuSample,
-            formats: [
-              {
-                value: "full",
-                label: "Full SKU Template",
-                description: "All fields — use when adding SKUs not yet in the Product Store.",
-              },
-              {
-                value: "ps",
-                label: "Product Store Lookup Template",
-                description: "All fields, pre-filled with 8 PS SKU examples (green rows). Upload to auto-fill matched SKUs from PS; unmatched rows raise catalog requests with your sheet data.",
-              },
-            ],
+            fileName: "sku_import_template.xlsx",
           },
           accept: ".csv,.xlsx,.xls",
           validate: validateAddSkuFile,
           onImport: importAddSkuRows,
-          onRaiseRequests: (notFound: PSCheckItem[]) => {
-            notFound.forEach((item) => {
-              const r = item.rowData ?? {};
-              addSkuRequest({
-                itemName: item.skuName || r.skuName || item.skuCode,
-                shortName: r.shortName ?? "",
-                groupName: r.groupName ?? "",
-                brandId: "",
-                brandOther: r.brandAttribute ?? "",
-                brandAttribute: r.brandAttribute ?? "",
-                shortDesc: r.shortDesc ?? "",
-                longDesc: r.longDesc ?? "",
-                measureUnit: r.measureUnit ?? "",
-                measureValue: r.measureValue ?? "",
-                weightMeasure: r.weightMeasure ?? "",
-                skuWeight: r.skuWeight ?? "",
-                unitizedCount: r.unitizedCount ?? "1",
-                upc: r.upc ?? "",
-                packageType: r.packageType ?? "",
-                packageTypeValue: r.packageTypeValue ?? "",
-                productLength: r.productLength ?? "",
-                productWidth: r.productWidth ?? "",
-                productHeight: r.productHeight ?? "",
-                categoryId: r.categoryId ?? "",
-                hsnCode: r.hsnCode ?? "",
-                countryOfOrigin: r.countryOfOrigin ?? "India",
-                gstTax: r.gstTax ?? "",
-                gstCess: r.gstCess ?? "0%",
-                manufacturerName: r.manufacturerName ?? "",
-                notes: `Raised from bulk import — SKU code: ${item.skuCode}`,
-              });
-            });
-            toast.success(
-              `${notFound.length} catalog request${notFound.length === 1 ? "" : "s"} submitted. Track them in My Requests.`,
-              { duration: 5000 }
-            );
-            setIsAddSkuBulkOpen(false);
-          },
         }}
       />
 
