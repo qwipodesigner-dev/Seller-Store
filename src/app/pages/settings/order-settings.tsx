@@ -39,32 +39,17 @@ import {
 export function OrderSettings() {
   const navigate = useNavigate();
 
-  // ---- Order Value: Beat Day + Non-Beat Day ----
-  // Sellers want different thresholds depending on whether the order
-  // rides a configured serviceability beat. Beat-day deliveries cost
-  // less per drop (the truck is already going), so a lower minimum
-  // makes sense. Non-beat-day orders need their own truck or rider,
-  // so the floor is higher. Maximums stay optional caps per order.
-  const [beatMinOrder, setBeatMinOrder] = useState("1000");
-  const [beatMaxOrder, setBeatMaxOrder] = useState("500000");
-  const [savedBeatMinOrder, setSavedBeatMinOrder] = useState("1000");
-  const [savedBeatMaxOrder, setSavedBeatMaxOrder] = useState("500000");
-  const [nonBeatMinOrder, setNonBeatMinOrder] = useState("2500");
-  const [nonBeatMaxOrder, setNonBeatMaxOrder] = useState("500000");
-  const [savedNonBeatMinOrder, setSavedNonBeatMinOrder] = useState("2500");
-  const [savedNonBeatMaxOrder, setSavedNonBeatMaxOrder] = useState("500000");
-  const isOrderValueDirty =
-    beatMinOrder !== savedBeatMinOrder ||
-    beatMaxOrder !== savedBeatMaxOrder ||
-    nonBeatMinOrder !== savedNonBeatMinOrder ||
-    nonBeatMaxOrder !== savedNonBeatMaxOrder;
+  // ---- Minimum Order Value ----
+  // Maximum Order Value was retired — sellers wanted just a floor,
+  // no per-order ceiling, so the field plus its state, dirty flag,
+  // error key, and column have all been dropped.
+  const [minOrderAmount, setMinOrderAmount] = useState("1000");
+  const [savedMinOrderAmount, setSavedMinOrderAmount] = useState("1000");
+  const isOrderValueDirty = minOrderAmount !== savedMinOrderAmount;
   // Inline errors keyed by field — surfaces under the relevant input
   // instead of a toast.
   const [orderValueErrors, setOrderValueErrors] = useState<{
-    beatMin?: string;
-    beatMax?: string;
-    nonBeatMin?: string;
-    nonBeatMax?: string;
+    min?: string;
   }>({});
 
   // ---- Order Processing ----
@@ -100,37 +85,13 @@ export function OrderSettings() {
 
   // ---- Section save handlers ----
   const handleSaveOrderValue = () => {
-    const errs: typeof orderValueErrors = {};
-    const validatePair = (
-      min: string,
-      max: string,
-      minKey: "beatMin" | "nonBeatMin",
-      maxKey: "beatMax" | "nonBeatMax",
-    ) => {
-      const minNum = parseFloat(min);
-      const maxNum = parseFloat(max);
-      if (min.trim() === "" || isNaN(minNum) || minNum < 0) {
-        errs[minKey] = "Enter a non-negative number";
-      }
-      if (max.trim() !== "") {
-        if (isNaN(maxNum)) {
-          errs[maxKey] = "Enter a valid number";
-        } else if (!isNaN(minNum) && maxNum <= minNum) {
-          errs[maxKey] = "Max should be greater than Min";
-        }
-      }
-    };
-    validatePair(beatMinOrder, beatMaxOrder, "beatMin", "beatMax");
-    validatePair(nonBeatMinOrder, nonBeatMaxOrder, "nonBeatMin", "nonBeatMax");
-    if (Object.keys(errs).length > 0) {
-      setOrderValueErrors(errs);
+    const min = parseFloat(minOrderAmount);
+    if (minOrderAmount.trim() === "" || isNaN(min) || min < 0) {
+      setOrderValueErrors({ min: "Enter a non-negative number" });
       return;
     }
     setOrderValueErrors({});
-    setSavedBeatMinOrder(beatMinOrder);
-    setSavedBeatMaxOrder(beatMaxOrder);
-    setSavedNonBeatMinOrder(nonBeatMinOrder);
-    setSavedNonBeatMaxOrder(nonBeatMaxOrder);
+    setSavedMinOrderAmount(minOrderAmount);
     toast.success("Order value saved.");
   };
 
@@ -195,12 +156,9 @@ export function OrderSettings() {
       <div className="max-w-5xl space-y-3">
         {/* Row 1: Order Value + Processing side-by-side */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-          {/* Order Value — separate Min/Max thresholds for Beat Day
-              vs Non-Beat Day deliveries. Beat-day orders ride a
-              configured serviceability beat (the truck is already
-              going to that area), so the floor can sit lower;
-              non-beat-day orders need their own dispatch, so the
-              floor is typically higher. */}
+          {/* Order Value — Minimum only. The Maximum column was retired;
+              sellers wanted a floor without an upper cap, so this card
+              now hosts a single field. */}
           <Card>
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between gap-2">
@@ -219,123 +177,27 @@ export function OrderSettings() {
                 </Button>
               </div>
             </CardHeader>
-            <CardContent className="pt-0 space-y-3">
-              {/* Beat Day pair */}
-              <div className="space-y-1.5">
-                <p className="text-xs font-semibold text-gray-700">Beat Day</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Minimum (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="1000"
-                      value={beatMinOrder}
-                      onChange={(e) => {
-                        setBeatMinOrder(e.target.value);
-                        if (orderValueErrors.beatMin)
-                          setOrderValueErrors((p) => ({ ...p, beatMin: undefined }));
-                      }}
-                      className="h-8 text-sm"
-                      aria-invalid={!!orderValueErrors.beatMin}
-                    />
-                    {orderValueErrors.beatMin ? (
-                      <p className="text-[11px] text-red-600">
-                        {orderValueErrors.beatMin}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-gray-500">
-                        Orders below this aren't accepted.
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Maximum (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="500000"
-                      value={beatMaxOrder}
-                      onChange={(e) => {
-                        setBeatMaxOrder(e.target.value);
-                        if (orderValueErrors.beatMax)
-                          setOrderValueErrors((p) => ({ ...p, beatMax: undefined }));
-                      }}
-                      className="h-8 text-sm"
-                      aria-invalid={!!orderValueErrors.beatMax}
-                    />
-                    {orderValueErrors.beatMax ? (
-                      <p className="text-[11px] text-red-600">
-                        {orderValueErrors.beatMax}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-gray-500">
-                        Optional cap per order.
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Non-Beat Day pair */}
-              <div className="space-y-1.5 pt-2 border-t border-gray-100">
-                <p className="text-xs font-semibold text-gray-700">
-                  Non-Beat Day
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-xs">Minimum (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="2500"
-                      value={nonBeatMinOrder}
-                      onChange={(e) => {
-                        setNonBeatMinOrder(e.target.value);
-                        if (orderValueErrors.nonBeatMin)
-                          setOrderValueErrors((p) => ({
-                            ...p,
-                            nonBeatMin: undefined,
-                          }));
-                      }}
-                      className="h-8 text-sm"
-                      aria-invalid={!!orderValueErrors.nonBeatMin}
-                    />
-                    {orderValueErrors.nonBeatMin ? (
-                      <p className="text-[11px] text-red-600">
-                        {orderValueErrors.nonBeatMin}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-gray-500">
-                        Orders below this aren't accepted.
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-xs">Maximum (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="500000"
-                      value={nonBeatMaxOrder}
-                      onChange={(e) => {
-                        setNonBeatMaxOrder(e.target.value);
-                        if (orderValueErrors.nonBeatMax)
-                          setOrderValueErrors((p) => ({
-                            ...p,
-                            nonBeatMax: undefined,
-                          }));
-                      }}
-                      className="h-8 text-sm"
-                      aria-invalid={!!orderValueErrors.nonBeatMax}
-                    />
-                    {orderValueErrors.nonBeatMax ? (
-                      <p className="text-[11px] text-red-600">
-                        {orderValueErrors.nonBeatMax}
-                      </p>
-                    ) : (
-                      <p className="text-[11px] text-gray-500">
-                        Optional cap per order.
-                      </p>
-                    )}
-                  </div>
-                </div>
+            <CardContent className="pt-0">
+              <div className="space-y-1">
+                <Label className="text-xs">Minimum (₹)</Label>
+                <Input
+                  type="number"
+                  placeholder="1000"
+                  value={minOrderAmount}
+                  onChange={(e) => {
+                    setMinOrderAmount(e.target.value);
+                    if (orderValueErrors.min) setOrderValueErrors({});
+                  }}
+                  className="h-8 text-sm"
+                  aria-invalid={!!orderValueErrors.min}
+                />
+                {orderValueErrors.min ? (
+                  <p className="text-[11px] text-red-600">{orderValueErrors.min}</p>
+                ) : (
+                  <p className="text-[11px] text-gray-500">
+                    Orders below this aren't accepted.
+                  </p>
+                )}
               </div>
             </CardContent>
           </Card>
