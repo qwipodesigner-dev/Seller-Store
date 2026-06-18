@@ -22,35 +22,30 @@ import {
   SelectValue,
 } from "../../components/ui/select";
 import {
+  Search,
+  Eye,
+  Filter,
+  X,
+  Database,
+  CheckCircle2,
+  Plus,
+  Upload,
+  Download,
+  Send,
+  Info,
+  FileText,
+  ArrowLeft,
+  MoreVertical,
+} from "lucide-react";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
-import {
-  Search,
-  Eye,
-  Pencil,
-  MoreVertical,
-  Filter,
-  X,
-  Database,
-  CheckCircle2,
-  AlertCircle,
-  Plus,
-  Upload,
-  Download,
-  FileSpreadsheet,
-  FileCheck,
-  FileWarning,
-  Send,
-  Info,
-  FileText,
-  ArrowLeft,
-} from "lucide-react";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
-import { Layers, PackageSearch } from "lucide-react";
+import { PackageSearch } from "lucide-react";
 import { isEmptyMode } from "../../lib/data-mode";
 import { getMySkus } from "../../lib/my-sku-store";
 import { EmptyState } from "../../components/empty-state";
@@ -69,12 +64,6 @@ import {
 } from "../../components/sku-form-fields";
 import { addFromProductStore, isImportedFromPS } from "../../lib/my-sku-store";
 import {
-  downloadSkuTemplate,
-  parseSkuImportFile,
-  SKU_FIELDS,
-  type ParsedSkuRow,
-} from "../../lib/sku-import-template";
-import {
   psSkus,
   getBrandById,
   getCategoryById,
@@ -84,16 +73,16 @@ import {
   type PSSku,
 } from "../../lib/product-store-data";
 import { addSkuRequest } from "../../lib/sku-request-store";
+import {
+  downloadSkuTemplate,
+  parseSkuImportFile,
+  SKU_FIELDS,
+  type ParsedSkuRow,
+} from "../../lib/sku-import-template";
 import { sampleSKUs, type SKUData } from "../../lib/my-sku-data";
 export type { SKUData } from "../../lib/my-sku-data";
 export { sampleSKUs } from "../../lib/my-sku-data";
 
-
-// Bulk-import columns — Phase-change:
-// The import file now carries ONLY the SKU Code and SKU Name. All other ONDC fields
-// are filled in per-SKU via the SKU Detail page and validated on save there.
-const ONDC_REQUIRED_COLUMNS = ["SKU Code", "SKU Name"];
-const ONDC_OPTIONAL_COLUMNS: string[] = [];
 
 export function MySKU() {
   const navigate = useNavigate();
@@ -103,9 +92,6 @@ export function MySKU() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  // Add SKU + Price/Stock bulk import are both driven through the
-  // shared <BulkImportDialog>. Each owns only its open flag; the
-  // dialog handles upload, validation, results, and import flow.
   const [isAddSkuBulkOpen, setIsAddSkuBulkOpen] = useState(false);
   const [isPriceStockBulkOpen, setIsPriceStockBulkOpen] = useState(false);
 
@@ -196,32 +182,7 @@ export function MySKU() {
     toast.success("All filters cleared");
   };
 
-  const handleExport = () => {
-    toast.success("Exporting SKU data...");
-  };
-
-  const handleImport = () => {
-    toast.info("Import functionality coming soon");
-  };
-
-  // Render Product Store as full page content so the sidebar stays visible
-  // ---- Add SKU bulk import ----
-  // Both flows (Add SKU + Price/Stock) drive the shared
-  // <BulkImportDialog>. The validate / onImport closures below adapt
-  // the existing parsing logic to the standardized
-  // BulkImportValidationResult shape so the dialog renders the same
-  // summary card + Row/Field/Error table for every module.
-  const handleDownloadAddSkuSample = async () => {
-    try {
-      await downloadSkuTemplate();
-      toast.success("SKU import template downloaded");
-    } catch (err) {
-      console.error("Failed to generate SKU template", err);
-      toast.error("Couldn't generate the template — please try again.");
-    }
-  };
-
-  // Plain CSV parser shared by both validate adapters. Handles quoted
+  // Plain CSV parser for validatePriceStockFile. Handles quoted
   // fields with embedded commas and escaped quotes.
   const parseCsv = (t: string): string[][] => {
     const rows: string[][] = [];
@@ -254,418 +215,6 @@ export function MySKU() {
       reader.onerror = () => reject(new Error("Could not read file."));
       reader.readAsText(file);
     });
-
-  // Validate uploaded Add-SKU file → returns the standardized result
-  // shape consumed by <BulkImportDialog>. Phase 2: file is a 3-tab
-  // .xlsx with every SKU field as a column. Validation walks the
-  // SKU_FIELDS schema so the rules stay aligned with the template.
-  const validateAddSkuFile = async (
-    file: File,
-  ): Promise<BulkImportValidationResult> => {
-    const parsed = await parseSkuImportFile(file);
-    const errors: BulkImportErrorRow[] = [];
-
-    if (parsed.fatalError) {
-      return {
-        totalRows: 0,
-        validRows: 0,
-        invalidRows: 0,
-        errors: [{ row: 1, field: "File", error: parsed.fatalError }],
-        validData: [],
-      };
-    }
-    if (parsed.rows.length === 0) {
-      return {
-        totalRows: 0,
-        validRows: 0,
-        invalidRows: 0,
-        errors: [
-          {
-            row: 1,
-            field: "File",
-            error:
-              "Couldn't find any data rows. Use the Main SKU Upload sheet from the downloaded template.",
-          },
-        ],
-        validData: [],
-      };
-    }
-    // Header sanity — at minimum SKU Code + SKU Name must be present.
-    const haveSkuCode = parsed.rows.some((r) => "skuCode" in r);
-    const haveSkuName = parsed.rows.some((r) => "skuName" in r);
-    if (!haveSkuCode || !haveSkuName) {
-      return {
-        totalRows: 0,
-        validRows: 0,
-        invalidRows: 0,
-        errors: [
-          {
-            row: 1,
-            field: "Header",
-            error:
-              "File must contain 'SKU Code' and 'SKU Name' columns. Use the downloaded template.",
-          },
-        ],
-        validData: [],
-      };
-    }
-
-    const seenCodes = new Set<string>();
-    const existing = new Set(skus.map((s) => s.sku));
-    const validData: ParsedSkuRow[] = [];
-    let validCount = 0;
-    // The Main sheet starts at row 1 (header). Helper row is row 2.
-    // Data rows therefore begin at spreadsheet row 3.
-    const ROW_OFFSET = 3;
-
-    parsed.rows.forEach((row, idx) => {
-      const rowNumber = idx + ROW_OFFSET;
-      const skuCode = (row.skuCode ?? "").trim();
-      const skuName = (row.skuName ?? "").trim();
-      const skuLabel = skuName || (skuCode ? `SKU ${skuCode}` : `Row ${rowNumber}`);
-      const rowErrors: BulkImportErrorRow[] = [];
-
-      // PS fast-path: if the SKU Code matches a Product Store SKU, skip
-      // field-level validation entirely — Category 1 fields are overridden
-      // from the catalog on import anyway. Only block duplicates.
-      if (skuCode) {
-        const psSku = psSkus.find((s) => s.skuCode === skuCode);
-        if (psSku) {
-          if (seenCodes.has(skuCode)) {
-            errors.push({ row: rowNumber, field: "SKU Code", error: "Duplicate SKU Code in this file.", skuLabel, skuCode, skuName, value: skuCode });
-            return;
-          }
-          seenCodes.add(skuCode);
-          validCount++;
-          validData.push({ ...row, _psSkuId: psSku.id });
-          return;
-        }
-      }
-
-      // Walk the schema: every mandatory field must be filled, and any
-      // field with options must take a listed value. Custom format
-      // checks for the heavy fields (SKU Code, email, phone, lat/lng-
-      // style numbers etc.) follow.
-      SKU_FIELDS.forEach((f) => {
-        const value = (row[f.key] ?? "").trim();
-        if (f.mandatory && value === "") {
-          rowErrors.push({
-            row: rowNumber,
-            field: f.header,
-            error: `${f.header} is required.`,
-            skuLabel,
-            skuCode,
-            skuName,
-            value,
-          });
-          return;
-        }
-        if (value === "") return; // optional + blank → skip further checks
-        if (f.options && !f.options.includes(value)) {
-          rowErrors.push({
-            row: rowNumber,
-            field: f.header,
-            error: `${f.header} must be one of: ${f.options.join(", ")}.`,
-            skuLabel,
-            skuCode,
-            skuName,
-            value,
-          });
-        }
-      });
-
-      // Field-specific format checks (only the rules the schema can't
-      // express declaratively). Every push carries skuCode + the
-      // exact value so the downloadable error report can show
-      // SKU Code, SKU Name, Field, Value Entered, Validation Message.
-      if (skuCode) {
-        if (!/^[A-Za-z0-9_-]+$/.test(skuCode)) {
-          rowErrors.push({
-            row: rowNumber,
-            field: "SKU Code",
-            error: "SKU Code must be alphanumeric (letters, digits, dashes, underscores).",
-            skuLabel,
-            skuCode,
-            skuName,
-            value: skuCode,
-          });
-        } else if (seenCodes.has(skuCode)) {
-          rowErrors.push({
-            row: rowNumber,
-            field: "SKU Code",
-            error: "Duplicate SKU Code in this file.",
-            skuLabel,
-            skuCode,
-            skuName,
-            value: skuCode,
-          });
-        } else if (existing.has(skuCode)) {
-          rowErrors.push({
-            row: rowNumber,
-            field: "SKU Code",
-            error: `SKU "${skuCode}" already exists. Use the Price & Stock Update flow to modify it.`,
-            skuLabel,
-            skuCode,
-            skuName,
-            value: skuCode,
-          });
-        }
-      }
-      if (skuName && (skuName.length < 3 || skuName.length > 100)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "SKU Name",
-          error: "SKU Name must be between 3 and 100 characters.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: skuName,
-        });
-      }
-
-      const shortDesc = (row.shortDesc ?? "").trim();
-      if (shortDesc && (shortDesc.length < 10 || shortDesc.length > 150)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Short Description",
-          error: "Short Description must be between 10 and 150 characters.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: shortDesc,
-        });
-      }
-      const longDesc = (row.longDesc ?? "").trim();
-      if (longDesc && longDesc.length > 200) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Long Description",
-          error: "Long Description can't exceed 200 characters.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: longDesc,
-        });
-      }
-
-      // Numeric ranges
-      const positiveInt = (raw: string) => {
-        const n = Number(raw);
-        return Number.isInteger(n) && n > 0;
-      };
-      const numericOnly = (raw: string) => /^\d+$/.test(raw);
-      if (row.measureValue && !positiveInt(row.measureValue)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "SKU Weight",
-          error: "SKU Weight must be a positive number.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.measureValue,
-        });
-      }
-      if (row.unitizedCount && !positiveInt(row.unitizedCount)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Pack Size",
-          error: "Pack Size must be a positive whole number.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.unitizedCount,
-        });
-      }
-      if (row.upc && !numericOnly(row.upc)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "UPC",
-          error: "UPC must contain digits only.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.upc,
-        });
-      }
-      if (row.packageTypeValue) {
-        const n = Number(row.packageTypeValue);
-        if (!Number.isFinite(n) || n <= 0) {
-          rowErrors.push({
-            row: rowNumber,
-            field: "Package Type Value",
-            error: "Package Type Value must be a positive number.",
-            skuLabel,
-            skuCode,
-            skuName,
-            value: row.packageTypeValue,
-          });
-        }
-      }
-      // Weight in KG is no longer user-input — the parser derives it
-      // from Weight Measure × SKU Weight before we get here, so any
-      // value that lands in row.skuWeight is the system-computed kg
-      // figure and doesn't need its own validation rule.
-      const minQ = row.minimumOrderQty
-        ? Number(row.minimumOrderQty)
-        : undefined;
-      const maxQ = row.maximumOrderQty
-        ? Number(row.maximumOrderQty)
-        : undefined;
-      if (row.minimumOrderQty && (!Number.isInteger(minQ!) || minQ! <= 0)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Min Order Quantity",
-          error: "Min Order Quantity must be a positive whole number.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.minimumOrderQty,
-        });
-      }
-      if (row.maximumOrderQty && (!Number.isInteger(maxQ!) || maxQ! <= 0)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Max Order Quantity",
-          error: "Max Order Quantity must be a positive whole number.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.maximumOrderQty,
-        });
-      }
-      if (
-        minQ !== undefined &&
-        maxQ !== undefined &&
-        Number.isFinite(minQ) &&
-        Number.isFinite(maxQ) &&
-        minQ > maxQ
-      ) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Min Order Quantity",
-          error: "Min Order Quantity can't be greater than Max Order Quantity.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: `Min ${row.minimumOrderQty} > Max ${row.maximumOrderQty}`,
-        });
-      }
-
-      // Customer Care
-      if (row.consumerCareContactName && !/^[A-Za-z .'-]+$/.test(row.consumerCareContactName)) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Customer Care Name",
-          error: "Customer Care Name can only contain letters.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.consumerCareContactName,
-        });
-      }
-      if (
-        row.consumerCareContactEmail &&
-        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.consumerCareContactEmail)
-      ) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Customer Care Email",
-          error: "Customer Care Email must be a valid email address.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.consumerCareContactEmail,
-        });
-      }
-      if (
-        row.consumerCareContactPhone &&
-        !/^\d{10}$/.test(row.consumerCareContactPhone)
-      ) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Customer Care Phone",
-          error: "Customer Care Phone must be exactly 10 digits.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.consumerCareContactPhone,
-        });
-      }
-      if (
-        row.manufacturerAddress &&
-        (row.manufacturerAddress.length < 10 ||
-          row.manufacturerAddress.length > 250)
-      ) {
-        rowErrors.push({
-          row: rowNumber,
-          field: "Manufacturer Address",
-          error: "Manufacturer Address must be 10–250 characters.",
-          skuLabel,
-          skuCode,
-          skuName,
-          value: row.manufacturerAddress,
-        });
-      }
-
-      if (skuCode) seenCodes.add(skuCode);
-      if (rowErrors.length === 0) {
-        validCount++;
-        validData.push({ ...row });
-      } else {
-        errors.push(...rowErrors);
-      }
-    });
-
-    return {
-      totalRows: parsed.rows.length,
-      validRows: validCount,
-      invalidRows: parsed.rows.length - validCount,
-      errors,
-      validData,
-    };
-  };
-
-  // Apply validated Add-SKU rows into the catalog. When a row carries
-  // _psSkuId (set during PS cross-check), Category 1 fields are merged
-  // from the Product Store; Category 2 fields (pricing, stock) come
-  // from the sheet.
-  const importAddSkuRows = (rows: unknown[]) => {
-    const valid = rows as ParsedSkuRow[];
-    const today = new Date().toISOString().split("T")[0];
-    const newSkus: SKUData[] = valid.map((row, idx) => {
-      const psSku = row._psSkuId ? psSkus.find((s) => s.id === row._psSkuId) : undefined;
-      const status =
-        (row.itemStatus ?? "").toLowerCase() === "inactive" ? "Inactive" : "Active";
-      if (psSku) {
-        // Merge: Category 1 from PS, Category 2 from sheet
-        const brand = getBrandById(psSku.brandId);
-        const category = getCategoryById(psSku.categoryId);
-        return {
-          id: String(skus.length + idx + 1),
-          name: psSku.name,
-          category: category?.name ?? psSku.categoryId,
-          brand: brand?.name ?? psSku.brandId,
-          source: "PS + Excel Import",
-          status,
-          lastUpdated: today,
-          sku: psSku.skuCode,
-          ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-        };
-      }
-      return {
-        id: String(skus.length + idx + 1),
-        name: row.skuName ?? "",
-        category: row.categoryId || "Imported",
-        brand: row.brandAttribute || "—",
-        source: "Excel Import",
-        status,
-        lastUpdated: today,
-        sku: row.skuCode ?? "",
-        ondcCompliance: { isCompliant: true, missingFields: [], ondcData: {} },
-      };
-    });
-    setSkus((prev) => [...newSkus, ...prev]);
-  };
 
   // ---- Price & Stock update (Story 19128) ----
   // The seller downloads a sheet pre-filled with their existing catalog
@@ -747,9 +296,7 @@ export function MySKU() {
   };
 
   const downloadPsAsXlsx = async () => {
-    // ExcelJS is a ~900 KB chunk — dynamic-imported so it doesn't ship
-    // on the initial bundle. Matches the pattern already used by
-    // `downloadSkuTemplate` for the Add SKU flow.
+    // ExcelJS is a ~900 KB chunk — dynamic-imported to keep it off the initial bundle.
     const ExcelJS = (await import("exceljs")).default;
     const rows = buildPsTemplateRows();
     const wb = new ExcelJS.Workbook();
@@ -1326,10 +873,7 @@ export function MySKU() {
           pinned to the top and bottom of the Card. */}
       {!isProductStoreOpen && <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
-          {/* Header with Search and Actions — search + Bulk Import stay
-              visible on the empty state so the seller can immediately
-              start adding SKUs; only the Filters button (which has
-              nothing to filter) is hidden. */}
+          {/* Header with Search and Actions */}
           <div className="border-b border-gray-200 p-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               {/* Search */}
@@ -1364,47 +908,26 @@ export function MySKU() {
                   <Database className="h-4 w-4" />
                   Add from Product Store
                 </Button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      className="gap-2 flex-1 sm:flex-initial"
-                    >
-                      <Upload className="h-4 w-4" />
-                      Bulk Import
-                      <MoreVertical className="h-3.5 w-3.5 opacity-80" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-64">
-                    {/* "Update Price & Stock" needs an existing catalog
-                        to update — when the seller has no SKUs yet
-                        (empty inception state) the option is disabled
-                        and visually greyed out so it's clear they need
-                        to add SKUs first. */}
-                    <DropdownMenuItem
-                      disabled={isEmpty}
-                      onClick={
-                        isEmpty
-                          ? undefined
-                          : () => setIsPriceStockBulkOpen(true)
-                      }
-                      className="gap-2 data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed cursor-pointer"
-                      title={
-                        isEmpty
-                          ? "Add SKUs first — there's no catalog to update yet"
-                          : undefined
-                      }
-                    >
-                      <Database className="h-4 w-4 text-purple-600" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Update Price & Stock</p>
-                        <p className="text-[11px] text-gray-500">
-                          Download existing → edit offline → re-upload
-                        </p>
-                      </div>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate("/products/my-requests")}
+                  className="gap-2 flex-1 sm:flex-initial text-purple-700 border-purple-200 hover:bg-purple-50"
+                >
+                  <Send className="h-4 w-4" />
+                  My Requests
+                </Button>
+                {!isEmpty && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsPriceStockBulkOpen(true)}
+                  className="gap-2 flex-1 sm:flex-initial"
+                >
+                  <Database className="h-4 w-4" />
+                  Update Price &amp; Stock
+                </Button>
+                )}
               </div>
             </div>
 
@@ -1468,7 +991,7 @@ export function MySKU() {
               <EmptyState
                 icon={PackageSearch}
                 title="No SKUs in your catalog yet"
-                description="No SKUs in your catalog yet — click Add from Product Store to import SKUs, or use Bulk Import to update price & stock."
+                description="No SKUs in your catalog yet — click Add from Product Store to import SKUs into your catalog."
               />
             ) : (
             <table className="w-full">
@@ -2046,35 +1569,6 @@ export function MySKU() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Add SKU — Bulk Import. Drives the standardized
-          BulkImportDialog flow: upload → validating → results →
-          import. Module-specific copy / sample / validator only. */}
-      <BulkImportDialog
-        open={isAddSkuBulkOpen}
-        onOpenChange={setIsAddSkuBulkOpen}
-        config={{
-          title: "Add SKU — Bulk Import",
-          description:
-            "Upload the SKU import template (CSV or XLSX). Mandatory columns are starred — Weight in KG is auto-calculated from Weight Measure × SKU Weight and ignored if typed.",
-          instructions: (
-            <>
-              Download the template below — every mandatory column is starred and
-              dropdown columns (<b>Measure Unit</b>, <b>Weight Measure</b>,{" "}
-              <b>Category</b>, <b>Time to Ship</b>, etc.) enforce the allowed
-              values. <b>Weight in KG</b> is auto-calculated from{" "}
-              <b>Weight Measure</b> × <b>SKU Weight</b> — leave it blank.
-            </>
-          ),
-          sample: {
-            onDownload: handleDownloadAddSkuSample,
-            fileName: "sku_import_template.xlsx",
-          },
-          accept: ".csv,.xlsx,.xls",
-          validate: validateAddSkuFile,
-          onImport: importAddSkuRows,
-        }}
-      />
 
       {/* Price & Stock — Bulk Import (Story 19128). The downloaded
           sheet is pre-filled with every SKU in the seller's catalog
