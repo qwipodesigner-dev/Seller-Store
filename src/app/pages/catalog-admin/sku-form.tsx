@@ -9,6 +9,10 @@ import {
   type BulkImportValidationResult,
   type BulkImportError as BulkImportErrorRow,
 } from "../../components/bulk-import-dialog";
+import {
+  downloadSkuTemplate,
+  CATALOG_SKU_FIELDS,
+} from "../../lib/sku-import-template";
 import { toast } from "sonner";
 import {
   psSkus,
@@ -97,7 +101,8 @@ export function CatalogAdminSkuForm() {
     const text = await file.text();
     const lines = text.split(/\r?\n/).filter((l) => l.trim());
     if (lines.length < 2) return { totalRows: 0, validRows: 0, invalidRows: 0, errors: [], validData: [] };
-    const headers = parseCsvLine(lines[0]).map((h) => h.trim());
+    const headers = parseCsvLine(lines[0]).map((h) => h.replace(/\*+\s*$/, "").trim());
+    const mandatoryFields = CATALOG_SKU_FIELDS.filter((f) => f.mandatory);
     const errors: BulkImportErrorRow[] = [];
     const validData: Record<string, string>[] = [];
     for (let i = 1; i < lines.length; i++) {
@@ -106,12 +111,11 @@ export function CatalogAdminSkuForm() {
       const skuCode = get("SKU Code");
       const skuName = get("SKU Name");
       const rowErrors: BulkImportErrorRow[] = [];
-      if (!skuCode) rowErrors.push({ row: i + 1, field: "SKU Code", error: "Required", skuCode, skuName });
-      if (!skuName) rowErrors.push({ row: i + 1, field: "SKU Name", error: "Required", skuCode, skuName });
-      if (!get("Brand")) rowErrors.push({ row: i + 1, field: "Brand", error: "Required", skuCode, skuName });
-      if (!get("HSN Code")) rowErrors.push({ row: i + 1, field: "HSN Code", error: "Required", skuCode, skuName });
-      const mrp = parseFloat(get("MRP"));
-      if (get("MRP") && isNaN(mrp)) rowErrors.push({ row: i + 1, field: "MRP", error: "Must be a number", skuCode, skuName, value: get("MRP") });
+      for (const f of mandatoryFields) {
+        if (!get(f.header)) {
+          rowErrors.push({ row: i + 1, field: f.header, error: "Required", skuCode, skuName });
+        }
+      }
       if (rowErrors.length > 0) { errors.push(...rowErrors); }
       else { const obj: Record<string, string> = {}; headers.forEach((h, idx) => { obj[h] = (row[idx] ?? "").trim(); }); validData.push(obj); }
     }
@@ -126,14 +130,7 @@ export function CatalogAdminSkuForm() {
   };
 
   const handleDownloadTemplate = () => {
-    const header = "SKU Code,SKU Name,Brand,Company,Category,Short Description,HSN Code,MRP,Pack Size,Pack Unit,Product Weight (kg)";
-    const example = "SUNF-003,Sunfeast Marie Light 200g,Sunfeast,ITC Limited,Biscuits & Cookies,Light and crispy marie biscuits,19053100,30,200,g,0.21";
-    const blob = new Blob([`${header}\n${example}\n`], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "qwipo-bulk-sku-template.csv";
-    document.body.appendChild(a); a.click();
-    document.body.removeChild(a); URL.revokeObjectURL(url);
+    downloadSkuTemplate(undefined, CATALOG_SKU_FIELDS);
   };
 
   const onChange = (key: keyof SkuFormState, value: string) =>
@@ -325,7 +322,7 @@ export function CatalogAdminSkuForm() {
             simulateValidationDelayMs: 1200,
             sample: {
               onDownload: handleDownloadTemplate,
-              fileName: "qwipo-bulk-sku-template.csv",
+              fileName: "SKU_Import_Template.xlsx",
             },
             instructions: (
               <p className="text-amber-700 font-medium">⚠ All SKUs are created as Inactive. Images must be uploaded per-SKU before activating.</p>

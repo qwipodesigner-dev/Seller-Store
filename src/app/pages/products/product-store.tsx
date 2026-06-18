@@ -12,9 +12,7 @@ import {
 import {
   Database,
   Plus,
-  Send,
   Info,
-  FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -24,13 +22,7 @@ import {
   type PSSku,
 } from "../../lib/product-store-data";
 import { addFromProductStore, isImportedFromPS } from "../../lib/my-sku-store";
-import { addSkuRequest } from "../../lib/sku-request-store";
 import { ProductStoreBrowse } from "../../components/product-store-browse";
-import {
-  SkuFormFields,
-  SkuFormState,
-  emptySkuForm,
-} from "../../components/sku-form-fields";
 
 export function ProductStore() {
   const navigate = useNavigate();
@@ -43,18 +35,10 @@ export function ProductStore() {
     skus: PSSku[];
   } | null>(null);
 
-  // Request new SKU dialog
-  const [showRequestDialog, setShowRequestDialog] = useState(false);
-  const [reqForm, setReqForm] = useState<SkuFormState>(emptySkuForm);
-  const [reqImages, setReqImages] = useState<string[]>([]);
-
   // Reflects what has already been imported into My SKU
   const [addedSkuIds, setAddedSkuIds] = useState<Set<string>>(
     () => new Set(psSkus.map((s) => s.id).filter((id) => isImportedFromPS(id)))
   );
-
-  const onReqChange = (key: keyof SkuFormState, value: string) =>
-    setReqForm((prev) => ({ ...prev, [key]: value }));
 
   const handleImportToMySku = (sku: PSSku) => {
     addFromProductStore(sku);
@@ -90,72 +74,6 @@ export function ProductStore() {
     setBulkImport({ label: brand.name, skus });
   };
 
-  const handleSubmitRequest = () => {
-    if (!isReqValid) return;
-    const req = addSkuRequest({
-      itemName: reqForm.itemName,
-      shortName: reqForm.shortName,
-      groupName: reqForm.groupName,
-      brandId: reqForm.brandId,
-      brandOther: reqForm.brandOther,
-      brandAttribute: reqForm.brandAttribute,
-      shortDesc: reqForm.shortDesc,
-      longDesc: reqForm.longDesc,
-      measureUnit: reqForm.measureUnit,
-      measureValue: reqForm.measureValue,
-      weightMeasure: reqForm.weightMeasure,
-      skuWeight: reqForm.skuWeight,
-      unitizedCount: reqForm.unitizedCount,
-      upc: reqForm.upc,
-      packageType: reqForm.packageType,
-      packageTypeValue: reqForm.packageTypeValue,
-      productLength: reqForm.productLength,
-      productWidth: reqForm.productWidth,
-      productHeight: reqForm.productHeight,
-      categoryId: reqForm.categoryId,
-      hsnCode: reqForm.hsnCode,
-      countryOfOrigin: reqForm.countryOfOrigin,
-      gstTax: reqForm.gstTax,
-      gstCess: reqForm.gstCess,
-      manufacturerName: reqForm.manufacturerName,
-      notes: reqForm.notes,
-    });
-    toast.success(
-      `Request ${req.id} submitted. You can track it in My Requests.`,
-      { duration: 4000 }
-    );
-    setShowRequestDialog(false);
-    setReqForm(emptySkuForm);
-    setReqImages([]);
-  };
-
-  const openRequestDialog = () => {
-    setReqForm(emptySkuForm);
-    setReqImages([]);
-    setShowRequestDialog(true);
-  };
-
-  const isReqValid =
-    reqForm.itemName.trim() !== "" &&
-    reqForm.shortName.trim() !== "" &&
-    reqForm.groupName.trim() !== "" &&
-    (reqForm.brandId !== "" || reqForm.brandOther.trim() !== "") &&
-    reqForm.brandAttribute.trim() !== "" &&
-    reqForm.shortDesc.trim() !== "" &&
-    reqForm.longDesc.trim() !== "" &&
-    reqForm.measureUnit !== "" &&
-    reqForm.measureValue.trim() !== "" &&
-    reqForm.weightMeasure !== "" &&
-    reqForm.skuWeight.trim() !== "" &&
-    reqForm.unitizedCount.trim() !== "" &&
-    reqForm.packageType.trim() !== "" &&
-    reqForm.packageTypeValue.trim() !== "" &&
-    reqForm.categoryId !== "" &&
-    reqForm.hsnCode.trim() !== "" &&
-    reqForm.countryOfOrigin.trim() !== "" &&
-    reqForm.gstTax !== "" &&
-    reqForm.manufacturerName.trim() !== "";
-
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       {/* Header */}
@@ -169,13 +87,6 @@ export function ProductStore() {
             Browse the Qwipo Master Catalog and import SKUs directly into your My SKU list.
           </p>
         </div>
-        <Button
-          onClick={() => navigate("/products/my-requests")}
-          className="gap-2 bg-purple-600 hover:bg-purple-700 text-white shadow-sm"
-        >
-          <Send className="h-4 w-4" />
-          My Requests
-        </Button>
       </div>
 
       {/* Shared browse component */}
@@ -185,7 +96,6 @@ export function ProductStore() {
         onAddSku={setImportSku}
         onBulkImportCompany={openBulkImportForCompany}
         onBulkImportBrand={openBulkImportForBrand}
-        onRequestSku={openRequestDialog}
       />
 
       {/* ── Bulk Import Dialog ── */}
@@ -333,41 +243,6 @@ export function ProductStore() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Request a SKU Dialog ── */}
-      <Dialog open={showRequestDialog} onOpenChange={setShowRequestDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              Request a New SKU
-            </DialogTitle>
-          </DialogHeader>
-
-          <div className="py-1">
-            <SkuFormFields
-              mode="seller"
-              form={reqForm}
-              onChange={onReqChange}
-              productImages={reqImages}
-              onProductImagesChange={setReqImages}
-            />
-          </div>
-
-          <DialogFooter className="pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowRequestDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitRequest}
-              disabled={!isReqValid}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="h-4 w-4" />
-              Submit Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

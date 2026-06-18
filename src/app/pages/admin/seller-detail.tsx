@@ -1202,6 +1202,7 @@ export function SellerCatalogTab({
   const [addCompanyId, setAddCompanyId] = useState<string>("");
   const [addAllBrands, setAddAllBrands] = useState(true);
   const [addBrandIds, setAddBrandIds] = useState<string[]>([]);
+  const [addSyncSkus, setAddSyncSkus] = useState(true);
 
   // ---- Add Brands dialog (per-card "+ Add Brands" CTA) ----
   // Behaves as "extend only" — existing brand access is preserved and
@@ -1293,6 +1294,7 @@ export function SellerCatalogTab({
     setAddCompanyId("");
     setAddAllBrands(true);
     setAddBrandIds([]);
+    setAddSyncSkus(true);
     setAddOpen(true);
   };
 
@@ -1326,6 +1328,7 @@ export function SellerCatalogTab({
       {
         companyId: addCompanyId,
         brandIds: addAllBrands ? [] : addBrandIds,
+        syncSkusToMySku: addSyncSkus,
       },
     ];
     persistSelections(next);
@@ -1593,6 +1596,25 @@ export function SellerCatalogTab({
               </div>
             )}
           </div>
+
+          <label className="flex items-start gap-3 cursor-pointer select-none rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <Checkbox
+              id="add-sync-skus"
+              checked={addSyncSkus}
+              onCheckedChange={(v) => setAddSyncSkus(!!v)}
+              className="mt-0.5"
+            />
+            <div>
+              <p className="text-sm font-medium text-gray-900">
+                Sync all SKUs to seller's MySKU
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                All SKUs for this company and its brands will be automatically
+                added to this seller's MySKU list.
+              </p>
+            </div>
+          </label>
+
           <DialogFooter>
             <Button variant="outline" onClick={() => setAddOpen(false)}>
               Cancel

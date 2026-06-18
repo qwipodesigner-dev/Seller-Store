@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Company, getCompanies, revokeImage, subscribeToCompanies } from "../../lib/admin-catalog";
+import { Checkbox } from "../../components/ui/checkbox";
 import { addSeller } from "../../lib/mock-store";
 import { ImageUploader } from "../../components/ui/image-uploader";
 import { CompanyComboBox } from "../../components/company-combobox";
@@ -171,6 +172,7 @@ export function AdminAddUser() {
   const [selections, setSelections] = useState<SellerCompanySelection[]>([
     { companyId: "", brandIds: [] },
   ]);
+  const [syncSkusToMySku, setSyncSkusToMySku] = useState(true);
 
   // ---- Selection helpers ----
   const usedCompanyIds = useMemo(
@@ -308,6 +310,7 @@ export function AdminAddUser() {
         companyBrandSelections: completeRows.map((r) => ({
           companyId: r.companyId,
           brandIds: r.brandIds,
+          syncSkusToMySku,
         })),
       });
       setIsSaving(false);
@@ -738,6 +741,23 @@ export function AdminAddUser() {
                 <Plus className="h-4 w-4" />
                 Add another company
               </Button>
+
+              <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2.5">
+                <Checkbox
+                  id="syncSkusToMySku"
+                  checked={syncSkusToMySku}
+                  onCheckedChange={(v) => setSyncSkusToMySku(!!v)}
+                  className="mt-0.5"
+                />
+                <div className="flex flex-col gap-0.5">
+                  <Label htmlFor="syncSkusToMySku" className="text-sm font-medium cursor-pointer">
+                    Sync all SKUs to seller's MySKU
+                  </Label>
+                  <p className="text-xs text-gray-500">
+                    All SKUs for these companies and their brands will be automatically added to this seller's MySKU list.
+                  </p>
+                </div>
+              </div>
 
               {errors.companies && (
                 <p className="text-xs text-red-600 flex items-center gap-1.5">

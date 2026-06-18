@@ -109,6 +109,8 @@ export interface SellerPermissions {
 export interface CompanyBrandSelection {
   companyId: string;
   brandIds: string[];
+  /** When true, all SKUs for this company and its brands are auto-synced to the seller's MySKU list. */
+  syncSkusToMySku?: boolean;
 }
 
 /** Seller business type. Wholesaler is reserved for Phase 2. */

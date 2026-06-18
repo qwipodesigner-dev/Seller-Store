@@ -64,6 +64,8 @@ export function CatalogAdminRequests() {
   );
 
   const [viewRequest, setViewRequest] = useState<PSRequest | null>(null);
+  const [editedRequest, setEditedRequest] = useState<PSRequest | null>(null);
+  const [editedSkuForm, setEditedSkuForm] = useState<SkuFormState>(emptySkuForm);
   const [actionDialog, setActionDialog] = useState<{
     type: "approve" | "reject";
     request: PSRequest;
@@ -94,20 +96,22 @@ export function CatalogAdminRequests() {
   ).length;
 
   const openRequest = (req: PSRequest) => {
+    let updated = req;
     if (req.status === "submitted") {
+      updated = { ...req, status: "in_progress" };
       setRequests((prev) =>
-        prev.map((r) =>
-          r.id === req.id ? { ...r, status: "in_progress" } : r
-        )
+        prev.map((r) => r.id === req.id ? updated : r)
       );
-      setViewRequest({ ...req, status: "in_progress" });
-    } else {
-      setViewRequest(req);
+    }
+    setViewRequest(updated);
+    setEditedRequest(updated);
+    if (updated.form) {
+      setEditedSkuForm({ ...emptySkuForm, ...(updated.form as Partial<SkuFormState>) });
     }
   };
 
-  const handleAction = (type: "approve" | "reject", req: PSRequest) => {
-    setActionDialog({ type, request: req });
+  const handleAction = (type: "approve" | "reject") => {
+    setActionDialog({ type, request: editedRequest ?? viewRequest! });
     setActionNotes("");
   };
 
@@ -118,7 +122,8 @@ export function CatalogAdminRequests() {
       prev.map((r) =>
         r.id === request.id
           ? {
-              ...r,
+              ...(editedRequest ?? r),
+              ...(editedRequest?.form ? { form: editedSkuForm } : {}),
               status: type === "approve" ? "approved" : "rejected",
               updatedAt: new Date().toISOString().slice(0, 10),
               reason: type === "reject" ? actionNotes : undefined,
@@ -133,6 +138,7 @@ export function CatalogAdminRequests() {
     );
     setActionDialog(null);
     setViewRequest(null);
+    setEditedRequest(null);
   };
 
   const getTypeBadge = (type: PSRequest["type"]) => {
@@ -432,30 +438,46 @@ export function CatalogAdminRequests() {
             )}
           </DialogHeader>
 
-          {viewRequest && (
+          {viewRequest && (() => {
+            const isPending = viewRequest.status === "submitted" || viewRequest.status === "in_progress";
+            return (
             <div className="space-y-5 pt-2">
 
-              {/* ── Request a Company form (read-only) ── */}
+              {/* ── Request a Company form ── */}
               {viewRequest.type === "request_company" && (
                 <div className="space-y-3">
                   <div className="space-y-1.5">
                     <Label className="text-xs text-gray-500">Company Name</Label>
-                    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
-                      {viewRequest.companyName || "—"}
-                    </div>
+                    {isPending ? (
+                      <Input
+                        value={editedRequest?.companyName ?? ""}
+                        onChange={(e) => setEditedRequest((prev) => prev ? { ...prev, companyName: e.target.value } : prev)}
+                      />
+                    ) : (
+                      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
+                        {viewRequest.companyName || "—"}
+                      </div>
+                    )}
                   </div>
-                  {viewRequest.notes && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-500">Message</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-500">Message</Label>
+                    {isPending ? (
+                      <Textarea
+                        rows={3}
+                        placeholder="Notes from requester..."
+                        value={editedRequest?.notes ?? ""}
+                        onChange={(e) => setEditedRequest((prev) => prev ? { ...prev, notes: e.target.value } : prev)}
+                      />
+                    ) : viewRequest.notes ? (
                       <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 whitespace-pre-wrap">
                         {viewRequest.notes}
                       </div>
-                    </div>
-                  )}
+                    ) : null}
+                  </div>
                 </div>
               )}
 
-              {/* ── Request a Brand form (read-only) ── */}
+              {/* ── Request a Brand form ── */}
               {viewRequest.type === "request_brand" && (
                 <div className="space-y-3">
                   {viewRequest.companyName && (
@@ -466,18 +488,32 @@ export function CatalogAdminRequests() {
                   )}
                   <div className="space-y-1.5">
                     <Label className="text-xs text-gray-500">Brand Name</Label>
-                    <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
-                      {viewRequest.brandName || "—"}
-                    </div>
+                    {isPending ? (
+                      <Input
+                        value={editedRequest?.brandName ?? ""}
+                        onChange={(e) => setEditedRequest((prev) => prev ? { ...prev, brandName: e.target.value } : prev)}
+                      />
+                    ) : (
+                      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
+                        {viewRequest.brandName || "—"}
+                      </div>
+                    )}
                   </div>
-                  {viewRequest.notes && (
-                    <div className="space-y-1.5">
-                      <Label className="text-xs text-gray-500">Message</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-gray-500">Message</Label>
+                    {isPending ? (
+                      <Textarea
+                        rows={3}
+                        placeholder="Notes from requester..."
+                        value={editedRequest?.notes ?? ""}
+                        onChange={(e) => setEditedRequest((prev) => prev ? { ...prev, notes: e.target.value } : prev)}
+                      />
+                    ) : viewRequest.notes ? (
                       <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 whitespace-pre-wrap">
                         {viewRequest.notes}
                       </div>
-                    </div>
-                  )}
+                    ) : null}
+                  </div>
                 </div>
               )}
 
@@ -499,8 +535,9 @@ export function CatalogAdminRequests() {
               {viewRequest.form && (
                 <SkuFormFields
                   mode="seller"
-                  readOnly
-                  form={{ ...emptySkuForm, ...(viewRequest.form as Partial<SkuFormState>) }}
+                  readOnly={!isPending}
+                  form={isPending ? editedSkuForm : { ...emptySkuForm, ...(viewRequest.form as Partial<SkuFormState>) }}
+                  onChange={(key, value) => setEditedSkuForm((prev) => ({ ...prev, [key]: value }))}
                   productImages={[]}
                   onProductImagesChange={() => {}}
                 />
@@ -521,11 +558,32 @@ export function CatalogAdminRequests() {
                       </tr>
                     </thead>
                     <tbody>
-                      {Object.entries(viewRequest.changes).map(([field, { old: oldVal, new: newVal }]) => (
+                      {Object.entries(isPending ? (editedRequest?.changes ?? viewRequest.changes) : viewRequest.changes).map(([field, { old: oldVal, new: newVal }]) => (
                         <tr key={field} className="border-b last:border-0">
                           <td className="px-3 py-2 font-medium text-gray-700">{field}</td>
                           <td className="px-3 py-2 text-red-600 line-through">{oldVal}</td>
-                          <td className="px-3 py-2 text-green-700 font-medium">{newVal}</td>
+                          <td className="px-3 py-2 text-green-700 font-medium">
+                            {isPending ? (
+                              <Input
+                                className="h-7 text-xs"
+                                value={newVal}
+                                onChange={(e) =>
+                                  setEditedRequest((prev) => {
+                                    if (!prev?.changes) return prev;
+                                    return {
+                                      ...prev,
+                                      changes: {
+                                        ...prev.changes,
+                                        [field]: { old: oldVal, new: e.target.value },
+                                      },
+                                    };
+                                  })
+                                }
+                              />
+                            ) : (
+                              newVal
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -533,18 +591,29 @@ export function CatalogAdminRequests() {
                 </div>
               )}
 
-              {/* Fallback notes for non-create/non-company/non-brand requests without form data */}
+              {/* Notes for non-create/non-company/non-brand requests */}
               {!viewRequest.form &&
                 viewRequest.type !== "request_company" &&
-                viewRequest.type !== "request_brand" &&
-                viewRequest.notes && (
-                <div className="p-3 bg-gray-50 rounded border text-xs">
-                  <p className="text-gray-500 mb-1 font-medium">Notes</p>
-                  <p className="text-gray-800">{viewRequest.notes}</p>
+                viewRequest.type !== "request_brand" && (
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-gray-500">Notes</Label>
+                  {isPending ? (
+                    <Textarea
+                      rows={3}
+                      placeholder="Add notes..."
+                      value={editedRequest?.notes ?? ""}
+                      onChange={(e) => setEditedRequest((prev) => prev ? { ...prev, notes: e.target.value } : prev)}
+                    />
+                  ) : viewRequest.notes ? (
+                    <div className="p-3 bg-gray-50 rounded border text-xs text-gray-800">
+                      {viewRequest.notes}
+                    </div>
+                  ) : null}
                 </div>
               )}
             </div>
-          )}
+            );
+          })()}
 
           {(viewRequest?.status === "submitted" || viewRequest?.status === "in_progress") && (
             <DialogFooter className="gap-2 pt-3 border-t mt-4">
@@ -552,7 +621,7 @@ export function CatalogAdminRequests() {
                 variant="outline"
                 size="sm"
                 className="text-red-600 border-red-200 hover:bg-red-50 gap-1"
-                onClick={() => handleAction("reject", viewRequest)}
+                onClick={() => handleAction("reject")}
               >
                 <XCircle className="h-4 w-4" />
                 Reject
@@ -560,7 +629,7 @@ export function CatalogAdminRequests() {
               <Button
                 size="sm"
                 className="bg-teal-600 hover:bg-teal-700 gap-1"
-                onClick={() => handleAction("approve", viewRequest)}
+                onClick={() => handleAction("approve")}
               >
                 <CheckCircle2 className="h-4 w-4" />
                 Approve
