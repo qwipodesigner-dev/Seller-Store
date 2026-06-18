@@ -31,7 +31,18 @@ import {
   Plus,
   Download,
   Send,
+  FileText,
+  Building2,
+  Tag,
+  Package,
+  ChevronDown,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { PackageSearch } from "lucide-react";
@@ -45,6 +56,13 @@ import {
   type BulkImportValidationResult,
   type BulkImportError as BulkImportErrorRow,
 } from "../../components/bulk-import-dialog";
+import {
+  SkuFormFields,
+  type SkuFormState,
+  emptySkuForm,
+} from "../../components/sku-form-fields";
+import { addPsRequest } from "../../lib/product-store-data";
+import { addSkuRequest } from "../../lib/sku-request-store";
 import { sampleSKUs, type SKUData } from "../../lib/my-sku-data";
 export type { SKUData } from "../../lib/my-sku-data";
 export { sampleSKUs } from "../../lib/my-sku-data";
@@ -60,7 +78,17 @@ export function MySKU() {
 
   const [isPriceStockBulkOpen, setIsPriceStockBulkOpen] = useState(false);
 
-
+  // Request dialogs
+  const [showCompanyRequestDialog, setShowCompanyRequestDialog] = useState(false);
+  const [companyReqName, setCompanyReqName] = useState("");
+  const [companyReqMessage, setCompanyReqMessage] = useState("");
+  const [showBrandRequestDialog, setShowBrandRequestDialog] = useState(false);
+  const [brandReqName, setBrandReqName] = useState("");
+  const [brandReqMessage, setBrandReqMessage] = useState("");
+  const [brandReqCompanyName, setBrandReqCompanyName] = useState("");
+  const [showSkuRequestDialog, setShowSkuRequestDialog] = useState(false);
+  const [skuReqForm, setSkuReqForm] = useState<SkuFormState>(emptySkuForm);
+  const [skuReqImages, setSkuReqImages] = useState<string[]>([]);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState("all");
@@ -128,6 +156,109 @@ export function MySKU() {
     setOndcFilter("all");
     setCurrentPage(1);
     toast.success("All filters cleared");
+  };
+
+  // ---- Request handlers ----
+  const openCompanyRequestDialog = () => {
+    setCompanyReqName("");
+    setCompanyReqMessage("");
+    setShowCompanyRequestDialog(true);
+  };
+  const handleSubmitCompanyRequest = () => {
+    const req = addPsRequest({
+      type: "request_company",
+      skuName: "—",
+      brandId: "",
+      brandName: "—",
+      companyName: companyReqName.trim(),
+      requestedBy: "You (Seller)",
+      requestedByType: "seller",
+      notes: companyReqMessage.trim() || undefined,
+    });
+    toast.success(`Company request ${req.id} submitted. Track it in My Requests.`, { duration: 4000 });
+    setShowCompanyRequestDialog(false);
+  };
+  const openBrandRequestDialog = () => {
+    setBrandReqName("");
+    setBrandReqMessage("");
+    setBrandReqCompanyName("");
+    setShowBrandRequestDialog(true);
+  };
+  const handleSubmitBrandRequest = () => {
+    const req = addPsRequest({
+      type: "request_brand",
+      skuName: "—",
+      brandId: "",
+      brandName: brandReqName.trim(),
+      companyName: brandReqCompanyName.trim() || "—",
+      requestedBy: "You (Seller)",
+      requestedByType: "seller",
+      notes: brandReqMessage.trim() || undefined,
+    });
+    toast.success(`Brand request ${req.id} submitted. Track it in My Requests.`, { duration: 4000 });
+    setShowBrandRequestDialog(false);
+  };
+  const openSkuRequestDialog = () => {
+    setSkuReqForm(emptySkuForm);
+    setSkuReqImages([]);
+    setShowSkuRequestDialog(true);
+  };
+  const onSkuReqChange = (key: keyof SkuFormState, value: string) =>
+    setSkuReqForm((prev) => ({ ...prev, [key]: value }));
+  const isSkuReqValid =
+    skuReqForm.itemName.trim() !== "" &&
+    skuReqForm.shortName.trim() !== "" &&
+    skuReqForm.groupName.trim() !== "" &&
+    (skuReqForm.brandId !== "" || skuReqForm.brandOther.trim() !== "") &&
+    skuReqForm.brandAttribute.trim() !== "" &&
+    skuReqForm.shortDesc.trim() !== "" &&
+    skuReqForm.longDesc.trim() !== "" &&
+    skuReqForm.measureUnit !== "" &&
+    skuReqForm.measureValue.trim() !== "" &&
+    skuReqForm.weightMeasure !== "" &&
+    skuReqForm.skuWeight.trim() !== "" &&
+    skuReqForm.unitizedCount.trim() !== "" &&
+    skuReqForm.packageType.trim() !== "" &&
+    skuReqForm.packageTypeValue.trim() !== "" &&
+    skuReqForm.categoryId !== "" &&
+    skuReqForm.hsnCode.trim() !== "" &&
+    skuReqForm.countryOfOrigin.trim() !== "" &&
+    skuReqForm.gstTax !== "" &&
+    skuReqForm.manufacturerName.trim() !== "";
+  const handleSubmitSkuRequest = () => {
+    if (!isSkuReqValid) return;
+    const req = addSkuRequest({
+      itemName: skuReqForm.itemName,
+      shortName: skuReqForm.shortName,
+      groupName: skuReqForm.groupName,
+      brandId: skuReqForm.brandId,
+      brandOther: skuReqForm.brandOther,
+      brandAttribute: skuReqForm.brandAttribute,
+      shortDesc: skuReqForm.shortDesc,
+      longDesc: skuReqForm.longDesc,
+      measureUnit: skuReqForm.measureUnit,
+      measureValue: skuReqForm.measureValue,
+      weightMeasure: skuReqForm.weightMeasure,
+      skuWeight: skuReqForm.skuWeight,
+      unitizedCount: skuReqForm.unitizedCount,
+      upc: skuReqForm.upc,
+      packageType: skuReqForm.packageType,
+      packageTypeValue: skuReqForm.packageTypeValue,
+      productLength: skuReqForm.productLength,
+      productWidth: skuReqForm.productWidth,
+      productHeight: skuReqForm.productHeight,
+      categoryId: skuReqForm.categoryId,
+      hsnCode: skuReqForm.hsnCode,
+      countryOfOrigin: skuReqForm.countryOfOrigin,
+      gstTax: skuReqForm.gstTax,
+      gstCess: skuReqForm.gstCess,
+      manufacturerName: skuReqForm.manufacturerName,
+      notes: skuReqForm.notes,
+    });
+    toast.success(`Request ${req.id} submitted. Track it in My Requests.`, { duration: 4000 });
+    setShowSkuRequestDialog(false);
+    setSkuReqForm(emptySkuForm);
+    setSkuReqImages([]);
   };
 
   // Plain CSV parser for validatePriceStockFile. Handles quoted
@@ -606,7 +737,42 @@ export function MySKU() {
                   Filter
                 </Button>
                 )}
-<Button
+<DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="sm"
+                      className="gap-2 flex-1 sm:flex-initial bg-purple-600 hover:bg-purple-700 text-white"
+                    >
+                      <FileText className="h-4 w-4" />
+                      Request
+                      <ChevronDown className="h-3.5 w-3.5 opacity-80" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuItem onClick={openCompanyRequestDialog} className="gap-2 cursor-pointer">
+                      <Building2 className="h-4 w-4 text-purple-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Request a Company</p>
+                        <p className="text-[11px] text-gray-500">Ask Qwipo to add a new company</p>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={openBrandRequestDialog} className="gap-2 cursor-pointer">
+                      <Tag className="h-4 w-4 text-purple-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Request a Brand</p>
+                        <p className="text-[11px] text-gray-500">Ask Qwipo to add a new brand</p>
+                      </div>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={openSkuRequestDialog} className="gap-2 cursor-pointer">
+                      <Package className="h-4 w-4 text-purple-600" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Request a SKU</p>
+                        <p className="text-[11px] text-gray-500">Submit a new SKU for the catalog</p>
+                      </div>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/products/my-requests")}
@@ -1040,6 +1206,143 @@ export function MySKU() {
               : ""),
         }}
       />
+
+      {/* ── Request a Company Dialog ── */}
+      <Dialog open={showCompanyRequestDialog} onOpenChange={setShowCompanyRequestDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              Request a New Company
+            </DialogTitle>
+            <DialogDescription>
+              Tell us which company you'd like added to the Product Store.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="company-req-name">Company Name *</Label>
+              <Input
+                id="company-req-name"
+                placeholder="e.g. Godrej Consumer Products"
+                value={companyReqName}
+                onChange={(e) => setCompanyReqName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="company-req-msg">Message (optional)</Label>
+              <textarea
+                id="company-req-msg"
+                rows={3}
+                placeholder="Any additional context — why this company is needed, which SKUs you expect, etc."
+                value={companyReqMessage}
+                onChange={(e) => setCompanyReqMessage(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowCompanyRequestDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitCompanyRequest}
+              disabled={!companyReqName.trim()}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="h-4 w-4" />
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Request a Brand Dialog ── */}
+      <Dialog open={showBrandRequestDialog} onOpenChange={setShowBrandRequestDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              Request a New Brand
+            </DialogTitle>
+            <DialogDescription>
+              Tell us which brand you'd like added to the Product Store.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label htmlFor="brand-req-company">Company Name (optional)</Label>
+              <Input
+                id="brand-req-company"
+                placeholder="e.g. Hindustan Unilever"
+                value={brandReqCompanyName}
+                onChange={(e) => setBrandReqCompanyName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="brand-req-name">Brand Name *</Label>
+              <Input
+                id="brand-req-name"
+                placeholder="e.g. Haldiram's"
+                value={brandReqName}
+                onChange={(e) => setBrandReqName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="brand-req-msg">Message (optional)</Label>
+              <textarea
+                id="brand-req-msg"
+                rows={3}
+                placeholder="Any additional context — category, specific SKUs you need, etc."
+                value={brandReqMessage}
+                onChange={(e) => setBrandReqMessage(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
+              />
+            </div>
+          </div>
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowBrandRequestDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitBrandRequest}
+              disabled={!brandReqName.trim()}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="h-4 w-4" />
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Request a SKU Dialog ── */}
+      <Dialog open={showSkuRequestDialog} onOpenChange={setShowSkuRequestDialog}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-purple-600" />
+              Request a New SKU
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-1">
+            <SkuFormFields
+              mode="seller"
+              form={skuReqForm}
+              onChange={onSkuReqChange}
+              productImages={skuReqImages}
+              onProductImagesChange={setSkuReqImages}
+            />
+          </div>
+          <DialogFooter className="pt-2 border-t">
+            <Button variant="outline" onClick={() => setShowSkuRequestDialog(false)}>Cancel</Button>
+            <Button
+              onClick={handleSubmitSkuRequest}
+              disabled={!isSkuReqValid}
+              className="gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Send className="h-4 w-4" />
+              Submit Request
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
     </div>
   );
