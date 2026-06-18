@@ -29,20 +29,9 @@ import {
   Database,
   CheckCircle2,
   Plus,
-  Upload,
   Download,
   Send,
-  Info,
-  FileText,
-  ArrowLeft,
-  MoreVertical,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "../../components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { AnimatePresence, motion } from "motion/react";
 import { PackageSearch } from "lucide-react";
@@ -56,29 +45,6 @@ import {
   type BulkImportValidationResult,
   type BulkImportError as BulkImportErrorRow,
 } from "../../components/bulk-import-dialog";
-import { ProductStoreBrowse } from "../../components/product-store-browse";
-import {
-  SkuFormFields,
-  type SkuFormState,
-  emptySkuForm,
-} from "../../components/sku-form-fields";
-import { addFromProductStore, isImportedFromPS } from "../../lib/my-sku-store";
-import {
-  psSkus,
-  getBrandById,
-  getCategoryById,
-  addPsRequest,
-  type PSCompany,
-  type PSBrand,
-  type PSSku,
-} from "../../lib/product-store-data";
-import { addSkuRequest } from "../../lib/sku-request-store";
-import {
-  downloadSkuTemplate,
-  parseSkuImportFile,
-  SKU_FIELDS,
-  type ParsedSkuRow,
-} from "../../lib/sku-import-template";
 import { sampleSKUs, type SKUData } from "../../lib/my-sku-data";
 export type { SKUData } from "../../lib/my-sku-data";
 export { sampleSKUs } from "../../lib/my-sku-data";
@@ -92,26 +58,8 @@ export function MySKU() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState(false);
 
-  const [isAddSkuBulkOpen, setIsAddSkuBulkOpen] = useState(false);
   const [isPriceStockBulkOpen, setIsPriceStockBulkOpen] = useState(false);
 
-  // Product Store panel — opened via "Add from Product Store" button
-  const [isProductStoreOpen, setIsProductStoreOpen] = useState(false);
-  const [psImportSku, setPsImportSku] = useState<PSSku | null>(null);
-  const [psBulkImport, setPsBulkImport] = useState<{ label: string; skus: PSSku[] } | null>(null);
-  const [showPSRequestDialog, setShowPSRequestDialog] = useState(false);
-  const [psReqForm, setPsReqForm] = useState<SkuFormState>(emptySkuForm);
-  const [psReqImages, setPsReqImages] = useState<string[]>([]);
-  const [showCompanyRequestDialog, setShowCompanyRequestDialog] = useState(false);
-  const [companyReqName, setCompanyReqName] = useState("");
-  const [companyReqMessage, setCompanyReqMessage] = useState("");
-  const [showBrandRequestDialog, setShowBrandRequestDialog] = useState(false);
-  const [brandReqName, setBrandReqName] = useState("");
-  const [brandReqMessage, setBrandReqMessage] = useState("");
-  const [brandReqCompanyName, setBrandReqCompanyName] = useState("");
-  const [addedPsSkuIds, setAddedPsSkuIds] = useState<Set<string>>(
-    () => new Set(psSkus.map((s) => s.id).filter((id) => isImportedFromPS(id)))
-  );
 
 
   // Filters
@@ -593,202 +541,6 @@ export function MySKU() {
     );
   };
 
-  // ---- Product Store panel handlers ----
-  const onPsReqChange = (key: keyof SkuFormState, value: string) =>
-    setPsReqForm((prev) => ({ ...prev, [key]: value }));
-
-  const handlePsImportToMySku = (sku: PSSku) => {
-    addFromProductStore(sku);
-    setAddedPsSkuIds((prev) => new Set([...prev, sku.id]));
-    // Also refresh the main SKU list so the imported SKU appears immediately
-    setSkus((prev) => {
-      const alreadyExists = prev.some((s) => s.sku === sku.skuCode);
-      if (alreadyExists) return prev;
-      const brand = getBrandById(sku.brandId);
-      const category = getCategoryById(sku.categoryId);
-      const today = new Date().toISOString().split("T")[0];
-      return [
-        {
-          id: sku.id,
-          name: sku.name,
-          category: category?.name ?? sku.categoryId,
-          brand: brand?.name ?? sku.brandId,
-          source: "Product Store",
-          status: "Inactive",
-          lastUpdated: today,
-          sku: sku.skuCode,
-          shortName: sku.shortName,
-          productStoreId: sku.id,
-          ondcCompliance: { isCompliant: false, missingFields: ["MRP", "Selling Price"], ondcData: {} },
-        },
-        ...prev,
-      ];
-    });
-    toast.success(
-      `"${sku.name}" added to My SKU as Inactive. Set MRP and selling price to activate it.`,
-      { duration: 4000 }
-    );
-    setPsImportSku(null);
-  };
-
-  const handlePsBulkImport = () => {
-    if (!psBulkImport) return;
-    const newSkus = psBulkImport.skus.filter((s) => !addedPsSkuIds.has(s.id));
-    newSkus.forEach((s) => addFromProductStore(s));
-    setAddedPsSkuIds((prev) => new Set([...prev, ...newSkus.map((s) => s.id)]));
-    const today = new Date().toISOString().split("T")[0];
-    setSkus((prev) => {
-      const existingCodes = new Set(prev.map((s) => s.sku));
-      const toAdd = newSkus
-        .filter((s) => !existingCodes.has(s.skuCode))
-        .map((s) => {
-          const brand = getBrandById(s.brandId);
-          const category = getCategoryById(s.categoryId);
-          return {
-            id: s.id,
-            name: s.name,
-            category: category?.name ?? s.categoryId,
-            brand: brand?.name ?? s.brandId,
-            source: "Product Store",
-            status: "Inactive" as const,
-            lastUpdated: today,
-            sku: s.skuCode,
-            shortName: s.shortName,
-            productStoreId: s.id,
-            ondcCompliance: { isCompliant: false, missingFields: ["MRP", "Selling Price"], ondcData: {} },
-          };
-        });
-      return [...toAdd, ...prev];
-    });
-    toast.success(
-      `${newSkus.length} SKU${newSkus.length !== 1 ? "s" : ""} from ${psBulkImport.label} added to My SKU as Inactive.`,
-      { duration: 4000 }
-    );
-    setPsBulkImport(null);
-  };
-
-  const openPsBulkImportForCompany = (company: PSCompany, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const compSkus = psSkus.filter((s) => s.companyId === company.id && s.status === "active");
-    setPsBulkImport({ label: company.name, skus: compSkus });
-  };
-
-  const openPsBulkImportForBrand = (brand: PSBrand, e: React.MouseEvent) => {
-    e.stopPropagation();
-    const brandSkus = psSkus.filter((s) => s.brandId === brand.id && s.status === "active");
-    setPsBulkImport({ label: brand.name, skus: brandSkus });
-  };
-
-  const openPSRequestDialog = (_company?: PSCompany | null, brand?: PSBrand | null) => {
-    setPsReqForm({
-      ...emptySkuForm,
-      brandId: brand?.id ?? "",
-      brandAttribute: brand?.name ?? "",
-    });
-    setPsReqImages([]);
-    setShowPSRequestDialog(true);
-  };
-
-  const openCompanyRequestDialog = () => {
-    setCompanyReqName("");
-    setCompanyReqMessage("");
-    setShowCompanyRequestDialog(true);
-  };
-
-  const handleSubmitCompanyRequest = () => {
-    const req = addPsRequest({
-      type: "request_company",
-      skuName: "—",
-      brandId: "",
-      brandName: "—",
-      companyName: companyReqName.trim(),
-      requestedBy: "You (Seller)",
-      requestedByType: "seller",
-      notes: companyReqMessage.trim() || undefined,
-    });
-    toast.success(`Company request ${req.id} submitted. Track it in Catalog Admin Requests.`, { duration: 4000 });
-    setShowCompanyRequestDialog(false);
-  };
-
-  const openBrandRequestDialog = (company?: PSCompany | null) => {
-    setBrandReqName("");
-    setBrandReqMessage("");
-    setBrandReqCompanyName(company?.name ?? "");
-    setShowBrandRequestDialog(true);
-  };
-
-  const handleSubmitBrandRequest = () => {
-    const req = addPsRequest({
-      type: "request_brand",
-      skuName: "—",
-      brandId: "",
-      brandName: brandReqName.trim(),
-      companyName: brandReqCompanyName.trim() || "—",
-      requestedBy: "You (Seller)",
-      requestedByType: "seller",
-      notes: brandReqMessage.trim() || undefined,
-    });
-    toast.success(`Brand request ${req.id} submitted. Track it in Catalog Admin Requests.`, { duration: 4000 });
-    setShowBrandRequestDialog(false);
-  };
-
-  const isPSReqValid =
-    psReqForm.itemName.trim() !== "" &&
-    psReqForm.shortName.trim() !== "" &&
-    psReqForm.groupName.trim() !== "" &&
-    (psReqForm.brandId !== "" || psReqForm.brandOther.trim() !== "") &&
-    psReqForm.brandAttribute.trim() !== "" &&
-    psReqForm.shortDesc.trim() !== "" &&
-    psReqForm.longDesc.trim() !== "" &&
-    psReqForm.measureUnit !== "" &&
-    psReqForm.measureValue.trim() !== "" &&
-    psReqForm.weightMeasure !== "" &&
-    psReqForm.skuWeight.trim() !== "" &&
-    psReqForm.unitizedCount.trim() !== "" &&
-    psReqForm.packageType.trim() !== "" &&
-    psReqForm.packageTypeValue.trim() !== "" &&
-    psReqForm.categoryId !== "" &&
-    psReqForm.hsnCode.trim() !== "" &&
-    psReqForm.countryOfOrigin.trim() !== "" &&
-    psReqForm.gstTax !== "" &&
-    psReqForm.manufacturerName.trim() !== "";
-
-  const handleSubmitPSRequest = () => {
-    if (!isPSReqValid) return;
-    const req = addSkuRequest({
-      itemName: psReqForm.itemName,
-      shortName: psReqForm.shortName,
-      groupName: psReqForm.groupName,
-      brandId: psReqForm.brandId,
-      brandOther: psReqForm.brandOther,
-      brandAttribute: psReqForm.brandAttribute,
-      shortDesc: psReqForm.shortDesc,
-      longDesc: psReqForm.longDesc,
-      measureUnit: psReqForm.measureUnit,
-      measureValue: psReqForm.measureValue,
-      weightMeasure: psReqForm.weightMeasure,
-      skuWeight: psReqForm.skuWeight,
-      unitizedCount: psReqForm.unitizedCount,
-      upc: psReqForm.upc,
-      packageType: psReqForm.packageType,
-      packageTypeValue: psReqForm.packageTypeValue,
-      productLength: psReqForm.productLength,
-      productWidth: psReqForm.productWidth,
-      productHeight: psReqForm.productHeight,
-      categoryId: psReqForm.categoryId,
-      hsnCode: psReqForm.hsnCode,
-      countryOfOrigin: psReqForm.countryOfOrigin,
-      gstTax: psReqForm.gstTax,
-      gstCess: psReqForm.gstCess,
-      manufacturerName: psReqForm.manufacturerName,
-      notes: psReqForm.notes,
-    });
-    toast.success(`Request ${req.id} submitted. Track it in My Requests.`, { duration: 4000 });
-    setShowPSRequestDialog(false);
-    setPsReqForm(emptySkuForm);
-    setPsReqImages([]);
-  };
-
   const getSourceBadge = (source: string) => {
     const badgeMap: Record<string, { color: string; icon?: React.ReactNode }> = {
       "Brand Sync": {
@@ -822,56 +574,10 @@ export function MySKU() {
 
   return (
     <div className="h-full flex flex-col bg-gray-50">
-      {/* Product Store inline view — replaces card when open, sidebar stays visible */}
-      {isProductStoreOpen && (
-        <div className="flex flex-col flex-1 min-h-0 bg-white">
-          <div className="flex items-center justify-between px-6 py-4 border-b bg-white flex-shrink-0">
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setIsProductStoreOpen(false)}
-                className="gap-1.5 text-gray-600 -ml-2"
-              >
-                <ArrowLeft className="h-4 w-4" />
-                Back
-              </Button>
-              <div className="w-px h-5 bg-gray-200" />
-              <Database className="h-5 w-5 text-purple-600" />
-              <div>
-                <p className="text-base font-semibold text-gray-900 leading-none">Product Store</p>
-                <p className="text-xs text-gray-500 mt-0.5">Browse the Qwipo Master Catalog and import SKUs into My SKU.</p>
-              </div>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate("/products/my-requests")}
-              className="gap-2 text-purple-700 border-purple-200 hover:bg-purple-50"
-            >
-              <Send className="h-4 w-4" />
-              My Requests
-            </Button>
-          </div>
-          <div className="flex-1 overflow-y-auto px-6 py-4">
-            <ProductStoreBrowse
-              mode="seller"
-              addedSkuIds={addedPsSkuIds}
-              onAddSku={setPsImportSku}
-              onBulkImportCompany={openPsBulkImportForCompany}
-              onBulkImportBrand={openPsBulkImportForBrand}
-              onRequestCompany={openCompanyRequestDialog}
-              onRequestBrand={openBrandRequestDialog}
-              onRequestSku={openPSRequestDialog}
-            />
-          </div>
-        </div>
-      )}
-
       {/* Page area — Card fills the available height; only the table
           rows scroll, the search/filter header and pagination stay
           pinned to the top and bottom of the Card. */}
-      {!isProductStoreOpen && <div className="flex-1 overflow-hidden p-6">
+      <div className="flex-1 overflow-hidden p-6">
         <Card className="h-full flex flex-col overflow-hidden p-0 gap-0">
           {/* Header with Search and Actions */}
           <div className="border-b border-gray-200 p-4">
@@ -900,15 +606,7 @@ export function MySKU() {
                   Filter
                 </Button>
                 )}
-                <Button
-                  size="sm"
-                  onClick={() => setIsProductStoreOpen(true)}
-                  className="gap-2 flex-1 sm:flex-initial bg-purple-900 hover:bg-purple-800 text-white"
-                >
-                  <Database className="h-4 w-4" />
-                  Add from Product Store
-                </Button>
-                <Button
+<Button
                   variant="outline"
                   size="sm"
                   onClick={() => navigate("/products/my-requests")}
@@ -918,15 +616,15 @@ export function MySKU() {
                   My Requests
                 </Button>
                 {!isEmpty && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => setIsPriceStockBulkOpen(true)}
-                  className="gap-2 flex-1 sm:flex-initial"
-                >
-                  <Database className="h-4 w-4" />
-                  Update Price &amp; Stock
-                </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="gap-2 flex-1 sm:flex-initial"
+                    onClick={() => setIsPriceStockBulkOpen(true)}
+                  >
+                    <Database className="h-4 w-4" />
+                    Update Price &amp; Stock
+                  </Button>
                 )}
               </div>
             </div>
@@ -991,7 +689,7 @@ export function MySKU() {
               <EmptyState
                 icon={PackageSearch}
                 title="No SKUs in your catalog yet"
-                description="No SKUs in your catalog yet — click Add from Product Store to import SKUs into your catalog."
+                description="No SKUs in your catalog yet."
               />
             ) : (
             <table className="w-full">
@@ -1151,7 +849,7 @@ export function MySKU() {
           />
           )}
         </Card>
-      </div>}
+      </div>
 
       {/* Filter Drawer */}
       <AnimatePresence>
@@ -1289,286 +987,6 @@ export function MySKU() {
         )}
       </AnimatePresence>
 
-
-      {/* ── PS Bulk Import Dialog ── */}
-      <Dialog open={!!psBulkImport} onOpenChange={() => setPsBulkImport(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-purple-600" />
-              Import All SKUs — {psBulkImport?.label}
-            </DialogTitle>
-            <DialogDescription>
-              All SKUs from {psBulkImport?.label} will be added to your My SKU list as Inactive.
-            </DialogDescription>
-          </DialogHeader>
-          {psBulkImport &&
-            (() => {
-              const newSkus = psBulkImport.skus.filter((s) => !addedPsSkuIds.has(s.id));
-              const alreadyAdded = psBulkImport.skus.length - newSkus.length;
-              return (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2 text-center">
-                    <div className="p-3 bg-green-50 rounded-lg border border-green-100">
-                      <p className="text-xl font-bold text-green-700">{newSkus.length}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Will be added</p>
-                    </div>
-                    <div className="p-3 bg-gray-50 rounded-lg border border-gray-100">
-                      <p className="text-xl font-bold text-gray-500">{alreadyAdded}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">Already in My SKU</p>
-                    </div>
-                  </div>
-                  {newSkus.length > 0 && (
-                    <div className="max-h-40 overflow-y-auto rounded-lg border divide-y text-sm">
-                      {newSkus.map((s) => (
-                        <div key={s.id} className="flex items-center gap-2 px-3 py-2">
-                          <span className="text-base">{s.image}</span>
-                          <div className="min-w-0">
-                            <p className="font-medium text-gray-900 text-xs truncate">{s.name}</p>
-                            <code className="text-[10px] text-gray-400 font-mono">{s.skuCode}</code>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 text-sm text-purple-900 space-y-1">
-                    <p className="font-medium flex items-center gap-1 text-xs">
-                      <Info className="h-3.5 w-3.5 flex-shrink-0 text-purple-500" />
-                      What gets imported (Read-only fields)
-                    </p>
-                    <ul className="text-xs space-y-0.5 ml-5 list-disc text-purple-800">
-                      <li>SKU name, short name, SKU code, group name</li>
-                      <li>Brand, company, category</li>
-                      <li>Short &amp; long description</li>
-                      <li>Measure unit, packaging size, UPC, package type</li>
-                      <li>SKU weight &amp; dimensions</li>
-                      <li>Manufacturer name, country of origin</li>
-                      <li>HSN code, GST tax %, GST cess %</li>
-                    </ul>
-                  </div>
-                  <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
-                    <strong>You fill in after import:</strong> MRP, selling price, fulfillment ID, location, order limits, and consumer care details.
-                  </div>
-                </div>
-              );
-            })()}
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPsBulkImport(null)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handlePsBulkImport}
-              disabled={psBulkImport?.skus.filter((s) => !addedPsSkuIds.has(s.id)).length === 0}
-              className="gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Import {psBulkImport?.skus.filter((s) => !addedPsSkuIds.has(s.id)).length ?? 0} SKUs
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── PS Import Confirm Dialog (single SKU) ── */}
-      <Dialog open={!!psImportSku} onOpenChange={() => setPsImportSku(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-purple-600" />
-              Add to My SKU
-            </DialogTitle>
-            <DialogDescription>
-              This will import the SKU's catalog details into your My SKU list.
-            </DialogDescription>
-          </DialogHeader>
-          {psImportSku && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border">
-                <span className="text-3xl">{psImportSku.image}</span>
-                <div>
-                  <p className="font-semibold text-gray-900 text-sm">{psImportSku.name}</p>
-                  <code className="text-[11px] text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded font-mono">
-                    {psImportSku.skuCode}
-                  </code>
-                </div>
-              </div>
-              <div className="p-3 bg-purple-50 rounded-lg border border-purple-200 text-sm text-purple-900 space-y-1">
-                <p className="font-medium flex items-center gap-1">
-                  <Info className="h-4 w-4" />
-                  What gets imported (Read-only fields)
-                </p>
-                <ul className="text-xs space-y-0.5 ml-5 list-disc text-purple-800">
-                  <li>SKU name, short name, SKU code, group name</li>
-                  <li>Brand, company, category</li>
-                  <li>Short &amp; long description</li>
-                  <li>Measure unit, packaging size, UPC, package type</li>
-                  <li>SKU weight &amp; dimensions</li>
-                  <li>Manufacturer name, country of origin</li>
-                  <li>HSN code, GST tax %, GST cess %</li>
-                </ul>
-              </div>
-              <div className="p-2.5 bg-amber-50 rounded-lg border border-amber-200 text-xs text-amber-800">
-                <strong>You fill in after import:</strong> MRP, selling price, fulfillment ID, location, order limits, and consumer care details.
-              </div>
-            </div>
-          )}
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <Button variant="outline" onClick={() => setPsImportSku(null)} className="sm:mr-auto">
-              Cancel
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => { if (psImportSku) handlePsImportToMySku(psImportSku); setIsProductStoreOpen(false); }}
-              className="gap-2 text-purple-700 border-purple-300 hover:bg-purple-50"
-            >
-              Add &amp; Close →
-            </Button>
-            <Button onClick={() => psImportSku && handlePsImportToMySku(psImportSku)} className="gap-2">
-              <Plus className="h-4 w-4" />
-              Add to My SKU
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── PS Request a Company Dialog ── */}
-      <Dialog open={showCompanyRequestDialog} onOpenChange={setShowCompanyRequestDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              Request a New Company
-            </DialogTitle>
-            <DialogDescription>
-              Tell us which company you'd like added to the Product Store.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            <div className="space-y-1.5">
-              <Label htmlFor="company-req-name">Company Name *</Label>
-              <Input
-                id="company-req-name"
-                placeholder="e.g. Godrej Consumer Products"
-                value={companyReqName}
-                onChange={(e) => setCompanyReqName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="company-req-msg">Message (optional)</Label>
-              <textarea
-                id="company-req-msg"
-                rows={3}
-                placeholder="Any additional context — why this company is needed, which SKUs you expect, etc."
-                value={companyReqMessage}
-                onChange={(e) => setCompanyReqMessage(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
-            </div>
-          </div>
-          <DialogFooter className="pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowCompanyRequestDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitCompanyRequest}
-              disabled={!companyReqName.trim()}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="h-4 w-4" />
-              Submit Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── PS Request a Brand Dialog ── */}
-      <Dialog open={showBrandRequestDialog} onOpenChange={setShowBrandRequestDialog}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              Request a New Brand
-            </DialogTitle>
-            <DialogDescription>
-              Tell us which brand you'd like added to the Product Store.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            {brandReqCompanyName && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-purple-50 border border-purple-200 rounded-lg">
-                <span className="text-xs text-purple-600 font-medium">Company</span>
-                <span className="text-sm font-semibold text-purple-900">{brandReqCompanyName}</span>
-              </div>
-            )}
-            <div className="space-y-1.5">
-              <Label htmlFor="brand-req-name">Brand Name *</Label>
-              <Input
-                id="brand-req-name"
-                placeholder="e.g. Haldiram's"
-                value={brandReqName}
-                onChange={(e) => setBrandReqName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="brand-req-msg">Message (optional)</Label>
-              <textarea
-                id="brand-req-msg"
-                rows={3}
-                placeholder="Any additional context — category, specific SKUs you need, etc."
-                value={brandReqMessage}
-                onChange={(e) => setBrandReqMessage(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring resize-none"
-              />
-            </div>
-          </div>
-          <DialogFooter className="pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowBrandRequestDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitBrandRequest}
-              disabled={!brandReqName.trim()}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="h-4 w-4" />
-              Submit Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* ── PS Request a SKU Dialog ── */}
-      <Dialog open={showPSRequestDialog} onOpenChange={setShowPSRequestDialog}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-purple-600" />
-              Request a New SKU
-            </DialogTitle>
-          </DialogHeader>
-          <div className="py-1">
-            <SkuFormFields
-              mode="seller"
-              form={psReqForm}
-              onChange={onPsReqChange}
-              productImages={psReqImages}
-              onProductImagesChange={setPsReqImages}
-            />
-          </div>
-          <DialogFooter className="pt-2 border-t">
-            <Button variant="outline" onClick={() => setShowPSRequestDialog(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmitPSRequest}
-              disabled={!isPSReqValid}
-              className="gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Send className="h-4 w-4" />
-              Submit Request
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Price & Stock — Bulk Import (Story 19128). The downloaded
           sheet is pre-filled with every SKU in the seller's catalog
