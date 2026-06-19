@@ -460,15 +460,6 @@ export function MyRequests() {
                         <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-[10px]">
                           {req.id}
                         </code>
-                        {brandLabel !== "—" && req.requestType !== "company" && (
-                          <span className="flex items-center gap-1">
-                            <Tag className="h-3 w-3" />
-                            {brandLabel}
-                          </span>
-                        )}
-                        {req.form.categoryId && (
-                          <span className="hidden sm:inline">{req.form.categoryId}</span>
-                        )}
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
                           {req.submittedAt}
