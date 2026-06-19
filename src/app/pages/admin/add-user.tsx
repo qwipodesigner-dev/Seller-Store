@@ -31,6 +31,7 @@ import { CompanyComboBox } from "../../components/company-combobox";
 interface SellerCompanySelection {
   companyId: string;
   brandIds: string[]; // empty array means "all brands of this company"
+  syncSkus: boolean;
 }
 
 export function AdminAddUser() {
@@ -170,9 +171,8 @@ export function AdminAddUser() {
   const [companies, setCompanies] = useState<Company[]>(getCompanies());
   useEffect(() => subscribeToCompanies(() => setCompanies([...getCompanies()])), []);
   const [selections, setSelections] = useState<SellerCompanySelection[]>([
-    { companyId: "", brandIds: [] },
+    { companyId: "", brandIds: [], syncSkus: true },
   ]);
-  const [syncSkusToMySku, setSyncSkusToMySku] = useState(true);
 
   // ---- Selection helpers ----
   const usedCompanyIds = useMemo(
@@ -181,7 +181,7 @@ export function AdminAddUser() {
   );
 
   const addCompanyRow = () => {
-    setSelections((prev) => [...prev, { companyId: "", brandIds: [] }]);
+    setSelections((prev) => [...prev, { companyId: "", brandIds: [], syncSkus: true }]);
   };
 
   const removeCompanyRow = (idx: number) => {
@@ -669,6 +669,22 @@ export function AdminAddUser() {
                       </div>
                     </div>
 
+                    {/* Sync toggle — per company */}
+                    <div className="flex items-center gap-2 pt-1">
+                      <Checkbox
+                        id={`syncSkus-${idx}`}
+                        checked={sel.syncSkus}
+                        onCheckedChange={(v) =>
+                          setSelections((prev) =>
+                            prev.map((s, i) => i === idx ? { ...s, syncSkus: !!v } : s)
+                          )
+                        }
+                      />
+                      <Label htmlFor={`syncSkus-${idx}`} className="text-xs cursor-pointer">
+                        Sync all SKUs to seller's MySKU
+                      </Label>
+                    </div>
+
                     {/* Brand picker — appears once a company is chosen */}
                     {company && (
                       <div className="space-y-2 bg-white border border-gray-200 rounded-lg p-3">
@@ -741,23 +757,6 @@ export function AdminAddUser() {
                 <Plus className="h-4 w-4" />
                 Add another company
               </Button>
-
-              <div className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50/50 px-3 py-2.5">
-                <Checkbox
-                  id="syncSkusToMySku"
-                  checked={syncSkusToMySku}
-                  onCheckedChange={(v) => setSyncSkusToMySku(!!v)}
-                  className="mt-0.5"
-                />
-                <div className="flex flex-col gap-0.5">
-                  <Label htmlFor="syncSkusToMySku" className="text-sm font-medium cursor-pointer">
-                    Sync all SKUs to seller's MySKU
-                  </Label>
-                  <p className="text-xs text-gray-500">
-                    All SKUs for these companies and their brands will be automatically added to this seller's MySKU list.
-                  </p>
-                </div>
-              </div>
 
               {errors.companies && (
                 <p className="text-xs text-red-600 flex items-center gap-1.5">
