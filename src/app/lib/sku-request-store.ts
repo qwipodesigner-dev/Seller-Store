@@ -4,6 +4,7 @@
  */
 
 export type RequestStatus = "submitted" | "in_progress" | "approved" | "rejected";
+export type RequestType = "sku" | "company" | "brand";
 
 export interface SkuRequestForm {
   itemName: string;
@@ -38,6 +39,7 @@ export interface SkuRequest {
   id: string;
   submittedAt: string; // ISO date string
   status: RequestStatus;
+  requestType: RequestType;
   rejectionReason?: string;
   form: SkuRequestForm;
 }
@@ -47,6 +49,7 @@ let _requests: SkuRequest[] = [
     id: "REQ-001",
     submittedAt: "2026-05-20",
     status: "approved",
+    requestType: "sku",
     form: {
       itemName: "Horlicks Junior Vanilla 500g",
       shortName: "HORL-JR-500",
@@ -80,6 +83,7 @@ let _requests: SkuRequest[] = [
     id: "REQ-002",
     submittedAt: "2026-05-28",
     status: "submitted",
+    requestType: "sku",
     form: {
       itemName: "Maggi Masala Noodles 12-pack",
       shortName: "MAGGI-12PK",
@@ -113,6 +117,7 @@ let _requests: SkuRequest[] = [
     id: "REQ-003",
     submittedAt: "2026-06-02",
     status: "rejected",
+    requestType: "sku",
     rejectionReason: "SKU already exists in the catalog as BISC-023. Please use the existing listing.",
     form: {
       itemName: "Oreo Original Cream Biscuits 120g",
@@ -143,19 +148,88 @@ let _requests: SkuRequest[] = [
       notes: "",
     },
   },
+  {
+    id: "REQ-004",
+    submittedAt: "2026-06-08",
+    status: "in_progress",
+    requestType: "company",
+    form: {
+      itemName: "Pristine Agro Pvt Ltd",
+      shortName: "",
+      groupName: "",
+      brandId: "",
+      brandOther: "",
+      brandAttribute: "",
+      shortDesc: "Regional spices and dry-goods manufacturer from Rajasthan",
+      longDesc: "",
+      measureUnit: "",
+      measureValue: "",
+      weightMeasure: "",
+      skuWeight: "",
+      unitizedCount: "",
+      upc: "",
+      packageType: "",
+      packageTypeValue: "",
+      productLength: "",
+      productWidth: "",
+      productHeight: "",
+      categoryId: "Spices and Condiments",
+      hsnCode: "",
+      countryOfOrigin: "India",
+      gstTax: "",
+      gstCess: "",
+      manufacturerName: "",
+      notes: "Multiple retailers in Rajasthan are asking for their products. Company is FSSAI-registered but not yet in Qwipo's vendor list.",
+    },
+  },
+  {
+    id: "REQ-005",
+    submittedAt: "2026-06-14",
+    status: "submitted",
+    requestType: "brand",
+    form: {
+      itemName: "Farmley",
+      shortName: "",
+      groupName: "",
+      brandId: "",
+      brandOther: "Agri10x Foodtech Pvt Ltd",
+      brandAttribute: "Farmley",
+      shortDesc: "Premium dry fruits and nuts brand",
+      longDesc: "",
+      measureUnit: "",
+      measureValue: "",
+      weightMeasure: "",
+      skuWeight: "",
+      unitizedCount: "",
+      upc: "",
+      packageType: "",
+      packageTypeValue: "",
+      productLength: "",
+      productWidth: "",
+      productHeight: "",
+      categoryId: "Dry Fruits and Nuts",
+      hsnCode: "",
+      countryOfOrigin: "India",
+      gstTax: "",
+      gstCess: "",
+      manufacturerName: "Agri10x Foodtech Pvt Ltd",
+      notes: "Growing D2C brand now available for B2B wholesale. Sellers in Delhi and Mumbai have specifically asked for this brand.",
+    },
+  },
 ];
 
-let _nextId = 4;
+let _nextId = 6;
 
 export function getSkuRequests(): SkuRequest[] {
   return [..._requests].sort((a, b) => b.submittedAt.localeCompare(a.submittedAt));
 }
 
-export function addSkuRequest(form: SkuRequestForm): SkuRequest {
+export function addSkuRequest(form: SkuRequestForm, requestType: RequestType = "sku"): SkuRequest {
   const req: SkuRequest = {
     id: `REQ-${String(_nextId++).padStart(3, "0")}`,
     submittedAt: new Date().toISOString().split("T")[0],
     status: "submitted",
+    requestType,
     form,
   };
   _requests = [req, ..._requests];

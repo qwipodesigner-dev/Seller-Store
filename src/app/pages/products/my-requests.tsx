@@ -35,6 +35,8 @@ import {
   AlertCircle,
   Calendar,
   RefreshCw,
+  Building2,
+  Layers,
 } from "lucide-react";
 import {
   getSkuRequests,
@@ -70,6 +72,12 @@ const STATUS_CONFIG: Record<
     badge: "bg-red-50 text-red-700 border-red-200",
     dot: "bg-red-100",
   },
+};
+
+const REQUEST_TYPE_CONFIG = {
+  sku: { label: "SKU Request", icon: <Package className="h-3 w-3" />, badge: "bg-purple-50 text-purple-700 border-purple-200" },
+  company: { label: "Company Request", icon: <Building2 className="h-3 w-3" />, badge: "bg-teal-50 text-teal-700 border-teal-200" },
+  brand: { label: "Brand Request", icon: <Layers className="h-3 w-3" />, badge: "bg-orange-50 text-orange-700 border-orange-200" },
 };
 
 function DetailRow({
@@ -123,6 +131,7 @@ function RequestDetailDialog({
 }) {
   const f = request.form;
   const status = STATUS_CONFIG[request.status];
+  const typeConfig = REQUEST_TYPE_CONFIG[request.requestType ?? "sku"];
 
   return (
     <Dialog open onOpenChange={onClose}>
@@ -131,10 +140,14 @@ function RequestDetailDialog({
           <div className="flex items-start justify-between gap-3">
             <div>
               <DialogTitle className="text-base">{f.itemName || "—"}</DialogTitle>
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <code className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">
                   {request.id}
                 </code>
+                <Badge className={`gap-1 text-xs ${typeConfig.badge}`}>
+                  {typeConfig.icon}
+                  {typeConfig.label}
+                </Badge>
                 <Badge className={`gap-1 text-xs ${status.badge}`}>
                   {status.icon}
                   {status.label}
@@ -170,73 +183,94 @@ function RequestDetailDialog({
         </DialogHeader>
 
         <div className="space-y-5 pt-1">
-          <Section title="Descriptor" icon={<FileText className="h-3 w-3" />}>
-            <DetailRow label="SKU Name" value={f.itemName} />
-            <DetailRow label="Short Name" value={f.shortName} />
-            <DetailRow label="Brand" value={f.brandId || f.brandOther} />
-            <DetailRow label="Brand Attribute" value={f.brandAttribute} />
-          </Section>
-
-          {(f.shortDesc || f.longDesc) && (
+          {(request.requestType === "company") && (
             <>
-              <Separator />
-              <Section title="Descriptions" icon={<FileText className="h-3 w-3" />}>
-                {f.shortDesc && (
-                  <div className="space-y-1">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-400">Short</p>
-                    <p className="text-xs text-gray-800 leading-relaxed">{f.shortDesc}</p>
-                  </div>
-                )}
-                {f.longDesc && (
-                  <div className="space-y-1 mt-2">
-                    <p className="text-[10px] uppercase tracking-wider text-gray-400">Long</p>
-                    <p className="text-xs text-gray-800 leading-relaxed">{f.longDesc}</p>
-                  </div>
-                )}
+              <Section title="Company Details" icon={<Building2 className="h-3 w-3" />}>
+                <DetailRow label="Company Name" value={f.itemName} />
               </Section>
             </>
           )}
 
-          {(f.measureUnit || f.skuWeight || f.upc) && (
+          {(request.requestType === "brand") && (
             <>
-              <Separator />
-              <Section title="Quantity & Packaging" icon={<Package className="h-3 w-3" />}>
-                <DetailRow
-                  label="Measure"
-                  value={f.measureValue && f.measureUnit ? `${f.measureValue} ${f.measureUnit}` : null}
-                />
-                <DetailRow
-                  label="Weight"
-                  value={f.skuWeight && f.weightMeasure ? `${f.skuWeight} ${f.weightMeasure}` : null}
-                />
-                <DetailRow label="Pack Size" value={f.unitizedCount} />
-                <DetailRow label="UPC / Barcode" value={f.upc} mono />
+              <Section title="Brand Details" icon={<Layers className="h-3 w-3" />}>
+                <DetailRow label="Brand Name" value={f.itemName} />
+                <DetailRow label="Company Name" value={f.brandOther} />
               </Section>
             </>
           )}
 
-          {(f.productLength || f.productWidth || f.productHeight) && (
+          {(!request.requestType || request.requestType === "sku") && (
             <>
-              <Separator />
-              <Section title="Dimensions" icon={<Ruler className="h-3 w-3" />}>
-                <DetailRow
-                  label="L × W × H (cm)"
-                  value={`${f.productLength} × ${f.productWidth} × ${f.productHeight}`}
-                />
+              <Section title="Descriptor" icon={<FileText className="h-3 w-3" />}>
+                <DetailRow label="SKU Name" value={f.itemName} />
+                <DetailRow label="Short Name" value={f.shortName} />
+                <DetailRow label="Brand" value={f.brandId || f.brandOther} />
+                <DetailRow label="Brand Attribute" value={f.brandAttribute} />
               </Section>
-            </>
-          )}
 
-          {(f.categoryId || f.hsnCode || f.countryOfOrigin || f.manufacturerName) && (
-            <>
-              <Separator />
-              <Section title="Compliance & Taxonomy" icon={<ShieldCheck className="h-3 w-3" />}>
-                <DetailRow label="ONDC Category" value={f.categoryId} />
-                <DetailRow label="HSN Code" value={f.hsnCode} mono />
-                <DetailRow label="GST Rate" value={f.gstTax} />
-                <DetailRow label="Country of Origin" value={f.countryOfOrigin} />
-                <DetailRow label="Manufacturer" value={f.manufacturerName} />
-              </Section>
+              {(f.shortDesc || f.longDesc) && (
+                <>
+                  <Separator />
+                  <Section title="Descriptions" icon={<FileText className="h-3 w-3" />}>
+                    {f.shortDesc && (
+                      <div className="space-y-1">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400">Short</p>
+                        <p className="text-xs text-gray-800 leading-relaxed">{f.shortDesc}</p>
+                      </div>
+                    )}
+                    {f.longDesc && (
+                      <div className="space-y-1 mt-2">
+                        <p className="text-[10px] uppercase tracking-wider text-gray-400">Long</p>
+                        <p className="text-xs text-gray-800 leading-relaxed">{f.longDesc}</p>
+                      </div>
+                    )}
+                  </Section>
+                </>
+              )}
+
+              {(f.measureUnit || f.skuWeight || f.upc) && (
+                <>
+                  <Separator />
+                  <Section title="Quantity & Packaging" icon={<Package className="h-3 w-3" />}>
+                    <DetailRow
+                      label="Measure"
+                      value={f.measureValue && f.measureUnit ? `${f.measureValue} ${f.measureUnit}` : null}
+                    />
+                    <DetailRow
+                      label="Weight"
+                      value={f.skuWeight && f.weightMeasure ? `${f.skuWeight} ${f.weightMeasure}` : null}
+                    />
+                    <DetailRow label="Pack Size" value={f.unitizedCount} />
+                    <DetailRow label="UPC / Barcode" value={f.upc} mono />
+                  </Section>
+                </>
+              )}
+
+              {(f.productLength || f.productWidth || f.productHeight) && (
+                <>
+                  <Separator />
+                  <Section title="Dimensions" icon={<Ruler className="h-3 w-3" />}>
+                    <DetailRow
+                      label="L × W × H (cm)"
+                      value={`${f.productLength} × ${f.productWidth} × ${f.productHeight}`}
+                    />
+                  </Section>
+                </>
+              )}
+
+              {(f.categoryId || f.hsnCode || f.countryOfOrigin || f.manufacturerName) && (
+                <>
+                  <Separator />
+                  <Section title="Compliance & Taxonomy" icon={<ShieldCheck className="h-3 w-3" />}>
+                    <DetailRow label="ONDC Category" value={f.categoryId} />
+                    <DetailRow label="HSN Code" value={f.hsnCode} mono />
+                    <DetailRow label="GST Rate" value={f.gstTax} />
+                    <DetailRow label="Country of Origin" value={f.countryOfOrigin} />
+                    <DetailRow label="Manufacturer" value={f.manufacturerName} />
+                  </Section>
+                </>
+              )}
             </>
           )}
 
@@ -291,13 +325,13 @@ export function MyRequests() {
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 mb-3"
         >
           <ArrowLeft className="h-4 w-4" />
-          Back to Product Store
+          Back to MySKU
         </button>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
               <Send className="h-6 w-6 text-purple-600" />
-              My SKU Requests
+              My Requests
             </h1>
             <p className="text-gray-500 text-sm mt-0.5">
               Track the status of SKUs you've requested to be added to the Product Store.
@@ -413,6 +447,10 @@ export function MyRequests() {
                         <p className="font-medium text-gray-900 text-sm">
                           {req.form.itemName || "Unnamed request"}
                         </p>
+                        <Badge className={`gap-1 text-xs ${REQUEST_TYPE_CONFIG[req.requestType ?? "sku"].badge}`}>
+                          {REQUEST_TYPE_CONFIG[req.requestType ?? "sku"].icon}
+                          {REQUEST_TYPE_CONFIG[req.requestType ?? "sku"].label}
+                        </Badge>
                         <Badge className={`gap-1 text-xs ${status.badge}`}>
                           {status.icon}
                           {status.label}
@@ -422,7 +460,7 @@ export function MyRequests() {
                         <code className="bg-gray-100 px-1.5 py-0.5 rounded font-mono text-[10px]">
                           {req.id}
                         </code>
-                        {brandLabel !== "—" && (
+                        {brandLabel !== "—" && req.requestType !== "company" && (
                           <span className="flex items-center gap-1">
                             <Tag className="h-3 w-3" />
                             {brandLabel}

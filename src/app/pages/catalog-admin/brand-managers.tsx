@@ -19,6 +19,13 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../../components/ui/select";
+import {
   Search,
   Plus,
   MoreVertical,
@@ -31,9 +38,12 @@ import {
   Phone,
   X,
   ChevronDown,
+  Route,
 } from "lucide-react";
 import { toast } from "sonner";
 import { psCompanies, psBrands } from "../../lib/product-store-data";
+
+type RequestRouting = "catalog_admin" | "brand_manager";
 
 interface BrandManager {
   id: string;
@@ -44,6 +54,7 @@ interface BrandManager {
   brandIds: string[];
   status: "active" | "inactive";
   createdAt: string;
+  requestRouting: RequestRouting;
 }
 
 const initialManagers: BrandManager[] = [
@@ -56,6 +67,7 @@ const initialManagers: BrandManager[] = [
     brandIds: ["AASH", "SUNF", "BINGO", "YIPP"],
     status: "active",
     createdAt: "2026-01-15",
+    requestRouting: "catalog_admin",
   },
   {
     id: "BM-002",
@@ -66,6 +78,7 @@ const initialManagers: BrandManager[] = [
     brandIds: ["MAGGI", "NESTEA", "KITKAT"],
     status: "active",
     createdAt: "2026-02-10",
+    requestRouting: "brand_manager",
   },
   {
     id: "BM-003",
@@ -76,6 +89,7 @@ const initialManagers: BrandManager[] = [
     brandIds: ["SURF", "LUX", "DOVE", "LIPT", "KNORR"],
     status: "inactive",
     createdAt: "2026-03-05",
+    requestRouting: "catalog_admin",
   },
 ];
 
@@ -85,6 +99,7 @@ const emptyForm = {
   email: "",
   companyIds: [] as string[],
   brandIds: [] as string[],
+  requestRouting: "catalog_admin" as RequestRouting,
 };
 
 interface PickerOption {
@@ -248,6 +263,7 @@ export function CatalogAdminBrandManagers() {
       email: m.email ?? "",
       companyIds: [...m.companyIds],
       brandIds: [...m.brandIds],
+      requestRouting: m.requestRouting,
     });
     setDialogOpen(true);
   };
@@ -294,7 +310,7 @@ export function CatalogAdminBrandManagers() {
       setManagers((prev) =>
         prev.map((m) =>
           m.id === editingId
-            ? { ...m, name: form.name, mobile: form.mobile, email: form.email, companyIds: form.companyIds, brandIds: form.brandIds }
+            ? { ...m, name: form.name, mobile: form.mobile, email: form.email, companyIds: form.companyIds, brandIds: form.brandIds, requestRouting: form.requestRouting }
             : m
         )
       );
@@ -309,6 +325,7 @@ export function CatalogAdminBrandManagers() {
         brandIds: form.brandIds,
         status: "active",
         createdAt: new Date().toISOString().slice(0, 10),
+        requestRouting: form.requestRouting,
       };
       setManagers((prev) => [newManager, ...prev]);
       toast.success(`Brand Manager "${form.name}" created successfully.`);
@@ -377,6 +394,7 @@ export function CatalogAdminBrandManagers() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Mobile</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Companies</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Brands</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Request Routing</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
                 </tr>
@@ -421,6 +439,19 @@ export function CatalogAdminBrandManagers() {
                             </Badge>
                           )}
                         </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        {m.requestRouting === "brand_manager" ? (
+                          <Badge className="bg-purple-50 text-purple-700 border-purple-200 gap-1 text-xs">
+                            <Route className="h-3 w-3" />
+                            Brand Manager
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-teal-50 text-teal-700 border-teal-200 gap-1 text-xs">
+                            <Route className="h-3 w-3" />
+                            Catalog Admin
+                          </Badge>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         {m.status === "active" ? (
@@ -509,6 +540,31 @@ export function CatalogAdminBrandManagers() {
                 value={form.email}
                 onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               />
+            </div>
+
+            {/* Request Routing */}
+            <div className="space-y-1.5">
+              <Label className="flex items-center gap-1.5">
+                <Route className="h-3.5 w-3.5 text-teal-600" />
+                Route Requests To
+              </Label>
+              <Select
+                value={form.requestRouting}
+                onValueChange={(v) => setForm((p) => ({ ...p, requestRouting: v as RequestRouting }))}
+              >
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="catalog_admin">Catalog Admin (default)</SelectItem>
+                  <SelectItem value="brand_manager">Brand Manager</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-gray-400">
+                {form.requestRouting === "brand_manager"
+                  ? "Seller requests (SKU / Company / Brand) will be routed directly to this Brand Manager."
+                  : "Seller requests will be routed to Catalog Admin for review."}
+              </p>
             </div>
 
             {/* Companies */}

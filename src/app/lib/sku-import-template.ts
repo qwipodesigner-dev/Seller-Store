@@ -341,6 +341,16 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     fieldCategory: 1,
   },
   {
+    key: "skuWeight",
+    header: "Weight in KG",
+    mandatory: false,
+    format: "Auto-calculated (kg)",
+    rules: "Auto-calculated from Weight Measure × SKU Weight. Do not fill — the importer computes this value.",
+    example: "15",
+    computed: true,
+    fieldCategory: 1,
+  },
+  {
     key: "unitizedCount",
     header: "Pack Size",
     mandatory: false,
@@ -380,6 +390,61 @@ export const SKU_FIELDS: SkuFieldDef[] = [
     format: "Numeric",
     rules: "Optional. Numeric value.",
     example: "8901234567890",
+    fieldCategory: 1,
+  },
+  {
+    key: "productCode",
+    header: "Product Code",
+    mandatory: false,
+    format: "Letters/digits/-/_",
+    rules: "Optional. External product / EAN code assigned by the manufacturer. Alphanumeric, hyphens and underscores allowed.",
+    example: "ITC-SUNF-001",
+    fieldCategory: 1,
+  },
+  {
+    key: "productLength",
+    header: "Length",
+    mandatory: false,
+    format: "Positive number (cm)",
+    rules: "Optional. Product length in centimetres. Positive number, decimals allowed. Used together with Width and Height to auto-calculate Volumetric Weight.",
+    example: "32",
+    fieldCategory: 1,
+  },
+  {
+    key: "productWidth",
+    header: "Width",
+    mandatory: false,
+    format: "Positive number (cm)",
+    rules: "Optional. Product width in centimetres. Positive number, decimals allowed.",
+    example: "20",
+    fieldCategory: 1,
+  },
+  {
+    key: "productHeight",
+    header: "Height",
+    mandatory: false,
+    format: "Positive number (cm)",
+    rules: "Optional. Product height in centimetres. Positive number, decimals allowed.",
+    example: "10",
+    fieldCategory: 1,
+  },
+  {
+    key: "volumetricWeight",
+    header: "Volumetric Weight",
+    mandatory: false,
+    format: "Auto-calculated (kg)",
+    rules: "Auto-calculated from Length × Width × Height ÷ 5000. Do not fill — the importer computes this from the three dimension columns.",
+    example: "1.28",
+    computed: true,
+    fieldCategory: 1,
+  },
+  {
+    key: "productImages",
+    header: "Product Images",
+    mandatory: false,
+    format: "Comma-separated image URLs",
+    rules: "Optional. One or more publicly accessible image URLs, comma-separated. First URL becomes the primary display image.",
+    example: "https://cdn.example.com/sku-front.jpg,https://cdn.example.com/sku-back.jpg",
     fieldCategory: 1,
   },
   {
@@ -1125,6 +1190,16 @@ export const parseSkuImportFile = async (
           const numericValue = parseFloat(row.measureValue ?? "");
           const kg = measureToKg(row.weightMeasure, numericValue);
           row.skuWeight = kg === null ? "" : String(kg);
+        }
+        if (f.key === "volumetricWeight") {
+          const l = parseFloat(row.productLength ?? "");
+          const w = parseFloat(row.productWidth ?? "");
+          const h = parseFloat(row.productHeight ?? "");
+          if (Number.isFinite(l) && Number.isFinite(w) && Number.isFinite(h)) {
+            row.volumetricWeight = String(Math.round((l * w * h / 5000) * 1000) / 1000);
+          } else {
+            row.volumetricWeight = "";
+          }
         }
       });
       return row;
