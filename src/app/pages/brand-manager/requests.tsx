@@ -2,13 +2,17 @@ import { useMemo, useState } from "react";
 import { Card, CardContent } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
+import { Button } from "../../components/ui/button";
+import { Label } from "../../components/ui/label";
+import { Textarea } from "../../components/ui/textarea";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
 } from "../../components/ui/dialog";
-import { Label } from "../../components/ui/label";
 import {
   Select,
   SelectContent,
@@ -28,14 +32,12 @@ import {
   Inbox,
   Calendar,
   Building2,
-  PowerOff,
-  Zap,
+  AlertTriangle,
 } from "lucide-react";
-import { Button } from "../../components/ui/button";
+import { toast } from "sonner";
 import {
   psRequests as initialRequests,
   type PSRequest,
-  type PSRequestType,
   type PSRequestStatus,
 } from "../../lib/product-store-data";
 import {
@@ -43,19 +45,35 @@ import {
   SkuFormState,
   emptySkuForm,
 } from "../../components/sku-form-fields";
+import { useAuth } from "../../lib/auth-context";
+
 type FilterStatus = PSRequestStatus | "all";
-type FilterType = PSRequestType | "all";
+type FilterType = "all" | "create_sku" | "request_brand";
 
 export function BrandManagerRequests() {
-  const requests = useMemo(
-    () => initialRequests.filter((r) => r.requestedByType === "brand_manager"),
-    []
+  const { user } = useAuth();
+
+  const [requests, setRequests] = useState<PSRequest[]>(() =>
+    initialRequests.filter(
+      (r) =>
+        r.requestedByType === "seller" &&
+        r.type !== "request_company" &&
+        r.companyName === user?.businessName
+    )
   );
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("all");
   const [typeFilter, setTypeFilter] = useState<FilterType>("all");
+
   const [viewRequest, setViewRequest] = useState<PSRequest | null>(null);
+  const [editedRequest, setEditedRequest] = useState<PSRequest | null>(null);
+  const [editedSkuForm, setEditedSkuForm] = useState<SkuFormState>(emptySkuForm);
+  const [actionDialog, setActionDialog] = useState<{
+    type: "approve" | "reject";
+    request: PSRequest;
+  } | null>(null);
+  const [actionNotes, setActionNotes] = useState("");
 
   const filtered = useMemo(() => {
     return requests.filter((r) => {
@@ -66,7 +84,7 @@ export function BrandManagerRequests() {
         return (
           r.skuName.toLowerCase().includes(q) ||
           r.brandName.toLowerCase().includes(q) ||
-          r.companyName.toLowerCase().includes(q)
+          r.requestedBy.toLowerCase().includes(q)
         );
       }
       return true;
@@ -77,40 +95,56 @@ export function BrandManagerRequests() {
     (r) => r.status === "submitted" || r.status === "in_progress"
   ).length;
 
+  const openRequest = (req: PSRequest) => {
+    let updated = req;
+    if (req.status === "submitted") {
+      updated = { ...req, status: "in_progress" };
+      setRequests((prev) => prev.map((r) => (r.id === req.id ? updated : r)));
+    }
+    setViewRequest(updated);
+    setEditedRequest(updated);
+    if (updated.form) {
+      setEditedSkuForm({ ...emptySkuForm, ...(updated.form as Partial<SkuFormState>) });
+    }
+  };
+
+  const handleAction = (type: "approve" | "reject") => {
+    setActionDialog({ type, request: editedRequest ?? viewRequest! });
+    setActionNotes("");
+  };
+
+  const confirmAction = () => {
+    if (!actionDialog) return;
+    const { type, request } = actionDialog;
+    setRequests((prev) =>
+      prev.map((r) =>
+        r.id === request.id
+          ? {
+              ...(editedRequest ?? r),
+              ...(editedRequest?.form ? { form: editedSkuForm } : {}),
+              status: type === "approve" ? "approved" : "rejected",
+              updatedAt: new Date().toISOString().slice(0, 10),
+              reason: type === "reject" ? actionNotes : undefined,
+            }
+          : r
+      )
+    );
+    toast.success(
+      type === "approve"
+        ? `Request "${request.skuName !== "—" ? request.skuName : request.brandName}" approved.`
+        : `Request rejected.`
+    );
+    setActionDialog(null);
+    setViewRequest(null);
+    setEditedRequest(null);
+  };
+
   const getTypeBadge = (type: PSRequest["type"]) => {
     if (type === "create_sku")
       return (
         <Badge className="bg-blue-50 text-blue-700 border-blue-200 gap-1 text-xs">
           <Plus className="h-3 w-3" />
-          Create SKU
-        </Badge>
-      );
-    if (type === "edit_sku")
-      return (
-        <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1 text-xs">
-          <Tag className="h-3 w-3" />
-          Edit SKU
-        </Badge>
-      );
-    if (type === "inactivate_sku")
-      return (
-        <Badge className="bg-red-50 text-red-700 border-red-200 gap-1 text-xs">
-          <PowerOff className="h-3 w-3" />
-          Make Inactive
-        </Badge>
-      );
-    if (type === "activate_sku")
-      return (
-        <Badge className="bg-green-50 text-green-700 border-green-200 gap-1 text-xs">
-          <Zap className="h-3 w-3" />
-          Activate SKU
-        </Badge>
-      );
-    if (type === "request_company")
-      return (
-        <Badge className="bg-violet-50 text-violet-700 border-violet-200 gap-1 text-xs">
-          <Building2 className="h-3 w-3" />
-          New Company
+          New SKU
         </Badge>
       );
     return (
@@ -126,7 +160,7 @@ export function BrandManagerRequests() {
       return (
         <Badge className="bg-amber-50 text-amber-700 border-amber-200 gap-1 text-xs">
           <Clock className="h-3 w-3" />
-          Submitted
+          Pending
         </Badge>
       );
     if (status === "in_progress")
@@ -155,7 +189,7 @@ export function BrandManagerRequests() {
     <div className="p-6 max-w-7xl mx-auto space-y-4">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900 flex items-center gap-2">
-          My Requests
+          Requests
           {pendingCount > 0 && (
             <Badge className="bg-red-500 text-white rounded-full text-xs px-2">
               {pendingCount}
@@ -163,8 +197,7 @@ export function BrandManagerRequests() {
           )}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Track the status of SKU requests you've submitted to Catalog Admin.
-          Requests are processed by the Qwipo catalog team.
+          Seller requests for SKUs and brands under {user?.businessName ?? "your company"}. Review and approve additions to the Product Store.
         </p>
       </div>
 
@@ -172,37 +205,29 @@ export function BrandManagerRequests() {
         <div className="relative flex-1 min-w-52">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <Input
-            placeholder="Search by SKU or brand..."
+            placeholder="Search by SKU, brand, or seller..."
             className="pl-10"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
-        <Select
-          value={typeFilter}
-          onValueChange={(v) => setTypeFilter(v as FilterType)}
-        >
-          <SelectTrigger className="w-44">
+        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as FilterType)}>
+          <SelectTrigger className="w-40">
             <SelectValue placeholder="All Types" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="create_sku">Create SKU</SelectItem>
-            <SelectItem value="edit_sku">Edit SKU</SelectItem>
-            <SelectItem value="inactivate_sku">Make Inactive</SelectItem>
-            <SelectItem value="activate_sku">Activate SKU</SelectItem>
+            <SelectItem value="create_sku">New SKU</SelectItem>
+            <SelectItem value="request_brand">New Brand</SelectItem>
           </SelectContent>
         </Select>
-        <Select
-          value={statusFilter}
-          onValueChange={(v) => setStatusFilter(v as FilterStatus)}
-        >
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as FilterStatus)}>
           <SelectTrigger className="w-40">
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="submitted">Submitted</SelectItem>
+            <SelectItem value="submitted">Pending</SelectItem>
             <SelectItem value="in_progress">In Review</SelectItem>
             <SelectItem value="approved">Approved</SelectItem>
             <SelectItem value="rejected">Rejected</SelectItem>
@@ -217,8 +242,7 @@ export function BrandManagerRequests() {
               <Inbox className="h-12 w-12 text-gray-300 mx-auto mb-3" />
               <p className="font-medium">No requests found</p>
               <p className="text-sm">
-                Your submitted requests will appear here once you create, edit,
-                or inactivate a SKU.
+                Seller requests for your brands will appear here.
               </p>
             </div>
           ) : (
@@ -230,6 +254,9 @@ export function BrandManagerRequests() {
                   </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     Type
+                  </th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    Requested By
                   </th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                     Date
@@ -249,21 +276,27 @@ export function BrandManagerRequests() {
                     className="border-b last:border-0 hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-4 py-3">
-                      <p className="font-medium text-gray-900 text-sm">
-                        {req.type === "request_company"
-                          ? req.companyName
-                          : req.skuName}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {req.brandName} · {req.companyName}
-                      </p>
-                      {req.skuCode && (
-                        <code className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded font-mono">
-                          {req.skuCode}
-                        </code>
+                      {req.type === "request_brand" ? (
+                        <>
+                          <p className="font-medium text-gray-900 text-sm">{req.brandName}</p>
+                          <p className="text-xs text-gray-500">{req.companyName}</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="font-medium text-gray-900 text-sm">{req.skuName}</p>
+                          <p className="text-xs text-gray-500">
+                            {req.brandName} · {req.companyName}
+                          </p>
+                          {req.skuCode && (
+                            <code className="text-[10px] text-gray-400 bg-gray-100 px-1 rounded font-mono">
+                              {req.skuCode}
+                            </code>
+                          )}
+                        </>
                       )}
                     </td>
                     <td className="px-4 py-3">{getTypeBadge(req.type)}</td>
+                    <td className="px-4 py-3 text-xs text-gray-700">{req.requestedBy}</td>
                     <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">
                       {req.createdAt}
                     </td>
@@ -274,7 +307,7 @@ export function BrandManagerRequests() {
                           variant="ghost"
                           size="sm"
                           className="h-7 text-xs gap-1"
-                          onClick={() => setViewRequest(req)}
+                          onClick={() => openRequest(req)}
                         >
                           <Eye className="h-3.5 w-3.5" />
                           View
@@ -289,13 +322,15 @@ export function BrandManagerRequests() {
         </CardContent>
       </Card>
 
-      {/* View dialog — read-only for BM */}
-      <Dialog open={!!viewRequest} onOpenChange={() => setViewRequest(null)}>
+      {/* View / Review Dialog */}
+      <Dialog open={!!viewRequest} onOpenChange={() => { setViewRequest(null); setEditedRequest(null); }}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="pb-3 border-b">
             <div className="flex-1 min-w-0">
               <DialogTitle className="text-base">
-                {viewRequest?.skuName || viewRequest?.companyName || "—"}
+                {viewRequest?.type === "request_brand"
+                  ? viewRequest.brandName
+                  : viewRequest?.form?.itemName || viewRequest?.skuName || "—"}
               </DialogTitle>
               <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <code className="text-[11px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded font-mono">
@@ -306,20 +341,20 @@ export function BrandManagerRequests() {
               </div>
               <p className="text-xs text-gray-400 mt-1 flex items-center gap-1">
                 <Calendar className="h-3 w-3" />
-                Submitted {viewRequest?.createdAt}
+                {viewRequest?.requestedBy} · {viewRequest?.createdAt}
               </p>
             </div>
 
             {viewRequest?.status === "in_progress" && (
               <div className="flex items-start gap-2 mt-3 p-2.5 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-800">
                 <RefreshCw className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-blue-500" />
-                <p>Catalog Admin is currently reviewing your request.</p>
+                <p>Request is currently being reviewed.</p>
               </div>
             )}
             {viewRequest?.status === "approved" && (
               <div className="flex items-start gap-2 mt-3 p-2.5 bg-green-50 border border-green-200 rounded-lg text-xs text-green-800">
                 <CheckCircle2 className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-green-600" />
-                <p>Request approved and applied to the Product Store.</p>
+                <p>Approved and added to the Product Store.</p>
               </div>
             )}
             {viewRequest?.reason && (
@@ -333,52 +368,141 @@ export function BrandManagerRequests() {
             )}
           </DialogHeader>
 
-          {viewRequest && (
-            <div className="space-y-5 pt-2">
-              {viewRequest.form && (
-                <SkuFormFields
-                  mode="seller"
-                  readOnly
-                  form={{ ...emptySkuForm, ...(viewRequest.form as Partial<SkuFormState>) }}
-                  productImages={[]}
-                  onProductImagesChange={() => {}}
-                />
-              )}
-
-              {viewRequest.changes && (
-                <div className="border rounded-lg overflow-hidden">
-                  <div className="bg-gray-50 px-3 py-2 text-xs font-semibold text-gray-700 border-b">
-                    Proposed Changes
+          {viewRequest && (() => {
+            const isPending = viewRequest.status === "submitted" || viewRequest.status === "in_progress";
+            return (
+              <div className="space-y-5 pt-2">
+                {/* Request a Brand detail */}
+                {viewRequest.type === "request_brand" && (
+                  <div className="space-y-3">
+                    {viewRequest.companyName && (
+                      <div className="flex items-center gap-2 px-3 py-2 bg-violet-50 border border-violet-200 rounded-lg">
+                        <Building2 className="h-4 w-4 text-violet-600" />
+                        <span className="text-xs text-violet-600 font-medium">Company</span>
+                        <span className="text-sm font-semibold text-violet-900">{viewRequest.companyName}</span>
+                      </div>
+                    )}
+                    <div className="space-y-1.5">
+                      <Label className="text-xs text-gray-500">Requested Brand Name</Label>
+                      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-medium text-gray-900">
+                        {viewRequest.brandName || "—"}
+                      </div>
+                    </div>
+                    {viewRequest.notes && (
+                      <div className="space-y-1.5">
+                        <Label className="text-xs text-gray-500">Notes from Seller</Label>
+                        <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-800 whitespace-pre-wrap">
+                          {viewRequest.notes}
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <table className="w-full text-xs">
-                    <thead className="bg-gray-50 border-b">
-                      <tr>
-                        <th className="text-left px-3 py-2 text-gray-500">Field</th>
-                        <th className="text-left px-3 py-2 text-gray-500">Current</th>
-                        <th className="text-left px-3 py-2 text-gray-500">Proposed</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {Object.entries(viewRequest.changes).map(([field, { old: oldVal, new: newVal }]) => (
-                        <tr key={field} className="border-b last:border-0">
-                          <td className="px-3 py-2 font-medium text-gray-700">{field}</td>
-                          <td className="px-3 py-2 text-red-600 line-through">{oldVal}</td>
-                          <td className="px-3 py-2 text-green-700 font-medium">{newVal}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+                )}
 
-              {!viewRequest.form && !viewRequest.changes && viewRequest.notes && (
-                <div className="p-3 bg-gray-50 rounded border text-xs">
-                  <p className="text-gray-500 mb-1 font-medium">Notes</p>
-                  <p className="text-gray-800">{viewRequest.notes}</p>
-                </div>
-              )}
-            </div>
+                {/* Full SKU form for create_sku requests */}
+                {viewRequest.form && (
+                  <SkuFormFields
+                    mode="seller"
+                    readOnly={!isPending}
+                    form={isPending ? editedSkuForm : { ...emptySkuForm, ...(viewRequest.form as Partial<SkuFormState>) }}
+                    onChange={(key, value) => setEditedSkuForm((prev) => ({ ...prev, [key]: value }))}
+                    productImages={[]}
+                    onProductImagesChange={() => {}}
+                  />
+                )}
+
+                {/* Notes for non-form requests */}
+                {!viewRequest.form && viewRequest.type !== "request_brand" && viewRequest.notes && (
+                  <div className="p-3 bg-gray-50 rounded border text-xs">
+                    <p className="text-gray-500 mb-1 font-medium">Notes from Seller</p>
+                    <p className="text-gray-800">{viewRequest.notes}</p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {(viewRequest?.status === "submitted" || viewRequest?.status === "in_progress") && (
+            <DialogFooter className="gap-2 pt-3 border-t mt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-red-600 border-red-200 hover:bg-red-50 gap-1"
+                onClick={() => handleAction("reject")}
+              >
+                <XCircle className="h-4 w-4" />
+                Reject
+              </Button>
+              <Button
+                size="sm"
+                className="bg-teal-600 hover:bg-teal-700 gap-1"
+                onClick={() => handleAction("approve")}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Approve
+              </Button>
+            </DialogFooter>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Action Dialog */}
+      <Dialog open={!!actionDialog} onOpenChange={() => setActionDialog(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {actionDialog?.type === "approve" ? (
+                <CheckCircle2 className="h-5 w-5 text-teal-600" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-red-500" />
+              )}
+              {actionDialog?.type === "approve" ? "Approve Request" : "Reject Request"}
+            </DialogTitle>
+            <DialogDescription>
+              {actionDialog?.type === "approve"
+                ? "Approving this request will add it to the Product Store."
+                : "Please provide a reason for rejection."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="p-3 bg-gray-50 rounded border text-sm">
+              <p className="font-medium text-gray-900">
+                {actionDialog?.request.type === "request_brand"
+                  ? actionDialog.request.brandName
+                  : actionDialog?.request.skuName}
+              </p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {actionDialog?.request.brandName} · {actionDialog?.request.companyName}
+              </p>
+            </div>
+            {actionDialog?.type === "reject" && (
+              <div className="space-y-1.5">
+                <Label>Rejection Reason *</Label>
+                <Textarea
+                  placeholder="Explain why this request is being rejected..."
+                  value={actionNotes}
+                  onChange={(e) => setActionNotes(e.target.value)}
+                  rows={3}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setActionDialog(null)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmAction}
+              disabled={actionDialog?.type === "reject" && !actionNotes.trim()}
+              className={
+                actionDialog?.type === "approve"
+                  ? "bg-teal-600 hover:bg-teal-700"
+                  : "bg-red-600 hover:bg-red-700"
+              }
+            >
+              {actionDialog?.type === "approve" ? "Confirm Approve" : "Confirm Reject"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

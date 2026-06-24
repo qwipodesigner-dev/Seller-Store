@@ -190,7 +190,7 @@ export function AdminAddUser() {
 
   const setCompanyForRow = (idx: number, companyId: string) => {
     setSelections((prev) =>
-      prev.map((s, i) => (i === idx ? { companyId, brandIds: [] } : s)),
+      prev.map((s, i) => (i === idx ? { companyId, brandIds: [], syncSkus: true } : s)),
     );
     clearError("companies");
   };
@@ -310,7 +310,7 @@ export function AdminAddUser() {
         companyBrandSelections: completeRows.map((r) => ({
           companyId: r.companyId,
           brandIds: r.brandIds,
-          syncSkusToMySku,
+          syncSkusToMySku: r.syncSkus,
         })),
       });
       setIsSaving(false);

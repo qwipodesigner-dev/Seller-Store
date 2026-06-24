@@ -4,6 +4,7 @@ import {
   Inbox,
   Package,
   Users,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import type { Role } from "./auth-context";
@@ -43,15 +44,28 @@ export const catalogAdminNavigation: CatalogNavItem[] = [
     roles: ["brand-manager"],
   },
   {
-    name: "My Requests",
+    name: "Requests",
     href: "/catalog-admin/my-requests",
     icon: Inbox,
+    badgeKey: "pending_requests",
     roles: ["brand-manager"],
   },
   {
     name: "Create SKU",
     href: "/catalog-admin/catalog/create",
     icon: Package,
+  },
+  {
+    name: "Companies & Brands",
+    href: "/catalog-admin/companies",
+    icon: Building2,
+    roles: ["catalog-admin"],
+  },
+  {
+    name: "My Company",
+    href: "/catalog-admin/my-company",
+    icon: Building2,
+    roles: ["brand-manager"],
   },
   {
     name: "Brand Managers",
@@ -74,7 +88,9 @@ export function getCatalogAdminPageTitle(pathname: string): string {
   if (pathname.startsWith("/catalog-admin/catalog/")) return "SKU Detail";
   if (pathname.startsWith("/catalog-admin/catalog")) return "Browse Catalog";
   if (pathname.startsWith("/catalog-admin/my-catalog")) return "My Catalog";
-  if (pathname.startsWith("/catalog-admin/my-requests")) return "My Requests";
+  if (pathname.startsWith("/catalog-admin/my-requests")) return "Requests";
+  if (pathname.startsWith("/catalog-admin/companies")) return "Companies & Brands";
+  if (pathname.startsWith("/catalog-admin/my-company")) return "My Company";
   if (pathname.startsWith("/catalog-admin/brand-managers")) return "Brand Managers";
   return "Product Store";
 }

@@ -26,6 +26,8 @@ export interface AuthUser {
   role: Role;
   businessName?: string;
   avatarInitials: string;
+  /** admin-catalog company IDs this user is scoped to (brand managers only) */
+  companyIds?: string[];
   /**
    * Data presentation mode used for demos:
    *  - "demo"  (default) → all mock master data (sellers, companies,

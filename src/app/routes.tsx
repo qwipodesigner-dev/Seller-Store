@@ -8,6 +8,7 @@ import { CatalogAdminRequests } from "./pages/catalog-admin/requests";
 import { CatalogAdminCatalog } from "./pages/catalog-admin/catalog";
 import { CatalogAdminSkuForm } from "./pages/catalog-admin/sku-form";
 import { CatalogAdminBrandManagers } from "./pages/catalog-admin/brand-managers";
+import { BrandManagerCompanies } from "./pages/catalog-admin/my-company";
 import { BrandManagerCatalog } from "./pages/brand-manager/catalog";
 import { BrandManagerDashboard } from "./pages/brand-manager/dashboard";
 import { BrandManagerRequests } from "./pages/brand-manager/requests";
@@ -102,6 +103,8 @@ export const router = createBrowserRouter([
       { path: "catalog", Component: CatalogAdminCatalog },
       { path: "catalog/create", Component: CatalogAdminSkuForm },
       { path: "catalog/:skuId", Component: CatalogAdminSkuForm },
+      { path: "companies", Component: AdminCompanies },
+      { path: "my-company", Component: BrandManagerCompanies },
       { path: "brand-managers", Component: CatalogAdminBrandManagers },
       { path: "my-catalog", Component: BrandManagerCatalog },
       { path: "my-requests", Component: BrandManagerRequests },
@@ -236,6 +239,8 @@ export const router = createBrowserRouter([
       { path: "catalog-portal/catalog", Component: CatalogAdminCatalog },
       { path: "catalog-portal/catalog/create", Component: CatalogAdminSkuForm },
       { path: "catalog-portal/catalog/:skuId", Component: CatalogAdminSkuForm },
+      { path: "catalog-portal/companies", Component: AdminCompanies },
+      { path: "catalog-portal/my-company", Component: BrandManagerCompanies },
       { path: "catalog-portal/brand-managers", Component: CatalogAdminBrandManagers },
       { path: "catalog-portal/my-catalog", Component: BrandManagerCatalog },
       { path: "catalog-portal/my-requests", Component: BrandManagerRequests },

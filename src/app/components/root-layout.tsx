@@ -23,6 +23,7 @@ import {
   ExternalLink,
   Database,
   Inbox,
+  Building2,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -134,7 +135,9 @@ const getCatalogPortalPageTitle = (pathname: string): string => {
   if (pathname.startsWith("/catalog-portal/catalog/")) return "SKU Detail";
   if (pathname.startsWith("/catalog-portal/catalog")) return "Browse Catalog";
   if (pathname.startsWith("/catalog-portal/my-catalog")) return "My Catalog";
-  if (pathname.startsWith("/catalog-portal/my-requests")) return "My Requests";
+  if (pathname.startsWith("/catalog-portal/my-requests")) return "Requests";
+  if (pathname.startsWith("/catalog-portal/companies")) return "Companies & Brands";
+  if (pathname.startsWith("/catalog-portal/my-company")) return "My Company";
   if (pathname.startsWith("/catalog-portal/brand-managers")) return "Brand Managers";
   return "Product Store";
 };
@@ -167,7 +170,7 @@ export function RootLayout() {
   const isCatalogAdmin = user?.role === "catalog-admin";
   const isBrandManager = user?.role === "brand-manager";
   const isCatalogPortal = isCatalogAdmin || isBrandManager;
-  const pendingCount = isCatalogAdmin ? getPendingRequests().length : 0;
+  const pendingCount = isCatalogPortal ? getPendingRequests().length : 0;
   // Theme-aware logo swap. We mount-guard with `themeReady` so the
   // first paint after hydration uses the persisted theme without a
   // visible flicker between the two PNG/SVG sources.
@@ -193,14 +196,21 @@ export function RootLayout() {
     },
     { name: "Browse Catalog", href: "/catalog-portal/catalog", icon: Database },
     { name: "Create SKU", href: "/catalog-portal/catalog/create", icon: Package },
+    { name: "Companies & Brands", href: "/catalog-portal/companies", icon: Building2 },
     { name: "Brand Managers", href: "/catalog-portal/brand-managers", icon: Users },
   ];
 
   const brandManagerPortalNav: SellerNavItem[] = [
     { name: "Dashboard", href: "/catalog-portal", icon: LayoutDashboard },
     { name: "My Catalog", href: "/catalog-portal/my-catalog", icon: Database },
-    { name: "My Requests", href: "/catalog-portal/my-requests", icon: Inbox },
+    {
+      name: "Requests",
+      href: "/catalog-portal/my-requests",
+      icon: Inbox,
+      badge: pendingCount > 0 ? pendingCount : undefined,
+    },
     { name: "Create SKU", href: "/catalog-portal/catalog/create", icon: Package },
+    { name: "My Company", href: "/catalog-portal/my-company", icon: Building2 },
   ];
 
   const navigation = isAdmin

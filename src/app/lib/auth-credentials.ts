@@ -96,6 +96,7 @@ export const DEMO_CREDENTIALS: Record<string, CredentialRecord> = {
       businessName: "ITC Limited",
       avatarInitials: "AM",
       dataMode: "demo",
+      companyIds: ["co-itc"],
     },
   },
 };

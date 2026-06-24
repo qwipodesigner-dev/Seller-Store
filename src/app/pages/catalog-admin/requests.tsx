@@ -33,7 +33,6 @@ import {
   AlertTriangle,
   Inbox,
   Calendar,
-  ShieldCheck,
   Building2,
   PowerOff,
   Zap,
@@ -218,8 +217,6 @@ export function CatalogAdminRequests() {
   const getRequesterTypeBadge = (type: PSRequest["requestedByType"]) => {
     if (type === "seller")
       return <span className="text-[10px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">Seller</span>;
-    if (type === "brand_manager")
-      return <span className="text-[10px] text-purple-600 bg-purple-50 px-1.5 py-0.5 rounded">Brand Mgr</span>;
     return <span className="text-[10px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded">System</span>;
   };
 
@@ -236,9 +233,7 @@ export function CatalogAdminRequests() {
           )}
         </h1>
         <p className="text-gray-500 text-sm mt-1">
-          Review and approve requests. Create SKU requests come from sellers or
-          brand managers. Edit SKU and Inactivate requests are restricted to
-          brand managers only.
+          Review and approve requests from sellers — new companies, brands, and SKUs.
         </p>
       </div>
 
@@ -265,9 +260,6 @@ export function CatalogAdminRequests() {
             <SelectItem value="request_company">New Company</SelectItem>
             <SelectItem value="request_brand">New Brand</SelectItem>
             <SelectItem value="create_sku">Create SKU</SelectItem>
-            <SelectItem value="edit_sku">Edit SKU</SelectItem>
-            <SelectItem value="inactivate_sku">Make Inactive</SelectItem>
-            <SelectItem value="activate_sku">Activate SKU</SelectItem>
           </SelectContent>
         </Select>
         <Select
@@ -514,20 +506,6 @@ export function CatalogAdminRequests() {
                       </div>
                     ) : null}
                   </div>
-                </div>
-              )}
-
-              {/* ── Brand-manager-only notice for edit / inactivate / activate ── */}
-              {(viewRequest.type === "edit_sku" || viewRequest.type === "inactivate_sku" || viewRequest.type === "activate_sku") && (
-                <div className="flex items-start gap-2 p-2.5 bg-purple-50 border border-purple-200 rounded-lg text-xs text-purple-800">
-                  <ShieldCheck className="h-3.5 w-3.5 flex-shrink-0 mt-0.5 text-purple-500" />
-                  <p>
-                    {viewRequest.type === "edit_sku"
-                      ? "SKU edits can only be requested by brand managers."
-                      : viewRequest.type === "inactivate_sku"
-                      ? "SKU inactivation can only be requested by brand managers."
-                      : "SKU activation can only be requested by brand managers."}
-                  </p>
                 </div>
               )}
 

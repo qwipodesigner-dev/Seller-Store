@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/card";
+import { Card, CardContent } from "../../components/ui/card";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Badge } from "../../components/ui/badge";
 import { Label } from "../../components/ui/label";
+import { Checkbox } from "../../components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -19,13 +20,6 @@ import {
   DropdownMenuTrigger,
 } from "../../components/ui/dropdown-menu";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../components/ui/select";
-import {
   Search,
   Plus,
   MoreVertical,
@@ -38,12 +32,10 @@ import {
   Phone,
   X,
   ChevronDown,
-  Route,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { psCompanies, psBrands } from "../../lib/product-store-data";
-
-type RequestRouting = "catalog_admin" | "brand_manager";
 
 interface BrandManager {
   id: string;
@@ -54,7 +46,8 @@ interface BrandManager {
   brandIds: string[];
   status: "active" | "inactive";
   createdAt: string;
-  requestRouting: RequestRouting;
+  /** When true, brand and SKU requests from sellers are routed to this manager instead of Catalog Admin */
+  routeRequestsToBrandManager: boolean;
 }
 
 const initialManagers: BrandManager[] = [
@@ -67,7 +60,7 @@ const initialManagers: BrandManager[] = [
     brandIds: ["AASH", "SUNF", "BINGO", "YIPP"],
     status: "active",
     createdAt: "2026-01-15",
-    requestRouting: "catalog_admin",
+    routeRequestsToBrandManager: false,
   },
   {
     id: "BM-002",
@@ -78,7 +71,7 @@ const initialManagers: BrandManager[] = [
     brandIds: ["MAGGI", "NESTEA", "KITKAT"],
     status: "active",
     createdAt: "2026-02-10",
-    requestRouting: "brand_manager",
+    routeRequestsToBrandManager: true,
   },
   {
     id: "BM-003",
@@ -89,7 +82,7 @@ const initialManagers: BrandManager[] = [
     brandIds: ["SURF", "LUX", "DOVE", "LIPT", "KNORR"],
     status: "inactive",
     createdAt: "2026-03-05",
-    requestRouting: "catalog_admin",
+    routeRequestsToBrandManager: false,
   },
 ];
 
@@ -99,7 +92,7 @@ const emptyForm = {
   email: "",
   companyIds: [] as string[],
   brandIds: [] as string[],
-  requestRouting: "catalog_admin" as RequestRouting,
+  routeRequestsToBrandManager: false,
 };
 
 interface PickerOption {
@@ -263,7 +256,7 @@ export function CatalogAdminBrandManagers() {
       email: m.email ?? "",
       companyIds: [...m.companyIds],
       brandIds: [...m.brandIds],
-      requestRouting: m.requestRouting,
+      routeRequestsToBrandManager: m.routeRequestsToBrandManager,
     });
     setDialogOpen(true);
   };
@@ -310,7 +303,7 @@ export function CatalogAdminBrandManagers() {
       setManagers((prev) =>
         prev.map((m) =>
           m.id === editingId
-            ? { ...m, name: form.name, mobile: form.mobile, email: form.email, companyIds: form.companyIds, brandIds: form.brandIds, requestRouting: form.requestRouting }
+            ? { ...m, name: form.name, mobile: form.mobile, email: form.email, companyIds: form.companyIds, brandIds: form.brandIds, routeRequestsToBrandManager: form.routeRequestsToBrandManager }
             : m
         )
       );
@@ -325,7 +318,7 @@ export function CatalogAdminBrandManagers() {
         brandIds: form.brandIds,
         status: "active",
         createdAt: new Date().toISOString().slice(0, 10),
-        requestRouting: form.requestRouting,
+        routeRequestsToBrandManager: form.routeRequestsToBrandManager,
       };
       setManagers((prev) => [newManager, ...prev]);
       toast.success(`Brand Manager "${form.name}" created successfully.`);
@@ -394,7 +387,7 @@ export function CatalogAdminBrandManagers() {
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Mobile</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Companies</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Brands</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Request Routing</th>
+                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Routes to BM</th>
                   <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
                   <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
                 </tr>
@@ -441,16 +434,13 @@ export function CatalogAdminBrandManagers() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        {m.requestRouting === "brand_manager" ? (
-                          <Badge className="bg-purple-50 text-purple-700 border-purple-200 gap-1 text-xs">
-                            <Route className="h-3 w-3" />
-                            Brand Manager
-                          </Badge>
+                        {m.routeRequestsToBrandManager ? (
+                          <span className="flex items-center gap-1.5 text-xs text-green-700">
+                            <CheckCircle2 className="h-3.5 w-3.5 text-green-600" />
+                            Yes
+                          </span>
                         ) : (
-                          <Badge className="bg-teal-50 text-teal-700 border-teal-200 gap-1 text-xs">
-                            <Route className="h-3 w-3" />
-                            Catalog Admin
-                          </Badge>
+                          <span className="text-xs text-gray-400">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
@@ -542,29 +532,26 @@ export function CatalogAdminBrandManagers() {
               />
             </div>
 
-            {/* Request Routing */}
-            <div className="space-y-1.5">
-              <Label className="flex items-center gap-1.5">
-                <Route className="h-3.5 w-3.5 text-teal-600" />
-                Route Requests To
-              </Label>
-              <Select
-                value={form.requestRouting}
-                onValueChange={(v) => setForm((p) => ({ ...p, requestRouting: v as RequestRouting }))}
-              >
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="catalog_admin">Catalog Admin (default)</SelectItem>
-                  <SelectItem value="brand_manager">Brand Manager</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-[11px] text-gray-400">
-                {form.requestRouting === "brand_manager"
-                  ? "Seller requests (SKU / Company / Brand) will be routed directly to this Brand Manager."
-                  : "Seller requests will be routed to Catalog Admin for review."}
-              </p>
+            {/* Route requests to Brand Manager */}
+            <div className="flex items-start gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+              <Checkbox
+                id="routeRequests"
+                checked={form.routeRequestsToBrandManager}
+                onCheckedChange={(checked) =>
+                  setForm((p) => ({ ...p, routeRequestsToBrandManager: !!checked }))
+                }
+                className="mt-0.5"
+              />
+              <div className="space-y-1">
+                <label htmlFor="routeRequests" className="text-sm font-medium text-gray-900 cursor-pointer">
+                  Route brand &amp; SKU requests to Brand Manager
+                </label>
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  When enabled, seller requests for <strong>brands and SKUs</strong> under this manager's companies will be sent directly to them for approval.
+                  <br />
+                  <span className="text-gray-400">Company onboarding requests always go to Catalog Admin regardless of this setting.</span>
+                </p>
+              </div>
             </div>
 
             {/* Companies */}
