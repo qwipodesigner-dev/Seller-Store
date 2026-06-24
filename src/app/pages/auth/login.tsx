@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { Shield, Store, Phone, KeyRound, Palette, Database } from "lucide-react";
+import { Shield, Store, Phone, KeyRound, Palette, Database, Tag } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../../lib/auth-context";
 import { validateCredentials } from "../../lib/auth-credentials";
@@ -60,8 +60,8 @@ export function Login() {
         navigate("/admin");
       } else if (user.role === "designer") {
         navigate("/design");
-      } else if (user.role === "catalog-admin") {
-        navigate("/catalog-admin");
+      } else if (user.role === "catalog-admin" || user.role === "brand-manager") {
+        navigate("/catalog-portal");
       } else {
         navigate("/");
       }
@@ -74,7 +74,9 @@ export function Login() {
       | "admin-empty"
       | "seller"
       | "seller-empty"
-      | "designer",
+      | "designer"
+      | "catalog-admin"
+      | "brand-manager",
   ) => {
     if (role === "admin") {
       setMobile("9900000001");
@@ -84,6 +86,10 @@ export function Login() {
       setMobile("8888888888");
     } else if (role === "designer") {
       setMobile("7777777777");
+    } else if (role === "catalog-admin") {
+      setMobile("5500000001");
+    } else if (role === "brand-manager") {
+      setMobile("5500000002");
     } else {
       setMobile("9900000002");
     }
@@ -327,6 +333,38 @@ export function Login() {
                       </p>
                     </div>
                   </button>
+                  <button
+                    type="button"
+                    onClick={() => fillDemo("catalog-admin")}
+                    className="flex items-start gap-2 p-2 rounded-md bg-white border border-teal-200 hover:border-teal-400 transition-all text-left"
+                    title="Catalog Admin — manages the Product Store catalog"
+                  >
+                    <Database className="h-4 w-4 text-teal-600 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900">
+                        Catalog Admin
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        5500000001
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => fillDemo("brand-manager")}
+                    className="flex items-start gap-2 p-2 rounded-md bg-white border border-teal-200 hover:border-teal-400 transition-all text-left"
+                    title="Brand Manager — manages their brand's catalog entries"
+                  >
+                    <Tag className="h-4 w-4 text-teal-600 flex-shrink-0 mt-0.5" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold text-gray-900">
+                        Brand Manager
+                      </p>
+                      <p className="text-[10px] text-gray-500 truncate">
+                        5500000002
+                      </p>
+                    </div>
+                  </button>
                   {/* Designer persona — single-page handbook of
                       every token + component + pattern. Spans both
                       grid columns so it stands apart from the live
@@ -349,16 +387,6 @@ export function Login() {
                   </button>
                 </div>
               </div>
-
-              <p className="text-center text-xs text-gray-500 mt-4">
-                Catalog Admin?{" "}
-                <Link
-                  to="/catalog-admin/login"
-                  className="text-teal-600 hover:underline font-medium"
-                >
-                  Login to Product Store →
-                </Link>
-              </p>
             </CardContent>
           </Card>
 

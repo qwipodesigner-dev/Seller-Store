@@ -664,48 +664,83 @@ export function SkuFormFields({
           </>
         )}
 
-        {/* Admin: Brand dropdown */}
+        {/* Admin: Company → Brand cascade (mirrors seller MySKU detail layout) */}
         {isAdmin && (
-          <SkuFormRow label="Brand" required={!readOnly}>
-            <Select value={form.brandId} onValueChange={(brandId) => {
-              const brand = psBrands.find((b) => b.id === brandId);
-              const company = brand ? psCompanies.find((c) => c.id === brand.companyId) : null;
-              onChange("brandId", brandId);
-              onChange("companyId", brand?.companyId ?? "");
-              onChange("brandOther", "");
-              onChange("brandAttribute", brand?.name ?? "");
-              onChange("manufacturerName", company?.name ?? form.manufacturerName);
-            }} disabled={readOnly}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select brand" />
-              </SelectTrigger>
-              <SelectContent>
-                {psBrands.map((b) => (
-                  <SelectItem key={b.id} value={b.id}>
-                    {b.logo} {b.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </SkuFormRow>
+          <>
+            <SkuFormRow label="Manufacturer / Packer Name (Company Name)" required={!readOnly} help={readOnly ? undefined : "Pick a company to filter the brand list"}>
+              <Select
+                value={form.companyId}
+                onValueChange={(companyId) => {
+                  const company = psCompanies.find((c) => c.id === companyId);
+                  onChange("companyId", companyId);
+                  onChange("manufacturerName", company?.name ?? "");
+                  // Reset brand when company changes
+                  onChange("brandId", "");
+                  onChange("brandAttribute", "");
+                  onChange("brandOther", "");
+                }}
+                disabled={readOnly}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select company…" />
+                </SelectTrigger>
+                <SelectContent>
+                  {psCompanies.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.logo} {c.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </SkuFormRow>
+
+            <SkuFormRow label="Brand" required={!readOnly} help={readOnly ? undefined : "Brands depend on the selected company"}>
+              {!form.companyId ? (
+                <p className="text-xs text-gray-500 py-1">Select a company first to choose a brand.</p>
+              ) : (
+                <Select
+                  value={form.brandId}
+                  onValueChange={(brandId) => {
+                    const brand = psBrands.find((b) => b.id === brandId);
+                    onChange("brandId", brandId);
+                    onChange("brandOther", "");
+                    onChange("brandAttribute", brand?.name ?? "");
+                  }}
+                  disabled={readOnly}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select brand…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {psBrands.filter((b) => b.companyId === form.companyId).map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.logo} {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </SkuFormRow>
+
+            <SkuFormRow label="Manufacturer / Packer Address">
+              <Textarea
+                placeholder="Full registered address of manufacturer/packer"
+                rows={2}
+                value={form.manufacturerAddress}
+                onChange={(e) => onChange("manufacturerAddress", e.target.value)}
+                disabled={readOnly}
+              />
+            </SkuFormRow>
+          </>
         )}
 
-        <SkuFormRow label="Manufacturer / Packer Name (Company Name)" required={!readOnly}>
-          <Input
-            placeholder="Auto-filled from brand, or enter manually"
-            value={form.manufacturerName}
-            onChange={(e) => onChange("manufacturerName", e.target.value)}
-            disabled={readOnly}
-          />
-        </SkuFormRow>
-
-        {isAdmin && (
-          <SkuFormRow label="Manufacturer / Packer Address">
-            <Textarea
-              placeholder="Full registered address of manufacturer/packer"
-              rows={2}
-              value={form.manufacturerAddress}
-              onChange={(e) => onChange("manufacturerAddress", e.target.value)}
+        {/* Seller: Manufacturer / Packer Name — plain text (company is picked via MySKU detail) */}
+        {isSeller && (
+          <SkuFormRow label="Manufacturer / Packer Name (Company Name)" required={!readOnly}>
+            <Input
+              placeholder="Auto-filled from brand, or enter manually"
+              value={form.manufacturerName}
+              onChange={(e) => onChange("manufacturerName", e.target.value)}
               disabled={readOnly}
             />
           </SkuFormRow>

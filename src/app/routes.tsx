@@ -71,6 +71,13 @@ function CatalogAdminIndex() {
   return <CatalogAdminDashboard />;
 }
 
+// Same index logic used for the RootLayout-integrated catalog portal at /catalog-portal.
+function CatalogPortalIndex() {
+  const { user } = useAuth();
+  if (user?.role === "brand-manager") return <BrandManagerDashboard />;
+  return <CatalogAdminDashboard />;
+}
+
 export const router = createBrowserRouter([
   // Catalog Admin Portal — separate login + standalone layout
   {
@@ -154,11 +161,12 @@ export const router = createBrowserRouter([
       { path: "sellers/:sellerId/connectors/:connectorId", Component: ConnectorDetail },
     ],
   },
-  // Seller subtree — seller-only
+  // Seller subtree — sellers, catalog-admins, and brand-managers all share
+  // the RootLayout shell. Role-specific nav is injected in root-layout.tsx.
   {
     path: "/",
     element: (
-      <ProtectedRoute allow="seller">
+      <ProtectedRoute allow={["seller", "catalog-admin", "brand-manager"]}>
         <RootLayout />
       </ProtectedRoute>
     ),
@@ -220,6 +228,17 @@ export const router = createBrowserRouter([
       { path: "error-screens", Component: ErrorScreensDemo },
       // Loading Screens demo gallery — same empty-mode-only treatment.
       { path: "loading-screens", Component: LoadingScreensDemo },
+      // Catalog Portal — catalog-admin and brand-manager roles integrated
+      // into the main RootLayout shell. Pages are re-used from the
+      // standalone /catalog-admin portal; the separate portal stays intact.
+      { path: "catalog-portal", Component: CatalogPortalIndex },
+      { path: "catalog-portal/requests", Component: CatalogAdminRequests },
+      { path: "catalog-portal/catalog", Component: CatalogAdminCatalog },
+      { path: "catalog-portal/catalog/create", Component: CatalogAdminSkuForm },
+      { path: "catalog-portal/catalog/:skuId", Component: CatalogAdminSkuForm },
+      { path: "catalog-portal/brand-managers", Component: CatalogAdminBrandManagers },
+      { path: "catalog-portal/my-catalog", Component: BrandManagerCatalog },
+      { path: "catalog-portal/my-requests", Component: BrandManagerRequests },
     ],
   },
 ]);

@@ -753,14 +753,14 @@ export function MySKU() {
                       <Building2 className="h-4 w-4 text-purple-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Request a Company</p>
-                        <p className="text-[11px] text-gray-500">Ask Qwipo to add a new company</p>
+                        <p className="text-[11px] text-gray-500">Ask to add a new company</p>
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={openBrandRequestDialog} className="gap-2 cursor-pointer">
                       <Tag className="h-4 w-4 text-purple-600" />
                       <div className="flex-1">
                         <p className="text-sm font-medium">Request a Brand</p>
-                        <p className="text-[11px] text-gray-500">Ask Qwipo to add a new brand</p>
+                        <p className="text-[11px] text-gray-500">Ask to add a new brand</p>
                       </div>
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={openSkuRequestDialog} className="gap-2 cursor-pointer">

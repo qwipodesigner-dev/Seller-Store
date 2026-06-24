@@ -30,8 +30,8 @@ export function ProtectedRoute({ allow, children }: ProtectedRouteProps) {
   if (!allowed.includes(user.role)) {
     if (user.role === "admin") return <Navigate to="/admin" replace />;
     if (user.role === "designer") return <Navigate to="/design" replace />;
-    if (user.role === "catalog-admin") return <Navigate to="/catalog-admin" replace />;
-    if (user.role === "brand-manager") return <Navigate to="/catalog-admin" replace />;
+    if (user.role === "catalog-admin") return <Navigate to="/catalog-portal" replace />;
+    if (user.role === "brand-manager") return <Navigate to="/catalog-portal" replace />;
     return <Navigate to="/" replace />;
   }
 

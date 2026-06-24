@@ -43,6 +43,7 @@ import {
   ArrowRight,
   MapPin,
   Truck,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -1267,6 +1268,7 @@ export function SellerCatalogTab({
         ? {
             companyId: editTarget,
             brandIds: editAllBrands ? [] : editBrandIds,
+            syncSkusToMySku: s.syncSkusToMySku,
           }
         : s,
     );
@@ -1755,6 +1757,16 @@ export function SellerCatalogTab({
                   </p>
                 )}
               </div>
+            </div>
+          )}
+
+          {editingSelection?.syncSkusToMySku && (
+            <div className="flex items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-800">
+              <RefreshCw className="h-3.5 w-3.5 shrink-0 text-blue-600" />
+              <span>
+                <b>Sync to MySKU is on</b> — newly added brands will be synced to
+                this seller's MySKU automatically.
+              </span>
             </div>
           )}
 

@@ -214,13 +214,6 @@ function SkuDetailPanel({
           <DetailRow label="Long Description" value={sku.longDescription} />
         </DetailSection>
 
-        <DetailSection
-          title="Pricing"
-          icon={<Tag className="h-3 w-3" />}
-        >
-          <DetailRow label="Reference MRP" value={`₹${sku.mrp}`} />
-        </DetailSection>
-
         {/* Quantity & Inventory — matches sku-detail section name */}
         <DetailSection
           title="Quantity & Inventory"
@@ -795,9 +788,7 @@ export function ProductStoreBrowse({
                           </p>
                           <p className="text-[11px] text-gray-400 truncate">
                             {company?.name} ·{" "}
-                            <span className="font-medium">
-                              {brand.skuCount} SKUs
-                            </span>
+                            <span className="font-medium">{brand.skuCount} SKUs</span>
                           </p>
                         </div>
                         <ChevronRight className={`h-4 w-4 text-gray-300 ${accentChevron} ml-auto flex-shrink-0`} />
@@ -955,9 +946,9 @@ export function ProductStoreBrowse({
                         </div>
                       </div>
                     </button>
-                    <div className="px-4 pb-3 pt-2 border-t border-gray-100">
-                      {mode === "seller" ? (
-                        allAdded ? (
+                    {mode === "seller" && (
+                      <div className="px-4 pb-3 pt-2 border-t border-gray-100">
+                        {allAdded ? (
                           <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
                             <CheckCircle2 className="h-3.5 w-3.5" />
                             All {addedCount} SKUs in My SKU
@@ -977,14 +968,9 @@ export function ProductStoreBrowse({
                               </span>
                             )}
                           </Button>
-                        )
-                      ) : (
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Package className="h-3 w-3" />
-                          {company.skuCount} SKUs across {company.activeBrands} brands
-                        </span>
-                      )}
-                    </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
@@ -1083,14 +1069,9 @@ export function ProductStoreBrowse({
                         <p className={`font-semibold text-gray-900 group-hover:${accentText} text-sm leading-tight`}>
                           {brand.name}
                         </p>
-                        <div className="flex gap-3 text-xs text-gray-500 mt-1">
-                          <span>
-                            <span className="font-bold text-gray-700">
-                              {brand.skuCount}
-                            </span>{" "}
-                            SKUs
-                          </span>
-                        </div>
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          <span className="font-medium text-gray-700">{brand.skuCount}</span> SKUs
+                        </p>
                       </div>
                     </button>
                     <div className="px-4 pb-3 pt-2 border-t border-gray-100">
@@ -1116,12 +1097,7 @@ export function ProductStoreBrowse({
                             )}
                           </Button>
                         )
-                      ) : (
-                        <span className="text-xs text-gray-400 flex items-center gap-1">
-                          <Package className="h-3 w-3" />
-                          {brand.skuCount} SKUs
-                        </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );
